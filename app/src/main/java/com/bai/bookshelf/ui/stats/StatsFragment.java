@@ -54,6 +54,20 @@ public class StatsFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
+        onVisible();
+    }
+
+    @Override
+    public void onHiddenChanged(boolean hidden) {
+        super.onHiddenChanged(hidden);
+        // v4.1：MainActivity 切 Tab 改为 show/hide 复用实例，切回统计页时
+        // 由这里重新聚合（数据可能在书架页被增删改过）
+        if (!hidden) {
+            onVisible();
+        }
+    }
+
+    private void onVisible() {
         compute();
     }
 

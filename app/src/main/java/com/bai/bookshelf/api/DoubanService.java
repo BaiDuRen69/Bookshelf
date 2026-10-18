@@ -1,9 +1,5 @@
 package com.bai.bookshelf.api;
 
-import android.content.Context;
-
-import com.bai.bookshelf.BuildConfig;
-
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -46,9 +42,12 @@ public final class DoubanService {
             .readTimeout(8, TimeUnit.SECONDS)
             .build();
 
-    /** 该功能是否在当前构建中启用（测试版 true / 正式版 false） */
+    /**
+     * 该功能是否启用。v4.1 起合并测试版/正式版，功能对所有构建开放；
+     * 保留此开关便于将来需要时（如接口失效需临时下线）一键关闭。
+     */
     public static boolean enabled() {
-        return BuildConfig.FEATURE_DOUBAN;
+        return true;
     }
 
     /**

@@ -341,6 +341,21 @@ public class ShelfFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
+        onVisible();
+    }
+
+    @Override
+    public void onHiddenChanged(boolean hidden) {
+        super.onHiddenChanged(hidden);
+        // v4.1：MainActivity 切 Tab 改为 show/hide 复用 Fragment 实例，
+        // 切 Tab 不再触发 onResume/onDestroyView——切回书架页时由这里通知
+        if (!hidden) {
+            onVisible();
+        }
+    }
+
+    /** 页面可见时的按需刷新（onResume 与切 Tab 显示共用） */
+    private void onVisible() {
         // v3.2 优化：原先每次 onResume 都全量重载（4 次查库 + 6 个 Spinner 重建
         // + RecyclerView notifyDataSetChanged），封面视图下还会重新触发整屏 Glide 请求，
         // 表现为「打开 App / 从别的 Tab 切回书架页时先白一下才出内容」。

@@ -32,6 +32,9 @@ public class MainActivity extends BaseActivity {
 
     private ActivityMainBinding binding;
 
+    /** v4.1：三个 Tab 的 Fragment 是否已挂载（show/hide 复用模式） */
+    private boolean fragmentsAdded = false;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -71,12 +74,36 @@ public class MainActivity extends BaseActivity {
         searchOnShelf(q.trim());
     }
 
-    /** 切换 Tab：换 Fragment + 更新三个 Tab 的选中配色 */
+    /** 切换 Tab：显示目标 Fragment、隐藏其余两个 + 更新三个 Tab 的选中配色 */
     private void selectTab(int index) {
         Fragment target = index == 1 ? statsFragment : (index == 2 ? mineFragment : shelfFragment);
-        getSupportFragmentManager().beginTransaction()
-                .replace(R.id.container, target)
-                .commitAllowingStateLoss();
+        if (!fragmentsAdded) {
+            // 首次进入：一次性挂载三个 Tab 的 Fragment（v4.1，评审 #8）。
+            // 旧实现每次切 Tab 都 replace()，Fragment 连同视图销毁重建——
+            // 逼出了 ShelfFragment 一整套「视图重建补偿」逻辑（v3.3/v3.5），
+            // 统计页也要每次重新聚合。改为 add 一次 + show/hide 复用实例，
+            // 切 Tab 只切可见性，视图与数据原地保留；各页在 onHiddenChanged
+            // 里做与 onResume 等价的按需刷新。
+            androidx.fragment.app.FragmentTransaction tx = getSupportFragmentManager().beginTransaction();
+            for (Fragment f : new Fragment[]{shelfFragment, statsFragment, mineFragment}) {
+                tx.add(R.id.container, f);
+                if (f != target) {
+                    tx.hide(f); // 首次挂载时隐藏非当前页
+                }
+            }
+            tx.commitNowAllowingStateLoss(); // 同步执行，保证 view 立即可用（搜索词兜底依赖）
+            fragmentsAdded = true;
+        } else {
+            androidx.fragment.app.FragmentTransaction tx = getSupportFragmentManager().beginTransaction();
+            for (Fragment f : new Fragment[]{shelfFragment, statsFragment, mineFragment}) {
+                if (f == target) {
+                    tx.show(f);
+                } else {
+                    tx.hide(f);
+                }
+            }
+            tx.commit();
+        }
 
         int active = ThemeManager.resolveColor(this, ThemeManager.ATTR_COLOR_PRIMARY);
         int inactive = ContextCompat.getColor(this, R.color.text_sub);

@@ -163,6 +163,20 @@ public class MineFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
+        onVisible();
+    }
+
+    @Override
+    public void onHiddenChanged(boolean hidden) {
+        super.onHiddenChanged(hidden);
+        // v4.1：MainActivity 切 Tab 改为 show/hide 复用实例，切回「我的」页时
+        // 由这里刷新概览计数（备份状态等在返回本页的 onResume 里已覆盖）
+        if (!hidden) {
+            onVisible();
+        }
+    }
+
+    private void onVisible() {
         loadSummary();
     }
 

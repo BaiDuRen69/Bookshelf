@@ -10,8 +10,11 @@ android {
         applicationId "com.bai.bookshelf"
         minSdk 24
         targetSdk 36
-        versionCode 39
-        versionName "4.0"
+        versionCode 40
+        versionName "4.1"
+
+        // v4.1：合并测试版与正式版——只交付一个 APK，豆瓣评分等功能对所有用户开放。
+        // release 仍保留同签名配置，需要时可构建（行为与 debug 功能一致，仅无日志、强制 https）。
 
         // v4.0（评审 #11）：Room 导出 schema JSON 到 app/schemas/，
         // 供版本间迁移比对与将来的 Room Migration 测试使用
@@ -24,19 +27,13 @@ android {
 
     buildTypes {
         debug {
-            // 测试版：启用豆瓣评分自动获取（实验性功能）
-            buildConfigField "boolean", "FEATURE_DOUBAN", "true"
+            // 测试版构建：放行明文流量（抓包调试 / 个别 http 封面源）
         }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            // 正式版与测试版使用同一个 debug 签名：
-            // ① 未配置发布证书时也能打包出可安装的正式版；
-            // ② 签名一致 → 用户从测试版覆盖安装正式版时系统视为同应用升级，
-            //    Room 数据库与 filesDir 文件（封面/备注图片）全部保留，无感切换。
+            // 与 debug 同签名：覆盖安装互不影响数据（applicationId 相同）
             signingConfig signingConfigs.debug
-            // 正式版不启用豆瓣评分（默认关闭）
-            buildConfigField "boolean", "FEATURE_DOUBAN", "false"
         }
     }
     compileOptions {
