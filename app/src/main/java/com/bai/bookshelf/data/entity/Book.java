@@ -12,6 +12,7 @@ import java.io.Serializable;
  */
 @Entity(tableName = "books")
 public class Book implements Serializable {
+    private static final long serialVersionUID = 1L;
 
     // ===== 藏书状态 stockStatus 取值 =====
     public static final int STOCK_IN = 0;      // 在库

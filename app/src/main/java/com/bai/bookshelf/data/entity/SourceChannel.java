@@ -13,6 +13,7 @@ import java.io.Serializable;
  */
 @Entity(tableName = "source_channels")
 public class SourceChannel implements Serializable {
+    private static final long serialVersionUID = 1L;
 
     @PrimaryKey(autoGenerate = true)
     public long id;

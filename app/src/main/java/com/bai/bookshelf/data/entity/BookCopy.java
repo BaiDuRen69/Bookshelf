@@ -13,6 +13,7 @@ import java.io.Serializable;
  */
 @Entity(tableName = "book_copies")
 public class BookCopy implements Serializable {
+    private static final long serialVersionUID = 1L;
 
     @PrimaryKey(autoGenerate = true)
     public long id;

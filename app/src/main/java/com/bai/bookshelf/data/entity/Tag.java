@@ -11,6 +11,7 @@ import java.io.Serializable;
  */
 @Entity(tableName = "tags")
 public class Tag implements Serializable {
+    private static final long serialVersionUID = 1L;
 
     @PrimaryKey(autoGenerate = true)
     public long id;

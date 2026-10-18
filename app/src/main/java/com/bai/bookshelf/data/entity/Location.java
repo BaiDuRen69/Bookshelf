@@ -12,6 +12,7 @@ import java.io.Serializable;
  */
 @Entity(tableName = "locations")
 public class Location implements Serializable {
+    private static final long serialVersionUID = 1L;
 
     @PrimaryKey(autoGenerate = true)
     public long id;

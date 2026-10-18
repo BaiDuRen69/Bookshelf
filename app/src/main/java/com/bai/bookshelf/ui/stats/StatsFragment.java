@@ -48,34 +48,23 @@ public class StatsFragment extends Fragment {
         // 「全部 ›」进入作者分布二级页面（完整列表）
         b.tvAuthorsMore.setOnClickListener(v ->
                 startActivity(new Intent(requireContext(), AuthorActivity.class)));
+        // v4.3：改为 Room 响应式观察（与 v4.2 书架页同模式）——注册即推送首次数据，
+        // 之后 books 表任何变化自动重算，切 Tab 回来无需手动刷新，视图重建也不会空白
+        BookshelfApp.get().db().bookDao().getAllLive()
+                .observe(getViewLifecycleOwner(), this::onBooksPushed);
         return b.getRoot();
     }
 
-    @Override
-    public void onResume() {
-        super.onResume();
-        onVisible();
+    /** Room 推送回调（主线程）：books 已是最新快照，交给后台聚合 */
+    private void onBooksPushed(java.util.List<Book> pushed) {
+        computeFrom(pushed);
     }
 
-    @Override
-    public void onHiddenChanged(boolean hidden) {
-        super.onHiddenChanged(hidden);
-        // v4.1：MainActivity 切 Tab 改为 show/hide 复用实例，切回统计页时
-        // 由这里重新聚合（数据可能在书架页被增删改过）
-        if (!hidden) {
-            onVisible();
-        }
-    }
-
-    private void onVisible() {
-        compute();
-    }
-
-    /** 后台线程聚合数据，回主线程渲染 */
-    private void compute() {
+    /** 后台线程聚合数据，回主线程渲染（books 由 LiveData 推送给出） */
+    private void computeFrom(java.util.List<Book> raw) {
         BookshelfApp app = BookshelfApp.get();
         app.io(() -> {
-            List<Book> books = BookSanitizer.normalizeAll(app.db().bookDao().getAll());
+            List<Book> books = BookSanitizer.normalizeAll(raw);
 
             // ---- 总览 ----
             int total = books.size();

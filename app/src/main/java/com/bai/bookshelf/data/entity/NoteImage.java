@@ -17,6 +17,7 @@ import java.io.Serializable;
  */
 @Entity(tableName = "note_images")
 public class NoteImage implements Serializable {
+    private static final long serialVersionUID = 1L;
 
     @PrimaryKey(autoGenerate = true)
     public long id;
