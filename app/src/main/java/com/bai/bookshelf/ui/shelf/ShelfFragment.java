@@ -58,6 +58,10 @@ public class ShelfFragment extends Fragment {
     private List<String> countryList = new ArrayList<>(); // 藏书里出现过的国家（去重，v3.5：留实例快照供视图重建后重放）
     private String pendingSearchQuery;                   // 外部带入的搜索词（视图未就绪时缓存）
     private boolean spinnerReady = false; // 防止初始化 spinner 时触发筛选
+    // v4.4：是否已收到本实例的第一次 books 推送。onViewCreated 里 applyViewMode()
+    // 会同步调一次 applyFilters，此时首推未到、allBooks 为空，不挡住会在
+    // 加载指示旁边闪现「空书架」文案；首推到达后置位，之后所有渲染正常放行
+    private boolean booksReceived = false;
     private boolean sortReversed = false; // 排序倒序开关
     private int viewMode = 0;             // 视图模式：0=列表 1=封面网格 2=纯文字列表
     private boolean selectionMode = false; // 多选模式（长按进入）
@@ -178,6 +182,12 @@ public class ShelfFragment extends Fragment {
 
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        // v4.4：首次加载指示改在视图创建时显示（此实例还没有任何数据可显示时），
+        // 两段式渲染下 books 一到就隐藏（见 onBooksPushed 第一段）——
+        // 指示只覆盖「Room 首推」的空窗，不再被启动期长任务拖长
+        if (allBooks.isEmpty()) {
+            b.llLoading.setVisibility(View.VISIBLE);
+        }
         // 列表 / 封面 / 文字 三适配器：点击在多选模式下是切换选中，否则进详情页
         BookAdapter.OnBookClick openDetail = book -> {
             if (selectionMode) {
@@ -426,13 +436,18 @@ public class ShelfFragment extends Fragment {
     }
 
     /**
-     * Room 响应式推送回调（v4.2，评审 #7）：books 表任何增删改都会触发，
-     * 注册时也会立即推送一次当前数据（冷启动首次加载 / 旋转屏恢复）。
+     * Room 响应式推送回调（v4.2，评审 #7；v4.4 改两段式渲染）。
      *
-     * <p>回调在主线程，books 数据已由推送直接给出（不再查库）；字典表
-     * （地点/标签/分类/国家/渠道）在 io 线程补查后一起刷 UI。原先的
-     * 「指纹比对 + RESULT_OK 标脏 + 视图重建补偿」整套状态机已删除：
-     * 没变化时 Room 不推送（零开销），变化时推送的 books 就是最新数据。
+     * <p><b>第一段（主线程，立即）</b>：books 数据由推送直接给出，马上更新
+     * {@code allBooks} 并 applyFilters——书籍列表先渲染出来，「正在加载书架」
+     * 指示在这一步就消失。此前 books 要等字典表补查完才显示，而字典查询在
+     * 冷启动时还会被启动期长任务（默认数据补种、自动备份 zip）堵在同一个
+     * io 线程后面，加载指示会久转不停。
+     *
+     * <p><b>第二段（io → 主线程）</b>：字典表（地点/标签/分类/国家/渠道）
+     * 补查后填 Spinner 再精筛一次。字典查询失败降级空列表，不影响藏书展示。
+     *
+     * <p>books 表任何增删改都会触发本回调；没变化时 Room 不推送（零开销）。
      *
      * @param pushed books 表最新全量列表（可能为 null，按空处理）
      */
@@ -440,15 +455,25 @@ public class ShelfFragment extends Fragment {
         if (b == null) {
             return;
         }
-        BookshelfApp app = BookshelfApp.get();
-        // 只有「首次加载」（还没有任何数据可显示）才显示加载指示，
-        // 后续刷新时列表里本来就有旧内容，闪一下反而更难看
-        final boolean showLoading = allBooks.isEmpty();
-        if (showLoading) {
-            b.llLoading.setVisibility(View.VISIBLE);
+        // ---- 第一段：books 即到即渲染（主线程） ----
+        booksReceived = true; // 首推已到，applyFilters 从此放行（v4.4）
+        if (allBooks.isEmpty()) {
+            // 只有首屏（本实例还没有任何数据）才收起加载指示，
+            // 后续刷新列表里本来就有旧内容，闪一下反而更难看
+            b.llLoading.setVisibility(View.GONE);
         }
-        final List<Book> books = BookSanitizer.normalizeAll(
+        allBooks = BookSanitizer.normalizeAll(
                 pushed == null ? new ArrayList<>() : pushed);
+        // 外部带入的搜索词兜底：先灌搜索框（TextWatcher 会触发一次筛选），再统一 applyFilters
+        if (pendingSearchQuery != null) {
+            String q = pendingSearchQuery;
+            pendingSearchQuery = null;
+            b.etSearch.setText(q);
+        }
+        applyFilters(); // 字典 Spinner 未就绪时自动降级为「不限」（见 applyFilters 注释）
+
+        // ---- 第二段：字典表补查（io 线程） ----
+        BookshelfApp app = BookshelfApp.get();
         app.io(() -> {
             // 字典查询独立兜底：失败退回空列表，不影响藏书展示
             List<Location> locs = null;
@@ -488,10 +513,6 @@ public class ShelfFragment extends Fragment {
                 if (b == null) {
                     return;
                 }
-                if (showLoading) {
-                    b.llLoading.setVisibility(View.GONE);
-                }
-                allBooks = books;
                 locations = fLocs == null ? new ArrayList<>() : fLocs;
                 tagList = fTags == null ? new ArrayList<>() : fTags;
                 categoryList = fCategories == null ? new ArrayList<>() : fCategories;
@@ -505,12 +526,6 @@ public class ShelfFragment extends Fragment {
                 fillCategorySpinner();
                 spinnersFilled = true; // 本视图的 Spinner 都已有数据
                 spinnerReady = true;
-                // 外部带入的搜索词兜底：数据刚加载完，此时视图与数据都就绪，灌入最稳妥
-                if (pendingSearchQuery != null) {
-                    String q = pendingSearchQuery;
-                    pendingSearchQuery = null;
-                    b.etSearch.setText(q);
-                }
                 applyFilters();
             });
         });
@@ -672,24 +687,32 @@ public class ShelfFragment extends Fragment {
     }
 
     /** 按搜索词 + 筛选条件 + 排序方式生成展示列表 */
+    /** 空 Spinner 的 getSelectedItemPosition() 返回 INVALID_POSITION(-1)，夹到 0（=「不限」/首项） */
+    private static int selPos(android.widget.Spinner sp) {
+        int pos = sp.getSelectedItemPosition();
+        return pos < 0 ? 0 : pos;
+    }
+
     private void applyFilters() {
-        if (b == null) {
+        // v4.4：本实例还没收到过 books 推送时不渲染（onViewCreated 的
+        // applyViewMode 会提前调进来），避免加载指示旁边闪现空态文案
+        if (b == null || !booksReceived) {
             return;
         }
-        // v3.2：applyViewMode() 会在视图挂载时就调用这里，此时筛选 Spinner 还没填数据。
-        // 未就绪时 getSelectedItem() 可能返回 INVALID_POSITION 或抛异常，直接跳过；
-        // 数据由响应式推送完成后会再调一次，那时才真正筛选。
-        if (!spinnerReady) {
-            return;
-        }
+        // v4.4：不再因字典 Spinner 未就绪而整体跳过——两段式渲染下 books 推送
+        // 到达时先按「关键词 + 藏书/阅读状态 + 排序」渲染列表（这些 Spinner 内容
+        // 写死在布局里，始终可用），字典 Spinner 空的时候一律按「不限」处理，
+        // 字典补查完成后（spinnerReady 置位）第二段会再精筛一次。
+        // 空 Spinner 的 getSelectedItemPosition() 返回 INVALID_POSITION(-1)，
+        // 统一夹到 0（=「不限」），避免误触发字典过滤。
         String keyword = b.etSearch.getText().toString().trim().toLowerCase();
-        int stockFilter = b.spStock.getSelectedItemPosition();     // 0=全部
-        int readFilter = b.spReadFilter.getSelectedItemPosition(); // 0=全部
-        int locFilter = b.spLocation.getSelectedItemPosition();    // 0=全部
-        int tagFilter = b.spTag.getSelectedItemPosition();         // 0=全部
-        int channelFilter = b.spChannel.getSelectedItemPosition(); // 0=全部
-        int catFilter = b.spCategory.getSelectedItemPosition();    // 0=全部
-        int sortType = b.spSort.getSelectedItemPosition();
+        int stockFilter = selPos(b.spStock);     // 0=全部
+        int readFilter = selPos(b.spReadFilter); // 0=全部
+        int locFilter = selPos(b.spLocation);    // 0=全部
+        int tagFilter = selPos(b.spTag);         // 0=全部
+        int channelFilter = selPos(b.spChannel); // 0=全部
+        int catFilter = selPos(b.spCategory);    // 0=全部
+        int sortType = selPos(b.spSort);
         String countryFilter = b.spCountry.getSelectedItemPosition() > 0
                 ? String.valueOf(b.spCountry.getSelectedItem()) : "";
 

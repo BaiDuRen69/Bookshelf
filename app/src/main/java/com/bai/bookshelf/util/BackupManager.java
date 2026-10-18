@@ -87,7 +87,9 @@ public final class BackupManager {
             return;
         }
         BookshelfApp app = BookshelfApp.get();
-        app.io(() -> {
+        // v4.4：走 bg 维护线程——zip 整包（全库 JSON + 全部封面图压缩）耗时可能以秒计，
+        // 原先挤在 io 线程里会把书架首屏的字典查询堵在后面，「正在加载书架」久转不停
+        app.bg(() -> {
             try {
                 if (app.db().bookDao().count() == 0) {
                     return; // 规则 1：藏书为零不备份

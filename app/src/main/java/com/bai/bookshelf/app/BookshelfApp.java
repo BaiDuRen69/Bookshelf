@@ -38,6 +38,10 @@ public class BookshelfApp extends Application {
 
     private AppDatabase db;
     private final ExecutorService io = Executors.newSingleThreadExecutor();
+    // v4.4：后台维护线程，与 io 分离。启动期的长任务（默认数据补种、自动备份
+    // 整库 zip——含全部封面图片的压缩）原先和书架首屏查询挤同一个 io 线程，
+    // 「正在加载书架」会一直转到备份结束。现在长任务走 bg，io 专职 UI 驱动的短查询。
+    private final ExecutorService bg = Executors.newSingleThreadExecutor();
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
     public static BookshelfApp get() {
@@ -67,8 +71,9 @@ public class BookshelfApp extends Application {
                 .fallbackToDestructiveMigrationOnDowngrade()
                 .build();
         ensureDefaultData();
-        // 开启自动备份后，每次启动静默备份一次
-        BackupManager.autoBackupIfEnabled(this);
+        // v4.4：自动备份延后 3 秒再跑——整库 JSON + 全部封面图打 zip 是启动期最重的
+        // 任务，冷启动先让路给首屏渲染，避免磁盘 I/O 与 Glide 加载封面互相争抢
+        mainHandler.postDelayed(() -> BackupManager.autoBackupIfEnabled(this), 3000);
     }
 
     public AppDatabase db() {
@@ -84,9 +89,14 @@ public class BookshelfApp extends Application {
         return getSharedPreferences(PREFS_APP, MODE_PRIVATE);
     }
 
-    /** 在后台线程执行 */
+    /** 在后台线程执行（UI 驱动的短查询） */
     public void io(Runnable r) {
         io.execute(r);
+    }
+
+    /** 在后台维护线程执行（v4.4：启动期长任务专用，不阻塞 UI 查询的 io 线程） */
+    public void bg(Runnable r) {
+        bg.execute(r);
     }
 
     /** 切回主线程执行 */
@@ -94,9 +104,9 @@ public class BookshelfApp extends Application {
         mainHandler.post(r);
     }
 
-    /** 首次启动时写入默认数据：一个默认存放地点 + 各来源大类的预置二级选项 + 从存量书籍收编各字典库 */
+    /** 在后台维护线程写入默认数据：一个默认存放地点 + 各来源大类的预置二级选项 + 从存量书籍收编各字典库 */
     private void ensureDefaultData() {
-        io(() -> {
+        bg(() -> {
             if (db.locationDao().count() == 0) {
                 Location loc = new Location();
                 loc.name = "默认书架";
