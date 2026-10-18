@@ -146,6 +146,7 @@ public class MineFragment extends Fragment {
         b.rowAbout.setOnClickListener(v ->
                 startActivity(new Intent(requireContext(), AboutActivity.class)));
         b.rowTheme.setOnClickListener(v -> showThemePicker());
+        b.rowFeedback.setOnClickListener(v -> showFeedbackDialog());
         b.rowReward.setOnClickListener(v -> showSupportDialog());
         refreshStateRows();
     }
@@ -487,6 +488,71 @@ public class MineFragment extends Fragment {
                 .setView(root)
                 .setNegativeButton(com.bai.bookshelf.R.string.action_cancel, null)
                 .show();
+    }
+
+    // ======================= 问题反馈（v4.6） =======================
+
+    /** 反馈邮箱与 GitHub Issues 地址（与 README「反馈」一节保持一致，改动需同步两处） */
+    private static final String FEEDBACK_EMAIL = "baiduren69@outlook.com";
+    private static final String FEEDBACK_ISSUES_URL = "https://github.com/BaiDuRen69/Bookshelf/issues";
+
+    /** 问题反馈弹窗：邮件反馈 / GitHub Issues / 复制邮箱地址 */
+    private void showFeedbackDialog() {
+        String[] options = {
+                "邮件反馈（" + FEEDBACK_EMAIL + "）",
+                "GitHub Issues（公开仓库，回复可见）",
+                "复制邮箱地址"};
+        new AlertDialog.Builder(requireContext())
+                .setTitle("问题反馈")
+                .setMessage("欢迎提交 Bug 与功能建议：")
+                .setItems(options, (d, w) -> {
+                    if (w == 0) {
+                        sendFeedbackEmail();
+                    } else if (w == 1) {
+                        openGitHubIssues();
+                    } else {
+                        copyToClipboard(FEEDBACK_EMAIL, "已复制邮箱地址");
+                    }
+                })
+                .setNegativeButton(com.bai.bookshelf.R.string.action_cancel, null)
+                .show();
+    }
+
+    /** 拉起系统邮件应用（主题自动带上版本号）；无邮件应用时降级为复制邮箱 */
+    private void sendFeedbackEmail() {
+        Intent intent = new Intent(Intent.ACTION_SENDTO);
+        intent.setData(Uri.parse("mailto:" + FEEDBACK_EMAIL));
+        intent.putExtra(Intent.EXTRA_SUBJECT, "小书房 App 反馈 v" + BuildConfig.VERSION_NAME);
+        try {
+            startActivity(intent);
+        } catch (Exception e) {
+            Toast.makeText(requireContext(), "未找到邮件应用，已改为复制邮箱地址",
+                    Toast.LENGTH_LONG).show();
+            copyToClipboard(FEEDBACK_EMAIL, "已复制邮箱地址");
+        }
+    }
+
+    /** 浏览器打开 GitHub Issues 页；无浏览器时提示手动访问并复制链接 */
+    private void openGitHubIssues() {
+        try {
+            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(FEEDBACK_ISSUES_URL)));
+        } catch (Exception e) {
+            Toast.makeText(requireContext(),
+                    "未找到浏览器，请手动访问（链接已复制）：\n" + FEEDBACK_ISSUES_URL,
+                    Toast.LENGTH_LONG).show();
+            copyToClipboard(FEEDBACK_ISSUES_URL, "已复制链接");
+        }
+    }
+
+    /** 复制文本到剪贴板并提示 */
+    private void copyToClipboard(String text, String toast) {
+        android.content.ClipboardManager cm =
+                (android.content.ClipboardManager) requireContext()
+                        .getSystemService(android.content.Context.CLIPBOARD_SERVICE);
+        if (cm != null) {
+            cm.setPrimaryClip(android.content.ClipData.newPlainText("bookshelf_feedback", text));
+        }
+        Toast.makeText(requireContext(), toast, Toast.LENGTH_SHORT).show();
     }
 
     // ======================= 打赏作者（v2.5） =======================

@@ -1,7 +1,7 @@
 # 小书房 Bookshelf
 
 个人/家庭纸质藏书管理 Android 应用（参照微信小程序「我是小书房啊」重做）。
-当前版本 v4.0（versionCode 39，Room 数据库 v12）。
+当前版本 v4.6（versionCode 45，Room 数据库 v12）。
 
 ## 功能
 
@@ -47,6 +47,13 @@ Android Studio 打开本目录直接同步即可；或命令行：
 交付物即为 debug 构建产物（v4.1 起不再区分测试版/正式版，功能一致）。
 要求：JDK 17+、Android SDK Platform 36、Gradle 9.4.1（wrapper 已指定）。
 Room schema 导出于 `app/schemas/`（迁移比对与测试用）。
+
+## 问题反馈
+
+欢迎提交 Bug 与功能建议（App 内入口：我的 → 问题反馈）：
+
+- GitHub Issues：https://github.com/BaiDuRen69/Bookshelf/issues
+- 邮箱：baiduren69@outlook.com
 
 ## 使用条款与免责声明
 
