@@ -26,9 +26,17 @@ public class MainActivity extends BaseActivity {
     /** 二级页/外部带入的搜索词 Intent Extra（v2.9：国家/出版社/作者二级页点击跳转用） */
     public static final String EXTRA_SEARCH_QUERY = "search_query";
 
-    private final ShelfFragment shelfFragment = new ShelfFragment();
-    private final Fragment statsFragment = new StatsFragment();
-    private final Fragment mineFragment = new MineFragment();
+    // v4.5：三个 Tab 挂载到 FragmentManager 时的 tag，用于 Activity 重建后找回还原实例
+    private static final String TAG_SHELF = "tab_shelf";
+    private static final String TAG_STATS = "tab_stats";
+    private static final String TAG_MINE = "tab_mine";
+
+    // v4.5：不再用字段初始化直接 new——Activity 重建（旋转屏/进程被杀后恢复）时
+    // FragmentManager 会还原上次的实例，字段必须改指还原实例，否则 selectTab 会
+    // 把新实例再 add 一遍，新旧两套叠加（旧书架 hide 不掉，透在其它 Tab 下面）
+    private ShelfFragment shelfFragment;
+    private Fragment statsFragment;
+    private Fragment mineFragment;
 
     private ActivityMainBinding binding;
 
@@ -40,6 +48,22 @@ public class MainActivity extends BaseActivity {
         super.onCreate(savedInstanceState);
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
+
+        // v4.5：优先复用 FragmentManager 还原的实例（带 tag 找回），没有才新建
+        if (savedInstanceState != null) {
+            shelfFragment = (ShelfFragment) getSupportFragmentManager().findFragmentByTag(TAG_SHELF);
+            statsFragment = getSupportFragmentManager().findFragmentByTag(TAG_STATS);
+            mineFragment = (MineFragment) getSupportFragmentManager().findFragmentByTag(TAG_MINE);
+        }
+        if (shelfFragment == null) {
+            shelfFragment = new ShelfFragment();
+        }
+        if (statsFragment == null) {
+            statsFragment = new StatsFragment();
+        }
+        if (mineFragment == null) {
+            mineFragment = new MineFragment();
+        }
 
         binding.tabShelf.setOnClickListener(v -> selectTab(0));
         binding.tabStats.setOnClickListener(v -> selectTab(1));
@@ -82,13 +106,22 @@ public class MainActivity extends BaseActivity {
             // 旧实现每次切 Tab 都 replace()，Fragment 连同视图销毁重建——
             // 逼出了 ShelfFragment 一整套「视图重建补偿」逻辑（v3.3/v3.5），
             // 统计页也要每次重新聚合。改为 add 一次 + show/hide 复用实例，
-            // 切 Tab 只切可见性，视图与数据原地保留；各页在 onHiddenChanged
-            // 里做与 onResume 等价的按需刷新。
-            androidx.fragment.app.FragmentTransaction tx = getSupportFragmentManager().beginTransaction();
-            for (Fragment f : new Fragment[]{shelfFragment, statsFragment, mineFragment}) {
-                tx.add(R.id.container, f);
-                if (f != target) {
-                    tx.hide(f); // 首次挂载时隐藏非当前页
+            // 切 Tab 只切可见性，视图与数据原地保留。
+            // v4.5 修复：挂载时带上 tag；若 FragmentManager 里已有还原的同名
+            // 实例（Activity 重建），只 show/hide、绝不重复 add，杜绝新旧两套
+            // Fragment 叠加导致「旧书架透在统计/我的下面」。
+            androidx.fragment.app.FragmentManager fm = getSupportFragmentManager();
+            androidx.fragment.app.FragmentTransaction tx = fm.beginTransaction();
+            Fragment[] fs = {shelfFragment, statsFragment, mineFragment};
+            String[] tags = {TAG_SHELF, TAG_STATS, TAG_MINE};
+            for (int i = 0; i < fs.length; i++) {
+                if (fm.findFragmentByTag(tags[i]) == null) {
+                    tx.add(R.id.container, fs[i], tags[i]);
+                }
+                if (fs[i] == target) {
+                    tx.show(fs[i]); // 还原实例可能处于 hidden 状态，目标页强制显示
+                } else {
+                    tx.hide(fs[i]);
                 }
             }
             tx.commitNowAllowingStateLoss(); // 同步执行，保证 view 立即可用（搜索词兜底依赖）
