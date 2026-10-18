@@ -20,6 +20,15 @@ public interface BookDao {
     @Query("SELECT * FROM books ORDER BY createdAt DESC")
     List<Book> getAll();
 
+    /**
+     * 藏书表的响应式查询（v4.2，评审 #7）：books 表任何增删改都会自动推送最新列表，
+     * 书架页据此驱动刷新——原先靠「内容指纹比对 + RESULT_OK 标脏 + 视图重建补偿」
+     * 维持的手工刷新状态机可以整体删除，且纯文本字段（书名/作者）编辑也会触发推送
+     * （指纹机制的已知漏洞被天然修复）。
+     */
+    @Query("SELECT * FROM books ORDER BY createdAt DESC")
+    androidx.lifecycle.LiveData<List<Book>> getAllLive();
+
     @Query("SELECT * FROM books WHERE id = :id LIMIT 1")
     Book getById(long id);
 
@@ -77,28 +86,7 @@ public interface BookDao {
             + "GROUP BY TRIM(sourceChannel)) ORDER BY firstAt ASC")
     List<String> getDistinctChannels();
 
-    /**
-     * 藏书表的内容指纹（v3.2 书架页按需刷新用）。
-     *
-     * <p>只做聚合运算、不返回行数据，比拉全表快一两个数量级。书架页回到前台时先用它判断
-     * 数据有没有变过：没变就沿用内存里的列表，完全跳过 Spinner 重建与 RecyclerView 重绘。
-     *
-     * <p>覆盖三种变更：
-     * <ul>
-     *   <li><b>增删</b>：COUNT(*) 与 SUM(id) 变化；</li>
-     *   <li><b>录入/修改时间</b>：MIN/MAX(createdAt) 变化；</li>
-     *   <li><b>编辑字段</b>：SUM(pages)、SUM(CAST(listPrice*100 AS INTEGER))、SUM(状态与评分) 变化。</li>
-     * </ul>
-     * 纯文本字段（书名/作者等）的编辑可能不改变以上任何合计，这种情况下会误判为「未变化」
-     * 而跳过刷新——但列表里该书的文字需要在编辑页返回时更新，因此编辑页返回路径另有兜底
-     * （录入/编辑页返回 RESULT_OK 时书架页用 ActivityResultLauncher 标脏）。
-     * <p>价格放大 100 倍再取整：直接 CAST(45.5 AS INTEGER) 与 CAST(45.9 AS INTEGER) 都是 45，
-     * 几分钱的调价会漏掉（已实测复现）。
-     */
-    @Query("SELECT COUNT(*) || ':' || IFNULL(MIN(createdAt), 0) || ':' || IFNULL(MAX(createdAt), 0) "
-            + "|| ':' || IFNULL(SUM(id), 0) || ':' || IFNULL(SUM(pages), 0) "
-            + "|| ':' || IFNULL(SUM(CAST(listPrice * 100 AS INTEGER)), 0) "
-            + "|| ':' || IFNULL(SUM(stockStatus + readStatus + ownType + rating), 0) "
-            + "FROM books")
-    String getContentFingerprint();
+    // v4.2：原 v3.2 的 getContentFingerprint() 内容指纹查询已删除——书架页改用
+    // getAllLive() 响应式观察，Room 只在 books 表真正变化时推送，天然取代指纹判断，
+    // 且纯文本字段（书名/作者）编辑也会触发推送（指纹机制的已知漏洞不复存在）。
 }

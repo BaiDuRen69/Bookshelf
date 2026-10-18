@@ -71,12 +71,6 @@ public class ShelfFragment extends Fragment {
     private final List<String> categorySpinnerCache = new ArrayList<>();
     private final List<String> countrySpinnerCache = new ArrayList<>();
 
-    /** v3.2：数据是否需要重新查库（导入备份等批量操作后强制置位） */
-    private boolean pendingReload = false;
-    /** 首次进入必须加载（没有 pendingReload 也得有数据） */
-    private boolean firstLoadDone = false;
-    /** v3.2：上次加载时的 books 表内容指纹，用于跳过无变化的重载 */
-    private String lastFingerprint;
     /**
      * v3.3：当前视图是否已给 Spinner 填过数据。
      *
@@ -85,23 +79,12 @@ public class ShelfFragment extends Fragment {
      */
     private boolean spinnersFilled = false;
     /**
-     * v3.5：视图是否刚被重建（onCreateView 到 onResume 之间置位）。
-     *
-     * <p>MainActivity 的 Tab 切换用 replace()，每次回书架页都是全新视图——
-     * 新适配器、新 Spinner 全是空的。指纹没变时虽可跳过「查库」，
-     * 但绝不能跳过「给新视图喂数据」，否则整页空白（书籍/分类/排序全无）。
-     */
-    private boolean viewRebuilt = false;
-
-    /**
      * v3.3：各 Spinner 的「用户选中文案」，以内容 cache 对象为 key。
      *
      * <p>视图重建时新 Spinner 没有任何选中项，用它把用户此前的筛选选择恢复回来，
      * 避免切个 Tab 就被重置成「不限」。
      */
     private final java.util.Map<List<String>, String> spinnerSelectionCache = new java.util.HashMap<>();
-    /** v3.2：详情/编辑页返回结果监听器，返回 RESULT_OK 时强制刷新（覆盖纯文本字段编辑） */
-    private androidx.activity.result.ActivityResultLauncher<Intent> editLauncher;
 
     @Nullable
     @Override
@@ -117,7 +100,6 @@ public class ShelfFragment extends Fragment {
         spinnerReady = false;   // 新视图的 Spinner 还没数据
         spinnersFilled = false; // 新视图尚未填充过任何 Spinner
         clearSpinnerCaches();   // 清空缓存，强制下次填充
-        viewRebuilt = true;     // v3.5：标记视图刚重建，onResume 时需要至少一次数据填充
         return b.getRoot();
     }
 
@@ -204,12 +186,7 @@ public class ShelfFragment extends Fragment {
             }
             Intent intent = new Intent(requireContext(), BookDetailActivity.class);
             intent.putExtra(BookDetailActivity.EXTRA_BOOK, book);
-            // v3.2：用 editLauncher 启动，返回时若被编辑过则强制刷新
-            if (editLauncher != null) {
-                editLauncher.launch(intent);
-            } else {
-                startActivity(intent);
-            }
+            startActivity(intent); // 刷新由 Room 响应式观察自动完成（v4.2）
         };
         adapter = new BookAdapter(openDetail);
         gridAdapter = new BookGridAdapter(openDetail::onClick);
@@ -299,20 +276,11 @@ public class ShelfFragment extends Fragment {
         // 扫码快捷入口
         b.fabScan.setOnClickListener(v -> launchAndRefresh(new Intent(requireContext(), ScanActivity.class)));
 
-        // v3.2：扫码录入 / 详情页编辑返回时兜底标脏。
-        // 内容指纹覆盖的是「增删改数值/时间字段」，而纯文本字段（书名、作者、标签…）的编辑
-        // 可能不改变指纹；这里用 ActivityResult 显式标脏，保证编辑后列表一定刷新。
-        editLauncher = registerForActivityResult(
-                new androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult(),
-                result -> {
-                    if (result.getResultCode() == android.app.Activity.RESULT_OK) {
-                        pendingReload = true;
-                        if (isResumed()) {
-                            pendingReload = false;
-                            loadData();
-                        }
-                    }
-                });
+        // v4.2（评审 #7）：响应式观察 books 表——任何增删改（包括纯文本字段编辑）
+        // 都由 Room 自动推送，无需指纹比对、RESULT_OK 标脏或手动触发。
+        // 注册时 Room 会立即推送一次当前数据（冷启动首次加载 / 旋转屏恢复都靠它）。
+        BookshelfApp.get().db().bookDao().getAllLive()
+                .observe(getViewLifecycleOwner(), this::onBooksPushed);
 
         // 外部（统计页点击作者/出版社/国家）带入的搜索词：视图重建后应用一次
         if (pendingSearchQuery != null) {
@@ -325,7 +293,7 @@ public class ShelfFragment extends Fragment {
     /**
      * 由统计页/二级页等外部调用：切到书架并展示对应关键词的搜索结果（v2.8，v2.9 加固）。
      * 始终先缓存关键词；视图已就绪则立即灌入搜索框（TextWatcher 会自动触发筛选）。
-     * 视图未就绪时由 onViewCreated / loadData 完成后兜底应用，保证任何时序下都能生效。
+     * 视图未就绪时由 onViewCreated / 响应式推送完成后兜底应用，保证任何时序下都能生效。
      */
     public void requestSearch(String keyword) {
         if (keyword == null || keyword.trim().isEmpty()) {
@@ -338,116 +306,14 @@ public class ShelfFragment extends Fragment {
         }
     }
 
-    @Override
-    public void onResume() {
-        super.onResume();
-        onVisible();
-    }
+    // v4.2：原先的 onResume/onHiddenChanged/onVisible 按需刷新已整体删除——
+    // 书架改由 Room 响应式观察驱动（见 onViewCreated 的 getAllLive().observe），
+    // books 表任何增删改都会自动推送刷新，纯文本编辑也不再依赖 RESULT_OK 标脏。
+    // 切 Tab（show/hide）时视图与数据原地存活，无需任何手动刷新。
 
-    @Override
-    public void onHiddenChanged(boolean hidden) {
-        super.onHiddenChanged(hidden);
-        // v4.1：MainActivity 切 Tab 改为 show/hide 复用 Fragment 实例，
-        // 切 Tab 不再触发 onResume/onDestroyView——切回书架页时由这里通知
-        if (!hidden) {
-            onVisible();
-        }
-    }
-
-    /** 页面可见时的按需刷新（onResume 与切 Tab 显示共用） */
-    private void onVisible() {
-        // v3.2 优化：原先每次 onResume 都全量重载（4 次查库 + 6 个 Spinner 重建
-        // + RecyclerView notifyDataSetChanged），封面视图下还会重新触发整屏 Glide 请求，
-        // 表现为「打开 App / 从别的 Tab 切回书架页时先白一下才出内容」。
-        //
-        // 现在改为按需刷新：先用一条聚合 SQL 取内容指纹（只做统计不返回行，比拉全表快很多），
-        // 指纹没变就直接复用内存里的列表，什么都不做。
-        if (firstLoadDone && !pendingReload) {
-            // v3.5：视图刚被 replace() 重建过（切 Tab 回来 / 弹窗关闭后回来），
-            // 新视图的适配器和 Spinner 全是空的——即使数据没变，也必须先把
-            // 实例级缓存的数据灌进新视图（不查库，零开销），否则整页空白。
-            if (viewRebuilt) {
-                viewRebuilt = false;
-                applyDataToView();
-            }
-            // 指纹校验照常做：数据若在别处被改动，仍会触发完整 loadData
-            checkFingerprintThenReload();
-            return;
-        }
-        pendingReload = false;
-        firstLoadDone = true;
-        viewRebuilt = false;
-        loadData();
-    }
-
-    /**
-     * v3.5：把实例级缓存的数据直接灌进（刚重建的）当前视图，不查库。
-     *
-     * <p>与 loadData 的 UI 回调保持同一套动作：填 5 个 Spinner → 应用筛选 →
-     * 提交适配器。数据源是跨视图重建存活的实例字段（allBooks/locations/
-     * tagList/categoryList/channelList/countryList），因此只在「数据没变、
-     * 仅视图重建」的场景下使用。
-     */
-    private void applyDataToView() {
-        if (b == null) {
-            return;
-        }
-        fillCountrySpinner(countryList);
-        fillLocationSpinner();
-        fillTagSpinner();
-        fillChannelSpinner();
-        fillCategorySpinner();
-        spinnersFilled = true;
-        spinnerReady = true;
-        if (pendingSearchQuery != null) {
-            String q = pendingSearchQuery;
-            pendingSearchQuery = null;
-            b.etSearch.setText(q);
-        }
-        applyFilters();
-    }
-
-    /** 标记数据已变更，下次回到本页时无条件重新查库（导入备份等批量操作后调用） */
-    public void requestReload() {
-        pendingReload = true;
-    }
-
-    /**
-     * 启动一个「可能会改动藏书」的子页面，返回 RESULT_OK 时强制刷新列表（v3.2）。
-     *
-     * <p>指纹比对已经能覆盖绝大多数变更，但纯文本字段（书名/作者/标签…）的编辑可能
-     * 不改变任何参与指纹的数值，因此对「录入 / 编辑」类页面显式走返回结果标脏，
-     * 保证编辑后列表一定是最新的。
-     */
+    /** 启动子页面（录入/编辑等）。刷新由 Room 响应式观察自动完成（v4.2） */
     private void launchAndRefresh(Intent intent) {
-        if (editLauncher != null) {
-            editLauncher.launch(intent);
-        } else {
-            startActivity(intent);
-        }
-    }
-
-    /**
-     * 比对内容指纹决定是否重新加载（v3.2）。
-     *
-     * <p>指纹不一致才走完整的 loadData；一致则整页不动，
-     * 因此从别的 Tab 切回书架页几乎是零开销。
-     */
-    private void checkFingerprintThenReload() {
-        BookshelfApp app = BookshelfApp.get();
-        app.io(() -> {
-            final String fp;
-            try {
-                fp = app.db().bookDao().getContentFingerprint();
-            } catch (Exception e) {
-                return; // 查询失败就保持现状，不打断用户
-            }
-            if (fp == null || fp.equals(lastFingerprint)) {
-                return; // 数据没变，什么都不做
-            }
-            lastFingerprint = fp;
-            app.ui(this::loadData);
-        });
+        startActivity(intent);
     }
 
     // ======================= 长按多选与批量删除 =======================
@@ -528,7 +394,7 @@ public class ShelfFragment extends Fragment {
                         app.ui(() -> {
                             exitSelection();
                             Toast.makeText(requireContext(), "已删除 " + count + " 本书", Toast.LENGTH_SHORT).show();
-                            loadData(); // loadData 内会同步刷新 lastFingerprint
+                            // 列表刷新由 Room 响应式观察自动推送（v4.2）
                         });
                     });
                 })
@@ -560,39 +426,36 @@ public class ShelfFragment extends Fragment {
     }
 
     /**
-     * 从数据库加载全部藏书、地点、标签、分类。
+     * Room 响应式推送回调（v4.2，评审 #7）：books 表任何增删改都会触发，
+     * 注册时也会立即推送一次当前数据（冷启动首次加载 / 旋转屏恢复）。
      *
-     * <p>线程模型（v4.0，评审 #6）：本方法可在主线程被调用（onResume / 指纹回调 /
-     * 删除后），入口先切到 {@code app.io} 后台线程做全部查询，查完再 {@code app.ui}
-     * 回主线程刷 UI。旧实现（v3.2）虽建了 7 线程池并行查询，但 {@code loadData}
-     * 本身跑在主线程、还在主线程 {@code awaitTermination} 忙等——主线程实际被卡到
-     * 查询全部完成（藏书多时有掉帧/ANR 风险），且每次新建/销毁线程池带来抖动。
-     * 本地 SQLite 各表查询都是毫秒级，单线程顺序查足够快，线程池直接删除。
+     * <p>回调在主线程，books 数据已由推送直接给出（不再查库）；字典表
+     * （地点/标签/分类/国家/渠道）在 io 线程补查后一起刷 UI。原先的
+     * 「指纹比对 + RESULT_OK 标脏 + 视图重建补偿」整套状态机已删除：
+     * 没变化时 Room 不推送（零开销），变化时推送的 books 就是最新数据。
+     *
+     * @param pushed books 表最新全量列表（可能为 null，按空处理）
      */
-    private void loadData() {
+    private void onBooksPushed(java.util.List<Book> pushed) {
+        if (b == null) {
+            return;
+        }
         BookshelfApp app = BookshelfApp.get();
         // 只有「首次加载」（还没有任何数据可显示）才显示加载指示，
-        // 后续按需刷新时列表里本来就有旧内容，闪一下反而更难看
+        // 后续刷新时列表里本来就有旧内容，闪一下反而更难看
         final boolean showLoading = allBooks.isEmpty();
-        if (showLoading && b != null) {
+        if (showLoading) {
             b.llLoading.setVisibility(View.VISIBLE);
         }
+        final List<Book> books = BookSanitizer.normalizeAll(
+                pushed == null ? new ArrayList<>() : pushed);
         app.io(() -> {
-            // 顺序查询 7 张表；每个查询独立兜底：任何一个失败都不该让整页空白
-            //（只有藏书查询失败才有致命影响）
-            List<Book> books = null;
+            // 字典查询独立兜底：失败退回空列表，不影响藏书展示
             List<Location> locs = null;
             List<com.bai.bookshelf.data.entity.Tag> tags = null;
             List<Category> categories = null;
             List<String> countries = null;
             List<String> channels = null;
-            String fingerprint = null;
-            Exception error = null;
-            try {
-                books = BookSanitizer.normalizeAll(app.db().bookDao().getAll());
-            } catch (Exception e) {
-                error = e;
-            }
             try {
                 locs = app.db().locationDao().getAll();
             } catch (Exception ignored) {
@@ -605,7 +468,7 @@ public class ShelfFragment extends Fragment {
                 categories = app.db().categoryDao().getAll();
             } catch (Exception ignored) {
             }
-            // 国家/渠道去重交给 SQL（见 BookDao）；失败退回空列表，不影响主流程
+            // 国家/渠道去重交给 SQL（见 BookDao）
             try {
                 countries = app.db().bookDao().getDistinctCountries();
             } catch (Exception ignored) {
@@ -614,47 +477,26 @@ public class ShelfFragment extends Fragment {
                 channels = app.db().bookDao().getDistinctChannels();
             } catch (Exception ignored) {
             }
-            // 记录本次的指纹，供下次 onResume 比对决定是否需要重载
-            try {
-                fingerprint = app.db().bookDao().getContentFingerprint();
-            } catch (Exception ignored) {
-            }
 
-            final List<Book> fBooks = books;
             final List<Location> fLocs = locs;
             final List<com.bai.bookshelf.data.entity.Tag> fTags = tags;
             final List<Category> fCategories = categories;
             final List<String> fCountries = countries == null ? new ArrayList<>() : countries;
             final List<String> fChannels = channels == null ? new ArrayList<>() : channels;
-            final String fFingerprint = fingerprint;
-            final Exception fError = error;
 
             app.ui(() -> {
                 if (b == null) {
                     return;
                 }
-                // 只有藏书查询失败才提示：其余字典失败已降级为空
-                if (fError != null) {
-                    if (showLoading) {
-                        b.llLoading.setVisibility(View.GONE);
-                    }
-                    android.content.Context errCtx = getContext() == null
-                            ? null : getContext().getApplicationContext();
-                    if (errCtx != null) {
-                        Toast.makeText(errCtx, "加载失败，请重试", Toast.LENGTH_SHORT).show();
-                    }
-                    return;
-                }
                 if (showLoading) {
                     b.llLoading.setVisibility(View.GONE);
                 }
-                lastFingerprint = fFingerprint;
-                allBooks = fBooks == null ? new ArrayList<>() : fBooks;
+                allBooks = books;
                 locations = fLocs == null ? new ArrayList<>() : fLocs;
                 tagList = fTags == null ? new ArrayList<>() : fTags;
                 categoryList = fCategories == null ? new ArrayList<>() : fCategories;
                 channelList = fChannels;
-                countryList = fCountries; // v3.5：留实例快照，视图重建后 applyDataToView 重放用
+                countryList = fCountries; // 留实例快照，旋转屏重建视图时兜底重放用
                 // 各 Spinner 仅在内容变化时重建，避免无谓的全量 notify
                 fillCountrySpinner(fCountries);
                 fillLocationSpinner();
@@ -724,7 +566,7 @@ public class ShelfFragment extends Fragment {
      * 给 Spinner 填充下拉项，仅在<b>内容真正变化</b>时才重建适配器（v3.2）。
      *
      * <p>原因：ArrayAdapter 每次 setAdapter 都会重建整个 Spinner 的视图树并丢掉选中状态，
-     * 而 onResume 每次回页面都会调用 loadData → 6 个 Spinner 无条件重建，
+     * 而旧版每次回页面都会全量重载 → 6 个 Spinner 无条件重建，
      * 这既是白花开销，也会让用户在筛选状态下切走再回来时看到下拉被"重置"的闪动。
      *
      * <p><b>v3.3 修正</b>：必须同时满足「本视图已填充过」才允许跳过。
@@ -836,7 +678,7 @@ public class ShelfFragment extends Fragment {
         }
         // v3.2：applyViewMode() 会在视图挂载时就调用这里，此时筛选 Spinner 还没填数据。
         // 未就绪时 getSelectedItem() 可能返回 INVALID_POSITION 或抛异常，直接跳过；
-        // 数据加载完成后 loadData 会再调一次，那时才真正筛选。
+        // 数据由响应式推送完成后会再调一次，那时才真正筛选。
         if (!spinnerReady) {
             return;
         }
