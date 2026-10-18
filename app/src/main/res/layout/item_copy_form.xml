@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 逐本信息表单（第 2 本及以后；第 1 本用上方主表单）：由编辑页按拥有数量动态添加 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="10dp"
+    android:background="@drawable/bg_chip"
+    android:orientation="vertical"
+    android:padding="10dp">
+
+    <TextView
+        android:id="@+id/tv_copy_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="第 2 本"
+        android:textColor="?attr/colorPrimary"
+        android:textStyle="bold" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:text="藏书状态"
+        android:textSize="13sp" />
+
+    <Spinner
+        android:id="@+id/sp_copy_stock"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:minHeight="44dp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="存放位置"
+        android:textSize="13sp" />
+
+    <Spinner
+        android:id="@+id/sp_copy_location"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:minHeight="44dp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="来源"
+        android:textSize="13sp" />
+
+    <Spinner
+        android:id="@+id/sp_copy_own"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:minHeight="44dp" />
+
+    <TextView
+        android:id="@+id/tv_copy_channel_label"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="购买渠道"
+        android:textSize="13sp" />
+
+    <Spinner
+        android:id="@+id/sp_copy_channel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:minHeight="44dp" />
+
+    <!-- 购买日期 + 实付 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:orientation="horizontal">
+
+        <com.google.android.material.textfield.TextInputLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:hint="购买日期">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/et_copy_date"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:clickable="true"
+                android:focusable="false" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <com.google.android.material.textfield.TextInputLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:layout_weight="1"
+            android:hint="实付价格">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/et_copy_price"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="numberDecimal" />
+            </com.google.android.material.textfield.TextInputLayout>
+    </LinearLayout>
+
+    <!-- 该本的备注 -->
+    <com.google.android.material.textfield.TextInputLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:hint="本册备注">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/et_copy_note"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <!-- 该本备注的图片附件 -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btn_copy_add_note_image"
+        style="@style/Widget.Material3.Button.OutlinedButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:minWidth="0dp"
+        android:minHeight="0dp"
+        android:paddingHorizontal="12dp"
+        android:paddingVertical="4dp"
+        android:insetTop="0dp"
+        android:insetBottom="0dp"
+        android:text="＋ 添加备注图片"
+        android:textSize="12sp" />
+
+    <HorizontalScrollView
+        android:id="@+id/scroll_copy_note_thumbs"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:scrollbars="none"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:id="@+id/container_copy_note_thumbs"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal" />
+    </HorizontalScrollView>
+</LinearLayout>

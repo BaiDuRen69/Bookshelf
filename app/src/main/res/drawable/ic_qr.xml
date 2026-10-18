@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 二维码图标（支付宝/微信入口行用，白色线条，叠加在彩色圆角底座上） -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- 三个定位角 -->
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M3,3h7v7h-7z M14,3h7v7h-7z M3,14h7v7h-7z"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.8" />
+    <!-- 中心定位点 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M10,10h4v4h-4z" />
+    <!-- 数据点 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M14,14h3v3h-3z M18,14h3v3h-3z M14,18h3v3h-3z M18,18h3v3h-3z" />
+</vector>

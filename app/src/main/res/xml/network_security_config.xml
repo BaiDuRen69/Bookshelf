@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    网络安全配置（v4.0，评审 #5）：
+    - 正式版：默认强制 https，不再全局允许明文流量（缩小中间人劫持面）。
+      聚美智数接口、豆瓣查询、主流图床（doubanio 等）均为 https。
+    - debug 测试版：放行明文，方便抓包调试与应对个别 http 封面源。
+    若正式版发现个别 http 封面无法加载，再在 base-config 之上按域名放行。
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+    <debug-overrides>
+        <base-config cleartextTrafficPermitted="true" />
+    </debug-overrides>
+</network-security-config>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- FileProvider 可访问的目录 -->
+<paths>
+    <!-- 导出的 Excel（应用专属外部存储） -->
+    <external-files-path name="export" path="export/" />
+    <!-- 拍照封面（应用内部存储，TakePicture 需要 content:// URI） -->
+    <files-path name="covers" path="covers/" />
+    <!-- 备注图片（应用内部存储，预览时对外分享需 content:// URI） -->
+    <files-path name="note_images" path="note_images/" />
+</paths>

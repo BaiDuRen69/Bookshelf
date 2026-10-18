@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 列表项上的小标签背景：跟随主题色的极浅底 + 8dp 圆角（v3.0 改为 @color/chip_bg，由各主题覆盖） -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="@color/chip_bg" />
+    <corners android:radius="8dp" />
+</shape>

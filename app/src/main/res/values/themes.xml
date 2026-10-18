@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 全局主题：Material3 亮色，无默认 ActionBar（各页面自带 Toolbar）。
+         Theme.Bookshelf 为默认「墨绿」；其余 5 套为 v2.5 主题选择变体，
+         由 BaseActivity 在 super.onCreate 前按用户选择 setTheme 挂载。 -->
+    <style name="Theme.Bookshelf" parent="Theme.Material3.Light.NoActionBar">
+        <item name="colorPrimary">@color/primary</item>
+        <item name="colorPrimaryVariant">@color/primary_dark</item>
+        <item name="colorSecondary">@color/accent</item>
+        <item name="android:colorBackground">@color/bg_page</item>
+        <item name="android:statusBarColor">@color/primary_dark</item>
+        <!-- 标签底色跟随主题，保证换肤一致 -->
+        <item name="chip_bg">@color/chip_bg</item>
+    </style>
+
+    <style name="Theme.Bookshelf.Blue" parent="Theme.Material3.Light.NoActionBar">
+        <item name="colorPrimary">@color/blue_primary</item>
+        <item name="colorPrimaryVariant">@color/blue_primary_dark</item>
+        <item name="colorSecondary">@color/blue_accent</item>
+        <item name="android:colorBackground">@color/bg_page</item>
+        <item name="android:statusBarColor">@color/blue_primary_dark</item>
+        <!-- 标签底色跟随主题，保证换肤一致 -->
+        <item name="chip_bg">@color/blue_chip_bg</item>
+    </style>
+
+    <style name="Theme.Bookshelf.Red" parent="Theme.Material3.Light.NoActionBar">
+        <item name="colorPrimary">@color/red_primary</item>
+        <item name="colorPrimaryVariant">@color/red_primary_dark</item>
+        <item name="colorSecondary">@color/red_accent</item>
+        <item name="android:colorBackground">@color/bg_page</item>
+        <item name="android:statusBarColor">@color/red_primary_dark</item>
+        <!-- 标签底色跟随主题，保证换肤一致 -->
+        <item name="chip_bg">@color/red_chip_bg</item>
+    </style>
+
+    <style name="Theme.Bookshelf.Orange" parent="Theme.Material3.Light.NoActionBar">
+        <item name="colorPrimary">@color/orange_primary</item>
+        <item name="colorPrimaryVariant">@color/orange_primary_dark</item>
+        <item name="colorSecondary">@color/orange_accent</item>
+        <item name="android:colorBackground">@color/bg_page</item>
+        <item name="android:statusBarColor">@color/orange_primary_dark</item>
+        <!-- 标签底色跟随主题，保证换肤一致 -->
+        <item name="chip_bg">@color/orange_chip_bg</item>
+    </style>
+
+    <style name="Theme.Bookshelf.Purple" parent="Theme.Material3.Light.NoActionBar">
+        <item name="colorPrimary">@color/purple_primary</item>
+        <item name="colorPrimaryVariant">@color/purple_primary_dark</item>
+        <item name="colorSecondary">@color/purple_accent</item>
+        <item name="android:colorBackground">@color/bg_page</item>
+        <item name="android:statusBarColor">@color/purple_primary_dark</item>
+        <!-- 标签底色跟随主题，保证换肤一致 -->
+        <item name="chip_bg">@color/purple_chip_bg</item>
+    </style>
+
+    <style name="Theme.Bookshelf.Graphite" parent="Theme.Material3.Light.NoActionBar">
+        <item name="colorPrimary">@color/graphite_primary</item>
+        <item name="colorPrimaryVariant">@color/graphite_primary_dark</item>
+        <item name="colorSecondary">@color/graphite_accent</item>
+        <item name="android:colorBackground">@color/bg_page</item>
+        <item name="android:statusBarColor">@color/graphite_primary_dark</item>
+        <!-- 标签底色跟随主题，保证换肤一致 -->
+        <item name="chip_bg">@color/graphite_chip_bg</item>
+    </style>
+</resources>

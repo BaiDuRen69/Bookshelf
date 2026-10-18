@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 书房主题色：墨绿 + 暖木色 + 米色纸感背景（默认主题） -->
+    <color name="primary">#2E6E5C</color>
+    <color name="primary_dark">#1F4D40</color>
+    <color name="accent">#C08A3E</color>
+    <color name="bg_page">#FAF7F2</color>
+    <color name="text_main">#2B2B2B</color>
+    <color name="text_sub">#8A8A8A</color>
+    <color name="white">#FFFFFF</color>
+    <color name="stat_bar">#7FB3A2</color>
+    <color name="danger">#C0392B</color>
+    <color name="selected_bg">#222E6E5C</color>
+
+    <!-- ===== 分割线 / 遮罩等半透明中性色（v3.0 收拢，避免各布局散落魔法值） ===== -->
+    <!-- 极弱分割线：书脊下方阴影、卡片描边等 -->
+    <color name="divider_faint">#12000000</color>
+    <!-- 弱分割线：关于页/我的页分组之间 -->
+    <color name="divider_soft">#14000000</color>
+    <!-- 常规分割线：书架列表行分隔 -->
+    <color name="divider_normal">#1A000000</color>
+    <!-- 不透明浅灰分割线：详情页分隔线 -->
+    <color name="divider_gray">#DDDDDD</color>
+    <!-- 半透明黑色遮罩：扫描页取景框外区域 -->
+    <color name="scrim_dark">#66000000</color>
+
+    <!-- ===== 标签底色：随主题覆盖，保证换肤后协调（默认墨绿浅色） ===== -->
+    <color name="chip_bg">#E8F0ED</color>
+    <color name="blue_chip_bg">#E9EDF6</color>
+    <color name="red_chip_bg">#F6EAE8</color>
+    <color name="orange_chip_bg">#FAEEE2</color>
+    <color name="purple_chip_bg">#EEEAF6</color>
+    <color name="graphite_chip_bg">#E9EEEE</color>
+
+    <!-- ===== 主题配色（v2.5 新增 5 套，与 themes.xml 的 Theme.Bookshelf.* 变体一一对应） ===== -->
+    <!-- 黛蓝 -->
+    <color name="blue_primary">#3A5BA0</color>
+    <color name="blue_primary_dark">#2C4A7C</color>
+    <color name="blue_accent">#C9A66B</color>
+    <!-- 赭红 -->
+    <color name="red_primary">#A34A3A</color>
+    <color name="red_primary_dark">#7E3527</color>
+    <color name="red_accent">#C9A66B</color>
+    <!-- 暖橙 -->
+    <color name="orange_primary">#C2701E</color>
+    <color name="orange_primary_dark">#9C5614</color>
+    <color name="orange_accent">#6E8B3D</color>
+    <!-- 紫罗兰 -->
+    <color name="purple_primary">#6B4E9E</color>
+    <color name="purple_primary_dark">#523B7C</color>
+    <color name="purple_accent">#C9A66B</color>
+    <!-- 石墨 -->
+    <color name="graphite_primary">#4A6B70</color>
+    <color name="graphite_primary_dark">#375056</color>
+    <color name="graphite_accent">#B08040</color>
+</resources>

@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 「我的」页功能入口行容器（可点击卡片行，内含标题/副标题/箭头） -->
+    <style name="MineRow">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">8dp</item>
+        <item name="android:background">@drawable/bg_chip</item>
+        <item name="android:clickable">true</item>
+        <item name="android:focusable">true</item>
+        <item name="android:foreground">?attr/selectableItemBackground</item>
+        <item name="android:gravity">center_vertical</item>
+        <item name="android:minHeight">56dp</item>
+        <item name="android:paddingStart">16dp</item>
+        <item name="android:paddingEnd">12dp</item>
+        <item name="android:paddingTop">12dp</item>
+        <item name="android:paddingBottom">12dp</item>
+    </style>
+
+    <!-- 行内主标题 -->
+    <style name="MineRowTitle">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textColor">@color/text_main</item>
+        <item name="android:textSize">15sp</item>
+    </style>
+
+    <!-- 行内副标题（功能说明 / 实时状态） -->
+    <style name="MineRowSubtitle">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">2dp</item>
+        <item name="android:textColor">@color/text_sub</item>
+        <item name="android:textSize">12sp</item>
+    </style>
+
+    <!-- 分区标题：按功能分组，标题具体（Material Design 设置页规范） -->
+    <style name="MineSectionTitle">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">16dp</item>
+        <item name="android:layout_marginBottom">2dp</item>
+        <item name="android:paddingStart">4dp</item>
+        <item name="android:textColor">@color/text_sub</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <!-- 底部导航小字号（配合低高度导航栏） -->
+    <style name="BottomNavText">
+        <item name="android:textSize">10sp</item>
+    </style>
+</resources>

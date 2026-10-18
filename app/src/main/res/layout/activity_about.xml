@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 关于与免责声明二级页（v2.5 从弹窗改为独立页面） -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="?attr/actionBarSize"
+        android:background="?attr/colorPrimary"
+        app:navigationIcon="@drawable/ic_back"
+        app:title="关于与免责声明"
+        app:titleTextColor="@color/white" />
+
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="20dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="小书房"
+                android:textColor="@color/text_main"
+                android:textSize="24sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tv_version"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="版本 v2.5"
+                android:textColor="?attr/colorPrimary"
+                android:textSize="14sp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="作者：BaiDuRen"
+                android:textColor="@color/text_main"
+                android:textSize="15sp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="个人 / 家庭纸质藏书管理工具：扫码录入、存放地点、借阅登记、备注图片、统计与 Excel 导入导出。"
+                android:textColor="@color/text_sub"
+                android:textSize="13sp"
+                android:lineSpacingMultiplier="1.4" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginVertical="16dp"
+                android:background="@color/divider_soft" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="免责声明"
+                android:textColor="@color/text_main"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:lineSpacingMultiplier="1.5"
+                android:text="1. 本应用的所有藏书、借阅记录、备注等数据仅保存在本机本地数据库中，不随账号同步；卸载应用或清除应用数据将导致全部记录丢失，请定期使用「导出 Excel」与「自动备份」功能留存数据。\n\n2. 扫码录入的图书信息（书名、作者、出版社、定价等）来自第三方 ISBN 数据接口，其准确性与可用性由接口提供方负责，本应用不对其内容作任何担保，请以实物书为准。\n\n3. 本应用不含广告与内购，免费提供，仅供个人学习、家庭藏书管理与非商业用途使用；请勿将其用于任何违法或侵权用途。\n\n4. 使用本应用即表示你已了解并同意上述条款；对于因使用本应用造成的任何数据丢失或其他损失，作者不承担责任。"
+                android:textColor="@color/text_main"
+                android:textSize="14sp" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginVertical="16dp"
+                android:background="@color/divider_soft" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="开发说明"
+                android:textColor="@color/text_main"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:lineSpacingMultiplier="1.5"
+                android:text="本应用由 BaiDuRen 提出需求并主导产品设计，由 AI（WorkBuddy 智能助手）辅助完成开发与迭代。"
+                android:textColor="@color/text_sub"
+                android:textSize="14sp" />
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+</LinearLayout>

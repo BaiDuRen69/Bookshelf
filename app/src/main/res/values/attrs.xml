@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 自定义主题属性（v3.0 新增 chip_bg）。
+         用于让随主题变化的浅色底（标签背景）在各主题里能被独立覆盖；
+         引用方式与 ?attr/colorPrimary 相同，主题未设置时会回退到 colors.xml 同名颜色。 -->
+    <attr name="chip_bg" format="color" />
+</resources>

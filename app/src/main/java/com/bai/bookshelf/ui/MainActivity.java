@@ -1,0 +1,105 @@
+package com.bai.bookshelf.ui;
+
+import android.content.res.ColorStateList;
+import android.os.Bundle;
+import android.widget.ImageView;
+import android.widget.TextView;
+
+import androidx.appcompat.app.AppCompatActivity;
+import com.bai.bookshelf.ui.BaseActivity;
+import androidx.core.content.ContextCompat;
+import androidx.fragment.app.Fragment;
+
+import com.bai.bookshelf.R;
+import com.bai.bookshelf.databinding.ActivityMainBinding;
+import com.bai.bookshelf.ui.mine.MineFragment;
+import com.bai.bookshelf.ui.shelf.ShelfFragment;
+import com.bai.bookshelf.ui.stats.StatsFragment;
+import com.bai.bookshelf.util.ThemeManager;
+
+/**
+ * 主界面：承载底部三 Tab（书架 / 统计 / 我的）。
+ * 底部导航为自定义布局（图标+文字间距固定 2dp，避免系统组件的间距问题）。
+ */
+public class MainActivity extends BaseActivity {
+
+    /** 二级页/外部带入的搜索词 Intent Extra（v2.9：国家/出版社/作者二级页点击跳转用） */
+    public static final String EXTRA_SEARCH_QUERY = "search_query";
+
+    private final ShelfFragment shelfFragment = new ShelfFragment();
+    private final Fragment statsFragment = new StatsFragment();
+    private final Fragment mineFragment = new MineFragment();
+
+    private ActivityMainBinding binding;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        binding = ActivityMainBinding.inflate(getLayoutInflater());
+        setContentView(binding.getRoot());
+
+        binding.tabShelf.setOnClickListener(v -> selectTab(0));
+        binding.tabStats.setOnClickListener(v -> selectTab(1));
+        binding.tabMine.setOnClickListener(v -> selectTab(2));
+
+        // 默认展示书架
+        selectTab(0);
+
+        // v2.9：被二级页以 REORDER_TO_FRONT 重新拉起时，走 onNewIntent；
+        // 全新实例启动时（冷启动带 extra），在 onCreate 里应用
+        handleSearchIntent(getIntent());
+    }
+
+    @Override
+    protected void onNewIntent(android.content.Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleSearchIntent(intent);
+    }
+
+    /** 处理「跳到书架并搜索某关键词」的 Intent（来自统计页或二级页） */
+    private void handleSearchIntent(android.content.Intent intent) {
+        if (intent == null) {
+            return;
+        }
+        String q = intent.getStringExtra(EXTRA_SEARCH_QUERY);
+        if (q == null || q.trim().isEmpty()) {
+            return;
+        }
+        // 消费掉，避免旋转屏幕/重复 onNewIntent 时重复应用
+        intent.removeExtra(EXTRA_SEARCH_QUERY);
+        searchOnShelf(q.trim());
+    }
+
+    /** 切换 Tab：换 Fragment + 更新三个 Tab 的选中配色 */
+    private void selectTab(int index) {
+        Fragment target = index == 1 ? statsFragment : (index == 2 ? mineFragment : shelfFragment);
+        getSupportFragmentManager().beginTransaction()
+                .replace(R.id.container, target)
+                .commitAllowingStateLoss();
+
+        int active = ThemeManager.resolveColor(this, ThemeManager.ATTR_COLOR_PRIMARY);
+        int inactive = ContextCompat.getColor(this, R.color.text_sub);
+        tintTab(binding.ivTabShelf, binding.tvTabShelf, index == 0 ? active : inactive);
+        tintTab(binding.ivTabStats, binding.tvTabStats, index == 1 ? active : inactive);
+        tintTab(binding.ivTabMine, binding.tvTabMine, index == 2 ? active : inactive);
+    }
+
+    /** 单个 Tab 的图标与文字统一着色 */
+    private void tintTab(ImageView icon, TextView label, int color) {
+        icon.setImageTintList(ColorStateList.valueOf(color));
+        label.setTextColor(color);
+    }
+
+    /**
+     * 统计页/二级页点击作者/出版社/国家分布条目：切到书架 Tab 并按该关键词搜索。
+     * v2.9 修复：commit 是异步的，原先切 Tab 后立刻灌搜索词会落到尚未创建的视图上
+     * （表现为「只跳转、不搜索」）。先 executePendingTransactions 强制事务执行完，
+     * 保证书架视图已就绪，再由 ShelfFragment 把关键词灌进搜索框。
+     */
+    public void searchOnShelf(String keyword) {
+        selectTab(0);
+        getSupportFragmentManager().executePendingTransactions();
+        shelfFragment.requestSearch(keyword);
+    }
+}

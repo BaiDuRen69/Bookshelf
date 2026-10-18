@@ -1,0 +1,4 @@
+// 项目级构建脚本：只声明 Android Gradle 插件版本（与本机缓存一致的 9.2.1）
+plugins {
+    id 'com.android.application' version '9.2.1' apply false
+}

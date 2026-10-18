@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- 相机：扫码录入；非硬性要求，无相机设备仅不能使用扫码 -->
+    <uses-feature android:name="android.hardware.camera.any" android:required="false" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <!-- 网络：ISBN 图书信息查询、封面加载 -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- 保存收款码到相册（仅 API 28 及以下需要运行时权限；Q+ 走 MediaStore 无需权限） -->
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
+
+    <application
+        android:name=".app.BookshelfApp"
+        android:label="@string/app_name"
+        android:icon="@drawable/ic_launcher"
+        android:theme="@style/Theme.Bookshelf"
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:supportsRtl="true">
+
+        <activity android:name=".ui.MainActivity" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity android:name=".ui.scan.ScanActivity" android:exported="false" />
+        <activity android:name=".ui.edit.BookEditActivity" android:exported="false" />
+        <activity android:name=".ui.edit.CopyEditActivity" android:exported="false" />
+        <activity android:name=".ui.detail.BookDetailActivity" android:exported="false" />
+        <activity android:name=".ui.detail.BorrowHistoryActivity" android:exported="false" />
+        <activity android:name=".ui.location.LocationActivity" android:exported="false" />
+        <activity android:name=".ui.location.SourceChannelActivity" android:exported="false" />
+        <activity android:name=".ui.location.TagActivity" android:exported="false" />
+        <activity android:name=".ui.stats.CountryActivity" android:exported="false" />
+        <activity android:name=".ui.stats.PublisherActivity" android:exported="false" />
+        <activity android:name=".ui.stats.AuthorActivity" android:exported="false" />
+        <activity android:name=".ui.stats.ReadingStatsActivity" android:exported="false" />
+        <activity android:name=".ui.mine.SplitActivity" android:exported="false" />
+        <activity android:name=".ui.mine.AboutActivity" android:exported="false" />
+
+        <!-- 导出 Excel 后通过系统分享发送文件 -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+    </application>
+</manifest>

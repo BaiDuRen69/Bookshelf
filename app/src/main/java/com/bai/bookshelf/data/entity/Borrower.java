@@ -1,0 +1,19 @@
+package com.bai.bookshelf.data.entity;
+
+import androidx.room.Entity;
+import androidx.room.PrimaryKey;
+
+import java.io.Serializable;
+
+/**
+ * 常用借阅人：借书时快速选择，可新建/重命名/删除（结构同标签库）。
+ */
+@Entity(tableName = "borrowers")
+public class Borrower implements Serializable {
+
+    @PrimaryKey(autoGenerate = true)
+    public long id;
+
+    public String name = "";    // 借阅人姓名/称呼
+    public int sort;            // 排序值
+}

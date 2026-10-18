@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">小书房</string>
+
+    <!-- 底部导航 -->
+    <string name="tab_shelf">书架</string>
+    <string name="tab_stats">统计</string>
+    <string name="tab_mine">我的</string>
+
+    <!-- 书架页 -->
+    <string name="hint_search">搜索书名 / 作者 / 出版社 / 国家 / 标签</string>
+    <string name="add_book">录入</string>
+    <string name="empty_shelf">书架还是空的\n点右下角扫码录入第一本书吧</string>
+
+    <!-- 通用 -->
+    <string name="action_save">保存</string>
+    <string name="action_cancel">取消</string>
+    <string name="action_delete">删除</string>
+    <string name="action_edit">编辑</string>
+    <string name="action_ok">确定</string>
+</resources>
