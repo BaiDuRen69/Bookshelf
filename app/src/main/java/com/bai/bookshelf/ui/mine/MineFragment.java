@@ -492,26 +492,23 @@ public class MineFragment extends Fragment {
 
     // ======================= 问题反馈（v4.6） =======================
 
-    /** 反馈邮箱与 GitHub Issues 地址（与 README「反馈」一节保持一致，改动需同步两处） */
+    /** 反馈邮箱与 GitHub Issues 提交页（与 README「反馈」一节保持一致，改动需同步两处） */
     private static final String FEEDBACK_EMAIL = "baiduren69@outlook.com";
-    private static final String FEEDBACK_ISSUES_URL = "https://github.com/BaiDuRen69/Bookshelf/issues";
+    private static final String FEEDBACK_ISSUES_URL = "https://github.com/BaiDuRen69/Bookshelf/issues/new";
 
-    /** 问题反馈弹窗：邮件反馈 / GitHub Issues / 复制邮箱地址 */
+    /** 问题反馈弹窗：两个直达渠道，点击即跳转 */
     private void showFeedbackDialog() {
         String[] options = {
-                "邮件反馈（" + FEEDBACK_EMAIL + "）",
-                "GitHub Issues（公开仓库，回复可见）",
-                "复制邮箱地址"};
+                "邮件反馈（发送至 " + FEEDBACK_EMAIL + "）",
+                "GitHub Issues（浏览器直接提交）"};
         new AlertDialog.Builder(requireContext())
                 .setTitle("问题反馈")
                 .setMessage("欢迎提交 Bug 与功能建议：")
                 .setItems(options, (d, w) -> {
                     if (w == 0) {
                         sendFeedbackEmail();
-                    } else if (w == 1) {
-                        openGitHubIssues();
                     } else {
-                        copyToClipboard(FEEDBACK_EMAIL, "已复制邮箱地址");
+                        openGitHubIssues();
                     }
                 })
                 .setNegativeButton(com.bai.bookshelf.R.string.action_cancel, null)
