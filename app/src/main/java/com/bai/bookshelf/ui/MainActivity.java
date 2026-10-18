@@ -75,6 +75,12 @@ public class MainActivity extends BaseActivity {
         // v2.9：被二级页以 REORDER_TO_FRONT 重新拉起时，走 onNewIntent；
         // 全新实例启动时（冷启动带 extra），在 onCreate 里应用
         handleSearchIntent(getIntent());
+
+        // v4.7：冷启动时检查应用更新（受「我的 → 应用更新」开关与忽略选项控制）。
+        // 仅全新启动检查一次，旋转屏/进程恢复重建（savedInstanceState != null）不重复弹。
+        if (savedInstanceState == null) {
+            com.bai.bookshelf.util.UpdateChecker.checkOnLaunch(this);
+        }
     }
 
     @Override

@@ -29,7 +29,7 @@
 
 ## 📲 下载安装
 
-1. 打开 [**Releases 下载页**](https://github.com/BaiDuRen69/Bookshelf/releases/latest)，下载 `XiaoShuFang-v4.6.apk`
+1. 打开 [**Releases 下载页**](https://github.com/BaiDuRen69/Bookshelf/releases/latest)，下载 `XiaoShuFang-v4.7.apk`
 2. 在手机上点开下载好的文件（若提示「不允许安装未知应用」，按手机提示允许即可）
 3. 安装完成，打开小书房，开始扫第一本书 🎉
 
@@ -93,7 +93,7 @@
 
 原生 Android（Java）· Room（12 版保数据迁移）· CameraX + ML Kit（条形码识别）·
 Retrofit · Glide · 零依赖手写 XLSX 读写器（不引入 POI）· EncryptedSharedPreferences（API 密钥加密存储）
-当前版本 v4.6（versionCode 45，Room 数据库 v12）。
+当前版本 v4.7（versionCode 46，Room 数据库 v12）。
 
 ### 构建
 

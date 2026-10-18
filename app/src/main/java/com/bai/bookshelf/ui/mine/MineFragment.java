@@ -140,6 +140,12 @@ public class MineFragment extends Fragment {
         b.rowAutoBackup.setOnClickListener(v -> toggleAutoBackup());
         b.rowBackupDir.setOnClickListener(v -> pickTreeLauncher.launch(null));
         refreshBackupRows();
+        // 应用更新（v4.7）：启动检查开关 + 手动检查
+        b.rowUpdateToggle.setOnClickListener(v -> toggleUpdateCheck());
+        b.rowCheckUpdate.setOnClickListener(v -> {
+            Toast.makeText(requireContext(), "正在检查更新…", Toast.LENGTH_SHORT).show();
+            com.bai.bookshelf.util.UpdateChecker.checkManually(requireActivity());
+        });
         b.rowApi.setOnClickListener(v -> showApiDialog());
         b.rowSplit.setOnClickListener(v -> startActivity(new Intent(requireContext(),
                 com.bai.bookshelf.ui.mine.SplitActivity.class)));
@@ -149,6 +155,7 @@ public class MineFragment extends Fragment {
         b.rowFeedbackEmail.setOnClickListener(v -> sendFeedbackEmail());
         b.rowFeedbackGithub.setOnClickListener(v -> openGitHubIssues());
         b.rowReward.setOnClickListener(v -> showSupportDialog());
+        refreshUpdateToggleRow();
         refreshStateRows();
     }
 
@@ -268,6 +275,27 @@ public class MineFragment extends Fragment {
                 ? "已开启（每次启动时备份）" : "已关闭");
         String dirName = BackupManager.getTreeName(requireContext());
         b.tvBackupDirName.setText(dirName.isEmpty() ? "未选择" : dirName);
+    }
+
+    /** 开关「启动时检查应用更新」（v4.7） */
+    private void toggleUpdateCheck() {
+        boolean nowEnabled = !com.bai.bookshelf.util.UpdateChecker
+                .isStartCheckEnabled(requireContext());
+        com.bai.bookshelf.util.UpdateChecker.setStartCheckEnabled(requireContext(), nowEnabled);
+        refreshUpdateToggleRow();
+        Toast.makeText(requireContext(),
+                nowEnabled ? "已开启：打开 App 时自动检查新版本" : "已关闭：不再自动检查，可手动检查",
+                Toast.LENGTH_SHORT).show();
+    }
+
+    /** 刷新「启动时检查应用更新」行副标题 */
+    private void refreshUpdateToggleRow() {
+        if (b == null) {
+            return;
+        }
+        b.tvUpdateToggleState.setText(com.bai.bookshelf.util.UpdateChecker
+                .isStartCheckEnabled(requireContext())
+                ? "已开启（发现新版本时提醒）" : "已关闭");
     }
 
     /** 导入前确认：说明规则，避免误操作 */

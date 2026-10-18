@@ -297,6 +297,66 @@
                     app:tint="@color/text_sub" />
             </LinearLayout>
 
+            <!-- ==================== 应用更新（v4.7） ==================== -->
+            <TextView
+                style="@style/MineSectionTitle"
+                android:text="应用更新" />
+
+            <LinearLayout
+                android:id="@+id/row_update_toggle"
+                style="@style/MineRow">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        style="@style/MineRowTitle"
+                        android:text="启动时检查应用更新" />
+
+                    <TextView
+                        android:id="@+id/tv_update_toggle_state"
+                        style="@style/MineRowSubtitle"
+                        android:text="已开启（发现新版本时提醒）" />
+                </LinearLayout>
+
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_marginStart="8dp"
+                    android:src="@drawable/ic_arrow_right"
+                    app:tint="@color/text_sub" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/row_check_update"
+                style="@style/MineRow">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        style="@style/MineRowTitle"
+                        android:text="检查应用更新" />
+
+                    <TextView
+                        style="@style/MineRowSubtitle"
+                        android:text="手动检查是否有新版本" />
+                </LinearLayout>
+
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_marginStart="8dp"
+                    android:src="@drawable/ic_arrow_right"
+                    app:tint="@color/text_sub" />
+            </LinearLayout>
+
             <!-- ==================== 设置 ==================== -->
             <TextView
                 style="@style/MineSectionTitle"
