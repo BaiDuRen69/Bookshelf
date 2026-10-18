@@ -50,7 +50,7 @@ Room schema 导出于 `app/schemas/`（迁移比对与测试用）。
 
 ## 问题反馈
 
-欢迎提交 Bug 与功能建议（App 内入口：我的 → 问题反馈）：
+欢迎提交 Bug 与功能建议（App 内入口：我的 → 邮件反馈 / GitHub Issues 反馈，点击直达）：
 
 - GitHub Issues（点此直接提交）：https://github.com/BaiDuRen69/Bookshelf/issues/new
 - 邮箱：baiduren69@outlook.com

@@ -357,9 +357,9 @@
                     app:tint="@color/text_sub" />
             </LinearLayout>
 
-            <!-- 问题反馈（v4.6）：邮件 / GitHub Issues -->
+            <!-- 问题反馈（v4.6）：邮件 / GitHub Issues 两个直达入口 -->
             <LinearLayout
-                android:id="@+id/row_feedback"
+                android:id="@+id/row_feedback_email"
                 style="@style/MineRow">
 
                 <LinearLayout
@@ -370,11 +370,38 @@
 
                     <TextView
                         style="@style/MineRowTitle"
-                        android:text="问题反馈" />
+                        android:text="邮件反馈" />
 
                     <TextView
                         style="@style/MineRowSubtitle"
-                        android:text="邮件或 GitHub Issues 提交问题与建议" />
+                        android:text="baiduren69@outlook.com（点击直接写信）" />
+                </LinearLayout>
+
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_marginStart="8dp"
+                    android:src="@drawable/ic_arrow_right"
+                    app:tint="@color/text_sub" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/row_feedback_github"
+                style="@style/MineRow">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        style="@style/MineRowTitle"
+                        android:text="GitHub Issues 反馈" />
+
+                    <TextView
+                        style="@style/MineRowSubtitle"
+                        android:text="浏览器打开 Issue 提交页" />
                 </LinearLayout>
 
                 <ImageView

@@ -146,7 +146,8 @@ public class MineFragment extends Fragment {
         b.rowAbout.setOnClickListener(v ->
                 startActivity(new Intent(requireContext(), AboutActivity.class)));
         b.rowTheme.setOnClickListener(v -> showThemePicker());
-        b.rowFeedback.setOnClickListener(v -> showFeedbackDialog());
+        b.rowFeedbackEmail.setOnClickListener(v -> sendFeedbackEmail());
+        b.rowFeedbackGithub.setOnClickListener(v -> openGitHubIssues());
         b.rowReward.setOnClickListener(v -> showSupportDialog());
         refreshStateRows();
     }
@@ -495,25 +496,6 @@ public class MineFragment extends Fragment {
     /** 反馈邮箱与 GitHub Issues 提交页（与 README「反馈」一节保持一致，改动需同步两处） */
     private static final String FEEDBACK_EMAIL = "baiduren69@outlook.com";
     private static final String FEEDBACK_ISSUES_URL = "https://github.com/BaiDuRen69/Bookshelf/issues/new";
-
-    /** 问题反馈弹窗：两个直达渠道，点击即跳转 */
-    private void showFeedbackDialog() {
-        String[] options = {
-                "邮件反馈（发送至 " + FEEDBACK_EMAIL + "）",
-                "GitHub Issues（浏览器直接提交）"};
-        new AlertDialog.Builder(requireContext())
-                .setTitle("问题反馈")
-                .setMessage("欢迎提交 Bug 与功能建议：")
-                .setItems(options, (d, w) -> {
-                    if (w == 0) {
-                        sendFeedbackEmail();
-                    } else {
-                        openGitHubIssues();
-                    }
-                })
-                .setNegativeButton(com.bai.bookshelf.R.string.action_cancel, null)
-                .show();
-    }
 
     /** 拉起系统邮件应用（主题自动带上版本号）；无邮件应用时降级为复制邮箱 */
     private void sendFeedbackEmail() {
