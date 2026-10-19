@@ -135,6 +135,8 @@ public class MineFragment extends Fragment {
                 com.bai.bookshelf.ui.location.SourceChannelActivity.class)));
         b.rowTag.setOnClickListener(v -> startActivity(new Intent(requireContext(),
                 com.bai.bookshelf.ui.location.TagActivity.class)));
+        b.rowCategory.setOnClickListener(v -> startActivity(new Intent(requireContext(),
+                com.bai.bookshelf.ui.location.CategoryActivity.class)));
         b.rowExport.setOnClickListener(v -> exportExcel());
         b.rowImport.setOnClickListener(v -> confirmImport());
         b.rowAutoBackup.setOnClickListener(v -> toggleAutoBackup());

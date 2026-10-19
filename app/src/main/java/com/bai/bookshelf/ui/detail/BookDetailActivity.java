@@ -55,6 +55,9 @@ public class BookDetailActivity extends BaseActivity {
     private ActivityBookDetailBinding b;
     private Book book;
     private String locationName = "未设置地点";
+
+    /** 分类展示串「一级-二级」（v4.9，reload 时解析好再给 bind 用） */
+    private String categoryDisplay = "";
     private List<BorrowRecord> openRecords = new ArrayList<>(); // 当前所有未归还的借出记录（含 copyIndex）
     private int lendCopyIndex = 1;                              // 本次借出操作针对第几本
     private List<BookCopy> copies = new ArrayList<>();
@@ -163,6 +166,10 @@ public class BookDetailActivity extends BaseActivity {
                 }
             }
             List<NoteImage> imgs = app.db().noteImageDao().getByOwnerKey("book:" + book.id);
+            // v4.9：分类展示格式「一级-二级」（书里只存名字，需查分类库解析上级）
+            String catDisplay = com.bai.bookshelf.util.CategoryPropagator
+                    .displayPath(book.category, app.db().categoryDao().getAll());
+            final String fCatDisplay = catDisplay;
             // 加载每本当前借出记录的备注图片
             Map<Integer, List<NoteImage>> lendImgs = new HashMap<>();
             for (BorrowRecord r : openList) {
@@ -178,6 +185,7 @@ public class BookDetailActivity extends BaseActivity {
                 copyLocNames = locNames;
                 noteImages = imgs;
                 copyLendImages = lendImgs;
+                categoryDisplay = fCatDisplay;
                 // 借出过才显示「借出记录」入口
                 b.rowBorrowHistory.setVisibility(recordCount > 0 ? View.VISIBLE : View.GONE);
                 b.rowBorrowHistory.setText("借出记录（" + recordCount + " 条）›");
@@ -216,7 +224,7 @@ public class BookDetailActivity extends BaseActivity {
             appendLine(info, "拥有数量", book.quantity + " 本");
         }
         appendLine(info, "豆瓣评分", book.doubanRating);
-        appendLine(info, "分类", book.category);
+        appendLine(info, "分类", categoryDisplay);
         appendLine(info, "ISBN", formatIsbn(book.isbn));
         b.tvInfo.setText(info.toString().trim());
 

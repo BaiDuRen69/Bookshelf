@@ -155,6 +155,34 @@
                     app:tint="@color/text_sub" />
             </LinearLayout>
 
+            <!-- 分类管理（v4.9）：二级分类的选择与增删改统一入口 -->
+            <LinearLayout
+                android:id="@+id/row_category"
+                style="@style/MineRow">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        style="@style/MineRowTitle"
+                        android:text="分类管理" />
+
+                    <TextView
+                        style="@style/MineRowSubtitle"
+                        android:text="一级/二级分类的增删改与选择" />
+                </LinearLayout>
+
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_marginStart="8dp"
+                    android:src="@drawable/ic_arrow_right"
+                    app:tint="@color/text_sub" />
+            </LinearLayout>
+
             <LinearLayout
                 android:id="@+id/row_split"
                 style="@style/MineRow">
