@@ -10,8 +10,8 @@ android {
         applicationId "com.bai.bookshelf"
         minSdk 24
         targetSdk 36
-        versionCode 48
-        versionName "4.9"
+        versionCode 49
+        versionName "4.10"
 
         // v4.1：合并测试版与正式版——只交付一个 APK，豆瓣评分等功能对所有用户开放。
         // release 仍保留同签名配置，需要时可构建（行为与 debug 功能一致，仅无日志、强制 https）。

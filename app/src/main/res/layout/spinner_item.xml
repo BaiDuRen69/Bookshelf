@@ -6,7 +6,7 @@
     android:ellipsize="end"
     android:gravity="center_vertical"
     android:paddingHorizontal="6dp"
-    android:paddingVertical="5dp"
+    android:paddingVertical="2dp"
     android:singleLine="true"
     android:textColor="@color/text_main"
     android:textSize="12sp" />

@@ -11,6 +11,7 @@ import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.EditText;
+import android.widget.LinearLayout;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -63,6 +64,22 @@ public class ShelfFragment extends Fragment {
 
     /** 上一次分类下拉事件的位置（首个事件来自程序填充，不弹二级展开） */
     private int lastCategorySpinnerPos = -1;
+
+    /** v4.10：行内展开的分类 chips 当前所属一级 id（-1 = 未展开） */
+    private long chipCategoryTopId = -1;
+
+    /** v4.10 两段式来源筛选：选中的来源大类（-1 = 不限）与二级渠道名（空 = 整组） */
+    private int channelTypeSel = -1;
+    private String channelSubSel = "";
+
+    /** v4.10：行内展开的来源 chips 当前大类（-1 = 未展开） */
+    private int chipChannelType = -1;
+
+    /** 上一次来源下拉事件的位置（首个事件来自程序填充，不展开） */
+    private int lastChannelSpinnerPos = -1;
+
+    /** 来源渠道库全量（按 ownType 分组，v4.10） */
+    private List<com.bai.bookshelf.data.entity.SourceChannel> channelRowsAll = new ArrayList<>();
     private List<String> channelList = new ArrayList<>(); // 藏书里出现过的来源渠道（去重）
     private List<String> countryList = new ArrayList<>(); // 藏书里出现过的国家（去重，v3.5：留实例快照供视图重建后重放）
     private String pendingSearchQuery;                   // 外部带入的搜索词（视图未就绪时缓存）
@@ -269,8 +286,39 @@ public class ShelfFragment extends Fragment {
         b.spReadFilter.setOnItemSelectedListener(filterListener);
         b.spLocation.setOnItemSelectedListener(filterListener);
         b.spTag.setOnItemSelectedListener(filterListener);
-        b.spChannel.setOnItemSelectedListener(filterListener);
-        // 分类下拉（v4.9）：在通用筛选行为之上，选中一级后弹出该组二级展开选择
+        b.spChannel.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                if (parent.getAdapter() instanceof HighlightAdapter) {
+                    ((HighlightAdapter<?>) parent.getAdapter()).setHighlight(position);
+                }
+                recordSelection(parent, position);
+                // 首个事件来自程序填充（适配器刚装好），不当作用户选择
+                boolean userDriven = lastChannelSpinnerPos >= 0;
+                lastChannelSpinnerPos = position;
+                if (!spinnerReady) {
+                    return;
+                }
+                if (position > 0 && userDriven) {
+                    channelTypeSel = position - 1; // ownType 0/1/2
+                    channelSubSel = "";            // 换了大类，先回到整组
+                    applyFilters();
+                    showChannelChips(channelTypeSel);
+                } else {
+                    if (position == 0) {
+                        channelTypeSel = -1;
+                        channelSubSel = "";
+                        showChannelChips(-1);
+                    }
+                    applyFilters();
+                }
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+            }
+        });
+        // 分类下拉（v4.10）：在通用筛选行为之上，选中一级后在下方行内展开二级 chips
         b.spCategory.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
@@ -288,10 +336,11 @@ public class ShelfFragment extends Fragment {
                         && position - 1 < categoryEntries.size()) {
                     catFilterSub = ""; // 换了一级，先回到整组
                     applyFilters();
-                    maybeShowSubCategoryDialog(categoryEntries.get(position - 1));
+                    showCategoryChips(categoryEntries.get(position - 1));
                 } else {
                     if (position == 0) {
                         catFilterSub = "";
+                        showCategoryChips(null);
                     }
                     applyFilters();
                 }
@@ -532,6 +581,10 @@ public class ShelfFragment extends Fragment {
                 categories = app.db().categoryDao().getAll();
             } catch (Exception ignored) {
             }
+            try {
+                channelRowsAll = app.db().sourceChannelDao().getAll();
+            } catch (Exception ignored) {
+            }
             // 国家/渠道去重交给 SQL（见 BookDao）
             try {
                 countries = app.db().bookDao().getDistinctCountries();
@@ -699,17 +752,83 @@ public class ShelfFragment extends Fragment {
         fillSpinnerIfChanged(b.spLocation, names, locSpinnerCache);
     }
 
-    /** 来源渠道筛选下拉：首项「来源」= 不限，其余为藏书中出现过的渠道 */
+    /**
+     * 来源筛选下拉（v4.10 两级化）：首项「来源」= 不限，其余为三个来源大类；
+     * 选中大类后在下方行内展开该组二级渠道 chips。
+     */
     private void fillChannelSpinner() {
         List<String> names = new ArrayList<>();
         names.add("来源");
-        names.addAll(channelList);
+        names.addAll(java.util.Arrays.asList(
+                getResources().getStringArray(R.array.own_type_entries)));
         fillSpinnerIfChanged(b.spChannel, names, channelSpinnerCache);
     }
 
+    /** 来源二级渠道 chips 行内展开（v4.10）：type<0 时收起；渠道=渠道库该组 + 藏书里出现过的旧渠道名 */
+    private void showChannelChips(int type) {
+        chipChannelType = type;
+        if (type < 0 || b == null) {
+            b.scrollChannelChips.setVisibility(View.GONE);
+            b.llChannelChips.removeAllViews();
+            return;
+        }
+        String[] typeNames = getResources().getStringArray(R.array.own_type_entries);
+        b.llChannelChips.removeAllViews();
+        b.llChannelChips.addView(buildChip("全部「" + typeNames[type] + "」",
+                channelSubSel.isEmpty(), v -> {
+                    channelSubSel = "";
+                    showChannelChips(type);
+                    applyFilters();
+                }));
+        // 渠道库该组的渠道 + 藏书里出现过的该大类旧渠道名（老数据可能不在库里）
+        java.util.LinkedHashSet<String> names = new java.util.LinkedHashSet<>();
+        for (com.bai.bookshelf.data.entity.SourceChannel ch : channelRowsAll) {
+            if (ch.ownType == type) {
+                names.add(ch.name);
+            }
+        }
+        for (Book bk : allBooks) {
+            String cn = bk.sourceChannel == null ? "" : bk.sourceChannel.trim();
+            if (bk.ownType == type && !cn.isEmpty()) {
+                names.add(cn);
+            }
+        }
+        for (String name : names) {
+            b.llChannelChips.addView(buildChip(name, name.equals(channelSubSel), v -> {
+                channelSubSel = name;
+                showChannelChips(type);
+                applyFilters();
+            }));
+        }
+        b.scrollChannelChips.setVisibility(View.VISIBLE);
+    }
+
+    /** 行内筛选 chip（v4.10）：小号圆角标签，选中态描边高亮 */
+    private android.widget.TextView buildChip(String text, boolean selected,
+                                              View.OnClickListener listener) {
+        android.widget.TextView tv = new android.widget.TextView(requireContext());
+        tv.setText(text);
+        tv.setTextSize(11);
+        tv.setPadding(dp(10), dp(4), dp(10), dp(4));
+        tv.setBackgroundResource(selected
+                ? R.drawable.bg_category_selected : R.drawable.bg_chip);
+        tv.setTextColor(requireContext().getColor(
+                selected ? R.color.primary : R.color.text_main));
+        tv.setOnClickListener(listener);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        lp.setMargins(0, 0, dp(6), 0);
+        tv.setLayoutParams(lp);
+        return tv;
+    }
+
+    private int dp(int v) {
+        return (int) (v * getResources().getDisplayMetrics().density);
+    }
+
     /**
-     * 分类筛选下拉（v4.9 两段式）：首项「分类」= 不限，其余只列一级栏目；
-     * 选中一级后弹窗展开该组二级（见 maybeShowSubCategoryDialog）。
+     * 分类筛选下拉（v4.10 两段式）：首项「分类」= 不限，其余只列一级栏目；
+     * 选中一级后在下方行内展开该组二级 chips（不再用弹窗）。
      */
     private void fillCategorySpinner() {
         categoryEntries.clear();
@@ -724,43 +843,30 @@ public class ShelfFragment extends Fragment {
         fillSpinnerIfChanged(b.spCategory, names, categorySpinnerCache);
     }
 
-    /**
-     * 选中一级后展开该组二级（v4.9）：首项「全部一级」（含所有二级），点二级只筛该二级；
-     * 取消 = 按一级全组筛选。无二级的老平铺分类不弹窗。
-     */
-    private void maybeShowSubCategoryDialog(Category top) {
-        List<String> children = new ArrayList<>();
-        for (Category c : categoryList) {
-            if (c.parentId != null && c.parentId == top.id) {
-                children.add(c.name);
-            }
-        }
-        if (children.isEmpty()) {
-            catFilterSub = "";
+    /** 分类二级 chips 行内展开（v4.10）：top 为 null 时收起 */
+    private void showCategoryChips(Category top) {
+        chipCategoryTopId = top == null ? -1 : top.id;
+        if (top == null || b == null) {
+            b.scrollCategoryChips.setVisibility(View.GONE);
+            b.llCategoryChips.removeAllViews();
             return;
         }
-        String[] items = new String[children.size() + 1];
-        items[0] = "全部「" + top.name + "」（含所有二级）";
-        for (int i = 0; i < children.size(); i++) {
-            items[i + 1] = children.get(i);
+        b.llCategoryChips.removeAllViews();
+        b.llCategoryChips.addView(buildChip("全部「" + top.name + "」", catFilterSub.isEmpty(), v -> {
+            catFilterSub = "";
+            showCategoryChips(top);
+            applyFilters();
+        }));
+        for (Category c : categoryList) {
+            if (c.parentId != null && c.parentId == top.id) {
+                b.llCategoryChips.addView(buildChip(c.name, c.name.equals(catFilterSub), v -> {
+                    catFilterSub = c.name;
+                    showCategoryChips(top);
+                    applyFilters();
+                }));
+            }
         }
-        int checked = catFilterSub.isEmpty() ? 0 : children.indexOf(catFilterSub) + 1;
-        new AlertDialog.Builder(requireContext())
-                .setTitle("「" + top.name + "」下的分类")
-                .setSingleChoiceItems(items, checked, (d, w) -> {
-                    catFilterSub = w == 0 ? "" : children.get(w - 1);
-                    if (!catFilterSub.isEmpty()) {
-                        Toast.makeText(requireContext(),
-                                "分类：" + top.name + "-" + catFilterSub, Toast.LENGTH_SHORT).show();
-                    }
-                    applyFilters();
-                    d.dismiss();
-                })
-                .setNegativeButton("按一级筛选", (d, w) -> {
-                    catFilterSub = "";
-                    applyFilters();
-                })
-                .show();
+        b.scrollCategoryChips.setVisibility(View.VISIBLE);
     }
 
     /** 国家/地区筛选下拉：首项「国家」= 不限，其余为藏书中出现过的国家/地区 */
@@ -795,7 +901,6 @@ public class ShelfFragment extends Fragment {
         int readFilter = selPos(b.spReadFilter); // 0=全部
         int locFilter = selPos(b.spLocation);    // 0=全部
         int tagFilter = selPos(b.spTag);         // 0=全部
-        int channelFilter = selPos(b.spChannel); // 0=全部
         int catFilter = selPos(b.spCategory);    // 0=全部
         int sortType = selPos(b.spSort);
         String countryFilter = b.spCountry.getSelectedItemPosition() > 0
@@ -822,9 +927,14 @@ public class ShelfFragment extends Fragment {
             if (readFilter > 0 && book.readStatus != readFilter - 1) {
                 continue;
             }
-            // 来源渠道
-            if (channelFilter > 0 && !book.sourceChannel.equals(channelList.get(channelFilter - 1))) {
-                continue;
+            // 来源（v4.10 两级：先按大类 ownType，二级渠道名再精筛；老数据直接挂在一级名下的也保留）
+            if (channelTypeSel >= 0) {
+                if (book.ownType != channelTypeSel) {
+                    continue;
+                }
+                if (!channelSubSel.isEmpty() && !book.sourceChannel.equals(channelSubSel)) {
+                    continue;
+                }
             }
             // 地点
             if (locFilter > 0) {
@@ -928,7 +1038,8 @@ public class ShelfFragment extends Fragment {
             adapter.submit(result, locMap);
         }
         updateEmptyState(result.isEmpty(), keyword,
-                stockFilter + readFilter + locFilter + tagFilter + channelFilter + catFilter > 0
+                stockFilter + readFilter + locFilter + tagFilter
+                        + (channelTypeSel >= 0 ? 1 : 0) + catFilter > 0
                         || !countryFilter.isEmpty());
     }
 
