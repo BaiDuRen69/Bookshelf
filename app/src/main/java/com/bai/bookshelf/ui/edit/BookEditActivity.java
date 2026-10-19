@@ -500,7 +500,8 @@ public class BookEditActivity extends BaseActivity {
         if (!b.etCountry.getText().toString().trim().equals(nz(book.country).trim())) {
             return true;
         }
-        if (!b.etCategory.getText().toString().trim().equals(nz(book.category).trim())) {
+        // 分类栏显示「一级-二级」格式（v4.9），真实值在 tag，脏检查按真实值比对
+        if (!categoryRawFromField().trim().equals(nz(book.category).trim())) {
             return true;
         }
         if (!b.etPublisher.getText().toString().trim().equals(nz(book.publisher).trim())) {
@@ -645,7 +646,10 @@ public class BookEditActivity extends BaseActivity {
         b.etAuthor.setText(nz(book.author));
         b.etTranslator.setText(nz(book.translator));
         b.etCountry.setText(nz(book.country));
+        // 分类：tag 存真实分类名（保存/脏检查用），文本框显示「一级-二级」格式
         b.etCategory.setText(nz(book.category));
+        b.etCategory.setTag(nz(book.category));
+        updateCategoryDisplay();
         b.etPublisher.setText(nz(book.publisher));
         // 版次/印次：存储格式 yyyy-mm|N，拆进三段输入框；旧格式原文放年框保留
         fillEditionFields(b.etPubYear, b.etPubMonth, b.etPubEdition, book.publishDate);
@@ -1231,9 +1235,13 @@ public class BookEditActivity extends BaseActivity {
                 if (result.getResultCode() != android.app.Activity.RESULT_OK || result.getData() == null) {
                     return;
                 }
-                // 选中名（可为空串 = 清除分类），直接回填编辑页的分类栏展示
-                b.etCategory.setText(result.getData().getStringExtra(
-                        com.bai.bookshelf.ui.location.CategoryActivity.EXTRA_SELECTED));
+                // 选中名（可为空串 = 清除分类）：tag 存真实值，文本框异步补层级前缀
+                String sel = result.getData().getStringExtra(
+                        com.bai.bookshelf.ui.location.CategoryActivity.EXTRA_SELECTED);
+                String raw = sel == null ? "" : sel;
+                b.etCategory.setTag(raw);
+                b.etCategory.setText(raw);
+                updateCategoryDisplay();
             });
 
     /**
@@ -1764,6 +1772,31 @@ public class BookEditActivity extends BaseActivity {
 
     // ======================= 分类选择（v4.8 起移入 CategoryActivity 二级页） =======================
 
+    /** 分类栏真实值：显示层是「一级-二级」格式，实际分类名存在 EditText 的 tag 里 */
+    private String categoryRawFromField() {
+        Object tag = b.etCategory.getTag();
+        return tag != null ? tag.toString() : b.etCategory.getText().toString();
+    }
+
+    /** 分类栏异步刷新为「一级-二级」展示（真实值不变；分类被改后重进本页也会更新） */
+    private void updateCategoryDisplay() {
+        final String raw = categoryRawFromField().trim();
+        if (raw.isEmpty() || b == null) {
+            return;
+        }
+        BookshelfApp app = BookshelfApp.get();
+        app.io(() -> {
+            String display = com.bai.bookshelf.util.CategoryPropagator
+                    .displayPath(raw, app.db().categoryDao().getAll());
+            app.ui(() -> {
+                // 仅当真实值未被用户再次改动时才刷新显示，避免覆盖新选择
+                if (b != null && raw.equals(categoryRawFromField().trim())) {
+                    b.etCategory.setText(display);
+                }
+            });
+        });
+    }
+
     /** 拍照：先创建输出文件，再经 FileProvider 调起相机（此契约无需 CAMERA 权限） */
     private void takePhoto() {
         File dir = new File(getFilesDir(), "covers");
@@ -1826,7 +1859,7 @@ public class BookEditActivity extends BaseActivity {
         book.author = b.etAuthor.getText().toString().trim();
         book.translator = b.etTranslator.getText().toString().trim();
         book.country = b.etCountry.getText().toString().trim();
-        book.category = b.etCategory.getText().toString().trim();
+        book.category = categoryRawFromField().trim();
         book.publisher = b.etPublisher.getText().toString().trim();
         book.publishDate = joinEdition(b.etPubYear, b.etPubMonth, b.etPubEdition); // 版次 yyyy-mm|N
         book.printing = joinEdition(b.etPrintYear, b.etPrintMonth, b.etPrintNo);   // 印次 yyyy-mm|N

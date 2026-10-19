@@ -57,6 +57,12 @@ public class ShelfFragment extends Fragment {
 
     /** 分类筛选下拉的树形条目（一级 + 其下二级，与 spinner 项一一对应，v4.8） */
     private final List<Category> categoryEntries = new ArrayList<>();
+
+    /** v4.9 两段式分类筛选：当前一级下选中的二级名（空 = 整组） */
+    private String catFilterSub = "";
+
+    /** 上一次分类下拉事件的位置（首个事件来自程序填充，不弹二级展开） */
+    private int lastCategorySpinnerPos = -1;
     private List<String> channelList = new ArrayList<>(); // 藏书里出现过的来源渠道（去重）
     private List<String> countryList = new ArrayList<>(); // 藏书里出现过的国家（去重，v3.5：留实例快照供视图重建后重放）
     private String pendingSearchQuery;                   // 外部带入的搜索词（视图未就绪时缓存）
@@ -264,7 +270,37 @@ public class ShelfFragment extends Fragment {
         b.spLocation.setOnItemSelectedListener(filterListener);
         b.spTag.setOnItemSelectedListener(filterListener);
         b.spChannel.setOnItemSelectedListener(filterListener);
-        b.spCategory.setOnItemSelectedListener(filterListener);
+        // 分类下拉（v4.9）：在通用筛选行为之上，选中一级后弹出该组二级展开选择
+        b.spCategory.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                if (parent.getAdapter() instanceof HighlightAdapter) {
+                    ((HighlightAdapter<?>) parent.getAdapter()).setHighlight(position);
+                }
+                recordSelection(parent, position);
+                // 首个事件来自程序填充（适配器刚装好），不当作用户选择
+                boolean userDriven = lastCategorySpinnerPos >= 0;
+                lastCategorySpinnerPos = position;
+                if (!spinnerReady) {
+                    return;
+                }
+                if (position > 0 && userDriven
+                        && position - 1 < categoryEntries.size()) {
+                    catFilterSub = ""; // 换了一级，先回到整组
+                    applyFilters();
+                    maybeShowSubCategoryDialog(categoryEntries.get(position - 1));
+                } else {
+                    if (position == 0) {
+                        catFilterSub = "";
+                    }
+                    applyFilters();
+                }
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+            }
+        });
         b.spCountry.setOnItemSelectedListener(filterListener);
         b.spSort.setOnItemSelectedListener(filterListener);
 
@@ -672,40 +708,59 @@ public class ShelfFragment extends Fragment {
     }
 
     /**
-     * 分类筛选下拉（v4.8 两级）：首项「分类」= 不限；
-     * 其余按「一级 → 其下二级（缩进 └）」树形排列，顺序与分类管理页一致。
+     * 分类筛选下拉（v4.9 两段式）：首项「分类」= 不限，其余只列一级栏目；
+     * 选中一级后弹窗展开该组二级（见 maybeShowSubCategoryDialog）。
      */
     private void fillCategorySpinner() {
         categoryEntries.clear();
         List<String> names = new ArrayList<>();
         names.add("分类");
-        // 按一级分组其下二级（childrenMap 保持 categoryList 的 sort 顺序）
-        Map<Long, List<Category>> childrenMap = new HashMap<>();
-        for (Category c : categoryList) {
-            if (c.parentId != null) {
-                List<Category> list = childrenMap.get(c.parentId);
-                if (list == null) {
-                    list = new ArrayList<>();
-                    childrenMap.put(c.parentId, list);
-                }
-                list.add(c);
-            }
-        }
         for (Category top : categoryList) {
-            if (top.parentId != null) {
-                continue; // 二级在一级展开时插入
-            }
-            categoryEntries.add(top);
-            names.add(top.name);
-            List<Category> children = childrenMap.get(top.id);
-            if (children != null) {
-                for (Category ch : children) {
-                    categoryEntries.add(ch);
-                    names.add("└ " + ch.name);
-                }
+            if (top.parentId == null) {
+                categoryEntries.add(top);
+                names.add(top.name);
             }
         }
         fillSpinnerIfChanged(b.spCategory, names, categorySpinnerCache);
+    }
+
+    /**
+     * 选中一级后展开该组二级（v4.9）：首项「全部一级」（含所有二级），点二级只筛该二级；
+     * 取消 = 按一级全组筛选。无二级的老平铺分类不弹窗。
+     */
+    private void maybeShowSubCategoryDialog(Category top) {
+        List<String> children = new ArrayList<>();
+        for (Category c : categoryList) {
+            if (c.parentId != null && c.parentId == top.id) {
+                children.add(c.name);
+            }
+        }
+        if (children.isEmpty()) {
+            catFilterSub = "";
+            return;
+        }
+        String[] items = new String[children.size() + 1];
+        items[0] = "全部「" + top.name + "」（含所有二级）";
+        for (int i = 0; i < children.size(); i++) {
+            items[i + 1] = children.get(i);
+        }
+        int checked = catFilterSub.isEmpty() ? 0 : children.indexOf(catFilterSub) + 1;
+        new AlertDialog.Builder(requireContext())
+                .setTitle("「" + top.name + "」下的分类")
+                .setSingleChoiceItems(items, checked, (d, w) -> {
+                    catFilterSub = w == 0 ? "" : children.get(w - 1);
+                    if (!catFilterSub.isEmpty()) {
+                        Toast.makeText(requireContext(),
+                                "分类：" + top.name + "-" + catFilterSub, Toast.LENGTH_SHORT).show();
+                    }
+                    applyFilters();
+                    d.dismiss();
+                })
+                .setNegativeButton("按一级筛选", (d, w) -> {
+                    catFilterSub = "";
+                    applyFilters();
+                })
+                .show();
     }
 
     /** 国家/地区筛选下拉：首项「国家」= 不限，其余为藏书中出现过的国家/地区 */
@@ -783,11 +838,15 @@ public class ShelfFragment extends Fragment {
             if (tagFilter > 0 && !hasTag(book, tagList.get(tagFilter - 1).name)) {
                 continue;
             }
-            // 分类（v4.8 两级：选一级 = 该一级名或其任一二级名；选二级/老平铺分类 = 等值匹配）
+            // 分类（v4.9 两段式）：catFilter 选中一级，catFilterSub 为空 = 全组，
+            // 非空 = 只看该二级（同时保留直接挂在一级名上的老数据）
             if (catFilter > 0 && catFilter - 1 < categoryEntries.size()) {
                 Category sel = categoryEntries.get(catFilter - 1);
-                if (sel.parentId == null) {
-                    boolean hit = book.category.equals(sel.name);
+                boolean hit;
+                if (!catFilterSub.isEmpty()) {
+                    hit = book.category.equals(catFilterSub) || book.category.equals(sel.name);
+                } else {
+                    hit = book.category.equals(sel.name);
                     if (!hit) {
                         for (Category c : categoryList) {
                             if (c.parentId != null && c.parentId == sel.id
@@ -797,10 +856,8 @@ public class ShelfFragment extends Fragment {
                             }
                         }
                     }
-                    if (!hit) {
-                        continue;
-                    }
-                } else if (!book.category.equals(sel.name)) {
+                }
+                if (!hit) {
                     continue;
                 }
             }
