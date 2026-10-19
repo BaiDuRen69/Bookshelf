@@ -90,6 +90,23 @@
                     android:layout_weight="1" />
             </LinearLayout>
 
+            <!-- 分类二级行内展开（v4.10）：选一级后在此横滑选择二级，不用弹窗 -->
+            <HorizontalScrollView
+                android:id="@+id/scroll_category_chips"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:scrollbars="none"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:id="@+id/ll_category_chips"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:paddingTop="2dp"
+                    android:paddingBottom="2dp" />
+            </HorizontalScrollView>
+
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -114,6 +131,23 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1" />
             </LinearLayout>
+
+            <!-- 来源二级行内展开（v4.10）：选来源大类后在此横滑选择二级渠道 -->
+            <HorizontalScrollView
+                android:id="@+id/scroll_channel_chips"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:scrollbars="none"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:id="@+id/ll_channel_chips"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:paddingTop="2dp"
+                    android:paddingBottom="2dp" />
+            </HorizontalScrollView>
 
             <LinearLayout
                 android:layout_width="match_parent"
