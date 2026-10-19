@@ -63,7 +63,7 @@ public class BookshelfApp extends Application {
                         AppDatabase.MIGRATION_5_6, AppDatabase.MIGRATION_6_7,
                         AppDatabase.MIGRATION_7_8, AppDatabase.MIGRATION_8_9,
                         AppDatabase.MIGRATION_9_10, AppDatabase.MIGRATION_10_11,
-                        AppDatabase.MIGRATION_11_12) // 保数据迁移
+                        AppDatabase.MIGRATION_11_12, AppDatabase.MIGRATION_12_13) // 保数据迁移
                 // v4.0（评审 #1）：兜底策略收紧。fallbackToDestructiveMigration 会在
                 // 迁移路径覆盖不到时（典型：用旧包覆盖安装新版造成降级）直接删表重建、
                 // 藏书数据静默全失——对个人藏书管理 App 不可接受。改为仅在「降级」时
@@ -104,9 +104,12 @@ public class BookshelfApp extends Application {
         mainHandler.post(r);
     }
 
-    /** 在后台维护线程写入默认数据：一个默认存放地点 + 各来源大类的预置二级选项 + 从存量书籍收编各字典库 */
+    /** 在后台维护线程写入默认数据：默认分类树 + 一个默认存放地点 + 各来源大类的预置二级选项 + 从存量书籍收编各字典库 */
     private void ensureDefaultData() {
         bg(() -> {
+            // v4.8：先补种默认二级分类树（幂等，已存在的名字跳过；升级用户与
+            // 旧 zip 恢复后的老平铺分类会保留为一级），再走既有的字典收编逻辑
+            com.bai.bookshelf.util.CategorySeeder.seedIfMissing(db);
             if (db.locationDao().count() == 0) {
                 Location loc = new Location();
                 loc.name = "默认书架";

@@ -44,10 +44,13 @@ import com.bai.bookshelf.data.entity.Tag;
  * v9：book_copies 加 note（逐本备注），新增 countries 国家/地区库表。
  * v10：borrow_records 加 copyIndex（借出挂到具体某一本），新增 note_images 备注图片表。
  * v11：note_images 加 ownerKey 列，支持书级/逐本/借出记录三种备注图片；存量数据回填为 book:{bookId}。
+ * v12：新增出版社库表 publishers。
+ * v13：categories 加 parentId 列实现二级分类（null=一级）；默认分类树由
+ *      CategorySeeder.seedIfMissing 在每次启动时幂等补种（兼容旧备份恢复）。
  */
 @Database(entities = {Book.class, Location.class, BorrowRecord.class, SourceChannel.class, Tag.class,
         Category.class, Borrower.class, BookCopy.class, Country.class, NoteImage.class, Publisher.class},
-        version = 12, exportSchema = true) // v4.0：导出 schema JSON 供迁移比对与测试
+        version = 13, exportSchema = true) // v4.0：导出 schema JSON 供迁移比对与测试
 public abstract class AppDatabase extends RoomDatabase {
 
     public abstract BookDao bookDao();
@@ -262,6 +265,18 @@ public abstract class AppDatabase extends RoomDatabase {
                     + "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, "
                     + "`name` TEXT, "
                     + "`sort` INTEGER NOT NULL)");
+        }
+    };
+
+    /**
+     * v12 → v13：categories 加 parentId 列（可空 INTEGER，null = 一级分类）。
+     * 默认分类树不在此播种——Migration 里不便复用 DAO，统一由
+     * CategorySeeder.seedIfMissing 在应用启动（ensureDefaultData）与备份恢复后幂等补种。
+     */
+    public static final Migration MIGRATION_12_13 = new Migration(12, 13) {
+        @Override
+        public void migrate(@NonNull SupportSQLiteDatabase database) {
+            database.execSQL("ALTER TABLE categories ADD COLUMN parentId INTEGER");
         }
     };
 }

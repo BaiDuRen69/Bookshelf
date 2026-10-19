@@ -1225,6 +1225,17 @@ public class BookEditActivity extends BaseActivity {
                 }
             });
 
+    /** v4.8：分类选择二级页（CategoryActivity）返回后回填分类栏 */
+    private final ActivityResultLauncher<Intent> categoryPickerLauncher =
+            registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
+                if (result.getResultCode() != android.app.Activity.RESULT_OK || result.getData() == null) {
+                    return;
+                }
+                // 选中名（可为空串 = 清除分类），直接回填编辑页的分类栏展示
+                b.etCategory.setText(result.getData().getStringExtra(
+                        com.bai.bookshelf.ui.location.CategoryActivity.EXTRA_SELECTED));
+            });
+
     /**
      * 按数量重建副本栏目（第 2 本起，共 quantity-1 个）。
      * prefill 为 null 时优先保留当前栏目里已填的内容（数量微调不丢输入），
@@ -1497,9 +1508,16 @@ public class BookEditActivity extends BaseActivity {
             startActivity(intent);
         });
 
-        // 标签：点击弹微信式选择器；分类：点击弹单选选择器；出版社/国家：标签式单选
+        // 标签：点击弹微信式选择器；分类：进入二级分类页（选择与管理同页，v4.8）
         b.etTags.setOnClickListener(v -> showTagPicker());
-        b.etCategory.setOnClickListener(v -> showCategoryPicker());
+        b.etCategory.setOnClickListener(v -> {
+            android.content.Intent intent = new android.content.Intent(this,
+                    com.bai.bookshelf.ui.location.CategoryActivity.class);
+            intent.putExtra("picker", true);
+            intent.putExtra(com.bai.bookshelf.ui.location.CategoryActivity.EXTRA_SELECTED,
+                    b.etCategory.getText().toString().trim());
+            categoryPickerLauncher.launch(intent);
+        });
         b.etCountry.setOnClickListener(v -> showCountryPicker()); // 国家/地区：标签式单选
         b.etPublisher.setFocusable(false);
         b.etPublisher.setClickable(true);
@@ -1744,201 +1762,7 @@ public class BookEditActivity extends BaseActivity {
                 .show();
     }
 
-    // ======================= 分类选择器（单选，结构同标签选择器） =======================
-
-    /** 从分类库加载全部分类并弹出选择对话框 */
-    private void showCategoryPicker() {
-        BookshelfApp app = BookshelfApp.get();
-        app.io(() -> {
-            java.util.List<com.bai.bookshelf.data.entity.Category> all = app.db().categoryDao().getAll();
-            app.ui(() -> showCategoryDialog(all));
-        });
-    }
-
-    private void showCategoryDialog(java.util.List<com.bai.bookshelf.data.entity.Category> all) {
-        com.bai.bookshelf.databinding.DialogTagsBinding db =
-                com.bai.bookshelf.databinding.DialogTagsBinding.inflate(getLayoutInflater());
-
-        // 单选：当前选中的分类名（可为空串表示未选）
-        String[] selected = {b.etCategory.getText().toString().trim()};
-        // 所有分类 Chip 的引用，单选时用于互斥取消
-        java.util.List<com.google.android.material.chip.Chip> chips = new ArrayList<>();
-
-        for (com.bai.bookshelf.data.entity.Category cat : all) {
-            com.google.android.material.chip.Chip chip = buildCategoryChip(cat, selected, chips);
-            chips.add(chip);
-            db.chipGroup.addView(chip);
-        }
-        // 末尾的「＋ 新建分类」Chip
-        com.google.android.material.chip.Chip addChip = new com.google.android.material.chip.Chip(this);
-        addChip.setText("＋ 新建分类");
-        addChip.setOnClickListener(v -> showNewCategoryInput(db, selected, chips));
-        db.chipGroup.addView(addChip);
-
-        new android.app.AlertDialog.Builder(this)
-                .setTitle("选择分类（单选）")
-                .setView(db.getRoot())
-                .setPositiveButton("完成", (d, w) -> b.etCategory.setText(selected[0]))
-                .setNegativeButton(R.string.action_cancel, null)
-                .show();
-    }
-
-    /**
-     * 生成一个分类 Chip（单选互斥）：
-     * - 点击：选中该分类并取消其他 Chip
-     * - 再次点击已选中的：取消选择（分类清空）
-     * - 长按：弹出「重命名 / 删除」操作（直接改分类库并联动书籍）
-     */
-    private com.google.android.material.chip.Chip buildCategoryChip(
-            com.bai.bookshelf.data.entity.Category cat, String[] selected,
-            java.util.List<com.google.android.material.chip.Chip> chips) {
-        com.google.android.material.chip.Chip chip = new com.google.android.material.chip.Chip(this);
-        chip.setText(cat.name);
-        chip.setCheckable(true);
-        chip.setChecked(cat.name.equals(selected[0]));
-        chip.setOnClickListener(v -> {
-            if (cat.name.equals(selected[0])) {
-                // 再次点击已选项 → 取消选择
-                selected[0] = "";
-                chip.setChecked(false);
-            } else {
-                selected[0] = cat.name;
-                for (com.google.android.material.chip.Chip other : chips) {
-                    other.setChecked(other == chip);
-                }
-            }
-        });
-        chip.setOnLongClickListener(v -> {
-            showCategoryOptions(cat, chip, selected);
-            return true;
-        });
-        return chip;
-    }
-
-    /** 分类长按菜单：重命名 / 删除 */
-    private void showCategoryOptions(com.bai.bookshelf.data.entity.Category cat,
-                                     com.google.android.material.chip.Chip chip,
-                                     String[] selected) {
-        String[] options = {"重命名", "删除"};
-        new android.app.AlertDialog.Builder(this)
-                .setTitle("分类「" + cat.name + "」")
-                .setItems(options, (d, which) -> {
-                    if (which == 0) {
-                        showRenameCategoryInput(cat, chip, selected);
-                    } else {
-                        confirmDeleteCategory(cat, chip, selected);
-                    }
-                })
-                .show();
-    }
-
-    /** 重命名分类：改库 + 联动所有书籍 + 改 Chip 文本 */
-    private void showRenameCategoryInput(com.bai.bookshelf.data.entity.Category cat,
-                                         com.google.android.material.chip.Chip chip,
-                                         String[] selected) {
-        com.bai.bookshelf.databinding.DialogInputBinding ib =
-                com.bai.bookshelf.databinding.DialogInputBinding.inflate(getLayoutInflater());
-        ib.edit.setText(cat.name);
-        ib.edit.setSelection(cat.name.length());
-        new android.app.AlertDialog.Builder(this)
-                .setTitle("重命名分类")
-                .setView(ib.getRoot())
-                .setPositiveButton("确定", (d, w) -> {
-                    String newName = ib.edit.getText().toString().trim()
-                            .replace(",", "").replace("，", "");
-                    if (newName.isEmpty() || newName.equals(cat.name)) {
-                        return;
-                    }
-                    String oldName = cat.name;
-                    BookshelfApp app = BookshelfApp.get();
-                    app.io(() -> {
-                        cat.name = newName;
-                        app.db().categoryDao().update(cat);
-                        // 联动：所有书籍上的旧分类名同步换新
-                        com.bai.bookshelf.util.CategoryPropagator.renameCategoryEverywhere(
-                                app.db(), oldName, newName);
-                        app.ui(() -> {
-                            chip.setText(newName);
-                            if (selected[0].equals(oldName)) {
-                                selected[0] = newName;
-                            }
-                            Toast.makeText(this, "已重命名为「" + newName + "」", Toast.LENGTH_SHORT).show();
-                        });
-                    });
-                })
-                .setNegativeButton(R.string.action_cancel, null)
-                .show();
-    }
-
-    /** 删除分类：确认后从库中删除并移除 Chip，书籍上的该分类清空 */
-    private void confirmDeleteCategory(com.bai.bookshelf.data.entity.Category cat,
-                                       com.google.android.material.chip.Chip chip,
-                                       String[] selected) {
-        new android.app.AlertDialog.Builder(this)
-                .setTitle("删除分类")
-                .setMessage("从分类库删除「" + cat.name + "」？所有书籍上的这个分类也会一并清空。")
-                .setPositiveButton("删除", (d, w) -> {
-                    BookshelfApp app = BookshelfApp.get();
-                    app.io(() -> {
-                        app.db().categoryDao().deleteById(cat.id);
-                        // 联动：清空所有书籍上的该分类
-                        com.bai.bookshelf.util.CategoryPropagator.removeCategoryEverywhere(
-                                app.db(), cat.name);
-                        app.ui(() -> {
-                            if (selected[0].equals(cat.name)) {
-                                selected[0] = "";
-                            }
-                            android.view.ViewGroup parent = (android.view.ViewGroup) chip.getParent();
-                            if (parent != null) {
-                                parent.removeView(chip);
-                            }
-                        });
-                    });
-                })
-                .setNegativeButton(R.string.action_cancel, null)
-                .show();
-    }
-
-    /** 新建分类：入库 → 生成一个默认选中的 Chip 插到「＋」之前 */
-    private void showNewCategoryInput(com.bai.bookshelf.databinding.DialogTagsBinding db,
-                                      String[] selected,
-                                      java.util.List<com.google.android.material.chip.Chip> chips) {
-        com.bai.bookshelf.databinding.DialogInputBinding ib =
-                com.bai.bookshelf.databinding.DialogInputBinding.inflate(getLayoutInflater());
-        ib.edit.setHint("分类名（如 小说 / 计算机）");
-        new android.app.AlertDialog.Builder(this)
-                .setTitle("新建分类")
-                .setView(ib.getRoot())
-                .setPositiveButton("创建", (d, w) -> {
-                    String name = ib.edit.getText().toString().trim()
-                            .replace(",", "").replace("，", "");
-                    if (name.isEmpty()) {
-                        return;
-                    }
-                    BookshelfApp app = BookshelfApp.get();
-                    app.io(() -> {
-                        com.bai.bookshelf.data.entity.Category cat =
-                                new com.bai.bookshelf.data.entity.Category();
-                        cat.name = name;
-                        cat.sort = (int) (System.currentTimeMillis() % Integer.MAX_VALUE);
-                        long id = app.db().categoryDao().insert(cat);
-                        cat.id = id; // 回写主键，长按重命名/删除要用
-                        app.ui(() -> {
-                            // 新分类默认选中（单选互斥）
-                            selected[0] = name;
-                            com.google.android.material.chip.Chip chip =
-                                    buildCategoryChip(cat, selected, chips);
-                            chips.add(chip);
-                            for (com.google.android.material.chip.Chip other : chips) {
-                                other.setChecked(other == chip);
-                            }
-                            db.chipGroup.addView(chip, db.chipGroup.getChildCount() - 1);
-                        });
-                    });
-                })
-                .setNegativeButton(R.string.action_cancel, null)
-                .show();
-    }
+    // ======================= 分类选择（v4.8 起移入 CategoryActivity 二级页） =======================
 
     /** 拍照：先创建输出文件，再经 FileProvider 调起相机（此契约无需 CAMERA 权限） */
     private void takePhoto() {

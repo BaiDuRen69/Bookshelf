@@ -33,6 +33,7 @@
         <activity android:name=".ui.detail.BorrowHistoryActivity" android:exported="false" />
         <activity android:name=".ui.location.LocationActivity" android:exported="false" />
         <activity android:name=".ui.location.SourceChannelActivity" android:exported="false" />
+        <activity android:name=".ui.location.CategoryActivity" android:exported="false" />
         <activity android:name=".ui.location.TagActivity" android:exported="false" />
         <activity android:name=".ui.stats.CountryActivity" android:exported="false" />
         <activity android:name=".ui.stats.PublisherActivity" android:exported="false" />

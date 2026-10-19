@@ -147,6 +147,8 @@ public final class ZipRestore {
             for (Category x : readList(root, "categories", new TypeToken<List<Category>>() {})) {
                 db.categoryDao().insert(x);
             }
+            // v4.8：旧备份里没有二级分类树（或被裁剪），恢复后幂等补种缺失节点
+            CategorySeeder.seedIfMissing(db);
             for (Country x : readList(root, "countries", new TypeToken<List<Country>>() {})) {
                 db.countryDao().insert(x);
             }

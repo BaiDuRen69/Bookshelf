@@ -54,6 +54,9 @@ public class ShelfFragment extends Fragment {
     private List<Location> locations = new ArrayList<>();
     private List<com.bai.bookshelf.data.entity.Tag> tagList = new ArrayList<>();
     private List<Category> categoryList = new ArrayList<>();
+
+    /** 分类筛选下拉的树形条目（一级 + 其下二级，与 spinner 项一一对应，v4.8） */
+    private final List<Category> categoryEntries = new ArrayList<>();
     private List<String> channelList = new ArrayList<>(); // 藏书里出现过的来源渠道（去重）
     private List<String> countryList = new ArrayList<>(); // 藏书里出现过的国家（去重，v3.5：留实例快照供视图重建后重放）
     private String pendingSearchQuery;                   // 外部带入的搜索词（视图未就绪时缓存）
@@ -668,12 +671,39 @@ public class ShelfFragment extends Fragment {
         fillSpinnerIfChanged(b.spChannel, names, channelSpinnerCache);
     }
 
-    /** 分类筛选下拉：首项「分类」= 不限，其余为分类库中的每个分类 */
+    /**
+     * 分类筛选下拉（v4.8 两级）：首项「分类」= 不限；
+     * 其余按「一级 → 其下二级（缩进 └）」树形排列，顺序与分类管理页一致。
+     */
     private void fillCategorySpinner() {
+        categoryEntries.clear();
         List<String> names = new ArrayList<>();
         names.add("分类");
-        for (Category cat : categoryList) {
-            names.add(cat.name);
+        // 按一级分组其下二级（childrenMap 保持 categoryList 的 sort 顺序）
+        Map<Long, List<Category>> childrenMap = new HashMap<>();
+        for (Category c : categoryList) {
+            if (c.parentId != null) {
+                List<Category> list = childrenMap.get(c.parentId);
+                if (list == null) {
+                    list = new ArrayList<>();
+                    childrenMap.put(c.parentId, list);
+                }
+                list.add(c);
+            }
+        }
+        for (Category top : categoryList) {
+            if (top.parentId != null) {
+                continue; // 二级在一级展开时插入
+            }
+            categoryEntries.add(top);
+            names.add(top.name);
+            List<Category> children = childrenMap.get(top.id);
+            if (children != null) {
+                for (Category ch : children) {
+                    categoryEntries.add(ch);
+                    names.add("└ " + ch.name);
+                }
+            }
         }
         fillSpinnerIfChanged(b.spCategory, names, categorySpinnerCache);
     }
@@ -753,9 +783,26 @@ public class ShelfFragment extends Fragment {
             if (tagFilter > 0 && !hasTag(book, tagList.get(tagFilter - 1).name)) {
                 continue;
             }
-            // 分类（单值字段，等值匹配）
-            if (catFilter > 0 && !book.category.equals(categoryList.get(catFilter - 1).name)) {
-                continue;
+            // 分类（v4.8 两级：选一级 = 该一级名或其任一二级名；选二级/老平铺分类 = 等值匹配）
+            if (catFilter > 0 && catFilter - 1 < categoryEntries.size()) {
+                Category sel = categoryEntries.get(catFilter - 1);
+                if (sel.parentId == null) {
+                    boolean hit = book.category.equals(sel.name);
+                    if (!hit) {
+                        for (Category c : categoryList) {
+                            if (c.parentId != null && c.parentId == sel.id
+                                    && c.name.equals(book.category)) {
+                                hit = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (!hit) {
+                        continue;
+                    }
+                } else if (!book.category.equals(sel.name)) {
+                    continue;
+                }
             }
             // 国家/地区（等值匹配）
             if (!countryFilter.isEmpty() && !countryFilter.equals(
