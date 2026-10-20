@@ -140,15 +140,21 @@ public class ApiPrefs {
         return sp.getString(KEY_USAGE_SECRET_KEY, "");
     }
 
-    public void save(String baseUrl, int authType, String secretId, String secretKey,
-                     String appcode, String instanceId,
-                     String usageSecretId, String usageSecretKey) {
+    /** 保存 ISBN 数据源配置（API 配置页，v4.15 起与用量查询分开保存） */
+    public void saveApiConfig(String baseUrl, int authType, String secretId,
+                              String secretKey, String appcode) {
         sp.edit()
                 .putString(KEY_BASE_URL, normalizeBaseUrl(baseUrl))
                 .putInt(KEY_AUTH_TYPE, authType)
                 .putString(KEY_SECRET_ID, secretId == null ? "" : secretId.trim())
                 .putString(KEY_SECRET_KEY, secretKey == null ? "" : secretKey.trim())
                 .putString(KEY_APPCODE, appcode == null ? "" : appcode.trim())
+                .apply();
+    }
+
+    /** 保存用量查询配置（用量查询页：实例 ID + 腾讯云账号密钥，v4.15） */
+    public void saveUsageConfig(String instanceId, String usageSecretId, String usageSecretKey) {
+        sp.edit()
                 .putString(KEY_INSTANCE_ID, instanceId == null ? "" : instanceId.trim())
                 .putString(KEY_USAGE_SECRET_ID, usageSecretId == null ? "" : usageSecretId.trim())
                 .putString(KEY_USAGE_SECRET_KEY, usageSecretKey == null ? "" : usageSecretKey.trim())

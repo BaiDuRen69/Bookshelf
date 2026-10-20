@@ -41,6 +41,9 @@
         <activity android:name=".ui.stats.ReadingStatsActivity" android:exported="false" />
         <activity android:name=".ui.mine.SplitActivity" android:exported="false" />
         <activity android:name=".ui.mine.AboutActivity" android:exported="false" />
+        <activity android:name=".ui.mine.ApiSettingsActivity" android:exported="false" />
+        <activity android:name=".ui.mine.ApiConfigActivity" android:exported="false" />
+        <activity android:name=".ui.mine.UsageQueryActivity" android:exported="false" />
 
         <!-- 导出 Excel 后通过系统分享发送文件 -->
         <provider

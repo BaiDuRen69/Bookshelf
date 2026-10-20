@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 用量查询页（v4.15）：云市场已购 ISBN 服务的调用量查询，凭证为腾讯云账号密钥 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="?attr/actionBarSize"
+        android:background="?attr/colorPrimary"
+        app:navigationIcon="@drawable/ic_back"
+        app:title="用量查询"
+        app:titleTextColor="@color/white" />
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true"
+        android:scrollbars="vertical">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="20dp">
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/til_instance_id"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="实例 ID（云市场已购资源列表中查看）">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/et_instance_id"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <!-- 用量查询用腾讯云账号级 API 密钥（访问管理），与网关密钥不是一套 -->
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/til_usage_secret_id"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:hint="账号 SecretId（访问管理 → API 密钥管理，非云市场网关密钥）">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/et_usage_secret_id"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/til_usage_secret_key"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:hint="账号 SecretKey（仅用于查询用量）">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/et_usage_secret_key"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_save"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="保存" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_query_usage"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="查询使用量" />
+
+            <TextView
+                android:id="@+id/tv_usage_result"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:lineSpacingMultiplier="1.35"
+                android:textColor="@color/text_main"
+                android:textSize="13sp"
+                android:visibility="gone" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:lineSpacingMultiplier="1.4"
+                android:text="用量查询用的是「腾讯云账号密钥」：控制台右上角头像 → 访问管理 → 访问密钥 → API 密钥管理 中查看/新建；没有可新建子账号密钥并只授权云市场只读权限。\n\n实例 ID：云市场 → 已购资源 列表中的实例 ID。\n\n这套账号密钥与「API 配置」里扫码查书用的云市场网关密钥不是一套，互相不能混用。"
+                android:textSize="12sp"
+                android:textColor="@color/text_sub" />
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>

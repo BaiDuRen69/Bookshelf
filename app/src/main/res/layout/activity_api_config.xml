@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- API 配置页（v4.15）：ISBN 数据源地址与鉴权凭证，从 API 设置二级页进入 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="?attr/actionBarSize"
+        android:background="?attr/colorPrimary"
+        app:navigationIcon="@drawable/ic_back"
+        app:title="API 配置"
+        app:titleTextColor="@color/white" />
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true"
+        android:scrollbars="vertical">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="20dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="鉴权方式"
+                android:textSize="13sp" />
+
+            <Spinner
+                android:id="@+id/sp_auth_type"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="44dp" />
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/til_base_url"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:hint="请求地址">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/et_base_url"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="textUri" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <!-- 腾讯云市场签名方式：SecretId + SecretKey（网关密钥） -->
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/til_secret_id"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:hint="SecretId（云市场已购服务中查看）">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/et_secret_id"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/til_secret_key"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:hint="SecretKey">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/et_secret_key"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <!-- APPCODE 方式 -->
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/til_appcode"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:hint="AppCode">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/et_appcode"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_save"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="保存" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:lineSpacingMultiplier="1.4"
+                android:text="腾讯云市场（聚美智数 34136）填法：\n地址：https://ap-guangzhou.cloudmarket-apigw.com/service-ed62t9xo/isbn/query\n密钥：腾讯云控制台 → 云市场 → 已购产品与服务 → 管理 中查看 SecretId/SecretKey（网关密钥，仅用于扫码查书）。\n\n这里的网关密钥与「用量查询」所需的腾讯云账号密钥不是一套，用量查询请前往「用量查询」页填写。"
+                android:textSize="12sp"
+                android:textColor="@color/text_sub" />
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>

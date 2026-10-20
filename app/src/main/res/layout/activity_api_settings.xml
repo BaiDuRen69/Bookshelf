@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- API 设置二级页（v4.15 从弹窗改为独立页面）：分入口进入 API 配置与用量查询 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="?attr/actionBarSize"
+        android:background="?attr/colorPrimary"
+        app:navigationIcon="@drawable/ic_back"
+        app:title="API 设置"
+        app:titleTextColor="@color/white" />
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="12dp">
+
+            <!-- API 配置：ISBN 数据源地址与鉴权凭证 -->
+            <LinearLayout
+                android:id="@+id/row_api_config"
+                style="@style/MineRow">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        style="@style/MineRowTitle"
+                        android:text="API 配置" />
+
+                    <TextView
+                        style="@style/MineRowSubtitle"
+                        android:text="ISBN 数据源地址与鉴权凭证" />
+                </LinearLayout>
+
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_marginStart="8dp"
+                    android:src="@drawable/ic_arrow_right"
+                    app:tint="@color/text_sub" />
+            </LinearLayout>
+
+            <!-- 用量查询：云市场已购服务的调用量查询 -->
+            <LinearLayout
+                android:id="@+id/row_usage_query"
+                style="@style/MineRow">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        style="@style/MineRowTitle"
+                        android:text="用量查询" />
+
+                    <TextView
+                        style="@style/MineRowSubtitle"
+                        android:text="云市场已购 ISBN 服务的调用量查询" />
+                </LinearLayout>
+
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_marginStart="8dp"
+                    android:src="@drawable/ic_arrow_right"
+                    app:tint="@color/text_sub" />
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:lineSpacingMultiplier="1.4"
+                android:text="两处使用不同的密钥：扫码查书用的是「云市场网关密钥」，用量查询用的是「腾讯云账号密钥」（访问管理 → API 密钥管理），详细说明见各自页面。"
+                android:textColor="@color/text_sub"
+                android:textSize="12sp" />
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>

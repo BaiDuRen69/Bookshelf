@@ -28,7 +28,6 @@ import com.bai.bookshelf.api.ApiPrefs;
 import com.bai.bookshelf.app.BookshelfApp;
 import com.bai.bookshelf.data.entity.Book;
 import com.bai.bookshelf.data.entity.Location;
-import com.bai.bookshelf.databinding.DialogApiBinding;
 import com.bai.bookshelf.databinding.DialogRewardQrBinding;
 import com.bai.bookshelf.databinding.DialogSupportBinding;
 import com.bai.bookshelf.databinding.FragmentMineBinding;
@@ -148,7 +147,9 @@ public class MineFragment extends Fragment {
             Toast.makeText(requireContext(), "正在检查更新…", Toast.LENGTH_SHORT).show();
             com.bai.bookshelf.util.UpdateChecker.checkManually(requireActivity());
         });
-        b.rowApi.setOnClickListener(v -> showApiDialog());
+        // v4.15：API 设置从弹窗改为二级页（API 配置 / 用量查询 分开）
+        b.rowApi.setOnClickListener(v -> startActivity(new Intent(requireContext(),
+                ApiSettingsActivity.class)));
         b.rowSplit.setOnClickListener(v -> startActivity(new Intent(requireContext(),
                 com.bai.bookshelf.ui.mine.SplitActivity.class)));
         b.rowAbout.setOnClickListener(v ->
@@ -156,6 +157,7 @@ public class MineFragment extends Fragment {
         b.rowTheme.setOnClickListener(v -> showThemePicker());
         b.rowFeedbackEmail.setOnClickListener(v -> sendFeedbackEmail());
         b.rowFeedbackGithub.setOnClickListener(v -> openGitHubIssues());
+        b.rowGithub.setOnClickListener(v -> openGitHubRepo());
         b.rowReward.setOnClickListener(v -> showSupportDialog());
         refreshUpdateToggleRow();
         refreshStateRows();
@@ -410,123 +412,6 @@ public class MineFragment extends Fragment {
         });
     }
 
-    /** API 设置弹窗：配置 ISBN 数据源（鉴权方式不同，显示的凭证栏位不同） */
-    private void showApiDialog() {
-        ApiPrefs prefs = new ApiPrefs(requireContext());
-        DialogApiBinding db = DialogApiBinding.inflate(getLayoutInflater());
-
-        // 回显已保存的配置
-        db.etBaseUrl.setText(prefs.getBaseUrl());
-        db.etSecretId.setText(prefs.getSecretId());
-        db.etSecretKey.setText(prefs.getSecretKey());
-        db.etAppcode.setText(prefs.getAppcode());
-        db.etInstanceId.setText(prefs.getInstanceId());
-        db.etUsageSecretId.setText(prefs.getUsageSecretId());
-        db.etUsageSecretKey.setText(prefs.getUsageSecretKey());
-
-        // 鉴权方式下拉（位置与 ApiPrefs.AUTH_* 常量一致）
-        db.spAuthType.setAdapter(android.widget.ArrayAdapter.createFromResource(requireContext(),
-                com.bai.bookshelf.R.array.auth_type_entries,
-                android.R.layout.simple_spinner_dropdown_item));
-        db.spAuthType.setSelection(prefs.getAuthType());
-
-        // 按鉴权方式显示对应的凭证栏位
-        android.widget.AdapterView.OnItemSelectedListener toggle = new android.widget.AdapterView.OnItemSelectedListener() {
-            @Override
-            public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
-                boolean tencent = position == ApiPrefs.AUTH_TENCENT;
-                boolean appcode = position == ApiPrefs.AUTH_APPCODE;
-                db.tilSecretId.setVisibility(tencent ? View.VISIBLE : View.GONE);
-                db.tilSecretKey.setVisibility(tencent ? View.VISIBLE : View.GONE);
-                db.tilInstanceId.setVisibility(tencent ? View.VISIBLE : View.GONE);
-                db.tilUsageSecretId.setVisibility(tencent ? View.VISIBLE : View.GONE);
-                db.tilUsageSecretKey.setVisibility(tencent ? View.VISIBLE : View.GONE);
-                db.btnQueryUsage.setVisibility(tencent ? View.VISIBLE : View.GONE);
-                if (!tencent) {
-                    db.tvUsageResult.setVisibility(View.GONE);
-                }
-                db.tilAppcode.setVisibility(appcode ? View.VISIBLE : View.GONE);
-            }
-
-            @Override
-            public void onNothingSelected(android.widget.AdapterView<?> parent) {
-            }
-        };
-        db.spAuthType.setOnItemSelectedListener(toggle);
-
-        AlertDialog dlg = new AlertDialog.Builder(requireContext())
-                .setTitle("API 设置（ISBN 数据源）")
-                .setView(db.getRoot())
-                .setPositiveButton("保存", null) // 点击行为在 show 后接管，便于校验不通过时保持弹窗
-                .setNegativeButton("取消", null)
-                .create();
-        dlg.setOnShowListener(dialog -> dlg.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
-            // 保存前规整并校验地址，非法时标错并保持弹窗不关闭
-            String url = ApiPrefs.normalizeBaseUrl(db.etBaseUrl.getText().toString());
-            db.etBaseUrl.setText(url); // 规整后的值回填输入框，用户能看到修正结果
-            if (!ApiPrefs.isValidUrl(url)) {
-                db.tilBaseUrl.setError("地址无效，需为 https:// 开头的完整地址");
-                return;
-            }
-            db.tilBaseUrl.setError(null);
-            prefs.save(url,
-                    db.spAuthType.getSelectedItemPosition(),
-                    db.etSecretId.getText().toString(),
-                    db.etSecretKey.getText().toString(),
-                    db.etAppcode.getText().toString(),
-                    db.etInstanceId.getText().toString(),
-                    db.etUsageSecretId.getText().toString(),
-                    db.etUsageSecretKey.getText().toString());
-            Toast.makeText(requireContext(), "已保存 API 配置", Toast.LENGTH_SHORT).show();
-            dlg.dismiss();
-        }));
-
-        // 查询使用量（v4.13 改用腾讯云账号密钥）：TC3 签名调 GetUsagePlanUsageAmount
-        // 注意：网关密钥（云市场已购服务里那对）在 CAM 中不存在，调账号级接口会报
-        // AuthFailure.SecretIdNotFound，所以这里用独立的账号密钥（访问管理 → API 密钥管理）
-        db.btnQueryUsage.setOnClickListener(v -> {
-            String sid = db.etUsageSecretId.getText().toString().trim();
-            String skey = db.etUsageSecretKey.getText().toString().trim();
-            String instanceId = db.etInstanceId.getText().toString().trim();
-            if (sid.isEmpty() || skey.isEmpty()) {
-                db.tilUsageSecretId.setError("请填写腾讯云账号密钥（访问管理 → API 密钥管理），非云市场网关密钥");
-                return;
-            }
-            db.tilUsageSecretId.setError(null);
-            if (instanceId.isEmpty()) {
-                db.tilInstanceId.setError("请填写实例 ID（云市场已购资源列表中查看）");
-                return;
-            }
-            db.tilInstanceId.setError(null);
-            db.tvUsageResult.setVisibility(View.VISIBLE);
-            db.tvUsageResult.setText("查询中…");
-            db.btnQueryUsage.setEnabled(false);
-            BookshelfApp app = BookshelfApp.get();
-            app.bg(() -> {
-                String result;
-                try {
-                    com.bai.bookshelf.api.MarketUsage.Usage usage =
-                            com.bai.bookshelf.api.MarketUsage.query(sid, skey, instanceId);
-                    result = "总调用量：" + usage.max + " 次\n已使用：" + usage.used
-                            + " 次\n剩余：" + usage.remaining + " 次";
-                } catch (Exception e) {
-                    String msg = e.getMessage() == null ? "未知错误" : e.getMessage();
-                    if (msg.contains("SecretId")) {
-                        // 网关密钥会触发 CAM 的 SecretIdNotFound，给出明确指引
-                        msg += "\n（请使用「腾讯云账号密钥」：访问管理 → API 密钥管理，而非云市场网关密钥）";
-                    }
-                    result = "查询失败：" + msg;
-                }
-                String finalResult = result;
-                app.ui(() -> {
-                    db.tvUsageResult.setText(finalResult);
-                    db.btnQueryUsage.setEnabled(true);
-                });
-            });
-        });
-        dlg.show();
-    }
-
     // ======================= 主题颜色（v2.5） =======================
 
     /** 主题选择弹窗：色点 + 名称 + 当前勾选，选中后保存并重建界面生效 */
@@ -583,6 +468,8 @@ public class MineFragment extends Fragment {
     /** 反馈邮箱与 GitHub Issues 提交页（与 README「反馈」一节保持一致，改动需同步两处） */
     private static final String FEEDBACK_EMAIL = "baiduren69@outlook.com";
     private static final String FEEDBACK_ISSUES_URL = "https://github.com/BaiDuRen69/Bookshelf/issues/new";
+    /** 项目主页（v4.15：「我的 GitHub」行跳转） */
+    private static final String GITHUB_REPO_URL = "https://github.com/BaiDuRen69/Bookshelf";
 
     /** 拉起系统邮件应用（主题自动带上版本号）；无邮件应用时降级为复制邮箱 */
     private void sendFeedbackEmail() {
@@ -600,13 +487,23 @@ public class MineFragment extends Fragment {
 
     /** 浏览器打开 GitHub Issues 页；无浏览器时提示手动访问并复制链接 */
     private void openGitHubIssues() {
+        openInBrowser(FEEDBACK_ISSUES_URL);
+    }
+
+    /** 浏览器打开项目 GitHub 主页（v4.15「我的 GitHub」行） */
+    private void openGitHubRepo() {
+        openInBrowser(GITHUB_REPO_URL);
+    }
+
+    /** 浏览器打开链接；无浏览器时提示手动访问并复制链接 */
+    private void openInBrowser(String url) {
         try {
-            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(FEEDBACK_ISSUES_URL)));
+            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
         } catch (Exception e) {
             Toast.makeText(requireContext(),
-                    "未找到浏览器，请手动访问（链接已复制）：\n" + FEEDBACK_ISSUES_URL,
+                    "未找到浏览器，请手动访问（链接已复制）：\n" + url,
                     Toast.LENGTH_LONG).show();
-            copyToClipboard(FEEDBACK_ISSUES_URL, "已复制链接");
+            copyToClipboard(url, "已复制链接");
         }
     }
 
