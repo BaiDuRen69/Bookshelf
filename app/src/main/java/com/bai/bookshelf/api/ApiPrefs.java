@@ -27,6 +27,7 @@ public class ApiPrefs {
     private static final String KEY_SECRET_ID = "secret_id";
     private static final String KEY_SECRET_KEY = "secret_key";
     private static final String KEY_APPCODE = "appcode";
+    private static final String KEY_INSTANCE_ID = "instance_id"; // 云市场已购资源实例 ID（用量查询用，v4.11）
 
     private final SharedPreferences sp;
 
@@ -120,13 +121,20 @@ public class ApiPrefs {
         return sp.getString(KEY_APPCODE, "");
     }
 
-    public void save(String baseUrl, int authType, String secretId, String secretKey, String appcode) {
+    /** 云市场已购资源的实例 ID（GetUsagePlanUsageAmount 用量查询用，v4.11） */
+    public String getInstanceId() {
+        return sp.getString(KEY_INSTANCE_ID, "");
+    }
+
+    public void save(String baseUrl, int authType, String secretId, String secretKey,
+                     String appcode, String instanceId) {
         sp.edit()
                 .putString(KEY_BASE_URL, normalizeBaseUrl(baseUrl))
                 .putInt(KEY_AUTH_TYPE, authType)
                 .putString(KEY_SECRET_ID, secretId == null ? "" : secretId.trim())
                 .putString(KEY_SECRET_KEY, secretKey == null ? "" : secretKey.trim())
                 .putString(KEY_APPCODE, appcode == null ? "" : appcode.trim())
+                .putString(KEY_INSTANCE_ID, instanceId == null ? "" : instanceId.trim())
                 .apply();
     }
 

@@ -420,6 +420,7 @@ public class MineFragment extends Fragment {
         db.etSecretId.setText(prefs.getSecretId());
         db.etSecretKey.setText(prefs.getSecretKey());
         db.etAppcode.setText(prefs.getAppcode());
+        db.etInstanceId.setText(prefs.getInstanceId());
 
         // 鉴权方式下拉（位置与 ApiPrefs.AUTH_* 常量一致）
         db.spAuthType.setAdapter(android.widget.ArrayAdapter.createFromResource(requireContext(),
@@ -435,6 +436,11 @@ public class MineFragment extends Fragment {
                 boolean appcode = position == ApiPrefs.AUTH_APPCODE;
                 db.tilSecretId.setVisibility(tencent ? View.VISIBLE : View.GONE);
                 db.tilSecretKey.setVisibility(tencent ? View.VISIBLE : View.GONE);
+                db.tilInstanceId.setVisibility(tencent ? View.VISIBLE : View.GONE);
+                db.btnQueryUsage.setVisibility(tencent ? View.VISIBLE : View.GONE);
+                if (!tencent) {
+                    db.tvUsageResult.setVisibility(View.GONE);
+                }
                 db.tilAppcode.setVisibility(appcode ? View.VISIBLE : View.GONE);
             }
 
@@ -463,10 +469,48 @@ public class MineFragment extends Fragment {
                     db.spAuthType.getSelectedItemPosition(),
                     db.etSecretId.getText().toString(),
                     db.etSecretKey.getText().toString(),
-                    db.etAppcode.getText().toString());
+                    db.etAppcode.getText().toString(),
+                    db.etInstanceId.getText().toString());
             Toast.makeText(requireContext(), "已保存 API 配置", Toast.LENGTH_SHORT).show();
             dlg.dismiss();
         }));
+
+        // 查询使用量（v4.11）：TC3 签名调云市场 GetUsagePlanUsageAmount，结果就地显示
+        db.btnQueryUsage.setOnClickListener(v -> {
+            String sid = db.etSecretId.getText().toString().trim();
+            String skey = db.etSecretKey.getText().toString().trim();
+            String instanceId = db.etInstanceId.getText().toString().trim();
+            if (sid.isEmpty() || skey.isEmpty()) {
+                db.tilSecretId.setError("查询用量需先填写 SecretId / SecretKey");
+                return;
+            }
+            db.tilSecretId.setError(null);
+            if (instanceId.isEmpty()) {
+                db.tilInstanceId.setError("请填写实例 ID（云市场已购资源列表中查看）");
+                return;
+            }
+            db.tilInstanceId.setError(null);
+            db.tvUsageResult.setVisibility(View.VISIBLE);
+            db.tvUsageResult.setText("查询中…");
+            db.btnQueryUsage.setEnabled(false);
+            BookshelfApp app = BookshelfApp.get();
+            app.bg(() -> {
+                String result;
+                try {
+                    com.bai.bookshelf.api.MarketUsage.Usage usage =
+                            com.bai.bookshelf.api.MarketUsage.query(sid, skey, instanceId);
+                    result = "总调用量：" + usage.max + " 次\n已使用：" + usage.used
+                            + " 次\n剩余：" + usage.remaining + " 次";
+                } catch (Exception e) {
+                    result = "查询失败：" + e.getMessage();
+                }
+                String finalResult = result;
+                app.ui(() -> {
+                    db.tvUsageResult.setText(finalResult);
+                    db.btnQueryUsage.setEnabled(true);
+                });
+            });
+        });
         dlg.show();
     }
 

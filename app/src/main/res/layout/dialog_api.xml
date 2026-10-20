@@ -59,6 +59,40 @@
             android:layout_height="wrap_content" />
     </com.google.android.material.textfield.TextInputLayout>
 
+    <!-- 实例 ID（仅腾讯云签名方式显示）：云市场用量查询接口 GetUsagePlanUsageAmount 的入参 -->
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/til_instance_id"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:hint="实例 ID（已购资源列表中查看，用于查询用量）">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/et_instance_id"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="number" />
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <!-- 用量查询（仅腾讯云签名方式显示，v4.11） -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btn_query_usage"
+        style="@style/Widget.Material3.Button.OutlinedButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="查询使用量" />
+
+    <TextView
+        android:id="@+id/tv_usage_result"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:textSize="13sp"
+        android:lineSpacingMultiplier="1.35"
+        android:textColor="@color/text_main"
+        android:visibility="gone" />
+
     <!-- APPCODE 方式 -->
     <com.google.android.material.textfield.TextInputLayout
         android:id="@+id/til_appcode"
@@ -77,7 +111,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="10dp"
-        android:text="腾讯云市场（聚美智数 34136）填法：\n地址：https://ap-guangzhou.cloudmarket-apigw.com/service-ed62t9xo/isbn/query\n密钥：腾讯云控制台 → 云市场 → 已购产品与服务 → 管理 中查看 SecretId/SecretKey。"
+        android:text="腾讯云市场（聚美智数 34136）填法：\n地址：https://ap-guangzhou.cloudmarket-apigw.com/service-ed62t9xo/isbn/query\n密钥：腾讯云控制台 → 云市场 → 已购产品与服务 → 管理 中查看 SecretId/SecretKey。\n实例 ID：云市场 → 已购资源 列表中的实例 ID，填写后可一键查询套餐剩余用量。"
         android:textSize="12sp"
         android:textColor="@color/text_sub" />
 </LinearLayout>
