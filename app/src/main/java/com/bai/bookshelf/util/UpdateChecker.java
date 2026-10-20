@@ -111,8 +111,10 @@ public final class UpdateChecker {
                     }
                     return;
                 }
+                // cmp > 0 = 最新版比当前版新 → 有更新；cmp <= 0 = 相同或当前更新
+                // （v4.12 修复：v4.7 起此处误写为 cmp >= 0，把「有更新」吞成「已是最新版」）
                 int cmp = compareVersions(BuildConfig.VERSION_NAME, result.version);
-                if (cmp >= 0) {
+                if (cmp <= 0) {
                     // 已是最新版本：启动检查静默返回，手动检查给出提示
                     if (!silent) {
                         Toast.makeText(act, "已是最新版本 v" + BuildConfig.VERSION_NAME,

@@ -70,8 +70,7 @@
         <com.google.android.material.textfield.TextInputEditText
             android:id="@+id/et_instance_id"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:inputType="number" />
+            android:layout_height="wrap_content" />
     </com.google.android.material.textfield.TextInputLayout>
 
     <!-- 用量查询（仅腾讯云签名方式显示，v4.11） -->
