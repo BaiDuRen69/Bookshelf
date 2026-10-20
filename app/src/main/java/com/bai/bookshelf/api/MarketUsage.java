@@ -63,8 +63,10 @@ public final class MarketUsage {
                 + "x-tc-action:" + action.toLowerCase(Locale.US) + "\n";
         String signedHeaders = "content-type;host;x-tc-action";
         String hashedPayload = sha256Hex(body);
+        // 注意：规范头块与签名头列表之间必须有一个空行（v4.14 修复，
+        // 之前漏掉导致腾讯云返回 AuthFailure.SignatureFailure）
         String canonicalRequest = "POST\n/\n\n" + canonicalHeaders
-                + signedHeaders + "\n" + hashedPayload;
+                + "\n" + signedHeaders + "\n" + hashedPayload;
 
         // ---------- 2. 拼接待签名字符串 StringToSign ----------
         String credentialScope = date + "/" + service + "/tc3_request";
