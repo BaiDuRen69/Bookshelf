@@ -28,6 +28,10 @@ public class ApiPrefs {
     private static final String KEY_SECRET_KEY = "secret_key";
     private static final String KEY_APPCODE = "appcode";
     private static final String KEY_INSTANCE_ID = "instance_id"; // 云市场已购资源实例 ID（用量查询用，v4.11）
+    // v4.13：用量查询（腾讯云 API 3.0 TC3 签名）需要的是账号级 API 密钥（访问管理 CAM），
+    // 与云市场网关密钥（x-date 签名调 ISBN 网关）是两套体系，分开存储
+    private static final String KEY_USAGE_SECRET_ID = "usage_secret_id";
+    private static final String KEY_USAGE_SECRET_KEY = "usage_secret_key";
 
     private final SharedPreferences sp;
 
@@ -126,8 +130,19 @@ public class ApiPrefs {
         return sp.getString(KEY_INSTANCE_ID, "");
     }
 
+    /** 腾讯云账号 SecretId（访问管理·API 密钥管理，用量查询 TC3 签名用，v4.13） */
+    public String getUsageSecretId() {
+        return sp.getString(KEY_USAGE_SECRET_ID, "");
+    }
+
+    /** 腾讯云账号 SecretKey（用量查询 TC3 签名用，v4.13） */
+    public String getUsageSecretKey() {
+        return sp.getString(KEY_USAGE_SECRET_KEY, "");
+    }
+
     public void save(String baseUrl, int authType, String secretId, String secretKey,
-                     String appcode, String instanceId) {
+                     String appcode, String instanceId,
+                     String usageSecretId, String usageSecretKey) {
         sp.edit()
                 .putString(KEY_BASE_URL, normalizeBaseUrl(baseUrl))
                 .putInt(KEY_AUTH_TYPE, authType)
@@ -135,6 +150,8 @@ public class ApiPrefs {
                 .putString(KEY_SECRET_KEY, secretKey == null ? "" : secretKey.trim())
                 .putString(KEY_APPCODE, appcode == null ? "" : appcode.trim())
                 .putString(KEY_INSTANCE_ID, instanceId == null ? "" : instanceId.trim())
+                .putString(KEY_USAGE_SECRET_ID, usageSecretId == null ? "" : usageSecretId.trim())
+                .putString(KEY_USAGE_SECRET_KEY, usageSecretKey == null ? "" : usageSecretKey.trim())
                 .apply();
     }
 

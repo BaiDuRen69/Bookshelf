@@ -73,7 +73,34 @@
             android:layout_height="wrap_content" />
     </com.google.android.material.textfield.TextInputLayout>
 
-    <!-- 用量查询（仅腾讯云签名方式显示，v4.11） -->
+    <!-- 用量查询（仅腾讯云签名方式显示，v4.11）：
+         TC3 签名需要的是账号级 API 密钥（访问管理），与上方云市场网关密钥不是一套 -->
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/til_usage_secret_id"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:hint="账号 SecretId（访问管理 → API 密钥管理，非云市场网关密钥）">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/et_usage_secret_id"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/til_usage_secret_key"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:hint="账号 SecretKey（仅用于查询用量）">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/et_usage_secret_key"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+    </com.google.android.material.textfield.TextInputLayout>
+
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btn_query_usage"
         style="@style/Widget.Material3.Button.OutlinedButton"
@@ -110,7 +137,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="10dp"
-        android:text="腾讯云市场（聚美智数 34136）填法：\n地址：https://ap-guangzhou.cloudmarket-apigw.com/service-ed62t9xo/isbn/query\n密钥：腾讯云控制台 → 云市场 → 已购产品与服务 → 管理 中查看 SecretId/SecretKey。\n实例 ID：云市场 → 已购资源 列表中的实例 ID，填写后可一键查询套餐剩余用量。"
+        android:text="腾讯云市场（聚美智数 34136）填法：\n地址：https://ap-guangzhou.cloudmarket-apigw.com/service-ed62t9xo/isbn/query\n密钥：腾讯云控制台 → 云市场 → 已购产品与服务 → 管理 中查看 SecretId/SecretKey（网关密钥，仅用于扫码查书）。\n实例 ID：云市场 → 已购资源 列表中的实例 ID。\n用量查询：用的是另一套「腾讯云账号密钥」——控制台右上角头像 → 访问管理 → 访问密钥 → API 密钥管理 中查看/新建；没有可新建子账号密钥并只授权云市场只读权限。"
         android:textSize="12sp"
         android:textColor="@color/text_sub" />
 </LinearLayout>
