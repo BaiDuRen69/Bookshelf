@@ -22,7 +22,7 @@
         android:layout_height="wrap_content"
         android:background="?attr/surface"
         android:orientation="horizontal"
-        android:paddingVertical="6dp">
+        android:paddingVertical="2dp">
 
         <LinearLayout
             android:id="@+id/tab_shelf"
@@ -43,13 +43,13 @@
                 android:background="@drawable/bg_nav_selected"
                 android:gravity="center"
                 android:orientation="vertical"
-                android:paddingHorizontal="18dp"
-                android:paddingVertical="5dp">
+                android:paddingHorizontal="14dp"
+                android:paddingVertical="3dp">
 
                 <ImageView
                     android:id="@+id/iv_tab_shelf"
-                    android:layout_width="@dimen/tab_icon_size"
-                    android:layout_height="@dimen/tab_icon_size"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
                     android:contentDescription="书架"
                     android:src="@drawable/ic_book" />
 
@@ -58,7 +58,7 @@
                     style="@style/BottomNavText"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
+                    android:layout_marginTop="1dp"
                     android:text="书架" />
             </LinearLayout>
         </LinearLayout>
@@ -82,13 +82,13 @@
                 android:background="@drawable/bg_nav_selected"
                 android:gravity="center"
                 android:orientation="vertical"
-                android:paddingHorizontal="18dp"
-                android:paddingVertical="5dp">
+                android:paddingHorizontal="14dp"
+                android:paddingVertical="3dp">
 
                 <ImageView
                     android:id="@+id/iv_tab_stats"
-                    android:layout_width="@dimen/tab_icon_size"
-                    android:layout_height="@dimen/tab_icon_size"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
                     android:contentDescription="统计"
                     android:src="@drawable/ic_chart" />
 
@@ -97,7 +97,7 @@
                     style="@style/BottomNavText"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
+                    android:layout_marginTop="1dp"
                     android:text="统计" />
             </LinearLayout>
         </LinearLayout>
@@ -121,13 +121,13 @@
                 android:background="@drawable/bg_nav_selected"
                 android:gravity="center"
                 android:orientation="vertical"
-                android:paddingHorizontal="18dp"
-                android:paddingVertical="5dp">
+                android:paddingHorizontal="14dp"
+                android:paddingVertical="3dp">
 
                 <ImageView
                     android:id="@+id/iv_tab_mine"
-                    android:layout_width="@dimen/tab_icon_size"
-                    android:layout_height="@dimen/tab_icon_size"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
                     android:contentDescription="我的"
                     android:src="@drawable/ic_person" />
 
@@ -136,7 +136,7 @@
                     style="@style/BottomNavText"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
+                    android:layout_marginTop="1dp"
                     android:text="我的" />
             </LinearLayout>
         </LinearLayout>

@@ -9,7 +9,7 @@
     <com.google.android.material.appbar.MaterialToolbar
         style="@style/Widget.Bookshelf.Toolbar"
         android:layout_width="match_parent"
-        android:layout_height="?attr/actionBarSize"
+        android:layout_height="@dimen/toolbar_h"
         app:title="统计" />
 
     <androidx.core.widget.NestedScrollView

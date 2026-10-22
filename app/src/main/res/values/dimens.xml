@@ -30,4 +30,7 @@
     <dimen name="card_corner">16dp</dimen>
     <dimen name="tab_icon_size">22dp</dimen>
     <dimen name="tab_label_size">11sp</dimen>
+    <!-- 工具栏：紧凑高度（v4.17 压缩上下留白） -->
+    <dimen name="toolbar_h">48dp</dimen>
+    <dimen name="text_title_toolbar">16sp</dimen>
 </resources>

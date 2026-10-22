@@ -93,7 +93,7 @@
 
 原生 Android（Java）· Room（12 版保数据迁移）· CameraX + ML Kit（条形码识别）·
 Retrofit · Glide · 零依赖手写 XLSX 读写器（不引入 POI）· EncryptedSharedPreferences（API 密钥加密存储）
-当前版本 v4.16（versionCode 55，Room 数据库 v13）。
+当前版本 v4.17（versionCode 56，Room 数据库 v13）。
 
 ### 构建
 

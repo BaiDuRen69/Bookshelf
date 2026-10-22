@@ -10,7 +10,7 @@
         android:id="@+id/toolbar"
         style="@style/Widget.Bookshelf.Toolbar"
         android:layout_width="match_parent"
-        android:layout_height="?attr/actionBarSize"
+        android:layout_height="@dimen/toolbar_h"
         app:title="我的" />
 
     <androidx.core.widget.NestedScrollView

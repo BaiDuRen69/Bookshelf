@@ -139,10 +139,10 @@ public final class UpdateChecker {
         DialogUpdateBinding b = DialogUpdateBinding.inflate(act.getLayoutInflater());
         b.tvNewVersion.setText("最新版本 v" + release.version
                 + "（当前 v" + BuildConfig.VERSION_NAME + "）");
-        // Release 说明按纯文本展示；超长截断，避免弹窗拖不动
+        // Release 说明按纯文本展示；v4.17 起说明区可滚动，截断阈值放宽到 4000 字符
         String notes = release.notes == null ? "" : release.notes.trim();
-        if (notes.length() > 800) {
-            notes = notes.substring(0, 800) + "\n…（完整说明见 Release 页面）";
+        if (notes.length() > 4000) {
+            notes = notes.substring(0, 4000) + "\n…（完整说明见 Release 页面）";
         }
         b.tvUpdateNotes.setText(notes.isEmpty() ? "暂无更新说明" : notes);
 
@@ -171,6 +171,39 @@ public final class UpdateChecker {
                     Toast.LENGTH_LONG).show();
         });
         dialog.show();
+
+        // v4.17 修复：更新说明过长时，下方四个按钮被顶出屏幕外点不到。
+        // 根因是 android:maxHeight 对 ScrollView 无效（仅对 TextView/ImageView 生效），
+        // 说明区会无限撑高。这里在布局完成后按屏幕高度把说明区限制为屏幕的 45%，
+        // 超出的内容在说明区内部滚动，四个按钮始终可见。
+        limitNotesHeight(act, b);
+    }
+
+    /**
+     * 把更新说明区高度限制在屏幕高度的 45% 以内（不超过 420dp），
+     * 仅在说明区确实超高时生效，正常长度下保持自适应。
+     */
+    private static void limitNotesHeight(final Activity act, final DialogUpdateBinding b) {
+        b.scrollNotes.post(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    android.util.DisplayMetrics dm = act.getResources().getDisplayMetrics();
+                    int maxH = (int) (dm.heightPixels * 0.45f);
+                    maxH = Math.min(maxH, (int) (420 * dm.density));
+                    if (maxH <= 0) {
+                        return;
+                    }
+                    if (b.scrollNotes.getHeight() > maxH) {
+                        android.view.ViewGroup.LayoutParams lp = b.scrollNotes.getLayoutParams();
+                        lp.height = maxH;
+                        b.scrollNotes.setLayoutParams(lp);
+                    }
+                } catch (Exception ignored) {
+                    // 布局异常不影响弹窗其它功能
+                }
+            }
+        });
     }
 
     /** 浏览器打开 APK 下载链接（无附件时为 Release 页）；无浏览器时提示 */

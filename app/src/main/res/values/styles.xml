@@ -83,7 +83,7 @@
     </style>
 
     <style name="TextAppearance.Bookshelf.ToolbarTitle" parent="TextAppearance.Material3.TitleLarge">
-        <item name="android:textSize">@dimen/text_headline</item>
+        <item name="android:textSize">@dimen/text_title_toolbar</item>
         <item name="android:textStyle">bold</item>
         <item name="android:textColor">@color/white</item>
     </style>

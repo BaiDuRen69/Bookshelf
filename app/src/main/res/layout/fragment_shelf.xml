@@ -10,12 +10,96 @@
         android:layout_height="match_parent"
         android:orientation="vertical">
 
-        <com.google.android.material.appbar.MaterialToolbar
-            android:id="@+id/toolbar"
-            style="@style/Widget.Bookshelf.Toolbar"
+        <!-- v4.17：标题栏与搜索行合并为一条主色头部（省掉一整行 56dp，书籍列表区域更大） -->
+        <LinearLayout
+            android:id="@+id/header"
             android:layout_width="match_parent"
-            android:layout_height="?attr/actionBarSize"
-            app:title="书架" />
+            android:layout_height="wrap_content"
+            android:background="?attr/colorPrimary"
+            android:orientation="vertical"
+            android:paddingVertical="@dimen/space_sm">
+
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingHorizontal="@dimen/page_padding"
+                    app:layout_constraintWidth_max="@dimen/content_max_width"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintHorizontal_bias="0.5"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintBottom_toBottomOf="parent">
+
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_marginEnd="@dimen/space_sm"
+                        android:contentDescription="书架"
+                        android:src="@drawable/ic_book"
+                        app:tint="@color/white" />
+
+                    <FrameLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1">
+
+                        <EditText
+                            android:id="@+id/et_search"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:autofillHints="none"
+                            android:background="@drawable/bg_search"
+                            android:drawableStart="@drawable/ic_search"
+                            android:drawablePadding="6dp"
+                            android:hint="@string/hint_search"
+                            android:inputType="text"
+                            android:paddingStart="36dp"
+                            android:paddingEnd="36dp"
+                            android:paddingVertical="7dp"
+                            android:singleLine="true"
+                            android:textColor="?attr/on_surface"
+                            android:textColorHint="?attr/on_surface_variant"
+                            android:textSize="@dimen/text_body_small" />
+
+                        <!-- 清除按钮：输入有内容时显示 -->
+                        <ImageView
+                            android:id="@+id/btn_clear_search"
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:layout_gravity="end|center_vertical"
+                            android:layout_marginEnd="12dp"
+                            android:background="?attr/selectableItemBackgroundBorderless"
+                            android:clickable="true"
+                            android:contentDescription="清除搜索"
+                            android:focusable="true"
+                            android:src="@drawable/ic_close"
+                            android:visibility="gone" />
+                    </FrameLayout>
+
+                    <!-- 录入按钮：主色头部上的白底主色字按钮，视觉轻盈且与绿色头部强对比 -->
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btn_add"
+                        style="@style/Widget.Bookshelf.Button"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="@dimen/space_sm"
+                        android:backgroundTint="@color/white"
+                        android:minWidth="0dp"
+                        android:minHeight="0dp"
+                        android:paddingHorizontal="@dimen/space_md"
+                        android:paddingVertical="6dp"
+                        android:text="@string/add_book"
+                        android:textColor="?attr/colorPrimary"
+                        app:cornerRadius="@dimen/radius_md" />
+                </LinearLayout>
+            </androidx.constraintlayout.widget.ConstraintLayout>
+        </LinearLayout>
 
         <!-- 搜索与筛选面板（v4.16：大屏下限制最大宽度并居中，避免筛选器被拉得过宽） -->
         <androidx.constraintlayout.widget.ConstraintLayout
@@ -33,66 +117,6 @@
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintBottom_toBottomOf="parent">
 
-            <!-- 搜索栏 + 录入口 -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:paddingHorizontal="@dimen/page_padding"
-                android:paddingTop="@dimen/space_sm"
-                android:paddingBottom="@dimen/space_xs">
-
-                <FrameLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1">
-
-                    <EditText
-                        android:id="@+id/et_search"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:background="@drawable/bg_search"
-                        android:drawableStart="@drawable/ic_search"
-                        android:drawablePadding="6dp"
-                        android:hint="@string/hint_search"
-                        android:inputType="text"
-                        android:paddingStart="36dp"
-                        android:paddingEnd="36dp"
-                        android:paddingVertical="8dp"
-                        android:singleLine="true"
-                        android:textColor="?attr/on_surface"
-                        android:textColorHint="?attr/on_surface_variant"
-                        android:textSize="@dimen/text_body_small" />
-
-                    <!-- 清除按钮：输入有内容时显示 -->
-                    <ImageView
-                        android:id="@+id/btn_clear_search"
-                        android:layout_width="20dp"
-                        android:layout_height="20dp"
-                        android:layout_gravity="end|center_vertical"
-                        android:layout_marginEnd="12dp"
-                        android:background="?attr/selectableItemBackgroundBorderless"
-                        android:clickable="true"
-                        android:contentDescription="清除搜索"
-                        android:focusable="true"
-                        android:src="@drawable/ic_close"
-                        android:visibility="gone" />
-                </FrameLayout>
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btn_add"
-                    style="@style/Widget.Bookshelf.Button"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="@dimen/space_sm"
-                    android:minWidth="0dp"
-                    android:minHeight="0dp"
-                    android:paddingHorizontal="@dimen/space_md"
-                    android:paddingVertical="8dp"
-                    android:text="@string/add_book" />
-            </LinearLayout>
-
             <!-- 筛选区（v4.16：整块卡片化，筛选控件统一描边圆角样式）
                  第一行：分类/标签/状态/阅读（内容属性类筛选优先）
                  第二行：地点/来源/国家（实体归属类筛选）
@@ -104,7 +128,7 @@
                 android:background="@drawable/bg_card"
                 android:layout_marginHorizontal="@dimen/page_padding"
                 android:layout_marginTop="@dimen/space_xs"
-                android:padding="@dimen/space_sm">
+                android:padding="6dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -152,7 +176,7 @@
                     android:id="@+id/scroll_category_chips"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="@dimen/space_sm"
+                    android:layout_marginTop="@dimen/space_xs"
                     android:scrollbars="none"
                     android:visibility="gone">
 
@@ -168,7 +192,7 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="@dimen/space_sm"
+                    android:layout_marginTop="@dimen/space_xs"
                     android:orientation="horizontal"
                     android:gravity="center_vertical">
 
@@ -204,7 +228,7 @@
                     android:id="@+id/scroll_channel_chips"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="@dimen/space_sm"
+                    android:layout_marginTop="@dimen/space_xs"
                     android:scrollbars="none"
                     android:visibility="gone">
 
@@ -220,7 +244,7 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="@dimen/space_sm"
+                    android:layout_marginTop="@dimen/space_xs"
                     android:orientation="horizontal"
                     android:gravity="center_vertical">
 
