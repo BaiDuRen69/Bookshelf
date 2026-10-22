@@ -91,7 +91,8 @@
 
 ### 技术栈
 
-原生 Android（Java）· Room（12 版保数据迁移）· CameraX + ML Kit（条形码识别）·
+原生 Android（Java）· Room（12 版保数据迁移）· CameraX 1.4.2 + ML Kit 17.3.0（条形码识别，
+原生库已适配 Android 15+ 的 16 KB 内存页）·
 Retrofit · Glide · 零依赖手写 XLSX 读写器（不引入 POI）· EncryptedSharedPreferences（API 密钥加密存储）
 当前版本 v4.19（versionCode 58，Room 数据库 v13）。
 
