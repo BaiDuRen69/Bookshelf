@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 底部半屏面板的拖拽把手（微信读书 BottomSheet 样式） -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="?attr/outline_strong" />
+    <corners android:radius="2dp" />
+</shape>

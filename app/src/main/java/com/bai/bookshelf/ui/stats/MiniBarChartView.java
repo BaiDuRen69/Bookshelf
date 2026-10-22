@@ -8,6 +8,7 @@ import android.graphics.Paint;
 import android.graphics.RectF;
 import android.graphics.Shader;
 import android.util.AttributeSet;
+import android.view.MotionEvent;
 import android.view.View;
 
 import androidx.annotation.Nullable;
@@ -32,6 +33,9 @@ import java.util.List;
  *   <li><b>x 轴标签过密</b>——柱数多时自动抽稀（12 柱全显，30 柱只显 1/5/10/15/20/25/30）。</li>
  * </ol>
  *
+ * <p>v4.21：增加<b>点击柱子</b>能力（{@link #setOnBarClickListener}），
+ * 点某根柱子即回调其下标，用于和「全部记录」底部面板联动高亮。
+ *
  * <p>数据量小（个人藏书，最多 31 根柱），直接 onDraw 手绘，不引第三方图表库。
  */
 public class MiniBarChartView extends View {
@@ -45,6 +49,10 @@ public class MiniBarChartView extends View {
     private int sharedMax = -1;
     /** 刻度值单位，如「本」；为空则只显示数字 */
     private String unit = "";
+    /** 柱子点击回调（下标 = labels/values 的下标）；null 表示不可点 */
+    private OnBarClickListener onBarClickListener;
+    /** 当前高亮的柱子下标；-1 表示不高亮 */
+    private int highlightedIndex = -1;
 
     private final Paint barPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -57,6 +65,23 @@ public class MiniBarChartView extends View {
     private int barGradientKey = 0;
     /** 虚线效果缓存（避免每次 onDraw 新建 DashPathEffect） */
     private DashPathEffect dashEffect = null;
+    /** 高亮柱的着色器（半透明主色底衬） */
+    private final Paint highlightPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    /** 高亮柱的底衬矩形（复用，避免 onDraw 里 new） */
+    private final RectF highlightRect = new RectF();
+    /** 每根柱子的横向范围（绘制时记录，用于点击命中）；下标与 values 一致 */
+    private float[] hitLeft = new float[16];
+    private float[] hitRight = new float[16];
+    private int hitCount = 0;
+
+    /** 柱子点击回调 */
+    public interface OnBarClickListener {
+        /**
+         * @param index 柱子下标（与 setData 的 values 下标一致）
+         * @param value 该柱的数值
+         */
+        void onBarClick(int index, int value);
+    }
 
     public MiniBarChartView(Context context) {
         this(context, null);
@@ -72,6 +97,7 @@ public class MiniBarChartView extends View {
         gridPaint.setStrokeWidth(Math.max(1f, dp(0.5f)));
         scalePaint.setTextSize(sp(10));
         scalePaint.setTextAlign(Paint.Align.RIGHT);
+        setClickable(true);
     }
 
     /** 设置数据（各图各自按自身最大值归一化） */
@@ -99,6 +125,19 @@ public class MiniBarChartView extends View {
         invalidate();
     }
 
+    /** 设置柱子点击回调（null 表示不可点） */
+    public void setOnBarClickListener(OnBarClickListener listener) {
+        this.onBarClickListener = listener;
+    }
+
+    /** 高亮某根柱子（-1 取消高亮） */
+    public void setHighlightedIndex(int index) {
+        if (this.highlightedIndex != index) {
+            this.highlightedIndex = index;
+            invalidate();
+        }
+    }
+
     private float sp(float value) {
         return value * getResources().getDisplayMetrics().scaledDensity;
     }
@@ -115,6 +154,7 @@ public class MiniBarChartView extends View {
         if (w <= 0 || h <= 0) {
             return;
         }
+        hitCount = 0;
         int n = values.size();
         if (n == 0 || labels.size() != n) {
             drawEmpty(canvas, w, h);
@@ -183,10 +223,26 @@ public class MiniBarChartView extends View {
             barGradientKey = gradientKey;
         }
         barPaint.setShader(barGradient);
+        highlightPaint.setColor(ThemeManager.primaryAlpha(getContext(), 40));
 
         for (int i = 0; i < n; i++) {
             int v = values.get(i) == null ? 0 : values.get(i);
             float cx = slot * i + slot / 2f;
+
+            // 记录点击命中的槽位（整槽范围，便于手指点击）
+            // 用 float 数组而非 List<RectF>，避免 onDraw 里分配对象
+            ensureHitCapacity(n);
+            hitLeft[hitCount] = slot * i;
+            hitRight[hitCount] = slot * (i + 1);
+            hitCount++;
+
+            // 高亮：被选中的那根柱子加一层浅色底衬
+            if (i == highlightedIndex) {
+                highlightRect.set(cx - barW / 2f - dp(2), padTop - sp(4),
+                        cx + barW / 2f + dp(2), baseline);
+                canvas.drawRoundRect(highlightRect, dp(6), dp(6), highlightPaint);
+            }
+
             if (v > 0) {
                 float barH = chartH * v / scaleMax;
                 float top = baseline - barH;
@@ -215,6 +271,49 @@ public class MiniBarChartView extends View {
         canvas.drawText("暂无数据", w / 2f, h / 2f - sp(4), textPaint);
         textPaint.setTextSize(sp(9));
         textPaint.setTextAlign(Paint.Align.CENTER);
+    }
+
+    @Override
+    public boolean onTouchEvent(MotionEvent event) {
+        if (event.getAction() == MotionEvent.ACTION_UP && onBarClickListener != null) {
+            int idx = hitTest(event.getX());
+            if (idx >= 0) {
+                int v = values.get(idx) == null ? 0 : values.get(idx);
+                onBarClickListener.onBarClick(idx, v);
+                performClick();
+                return true;
+            }
+        }
+        return super.onTouchEvent(event);
+    }
+
+    @Override
+    public boolean performClick() {
+        return super.performClick();
+    }
+
+    /** 命中测试：返回命中槽位的下标，未命中返回 -1 */
+    private int hitTest(float x) {
+        for (int i = 0; i < hitCount; i++) {
+            if (x >= hitLeft[i] && x <= hitRight[i]) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /** 确保命中槽位数组容量足够（按需扩容，避免每次绘制分配） */
+    private void ensureHitCapacity(int n) {
+        if (hitLeft.length >= n) {
+            return;
+        }
+        int cap = Math.max(n, hitLeft.length * 2);
+        float[] left = new float[cap];
+        float[] right = new float[cap];
+        System.arraycopy(hitLeft, 0, left, 0, hitCount);
+        System.arraycopy(hitRight, 0, right, 0, hitCount);
+        hitLeft = left;
+        hitRight = right;
     }
 
     /**

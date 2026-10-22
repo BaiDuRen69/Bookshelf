@@ -21,4 +21,13 @@
 
     <!-- 我的阅读（v4.20） -->
     <string name="stats_click_day_hint">点击日历上的某一天，查看当天购买详情</string>
+
+    <!-- 我的阅读 · 「全部记录」底部半屏面板（v4.21） -->
+    <string name="stats_all_records">全部记录</string>
+    <string name="stats_sheet_close">关闭</string>
+    <string name="stats_sheet_empty">暂无购买记录</string>
+    <!-- 明细行的数值，如「4 本」 -->
+    <string name="stats_value_books">%1$d 本</string>
+    <!-- 底部面板汇总，如「4 天有购买记录 · 合计 10 本」 -->
+    <string name="stats_sheet_summary">%1$d %2$s有购买记录 · 合计 %3$d 本</string>
 </resources>

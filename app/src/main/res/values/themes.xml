@@ -49,6 +49,8 @@
         <item name="chipGroupStyle">@style/Widget.Bookshelf.ChipGroup</item>
         <!-- v4.18：弹窗统一走 Material3 对话框外观（圆角、标题层级、按钮位置） -->
         <item name="materialAlertDialogTheme">@style/ThemeOverlay.Bookshelf.Dialog</item>
+        <!-- v4.21：底部半屏面板（BottomSheet）统一走 M3 外观 + 应用自己的表面色/圆角 -->
+        <item name="bottomSheetDialogTheme">@style/ThemeOverlay.Bookshelf.BottomSheet</item>
     </style>
 
     <!-- v4.18：弹窗主题覆盖：标题更紧凑、正文次级色、按钮统一为文本按钮
@@ -76,6 +78,28 @@
     <!-- 弹窗形状：16dp 圆角（与应用卡片一致，M3 默认 28dp 过大） -->
     <style name="ShapeAppearance.Bookshelf.Dialog" parent="ShapeAppearance.Material3.Corner.Large">
         <item name="cornerSize">@dimen/card_corner</item>
+    </style>
+
+    <!-- v4.21：底部半屏面板主题（参照微信读书「全部记录」）
+         只圆上方两角（底部贴屏幕边），表面色对齐应用语义色，不做主色染色。 -->
+    <style name="ThemeOverlay.Bookshelf.BottomSheet" parent="ThemeOverlay.Material3.BottomSheetDialog">
+        <item name="bottomSheetStyle">@style/Widget.Bookshelf.BottomSheet</item>
+    </style>
+
+    <!-- 半屏面板本体样式 -->
+    <style name="Widget.Bookshelf.BottomSheet" parent="Widget.Material3.BottomSheet.Modal">
+        <item name="shapeAppearance">@style/ShapeAppearance.Bookshelf.BottomSheet</item>
+        <item name="backgroundTint">?attr/surface</item>
+        <!-- v4.19：与全局一致关闭 elevation overlay，避免面板底色被主色染绿 -->
+        <item name="elevationOverlayEnabled">false</item>
+    </style>
+
+    <!-- 半屏面板形状：上方 16dp 圆角，下方直角 -->
+    <style name="ShapeAppearance.Bookshelf.BottomSheet" parent="ShapeAppearance.Material3.Corner.ExtraLarge">
+        <item name="cornerSizeTopLeft">@dimen/card_corner</item>
+        <item name="cornerSizeTopRight">@dimen/card_corner</item>
+        <item name="cornerSizeBottomLeft">0dp</item>
+        <item name="cornerSizeBottomRight">0dp</item>
     </style>
 
     <!-- 弹窗标题：16sp 加粗（应用内标题层级，M3 默认 24sp 过大）

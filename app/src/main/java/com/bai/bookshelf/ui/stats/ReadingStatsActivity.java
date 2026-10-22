@@ -117,6 +117,20 @@ public class ReadingStatsActivity extends BaseActivity {
             b.tvYearDayDetail.setText(dayDetailText(year, month, day, count));
         });
 
+        // v4.21：柱状图右上角「全部记录」按钮 —— 从底部升起半屏面板，列出完整记录
+        b.btnMonthDetail.setOnClickListener(v -> showMonthDetailSheet());
+        b.btnYearDetail.setOnClickListener(v -> showYearDetailSheet());
+        b.btnTotalDetail.setOnClickListener(v -> showTotalDetailSheet());
+
+        // v4.21：点击柱状图里的某根柱子，同样联动下方的当天详情
+        b.chartMonth.setOnBarClickListener((index, value) -> onChartBarClick(index, false));
+        b.chartMonth2.setOnBarClickListener((index, value) -> onChartBarClick(index, true));
+        b.chartYear.setOnBarClickListener((index, value) -> onYearChartBarClick(index));
+        b.chartTotal.setOnBarClickListener((index, value) -> {
+            // 「总」视图的柱子按年份，点击后切到该年并展示
+            b.chartTotal.setHighlightedIndex(index);
+        });
+
         selectTab(0);
         loadData();
     }
@@ -354,6 +368,178 @@ public class ReadingStatsActivity extends BaseActivity {
         return list;
     }
 
+    // ==================== 「全部记录」底部半屏面板（v4.21） ====================
+
+    /**
+     * 月视图的「全部记录」：列出本月每一天的购买记录。
+     *
+     * <p>参照微信读书「阅读时长」页：面板从底部升起，按时间顺序列出完整记录，
+     * 没有购买记录的日子置灰显示「—」。
+     */
+    private void showMonthDetailSheet() {
+        int year = monthCursor.get(Calendar.YEAR);
+        int month = monthCursor.get(Calendar.MONTH);
+        int days = daysInMonth(year, month);
+        int[] daily = dailyCounts(year, month);
+
+        List<PurchaseDetailSheet.Row> rows = new ArrayList<>();
+        for (int d = 1; d <= days; d++) {
+            rows.add(new PurchaseDetailSheet.Row(
+                    String.format(Locale.getDefault(), "%d月%d日", month + 1, d),
+                    daily[d - 1],
+                    weekLabel(year, month, d)));
+        }
+
+        final com.google.android.material.bottomsheet.BottomSheetDialog[] holder =
+                new com.google.android.material.bottomsheet.BottomSheetDialog[1];
+        holder[0] = PurchaseDetailSheet.show(this,
+                String.format(Locale.getDefault(), "%d年%d月 全部记录", year, month + 1),
+                PurchaseDetailSheet.buildSummary(this, rows, 0),
+                rows,
+                (index) -> {
+                    // 点某一天：关闭面板并把当天详情显示在下方
+                    b.tvMonthDayDetail.setText(dayDetailText(year, month, index + 1, daily[index]));
+                    if (holder[0] != null) {
+                        holder[0].dismiss();
+                    }
+                });
+    }
+
+    /**
+     * 年视图的「全部记录」：列出本年每个月的购买记录（按微信读书的层级，
+     * 年视图统计到月，不再细分到日）。
+     */
+    private void showYearDetailSheet() {
+        int year = yearCursor.get(Calendar.YEAR);
+        int[] monthly = monthlyCounts(year);
+
+        List<PurchaseDetailSheet.Row> rows = new ArrayList<>();
+        for (int m = 0; m < 12; m++) {
+            rows.add(new PurchaseDetailSheet.Row((m + 1) + "月", monthly[m], null));
+        }
+
+        final com.google.android.material.bottomsheet.BottomSheetDialog[] holder =
+                new com.google.android.material.bottomsheet.BottomSheetDialog[1];
+        holder[0] = PurchaseDetailSheet.show(this,
+                year + "年 全部记录",
+                PurchaseDetailSheet.buildSummary(this, rows, 1),
+                rows,
+                (index) -> {
+                    // 点某个月：切换到该月并展示明细
+                    monthCursor.set(year, index, 1);
+                    selectTab(0);
+                    b.tvMonthDayDetail.setText(
+                            String.format(Locale.getDefault(), "%d年%d月 · 购买 %d 本",
+                                    year, index + 1, monthly[index]));
+                    if (holder[0] != null) {
+                        holder[0].dismiss();
+                    }
+                });
+    }
+
+    /**
+     * 总视图的「全部记录」：列出有购买记录的每一个年份。
+     */
+    private void showTotalDetailSheet() {
+        TreeMap<Integer, Integer> yearly = new TreeMap<>();
+        for (Book book : books) {
+            int[] pd = parseYmd(book.purchaseDate);
+            if (pd != null) {
+                yearly.merge(pd[0], 1, Integer::sum);
+            }
+        }
+        List<PurchaseDetailSheet.Row> rows = new ArrayList<>();
+        List<Integer> years = new ArrayList<>(yearly.keySet());
+        Collections.reverse(years);
+        for (int y : years) {
+            rows.add(new PurchaseDetailSheet.Row(y + "年", yearly.get(y), null));
+        }
+        if (rows.isEmpty()) {
+            rows.add(new PurchaseDetailSheet.Row(getString(R.string.stats_sheet_empty), 0, null));
+        }
+
+        final com.google.android.material.bottomsheet.BottomSheetDialog[] holder =
+                new com.google.android.material.bottomsheet.BottomSheetDialog[1];
+        holder[0] = PurchaseDetailSheet.show(this, "全部记录",
+                PurchaseDetailSheet.buildSummary(this, rows, 2),
+                rows,
+                (index) -> {
+                    // 点某一年：切到该年的年视图
+                    if (index < years.size()) {
+                        yearCursor.set(years.get(index), 0, 1);
+                        selectTab(1);
+                    }
+                    if (holder[0] != null) {
+                        holder[0].dismiss();
+                    }
+                });
+    }
+
+    /** 月视图柱状图点击：联动下方的当天详情 */
+    private void onChartBarClick(int index, boolean secondHalf) {
+        int year = monthCursor.get(Calendar.YEAR);
+        int month = monthCursor.get(Calendar.MONTH);
+        int days = daysInMonth(year, month);
+        int half = (days + 1) / 2;
+        int day = secondHalf ? (half + 1 + index) : (index + 1);
+        if (day > days) {
+            return;
+        }
+        int[] daily = dailyCounts(year, month);
+        b.chartMonth.setHighlightedIndex(secondHalf ? -1 : index);
+        b.chartMonth2.setHighlightedIndex(secondHalf ? index : -1);
+        b.tvMonthDayDetail.setText(dayDetailText(year, month, day, daily[day - 1]));
+    }
+
+    /** 年视图柱状图点击：联动下方的当月详情 */
+    private void onYearChartBarClick(int index) {
+        int year = yearCursor.get(Calendar.YEAR);
+        int[] monthly = monthlyCounts(year);
+        b.chartYear.setHighlightedIndex(index);
+        b.tvYearDayDetail.setText(String.format(Locale.getDefault(),
+                "%d年%d月 · 购买 %d 本", year, index + 1, monthly[index]));
+    }
+
+    /** 某年某月每天的购买数量（下标 0 = 1 日） */
+    private int[] dailyCounts(int year, int month) {
+        int[] out = new int[daysInMonth(year, month)];
+        for (Book book : books) {
+            int[] pd = parseYmd(book.purchaseDate);
+            if (pd != null && pd[0] == year && pd[1] == month) {
+                out[pd[2] - 1]++;
+            }
+        }
+        return out;
+    }
+
+    /** 某年每月购买数量（下标 0 = 1 月） */
+    private int[] monthlyCounts(int year) {
+        int[] out = new int[12];
+        for (Book book : books) {
+            int[] pd = parseYmd(book.purchaseDate);
+            if (pd != null && pd[0] == year) {
+                out[pd[1]]++;
+            }
+        }
+        return out;
+    }
+
+    /** 星期几（周一/周二…），用于明细行的副标题 */
+    private static String weekLabel(int year, int month0, int day) {
+        Calendar c = Calendar.getInstance();
+        c.clear();
+        c.set(year, month0, day);
+        String[] names = {"周一", "周二", "周三", "周四", "周五", "周六", "周日"};
+        // Calendar.DAY_OF_WEEK：1=周日 … 7=周六
+        int dow = c.get(Calendar.DAY_OF_WEEK) - 1;
+        if (dow == 0) {
+            dow = 6;
+        } else {
+            dow = dow - 1;
+        }
+        return names[dow];
+    }
+
     // ==================== 月视图 ====================
 
     private void renderMonth() {
@@ -424,6 +610,9 @@ public class ReadingStatsActivity extends BaseActivity {
         b.heatmapMonth.setMonthData(year, month, daily);
         // 切换月份后重置上一次的「日详情」，避免残留上一个月的点击结果
         b.tvMonthDayDetail.setText(R.string.stats_click_day_hint);
+        // v4.21：切换月份后清掉柱状图高亮
+        b.chartMonth.setHighlightedIndex(-1);
+        b.chartMonth2.setHighlightedIndex(-1);
 
         // v4.20：本月购买排行（按天降序，没有购买的天不入榜）
         renderRank(b.llMonthRank, b.tvMonthRankTitle, buildDayRank(year, month, daily));
@@ -492,6 +681,8 @@ public class ReadingStatsActivity extends BaseActivity {
         b.heatmapYear.setYearData(year, yearDays);
         // 切换年份后重置上一次的「日详情」
         b.tvYearDayDetail.setText(R.string.stats_click_day_hint);
+        // v4.21：切换年份后清掉柱状图高亮
+        b.chartYear.setHighlightedIndex(-1);
 
         // v4.20：本年购买排行（按月降序，没有购买的月份不入榜）
         List<RankEntry> list = new ArrayList<>();
@@ -689,6 +880,8 @@ public class ReadingStatsActivity extends BaseActivity {
         }
         b.chartTotal.setUnit("本");
         b.chartTotal.setData(labels, values);
+        // v4.21：切换页签时清掉高亮
+        b.chartTotal.setHighlightedIndex(-1);
     }
 
     /** 「首次打开 App 至今 · 与小书房相伴了 N 天」（v2.9；first_launch_at 由 BookshelfApp 持久化） */

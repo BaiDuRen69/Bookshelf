@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- v4.21：明细行权重条的底槽（浅灰，用来衬托主色进度条） -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="?attr/surface_dim" />
+    <corners android:radius="4dp" />
+</shape>
