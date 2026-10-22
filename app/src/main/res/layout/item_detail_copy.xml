@@ -22,7 +22,7 @@
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_copy_lend"
-            style="@style/Widget.Material3.Button.OutlinedButton"
+            style="@style/Widget.Bookshelf.Button.Outlined"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="8dp"

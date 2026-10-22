@@ -8,12 +8,11 @@
 
     <com.google.android.material.appbar.MaterialToolbar
         android:id="@+id/toolbar"
+        style="@style/Widget.Bookshelf.Toolbar"
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
-        android:background="?attr/colorPrimary"
         app:navigationIcon="@drawable/ic_back"
-        app:title="存放地点管理"
-        app:titleTextColor="@color/white" />
+        app:title="存放地点管理" />
 
     <!-- 来源大类筛选（仅来源渠道管理页使用，地点页隐藏） -->
     <Spinner
@@ -106,7 +105,7 @@
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_batch"
-            style="@style/Widget.Material3.Button.OutlinedButton"
+            style="@style/Widget.Bookshelf.Button.Outlined"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginEnd="10dp"

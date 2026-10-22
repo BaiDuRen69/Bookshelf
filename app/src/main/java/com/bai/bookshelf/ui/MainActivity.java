@@ -149,6 +149,19 @@ public class MainActivity extends BaseActivity {
         tintTab(binding.ivTabShelf, binding.tvTabShelf, index == 0 ? active : inactive);
         tintTab(binding.ivTabStats, binding.tvTabStats, index == 1 ? active : inactive);
         tintTab(binding.ivTabMine, binding.tvTabMine, index == 2 ? active : inactive);
+        // v4.16：选中项加胶囊底，未选中透明
+        setTabPill(binding.tabShelfPill, index == 0);
+        setTabPill(binding.tabStatsPill, index == 1);
+        setTabPill(binding.tabMinePill, index == 2);
+    }
+
+    /** 底部导航选中态：胶囊背景 or 透明 */
+    private void setTabPill(android.view.View pill, boolean selected) {
+        if (selected) {
+            pill.setBackgroundResource(R.drawable.bg_nav_selected);
+        } else {
+            pill.setBackgroundColor(android.graphics.Color.TRANSPARENT);
+        }
     }
 
     /** 单个 Tab 的图标与文字统一着色 */

@@ -9,11 +9,10 @@
 
     <com.google.android.material.appbar.MaterialToolbar
         android:id="@+id/toolbar"
+        style="@style/Widget.Bookshelf.Toolbar"
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
-        android:background="?attr/colorPrimary"
-        app:navigationIcon="@drawable/ic_back"
-        app:titleTextColor="@color/white" />
+        app:navigationIcon="@drawable/ic_back" />
 
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"

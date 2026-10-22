@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 设计令牌（v4.16 视觉重构）：间距 / 圆角 / 字号 / 页面尺寸
+     全部布局统一引用这里，避免各页面散落魔法值。
+     大屏（平板、折叠屏展开态）覆盖见 values-sw600dp 与 values-sw840dp。 -->
+<resources>
+    <!-- ===== 间距：4 / 8 栅格 ===== -->
+    <dimen name="space_xxs">2dp</dimen>
+    <dimen name="space_xs">4dp</dimen>
+    <dimen name="space_sm">8dp</dimen>
+    <dimen name="space_md">12dp</dimen>
+    <dimen name="space_lg">16dp</dimen>
+    <dimen name="space_xl">20dp</dimen>
+    <dimen name="space_xxl">28dp</dimen>
+
+    <!-- ===== 圆角 ===== -->
+    <dimen name="radius_sm">8dp</dimen>
+    <dimen name="radius_md">12dp</dimen>
+    <dimen name="radius_lg">16dp</dimen>
+    <dimen name="radius_pill">22dp</dimen>
+
+    <!-- ===== 字阶 ===== -->
+    <dimen name="text_display">24sp</dimen>
+    <dimen name="text_title">20sp</dimen>
+    <dimen name="text_headline">17sp</dimen>
+    <dimen name="text_body">15sp</dimen>
+    <dimen name="text_body_small">13sp</dimen>
+    <dimen name="text_caption">11sp</dimen>
+
+    <!-- ===== 页面 ===== -->
+    <dimen name="page_padding">12dp</dimen>
+    <dimen name="page_padding_v">12dp</dimen>
+    <!-- 内容最大宽度：手机端不限制（9999dp），sw600dp 起收窄，避免大屏行长过长 -->
+    <dimen name="content_max_width">9999dp</dimen>
+    <dimen name="card_corner">16dp</dimen>
+    <dimen name="card_stroke">1dp</dimen>
+    <dimen name="toolbar_height">56dp</dimen>
+    <dimen name="tab_icon_size">22dp</dimen>
+    <dimen name="tab_label_size">11sp</dimen>
+</resources>

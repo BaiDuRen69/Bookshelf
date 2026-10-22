@@ -12,6 +12,20 @@
     <color name="danger">#C0392B</color>
     <color name="selected_bg">#222E6E5C</color>
 
+    <!-- ===== 语义色层（v4.16 视觉重构）：卡片面 / 描边 / 次级面 ===== -->
+    <!-- 卡片面（与页面底色拉开一档） -->
+    <color name="surface">#FFFFFF</color>
+    <!-- 卡片内的次级面（输入框、占位图、进度条底） -->
+    <color name="surface_dim">#F4F0E9</color>
+    <!-- 常规描边：卡片、输入框、筛选器 -->
+    <color name="outline">#E6E0D5</color>
+    <!-- 强描边：聚焦态、强调元素 -->
+    <color name="outline_strong">#CFC5B4</color>
+    <!-- 封面占位底色（替代写死的 #EEE） -->
+    <color name="cover_placeholder_bg">#E9E3D8</color>
+    <!-- 底部导航条面（白底 + 上描边） -->
+    <color name="nav_bar_bg">#FFFFFF</color>
+
     <!-- ===== 分割线 / 遮罩等半透明中性色（v3.0 收拢，避免各布局散落魔法值） ===== -->
     <!-- 极弱分割线：书脊下方阴影、卡片描边等 -->
     <color name="divider_faint">#12000000</color>
@@ -53,4 +67,19 @@
     <color name="graphite_primary">#4A6B70</color>
     <color name="graphite_primary_dark">#375056</color>
     <color name="graphite_accent">#B08040</color>
+
+    <!-- ===== 主题容器色（v4.16）：主色浅容器 + 容器上的文字色 =====
+         与 chip_bg 一一对应，chip_bg 保留给历史代码，容器色用于新组件 -->
+    <color name="green_container">#E6F0EC</color>
+    <color name="green_on_container">#1C4A3E</color>
+    <color name="blue_container">#E8EDF6</color>
+    <color name="blue_on_container">#2A4676</color>
+    <color name="red_container">#F6E9E7</color>
+    <color name="red_on_container">#7A3226</color>
+    <color name="orange_container">#FAEDDF</color>
+    <color name="orange_on_container">#93510F</color>
+    <color name="purple_container">#EDE9F6</color>
+    <color name="purple_on_container">#4E3876</color>
+    <color name="graphite_container">#E8EEEE</color>
+    <color name="graphite_on_container">#334C51</color>
 </resources>

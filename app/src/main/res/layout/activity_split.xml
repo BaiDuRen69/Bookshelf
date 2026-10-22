@@ -8,12 +8,11 @@
 
     <com.google.android.material.appbar.MaterialToolbar
         android:id="@+id/toolbar"
+        style="@style/Widget.Bookshelf.Toolbar"
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
-        android:background="?attr/colorPrimary"
         app:navigationIcon="@drawable/ic_back"
-        app:title="套装购入价分摊"
-        app:titleTextColor="@color/white" />
+        app:title="套装购入价分摊" />
 
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
@@ -49,7 +48,7 @@
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_add_book"
-                style="@style/Widget.Material3.Button.OutlinedButton"
+                style="@style/Widget.Bookshelf.Button.Outlined"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"

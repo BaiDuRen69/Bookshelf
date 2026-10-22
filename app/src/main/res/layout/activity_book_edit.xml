@@ -8,23 +8,33 @@
 
     <com.google.android.material.appbar.MaterialToolbar
         android:id="@+id/toolbar"
+        style="@style/Widget.Bookshelf.Toolbar"
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
-        android:background="?attr/colorPrimary"
         app:navigationIcon="@drawable/ic_back"
-        app:title="录入书籍"
-        app:titleTextColor="@color/white" />
+        app:title="录入书籍" />
 
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1">
 
-        <LinearLayout
+                <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+<LinearLayout
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="14dp">
+            android:padding="14dp"
+                    app:layout_constraintWidth_max="@dimen/content_max_width"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintHorizontal_bias="0.5"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                >
 
             <!-- 封面：预览 + 链接 + 拍照/相册 -->
             <LinearLayout
@@ -36,7 +46,8 @@
                     android:id="@+id/iv_cover"
                     android:layout_width="72dp"
                     android:layout_height="96dp"
-                    android:background="#EEE"
+                    android:background="@drawable/bg_cover"
+                    android:clipToOutline="true"
                     android:scaleType="centerCrop"
                     android:src="@drawable/ic_cover_placeholder" />
 
@@ -67,7 +78,7 @@
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/btn_take_photo"
-                            style="@style/Widget.Material3.Button.OutlinedButton"
+                            style="@style/Widget.Bookshelf.Button.Outlined"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
@@ -76,7 +87,7 @@
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/btn_pick_image"
-                            style="@style/Widget.Material3.Button.OutlinedButton"
+                            style="@style/Widget.Bookshelf.Button.Outlined"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
@@ -86,7 +97,7 @@
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/btn_preview_cover"
-                            style="@style/Widget.Material3.Button.OutlinedButton"
+                            style="@style/Widget.Bookshelf.Button.Outlined"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
@@ -367,7 +378,7 @@
                 <!-- v3.9：按当前书名/作者获取豆瓣评分（仅测试版显示） -->
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_fetch_douban"
-                    style="@style/Widget.Material3.Button.TonalButton"
+                    style="@style/Widget.Bookshelf.Button.Tonal"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="8dp"
@@ -601,7 +612,7 @@
             <!-- 备注图片：添加 + 缩略图横向滚动（点缩略图可预览/移除） -->
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_add_note_image"
-                style="@style/Widget.Material3.Button.OutlinedButton"
+                style="@style/Widget.Bookshelf.Button.Outlined"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="6dp"
@@ -662,5 +673,6 @@
                 android:layout_marginBottom="24dp"
                 android:text="@string/action_save" />
         </LinearLayout>
+        </androidx.constraintlayout.widget.ConstraintLayout>
     </androidx.core.widget.NestedScrollView>
 </LinearLayout>

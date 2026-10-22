@@ -226,7 +226,7 @@ public class BookDetailActivity extends BaseActivity {
         appendLine(info, "豆瓣评分", book.doubanRating);
         appendLine(info, "分类", categoryDisplay);
         appendLine(info, "ISBN", formatIsbn(book.isbn));
-        b.tvInfo.setText(info.toString().trim());
+        b.tvInfo.setText(section("书目信息", info.toString().trim()));
 
         boolean multi = book.quantity > 1;
         boolean hasLent = !openRecords.isEmpty();
@@ -256,7 +256,7 @@ public class BookDetailActivity extends BaseActivity {
             }
         }
         appendLine(core, "录入时间", StatusText.formatTime(book.createdAt));
-        b.tvCore.setText(core.toString().trim());
+        b.tvCore.setText(section("藏书信息", core.toString().trim()));
 
         // 管理信息块（不再包含「备注」与「各本存放位置」，这两处已分别下线/独立成块）
         StringBuilder mg = new StringBuilder();
@@ -272,7 +272,7 @@ public class BookDetailActivity extends BaseActivity {
             appendLine(mg, "实付", paid);
         }
         // 我的评分不在详情页展示（仍在编辑页和书架排序中可用）
-        b.tvManage.setText(mg.toString().trim());
+        b.tvManage.setText(section("管理信息", mg.toString().trim()));
         // 管理信息为空（书刚录入、无借出无备注）时整块隐藏，避免空白卡片
         b.tvManage.setVisibility(mg.toString().trim().isEmpty() ? View.GONE : View.VISIBLE);
 
@@ -788,6 +788,25 @@ public class BookDetailActivity extends BaseActivity {
         if (value != null && !value.isEmpty()) {
             sb.append(label).append("：").append(value).append("\n");
         }
+    }
+
+    /**
+     * 分区文本（v4.16 视觉重构）：首行是加粗主色的小标题，正文常规字重，
+     * 让「书目信息 / 藏书信息 / 管理信息」三块有清晰层级，不再是同款文本块。
+     */
+    private CharSequence section(String title, String body) {
+        String content = body == null ? "" : body.trim();
+        String text = content.isEmpty() ? title : title + "\n" + content;
+        android.text.SpannableString ss = new android.text.SpannableString(text);
+        ss.setSpan(new android.text.style.StyleSpan(android.graphics.Typeface.BOLD),
+                0, title.length(), android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        ss.setSpan(new android.text.style.ForegroundColorSpan(
+                        com.bai.bookshelf.util.ThemeManager.resolveColor(this,
+                                com.bai.bookshelf.util.ThemeManager.ATTR_COLOR_PRIMARY)),
+                0, title.length(), android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        ss.setSpan(new android.text.style.RelativeSizeSpan(0.88f),
+                0, title.length(), android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        return ss;
     }
 
     // ======================= 借出 ⇄ 归还 =======================

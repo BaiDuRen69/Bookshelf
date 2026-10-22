@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 列表项上的小标签背景：跟随主题色的极浅底 + 8dp 圆角（v3.0 改为 @color/chip_bg，由各主题覆盖） -->
+<!-- 列表项上的小标签背景：跟随主题的极浅容器底 + 圆角
+     （v4.16：由 @color/chip_bg 改为 ?attr/chip_bg——原写法写的是固定颜色资源，
+      主题里覆盖的 chip_bg 属性其实没生效，标签底色换肤后不跟随） -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-    <solid android:color="@color/chip_bg" />
-    <corners android:radius="8dp" />
+    <solid android:color="?attr/chip_bg" />
+    <corners android:radius="@dimen/radius_sm" />
 </shape>

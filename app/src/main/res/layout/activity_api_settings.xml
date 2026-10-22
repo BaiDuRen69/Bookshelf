@@ -8,12 +8,11 @@
 
     <com.google.android.material.appbar.MaterialToolbar
         android:id="@+id/toolbar"
+        style="@style/Widget.Bookshelf.Toolbar"
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
-        android:background="?attr/colorPrimary"
         app:navigationIcon="@drawable/ic_back"
-        app:title="API 设置"
-        app:titleTextColor="@color/white" />
+        app:title="API 设置" />
 
     <ScrollView
         android:layout_width="match_parent"
@@ -21,11 +20,22 @@
         android:layout_weight="1"
         android:fillViewport="true">
 
-        <LinearLayout
+                <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+<LinearLayout
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="12dp">
+            android:padding="12dp"
+                    app:layout_constraintWidth_max="@dimen/content_max_width"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintHorizontal_bias="0.5"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                >
 
             <!-- API 配置：ISBN 数据源地址与鉴权凭证 -->
             <LinearLayout
@@ -92,5 +102,6 @@
                 android:textColor="@color/text_sub"
                 android:textSize="12sp" />
         </LinearLayout>
+        </androidx.constraintlayout.widget.ConstraintLayout>
     </ScrollView>
 </LinearLayout>

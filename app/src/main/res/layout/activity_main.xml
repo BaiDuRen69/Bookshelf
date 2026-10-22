@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 主界面：Fragment 容器 + 自定义底部三 Tab 导航（图标文字间距完全可控） -->
+<!-- 主界面：Fragment 容器 + 自定义底部三 Tab 导航（v4.16：选中项加胶囊底 + 加大图标） -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -15,13 +15,14 @@
     <View
         android:layout_width="match_parent"
         android:layout_height="1dp"
-        android:background="@color/divider_normal" />
+        android:background="?attr/outline" />
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@color/white"
-        android:orientation="horizontal">
+        android:background="?attr/surface"
+        android:orientation="horizontal"
+        android:paddingVertical="6dp">
 
         <LinearLayout
             android:id="@+id/tab_shelf"
@@ -33,22 +34,33 @@
             android:focusable="true"
             android:gravity="center"
             android:orientation="vertical"
-            android:paddingVertical="6dp">
+            android:paddingVertical="4dp">
 
-            <ImageView
-                android:id="@+id/iv_tab_shelf"
-                android:layout_width="20dp"
-                android:layout_height="20dp"
-                android:src="@drawable/ic_book"
-                android:contentDescription="书架" />
-
-            <TextView
-                android:id="@+id/tv_tab_shelf"
+            <LinearLayout
+                android:id="@+id/tab_shelf_pill"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:text="书架"
-                android:textSize="10sp" />
+                android:background="@drawable/bg_nav_selected"
+                android:gravity="center"
+                android:orientation="vertical"
+                android:paddingHorizontal="18dp"
+                android:paddingVertical="5dp">
+
+                <ImageView
+                    android:id="@+id/iv_tab_shelf"
+                    android:layout_width="@dimen/tab_icon_size"
+                    android:layout_height="@dimen/tab_icon_size"
+                    android:contentDescription="书架"
+                    android:src="@drawable/ic_book" />
+
+                <TextView
+                    android:id="@+id/tv_tab_shelf"
+                    style="@style/BottomNavText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="书架" />
+            </LinearLayout>
         </LinearLayout>
 
         <LinearLayout
@@ -61,22 +73,33 @@
             android:focusable="true"
             android:gravity="center"
             android:orientation="vertical"
-            android:paddingVertical="6dp">
+            android:paddingVertical="4dp">
 
-            <ImageView
-                android:id="@+id/iv_tab_stats"
-                android:layout_width="20dp"
-                android:layout_height="20dp"
-                android:src="@drawable/ic_chart"
-                android:contentDescription="统计" />
-
-            <TextView
-                android:id="@+id/tv_tab_stats"
+            <LinearLayout
+                android:id="@+id/tab_stats_pill"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:text="统计"
-                android:textSize="10sp" />
+                android:background="@drawable/bg_nav_selected"
+                android:gravity="center"
+                android:orientation="vertical"
+                android:paddingHorizontal="18dp"
+                android:paddingVertical="5dp">
+
+                <ImageView
+                    android:id="@+id/iv_tab_stats"
+                    android:layout_width="@dimen/tab_icon_size"
+                    android:layout_height="@dimen/tab_icon_size"
+                    android:contentDescription="统计"
+                    android:src="@drawable/ic_chart" />
+
+                <TextView
+                    android:id="@+id/tv_tab_stats"
+                    style="@style/BottomNavText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="统计" />
+            </LinearLayout>
         </LinearLayout>
 
         <LinearLayout
@@ -89,22 +112,33 @@
             android:focusable="true"
             android:gravity="center"
             android:orientation="vertical"
-            android:paddingVertical="6dp">
+            android:paddingVertical="4dp">
 
-            <ImageView
-                android:id="@+id/iv_tab_mine"
-                android:layout_width="20dp"
-                android:layout_height="20dp"
-                android:src="@drawable/ic_person"
-                android:contentDescription="我的" />
-
-            <TextView
-                android:id="@+id/tv_tab_mine"
+            <LinearLayout
+                android:id="@+id/tab_mine_pill"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:text="我的"
-                android:textSize="10sp" />
+                android:background="@drawable/bg_nav_selected"
+                android:gravity="center"
+                android:orientation="vertical"
+                android:paddingHorizontal="18dp"
+                android:paddingVertical="5dp">
+
+                <ImageView
+                    android:id="@+id/iv_tab_mine"
+                    android:layout_width="@dimen/tab_icon_size"
+                    android:layout_height="@dimen/tab_icon_size"
+                    android:contentDescription="我的"
+                    android:src="@drawable/ic_person" />
+
+                <TextView
+                    android:id="@+id/tv_tab_mine"
+                    style="@style/BottomNavText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="我的" />
+            </LinearLayout>
         </LinearLayout>
     </LinearLayout>
 </LinearLayout>

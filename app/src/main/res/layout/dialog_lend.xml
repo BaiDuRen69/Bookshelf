@@ -39,7 +39,7 @@
     <!-- 借出备注图片附件 -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btn_add_note_image"
-        style="@style/Widget.Material3.Button.OutlinedButton"
+        style="@style/Widget.Bookshelf.Button.Outlined"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="10dp"

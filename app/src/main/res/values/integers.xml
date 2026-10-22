@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 书架封面网格列数（v4.16）：随屏幕宽度自适应 -->
+<resources>
+    <integer name="shelf_grid_span">3</integer>
+</resources>

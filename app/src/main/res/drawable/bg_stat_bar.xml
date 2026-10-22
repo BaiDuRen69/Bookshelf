@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 统计页条形图的条 -->
+<!-- 统计页条形图的条（v4.16：跟随主题主色） -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-    <solid android:color="@color/stat_bar" />
+    <solid android:color="?attr/colorPrimary" />
     <corners android:radius="4dp" />
 </shape>

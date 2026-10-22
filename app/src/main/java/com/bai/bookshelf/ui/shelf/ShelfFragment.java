@@ -366,7 +366,17 @@ public class ShelfFragment extends Fragment {
 
             @Override
             public void afterTextChanged(Editable s) {
+                // v4.16：有内容时显示右侧清除按钮
+                if (b != null) {
+                    b.btnClearSearch.setVisibility(
+                            s != null && s.length() > 0 ? View.VISIBLE : View.GONE);
+                }
             }
+        });
+        // 清除按钮：一键清空搜索词
+        b.btnClearSearch.setOnClickListener(v -> {
+            b.etSearch.setText("");
+            b.etSearch.requestFocus();
         });
 
         // 录入方式选择
@@ -506,7 +516,9 @@ public class ShelfFragment extends Fragment {
             return;
         }
         if (viewMode == 1) {
-            b.recycler.setLayoutManager(new GridLayoutManager(requireContext(), 3));
+            // v4.16：网格列数随屏幕宽度自适应（values / sw600dp / sw840dp 覆盖）
+            b.recycler.setLayoutManager(new GridLayoutManager(requireContext(),
+                    getResources().getInteger(R.integer.shelf_grid_span)));
             b.recycler.setAdapter(gridAdapter);
             b.btnView.setText("文字"); // 按钮显示下一个模式
         } else if (viewMode == 2) {
@@ -803,7 +815,7 @@ public class ShelfFragment extends Fragment {
         b.scrollChannelChips.setVisibility(View.VISIBLE);
     }
 
-    /** 行内筛选 chip（v4.10）：小号圆角标签，选中态描边高亮 */
+    /** 行内筛选 chip（v4.10 小号圆角标签；v4.16 选中态描边高亮 + 主题色文字） */
     private android.widget.TextView buildChip(String text, boolean selected,
                                               View.OnClickListener listener) {
         android.widget.TextView tv = new android.widget.TextView(requireContext());
@@ -812,8 +824,11 @@ public class ShelfFragment extends Fragment {
         tv.setPadding(dp(10), dp(4), dp(10), dp(4));
         tv.setBackgroundResource(selected
                 ? R.drawable.bg_category_selected : R.drawable.bg_chip);
-        tv.setTextColor(requireContext().getColor(
-                selected ? R.color.primary : R.color.text_main));
+        // v4.16：选中态文字用当前主题主色（原先写死 R.color.primary，换肤后不跟随）
+        tv.setTextColor(selected
+                ? com.bai.bookshelf.util.ThemeManager.resolveColor(requireContext(),
+                com.bai.bookshelf.util.ThemeManager.ATTR_COLOR_PRIMARY)
+                : requireContext().getColor(R.color.text_main));
         tv.setOnClickListener(listener);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
@@ -1055,7 +1070,8 @@ public class ShelfFragment extends Fragment {
         if (b == null) {
             return;
         }
-        b.tvEmpty.setVisibility(empty ? View.VISIBLE : View.GONE);
+        // v4.16：空态整块（含图标）显隐
+        b.llEmpty.setVisibility(empty ? View.VISIBLE : View.GONE);
         if (!empty) {
             return;
         }

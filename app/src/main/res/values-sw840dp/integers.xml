@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 超大屏：网格列数更多 -->
+<resources>
+    <integer name="shelf_grid_span">6</integer>
+</resources>

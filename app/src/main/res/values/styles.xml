@@ -1,28 +1,117 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- 「我的」页功能入口行容器（可点击卡片行，内含标题/副标题/箭头） -->
+    <!-- ===== v4.16 视觉重构：统一组件样式 ===== -->
+
+    <!-- 圆角：中等（按钮/输入框/标签） -->
+    <style name="ShapeAppearance.Bookshelf.Medium" parent="ShapeAppearance.Material3.Corner.Medium">
+        <item name="cornerSize">@dimen/radius_md</item>
+    </style>
+
+    <!-- 主按钮：12dp 圆角 + 统一字号 -->
+    <style name="Widget.Bookshelf.Button" parent="Widget.Material3.Button">
+        <item name="shapeAppearance">@style/ShapeAppearance.Bookshelf.Medium</item>
+        <item name="android:textSize">@dimen/text_body_small</item>
+        <item name="android:letterSpacing">0.02</item>
+        <item name="android:minHeight">44dp</item>
+        <item name="cornerRadius">@dimen/radius_md</item>
+    </style>
+
+    <!-- 描边按钮：与主按钮同形状，避免大小不一 -->
+    <style name="Widget.Bookshelf.Button.Outlined" parent="Widget.Material3.Button.OutlinedButton">
+        <item name="shapeAppearance">@style/ShapeAppearance.Bookshelf.Medium</item>
+        <item name="android:textSize">@dimen/text_body_small</item>
+        <item name="android:letterSpacing">0.02</item>
+        <item name="android:minHeight">44dp</item>
+        <item name="cornerRadius">@dimen/radius_md</item>
+    </style>
+
+    <!-- 文本按钮 -->
+    <style name="Widget.Bookshelf.Button.Text" parent="Widget.Material3.Button.TextButton">
+        <item name="shapeAppearance">@style/ShapeAppearance.Bookshelf.Medium</item>
+        <item name="android:textSize">@dimen/text_body_small</item>
+        <item name="android:letterSpacing">0.02</item>
+        <item name="cornerRadius">@dimen/radius_md</item>
+    </style>
+
+    <!-- 色调按钮（次级强调） -->
+    <style name="Widget.Bookshelf.Button.Tonal" parent="Widget.Material3.Button.TonalButton">
+        <item name="shapeAppearance">@style/ShapeAppearance.Bookshelf.Medium</item>
+        <item name="android:textSize">@dimen/text_body_small</item>
+        <item name="android:letterSpacing">0.02</item>
+        <item name="android:minHeight">44dp</item>
+        <item name="cornerRadius">@dimen/radius_md</item>
+    </style>
+
+    <!-- 输入框：描边式 + 12dp 圆角（替代 M3 默认的 4dp 顶部小圆角） -->
+    <style name="Widget.Bookshelf.TextField" parent="Widget.Material3.TextInputLayout.OutlinedBox">
+        <item name="boxStrokeColor">@color/text_field_stroke</item>
+        <item name="boxStrokeWidth">1dp</item>
+        <item name="boxStrokeWidthFocused">1.5dp</item>
+        <item name="boxCornerRadiusTopStart">@dimen/radius_md</item>
+        <item name="boxCornerRadiusTopEnd">@dimen/radius_md</item>
+        <item name="boxCornerRadiusBottomStart">@dimen/radius_md</item>
+        <item name="boxCornerRadiusBottomEnd">@dimen/radius_md</item>
+        <item name="boxBackgroundColor">?attr/surface</item>
+        <item name="hintTextColor">?attr/colorPrimary</item>
+        <item name="android:textColorHint">?attr/on_surface_variant</item>
+    </style>
+
+    <!-- 卡片：描边式（0 投影 + 1dp 描边），边界清晰且更轻盈现代 -->
+    <style name="Widget.Bookshelf.Card" parent="CardView">
+        <item name="cardCornerRadius">@dimen/card_corner</item>
+        <item name="cardElevation">0dp</item>
+        <item name="cardBackgroundColor">?attr/surface</item>
+        <item name="strokeColor">?attr/outline</item>
+        <item name="strokeWidth">1dp</item>
+    </style>
+
+    <!-- MaterialCardView 同款（统计/我的页用 Material 组件时保持一致） -->
+    <style name="Widget.Bookshelf.MaterialCard" parent="Widget.Material3.CardView.Outlined">
+        <item name="cardCornerRadius">@dimen/card_corner</item>
+        <item name="cardElevation">0dp</item>
+        <item name="strokeColor">?attr/outline</item>
+        <item name="strokeWidth">1dp</item>
+    </style>
+
+    <!-- 工具栏：主色底 + 白色标题 + 无阴影 -->
+    <style name="Widget.Bookshelf.Toolbar" parent="Widget.Material3.Toolbar">
+        <item name="android:background">?attr/colorPrimary</item>
+        <item name="titleTextColor">@color/white</item>
+        <item name="titleTextAppearance">@style/TextAppearance.Bookshelf.ToolbarTitle</item>
+        <item name="navigationIconTint">@color/white</item>
+        <item name="android:elevation">0dp</item>
+    </style>
+
+    <style name="TextAppearance.Bookshelf.ToolbarTitle" parent="TextAppearance.Material3.TitleLarge">
+        <item name="android:textSize">@dimen/text_headline</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textColor">@color/white</item>
+    </style>
+
+    <!-- ===== 「我的」页功能入口行容器（描边卡片行） ===== -->
     <style name="MineRow">
         <item name="android:layout_width">match_parent</item>
         <item name="android:layout_height">wrap_content</item>
-        <item name="android:layout_marginTop">8dp</item>
-        <item name="android:background">@drawable/bg_chip</item>
+        <item name="android:layout_marginTop">@dimen/space_sm</item>
+        <item name="android:background">@drawable/bg_card</item>
         <item name="android:clickable">true</item>
         <item name="android:focusable">true</item>
         <item name="android:foreground">?attr/selectableItemBackground</item>
         <item name="android:gravity">center_vertical</item>
-        <item name="android:minHeight">56dp</item>
-        <item name="android:paddingStart">16dp</item>
-        <item name="android:paddingEnd">12dp</item>
-        <item name="android:paddingTop">12dp</item>
-        <item name="android:paddingBottom">12dp</item>
+        <item name="android:minHeight">60dp</item>
+        <item name="android:paddingStart">@dimen/space_lg</item>
+        <item name="android:paddingEnd">@dimen/space_md</item>
+        <item name="android:paddingTop">@dimen/space_md</item>
+        <item name="android:paddingBottom">@dimen/space_md</item>
     </style>
 
     <!-- 行内主标题 -->
     <style name="MineRowTitle">
         <item name="android:layout_width">wrap_content</item>
         <item name="android:layout_height">wrap_content</item>
-        <item name="android:textColor">@color/text_main</item>
-        <item name="android:textSize">15sp</item>
+        <item name="android:textColor">?attr/on_surface</item>
+        <item name="android:textSize">@dimen/text_body</item>
+        <item name="android:textStyle">bold</item>
     </style>
 
     <!-- 行内副标题（功能说明 / 实时状态） -->
@@ -30,24 +119,24 @@
         <item name="android:layout_width">wrap_content</item>
         <item name="android:layout_height">wrap_content</item>
         <item name="android:layout_marginTop">2dp</item>
-        <item name="android:textColor">@color/text_sub</item>
-        <item name="android:textSize">12sp</item>
+        <item name="android:textColor">?attr/on_surface_variant</item>
+        <item name="android:textSize">@dimen/text_body_small</item>
     </style>
 
     <!-- 分区标题：按功能分组，标题具体（Material Design 设置页规范） -->
     <style name="MineSectionTitle">
         <item name="android:layout_width">match_parent</item>
         <item name="android:layout_height">wrap_content</item>
-        <item name="android:layout_marginTop">16dp</item>
+        <item name="android:layout_marginTop">@dimen/space_xl</item>
         <item name="android:layout_marginBottom">2dp</item>
-        <item name="android:paddingStart">4dp</item>
-        <item name="android:textColor">@color/text_sub</item>
-        <item name="android:textSize">13sp</item>
+        <item name="android:paddingStart">@dimen/space_xs</item>
+        <item name="android:textColor">?attr/on_surface_variant</item>
+        <item name="android:textSize">@dimen/text_caption</item>
         <item name="android:textStyle">bold</item>
     </style>
 
     <!-- 底部导航小字号（配合低高度导航栏） -->
     <style name="BottomNavText">
-        <item name="android:textSize">10sp</item>
+        <item name="android:textSize">@dimen/tab_label_size</item>
     </style>
 </resources>

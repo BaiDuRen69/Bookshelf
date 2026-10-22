@@ -2,6 +2,17 @@
 <resources>
     <!-- 自定义主题属性（v3.0 新增 chip_bg）。
          用于让随主题变化的浅色底（标签背景）在各主题里能被独立覆盖；
-         引用方式与 ?attr/colorPrimary 相同，主题未设置时会回退到 colors.xml 同名颜色。 -->
+         引用方式与 ?attr/colorPrimary 相同，主题未设置时会回退到 colors.xml 同名颜色。
+
+         v4.16 视觉重构：补充 surface / outline 等语义色属性，
+         布局统一用 ?attr/xxx 取值，六套主题各自覆盖，保证换肤后整体协调。 -->
     <attr name="chip_bg" format="color" />
+    <attr name="surface" format="color" />
+    <attr name="surface_dim" format="color" />
+    <attr name="outline" format="color" />
+    <attr name="outline_strong" format="color" />
+    <attr name="on_surface" format="color" />
+    <attr name="on_surface_variant" format="color" />
+    <attr name="primary_container" format="color" />
+    <attr name="on_primary_container" format="color" />
 </resources>

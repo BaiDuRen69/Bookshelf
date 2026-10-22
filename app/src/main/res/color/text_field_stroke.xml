@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 输入框描边状态色（v4.16）：聚焦主色、常态浅描边 -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_focused="true" android:state_hovered="true" android:color="?attr/colorPrimary" />
+    <item android:state_focused="true" android:color="?attr/colorPrimary" />
+    <item android:state_hovered="true" android:color="?attr/outline_strong" />
+    <item android:color="?attr/outline" />
+</selector>

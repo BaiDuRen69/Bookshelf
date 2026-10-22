@@ -1,26 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 书架列表项：封面 + 书名/作者 + 地点状态标签 + 评分 -->
+<!-- 书架列表项：封面 + 书名/作者 + 地点状态标签 + 评分（v4.16 描边卡片 + 圆角封面） -->
 <androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    style="@style/Widget.Bookshelf.Card"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginHorizontal="10dp"
-    android:layout_marginVertical="5dp"
-    app:cardCornerRadius="12dp"
-    app:cardElevation="2dp">
+    android:layout_marginHorizontal="@dimen/page_padding"
+    android:layout_marginVertical="@dimen/space_xs">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:padding="10dp">
+        android:padding="@dimen/space_md">
 
         <ImageView
             android:id="@+id/iv_cover"
-            android:layout_width="54dp"
-            android:layout_height="72dp"
-            android:background="#EEE"
+            android:layout_width="56dp"
+            android:layout_height="76dp"
+            android:background="@drawable/bg_cover"
+            android:clipToOutline="true"
             android:scaleType="centerCrop"
             android:src="@drawable/ic_cover_placeholder" />
 
@@ -28,16 +28,16 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:layout_marginStart="10dp"
+            android:layout_marginStart="@dimen/space_md"
             android:orientation="vertical">
 
             <TextView
                 android:id="@+id/tv_title"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textSize="16sp"
+                android:textSize="@dimen/text_headline"
                 android:textStyle="bold"
-                android:textColor="@color/text_main"
+                android:textColor="?attr/on_surface"
                 android:maxLines="2"
                 android:ellipsize="end" />
 
@@ -45,16 +45,16 @@
                 android:id="@+id/tv_author"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:textSize="13sp"
-                android:textColor="@color/text_sub"
+                android:layout_marginTop="@dimen/space_xs"
+                android:textSize="@dimen/text_body_small"
+                android:textColor="?attr/on_surface_variant"
                 android:maxLines="1"
                 android:ellipsize="end" />
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
+                android:layout_marginTop="@dimen/space_sm"
                 android:orientation="horizontal">
 
                 <TextView
@@ -62,21 +62,21 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:background="@drawable/bg_chip"
-                    android:paddingHorizontal="8dp"
+                    android:paddingHorizontal="@dimen/space_sm"
                     android:paddingVertical="3dp"
-                    android:textSize="11sp"
-                    android:textColor="?attr/colorPrimary" />
+                    android:textSize="@dimen/text_caption"
+                    android:textColor="?attr/on_primary_container" />
 
                 <TextView
                     android:id="@+id/tv_stock"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="6dp"
+                    android:layout_marginStart="@dimen/space_xs"
                     android:background="@drawable/bg_chip"
-                    android:paddingHorizontal="8dp"
+                    android:paddingHorizontal="@dimen/space_sm"
                     android:paddingVertical="3dp"
-                    android:textSize="11sp"
-                    android:textColor="?attr/colorPrimary" />
+                    android:textSize="@dimen/text_caption"
+                    android:textColor="?attr/on_primary_container" />
             </LinearLayout>
 
             <!-- 标签独立行（无标签时隐藏） -->
@@ -84,7 +84,7 @@
                 android:id="@+id/tags_row"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
+                android:layout_marginTop="@dimen/space_xs"
                 android:orientation="horizontal"
                 android:visibility="gone" />
         </LinearLayout>
@@ -93,16 +93,8 @@
             android:id="@+id/tv_rating"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="6dp"
-            android:textSize="13sp"
+            android:layout_marginStart="@dimen/space_sm"
+            android:textSize="@dimen/text_body_small"
             android:textColor="?attr/colorSecondary" />
     </LinearLayout>
-
-    <!-- 书籍之间的浅分割线（底部） -->
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:layout_gravity="bottom"
-        android:layout_marginHorizontal="12dp"
-        android:background="@color/divider_faint" />
 </androidx.cardview.widget.CardView>

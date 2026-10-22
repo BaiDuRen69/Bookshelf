@@ -1,61 +1,57 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 书架封面视图项：封面大图 + 左上角标 + 下方书名 -->
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- 书架封面视图项：封面大图 + 左上角标 + 下方书名（v4.16 圆角封面 + 描边卡片） -->
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    style="@style/Widget.Bookshelf.Card"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="vertical"
-    android:padding="6dp">
+    android:layout_margin="@dimen/space_xs">
 
-    <FrameLayout
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content">
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="@dimen/space_sm">
 
-        <ImageView
-            android:id="@+id/iv_cover"
+        <FrameLayout
             android:layout_width="match_parent"
-            android:layout_height="150dp"
-            android:background="#EEE"
-            android:scaleType="centerCrop"
-            android:src="@drawable/ic_cover_placeholder" />
+            android:layout_height="wrap_content">
 
-        <!-- 左上角标：阅读状态 -->
-        <LinearLayout
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="top|start"
-            android:layout_margin="4dp"
-            android:orientation="vertical">
+            <ImageView
+                android:id="@+id/iv_cover"
+                android:layout_width="match_parent"
+                android:layout_height="150dp"
+                android:background="@drawable/bg_cover"
+                android:clipToOutline="true"
+                android:scaleType="centerCrop"
+                android:src="@drawable/ic_cover_placeholder" />
 
+            <!-- 左上角标：阅读状态 -->
             <TextView
                 android:id="@+id/tv_read"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_gravity="top|start"
+                android:layout_margin="@dimen/space_xs"
                 android:background="@drawable/bg_badge"
                 android:backgroundTint="?attr/colorPrimary"
-                android:paddingHorizontal="5dp"
+                android:paddingHorizontal="6dp"
                 android:paddingVertical="2dp"
                 android:text="未读"
                 android:textColor="@color/white"
-                android:textSize="10sp" />
-        </LinearLayout>
-    </FrameLayout>
+                android:textSize="@dimen/text_caption" />
+        </FrameLayout>
 
-    <TextView
-        android:id="@+id/tv_title"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:ellipsize="end"
-        android:gravity="center"
-        android:maxLines="2"
-        android:minLines="2"
-        android:textSize="12sp"
-        android:textColor="@color/text_main" />
-
-    <!-- 书籍之间的浅分割线（底部） -->
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:layout_marginTop="4dp"
-        android:background="@color/divider_faint" />
-</LinearLayout>
+        <TextView
+            android:id="@+id/tv_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/space_sm"
+            android:ellipsize="end"
+            android:gravity="center"
+            android:maxLines="2"
+            android:minLines="2"
+            android:textSize="@dimen/text_body_small"
+            android:textColor="?attr/on_surface" />
+    </LinearLayout>
+</androidx.cardview.widget.CardView>

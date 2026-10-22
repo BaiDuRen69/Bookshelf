@@ -8,30 +8,43 @@
 
     <com.google.android.material.appbar.MaterialToolbar
         android:id="@+id/toolbar"
+        style="@style/Widget.Bookshelf.Toolbar"
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
-        android:background="?attr/colorPrimary"
         app:navigationIcon="@drawable/ic_back"
-        app:title="书籍详情"
-        app:titleTextColor="@color/white" />
+        app:title="书籍详情" />
 
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1">
 
-        <LinearLayout
+                <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+<LinearLayout
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:gravity="center_horizontal"
-            android:padding="16dp">
+            android:paddingHorizontal="@dimen/page_padding"
+            android:paddingTop="@dimen/space_lg"
+            android:paddingBottom="@dimen/space_xl"
+                    app:layout_constraintWidth_max="@dimen/content_max_width"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintHorizontal_bias="0.5"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                >
 
             <ImageView
                 android:id="@+id/iv_cover"
                 android:layout_width="96dp"
                 android:layout_height="128dp"
-                android:background="#EEE"
+                android:background="@drawable/bg_cover"
+                    android:clipToOutline="true"
                 android:scaleType="centerCrop"
                 android:src="@drawable/ic_cover_placeholder" />
 
@@ -39,10 +52,10 @@
                 android:id="@+id/tv_title"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:textSize="20sp"
+                android:layout_marginTop="@dimen/space_md"
+                android:textSize="@dimen/text_title"
                 android:textStyle="bold"
-                android:textColor="@color/text_main"
+                android:textColor="?attr/on_surface"
                 android:gravity="center" />
 
             <!-- 书目信息（代码里拼多行文本） -->
@@ -50,51 +63,51 @@
                 android:id="@+id/tv_info"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
-                android:background="@drawable/bg_chip"
-                android:padding="12dp"
-                android:textSize="14sp"
-                android:lineSpacingMultiplier="1.5"
-                android:textColor="@color/text_main" />
+                android:layout_marginTop="@dimen/space_md"
+                android:background="@drawable/bg_card"
+                android:padding="@dimen/space_lg"
+                android:textSize="@dimen/text_body"
+                android:lineSpacingMultiplier="1.6"
+                android:textColor="?attr/on_surface" />
 
             <!-- 藏书核心信息（存放地点/藏书状态/来源/录入时间，独立成块不重复展示；位于书目信息 ISBN 下方） -->
             <TextView
                 android:id="@+id/tv_core"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                android:background="@drawable/bg_chip"
-                android:padding="12dp"
-                android:textSize="14sp"
-                android:lineSpacingMultiplier="1.5"
-                android:textColor="@color/text_main" />
+                android:layout_marginTop="@dimen/space_sm"
+                android:background="@drawable/bg_card"
+                android:padding="@dimen/space_lg"
+                android:textSize="@dimen/text_body"
+                android:lineSpacingMultiplier="1.6"
+                android:textColor="?attr/on_surface" />
 
             <!-- 我的管理信息（不再包含「备注」，备注单独成块） -->
             <TextView
                 android:id="@+id/tv_manage"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                android:background="@drawable/bg_chip"
-                android:padding="12dp"
-                android:textSize="14sp"
-                android:lineSpacingMultiplier="1.5"
-                android:textColor="@color/text_main" />
+                android:layout_marginTop="@dimen/space_sm"
+                android:background="@drawable/bg_card"
+                android:padding="@dimen/space_lg"
+                android:textSize="@dimen/text_body"
+                android:lineSpacingMultiplier="1.6"
+                android:textColor="?attr/on_surface" />
 
             <!-- 单本借出备注（最多 20 字，点击展开；多本时由逐本信息展示，这里隐藏） -->
             <TextView
                 android:id="@+id/tv_manage_lend_note"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
-                android:background="@drawable/bg_chip"
+                android:layout_marginTop="@dimen/space_xs"
+                android:background="@drawable/bg_card"
                 android:foreground="?attr/selectableItemBackground"
                 android:clickable="true"
                 android:focusable="true"
-                android:padding="12dp"
-                android:textSize="14sp"
-                android:lineSpacingMultiplier="1.5"
-                android:textColor="@color/text_main"
+                android:padding="@dimen/space_lg"
+                android:textSize="@dimen/text_body"
+                android:lineSpacingMultiplier="1.6"
+                android:textColor="?attr/on_surface"
                 android:visibility="gone" />
 
             <!-- 单本借出备注图片（默认折叠） -->
@@ -102,15 +115,15 @@
                 android:id="@+id/row_manage_lend_note_images"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
-                android:background="@drawable/bg_chip"
+                android:layout_marginTop="@dimen/space_xs"
+                android:background="@drawable/bg_card"
                 android:foreground="?attr/selectableItemBackground"
                 android:clickable="true"
                 android:focusable="true"
-                android:padding="12dp"
+                android:padding="@dimen/space_lg"
                 android:text="借出备注图片"
-                android:textSize="14sp"
-                android:textColor="?attr/colorPrimary"
+                android:textSize="@dimen/text_body"
+                android:textColor="?attr/on_primary_container"
                 android:visibility="gone" />
 
             <LinearLayout
@@ -126,12 +139,12 @@
                 android:id="@+id/tv_note"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                android:background="@drawable/bg_chip"
-                android:padding="12dp"
-                android:textSize="14sp"
-                android:lineSpacingMultiplier="1.5"
-                android:textColor="@color/text_main"
+                android:layout_marginTop="@dimen/space_sm"
+                android:background="@drawable/bg_card"
+                android:padding="@dimen/space_lg"
+                android:textSize="@dimen/text_body"
+                android:lineSpacingMultiplier="1.6"
+                android:textColor="?attr/on_surface"
                 android:maxLines="3"
                 android:ellipsize="end"
                 android:visibility="gone" />
@@ -141,15 +154,15 @@
                 android:id="@+id/row_note_images"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
-                android:background="@drawable/bg_chip"
+                android:layout_marginTop="@dimen/space_xs"
+                android:background="@drawable/bg_card"
                 android:foreground="?attr/selectableItemBackground"
                 android:clickable="true"
                 android:focusable="true"
-                android:padding="12dp"
+                android:padding="@dimen/space_lg"
                 android:text="备注图片"
-                android:textSize="14sp"
-                android:textColor="?attr/colorPrimary"
+                android:textSize="@dimen/text_body"
+                android:textColor="?attr/on_primary_container"
                 android:visibility="gone" />
 
             <LinearLayout
@@ -165,10 +178,10 @@
                 android:id="@+id/container_copies"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
-                android:background="@drawable/bg_chip"
+                android:layout_marginTop="@dimen/space_xs"
+                android:background="@drawable/bg_card"
                 android:orientation="vertical"
-                android:padding="12dp"
+                android:padding="@dimen/space_lg"
                 android:visibility="gone" />
 
             <!-- 借出记录入口（仅借出过才显示） -->
@@ -176,15 +189,15 @@
                 android:id="@+id/row_borrow_history"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                android:background="@drawable/bg_chip"
+                android:layout_marginTop="@dimen/space_sm"
+                android:background="@drawable/bg_card"
                 android:foreground="?attr/selectableItemBackground"
                 android:clickable="true"
                 android:focusable="true"
-                android:padding="12dp"
+                android:padding="@dimen/space_lg"
                 android:text="借出记录 ›"
-                android:textSize="14sp"
-                android:textColor="?attr/colorPrimary"
+                android:textSize="@dimen/text_body"
+                android:textColor="?attr/on_primary_container"
                 android:visibility="gone" />
 
             <!-- 标签独立展示区 -->
@@ -192,10 +205,10 @@
                 android:id="@+id/tv_tags_label"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
+                android:layout_marginTop="@dimen/space_md"
                 android:text="标签"
                 android:textStyle="bold"
-                android:textColor="?attr/colorPrimary"
+                android:textColor="?attr/on_primary_container"
                 android:visibility="gone" />
 
             <com.google.android.material.chip.ChipGroup
@@ -212,10 +225,10 @@
                 android:id="@+id/tv_summary"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                android:textSize="13sp"
+                android:layout_marginTop="@dimen/space_sm"
+                android:textSize="@dimen/text_body_small"
                 android:lineSpacingMultiplier="1.4"
-                android:textColor="@color/text_sub"
+                android:textColor="?attr/on_surface_variant"
                 android:visibility="gone" />
 
             <!-- 操作按钮 -->
@@ -223,7 +236,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
-                android:layout_marginBottom="24dp"
+                android:layout_marginBottom="@dimen/space_xl"
                 android:orientation="horizontal">
 
                 <com.google.android.material.button.MaterialButton
@@ -240,7 +253,7 @@
                     android:layout_weight="1"
                     android:layout_marginStart="8dp"
                     android:text="借出"
-                    style="@style/Widget.Material3.Button.OutlinedButton" />
+                    style="@style/Widget.Bookshelf.Button.Outlined" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_delete"
@@ -249,8 +262,9 @@
                     android:layout_weight="1"
                     android:layout_marginStart="8dp"
                     android:text="@string/action_delete"
-                    style="@style/Widget.Material3.Button.OutlinedButton" />
+                    style="@style/Widget.Bookshelf.Button.Outlined" />
             </LinearLayout>
         </LinearLayout>
+        </androidx.constraintlayout.widget.ConstraintLayout>
     </androidx.core.widget.NestedScrollView>
 </LinearLayout>

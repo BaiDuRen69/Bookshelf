@@ -8,12 +8,11 @@
 
     <com.google.android.material.appbar.MaterialToolbar
         android:id="@+id/toolbar"
+        style="@style/Widget.Bookshelf.Toolbar"
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
-        android:background="?attr/colorPrimary"
         app:navigationIcon="@drawable/ic_back"
-        app:title="分类管理"
-        app:titleTextColor="@color/white" />
+        app:title="分类管理" />
 
     <TextView
         android:id="@+id/tv_hint"
@@ -45,7 +44,7 @@
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_cancel_selection"
-            style="@style/Widget.Material3.Button.OutlinedButton"
+            style="@style/Widget.Bookshelf.Button.Outlined"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"

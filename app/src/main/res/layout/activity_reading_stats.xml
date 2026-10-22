@@ -8,12 +8,11 @@
 
     <com.google.android.material.appbar.MaterialToolbar
         android:id="@+id/toolbar"
+        style="@style/Widget.Bookshelf.Toolbar"
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
-        android:background="?attr/colorPrimary"
         app:navigationIcon="@drawable/ic_back"
-        app:title="我的阅读"
-        app:titleTextColor="@color/white" />
+        app:title="我的阅读" />
 
     <!-- 顶部 Tab：月 / 年 / 总 -->
     <LinearLayout
@@ -228,8 +227,7 @@
                 <androidx.cardview.widget.CardView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    app:cardCornerRadius="12dp"
-                    app:cardElevation="2dp">
+                    style="@style/Widget.Bookshelf.Card">
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -273,8 +271,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="10dp"
-                    app:cardCornerRadius="12dp"
-                    app:cardElevation="2dp">
+                    style="@style/Widget.Bookshelf.Card">
 
                     <LinearLayout
                         android:layout_width="match_parent"
