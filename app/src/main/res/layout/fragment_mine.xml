@@ -458,6 +458,36 @@
                     app:tint="@color/text_sub" />
             </LinearLayout>
 
+            <!-- v4.19：崩溃日志入口（仅在真的发生过崩溃时显示） -->
+            <LinearLayout
+                android:id="@+id/row_crash_log"
+                style="@style/MineRow"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        style="@style/MineRowTitle"
+                        android:text="崩溃日志" />
+
+                    <TextView
+                        android:id="@+id/tv_crash_log_state"
+                        style="@style/MineRowSubtitle"
+                        android:text="上次异常记录（点击查看并复制）" />
+                </LinearLayout>
+
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_marginStart="8dp"
+                    android:src="@drawable/ic_arrow_right"
+                    app:tint="@color/text_sub" />
+            </LinearLayout>
+
             <!-- 问题反馈（v4.6）：邮件 / GitHub Issues 两个直达入口 -->
             <LinearLayout
                 android:id="@+id/row_feedback_email"

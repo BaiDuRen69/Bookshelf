@@ -2,7 +2,6 @@ package com.bai.bookshelf.ui;
 
 import android.os.Bundle;
 import android.view.View;
-import android.view.ViewGroup;
 
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
@@ -39,26 +38,24 @@ public class BaseActivity extends AppCompatActivity {
     /**
      * 给页面顶部栏加状态栏内边距，使标题不被状态栏遮挡。
      *
-     * <p>注意：只在 <b>Activity 自身的布局</b>里找工具栏。MainActivity 的三个 Tab
-     * 是 Fragment，它们的工具栏由各自的 Fragment 在 onCreateView 里处理
-     * （Fragment 视图创建时机晚于 Activity 的 onContentChanged，这里找不到）。
+     * <p>v4.19 修复：原先只在 {@code android.R.id.content} 的<b>直接子层</b>里找
+     * {@code R.id.toolbar}。但 content 的直接子层其实是 Activity 的根布局
+     * （如 activity_book_edit.xml 的 LinearLayout），工具栏是它的<b>孙节点</b>，
+     * 于是二级页的工具栏从来没被处理过——标题直接压在状态栏底下（实测
+     * 「录入书籍」标题 y=32~94px，状态栏 0~63px，完全重叠）。
+     *
+     * <p>现在改为在 Activity 根布局里递归查找。
+     * {@link InsetsHelper#applyTopInset(View)} 是幂等的（用 tag 记住原始内边距），
+     * 即使 Fragment 自己也调过一次，重复调用也不会让内边距层层累加。
      */
     private void applyToolbarInset() {
         View root = findViewById(android.R.id.content);
         if (root == null) {
             return;
         }
-        // 直接子层查找（不递归进 Fragment 容器），避免与 Fragment 内的处理重复
-        ViewGroup parent = root instanceof ViewGroup ? (ViewGroup) root : null;
-        if (parent == null) {
-            return;
-        }
-        for (int i = 0; i < parent.getChildCount(); i++) {
-            View child = parent.getChildAt(i);
-            if (child.getId() == R.id.toolbar) {
-                InsetsHelper.applyTopInset(child);
-                return;
-            }
+        View toolbar = InsetsHelper.findById(root, R.id.toolbar);
+        if (toolbar != null) {
+            InsetsHelper.applyTopInset(toolbar);
         }
     }
 }

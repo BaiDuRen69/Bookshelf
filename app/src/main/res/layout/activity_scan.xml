@@ -26,8 +26,9 @@
         android:layout_marginTop="140dp"
         android:visibility="gone" />
 
-    <!-- 顶部：返回 + 标题 -->
+    <!-- 顶部：返回 + 标题（v4.19：加 id 以便应用状态栏 inset，避免标题被状态栏压住） -->
     <LinearLayout
+        android:id="@+id/top_bar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="top"
@@ -53,8 +54,9 @@
             android:textSize="17sp" />
     </LinearLayout>
 
-    <!-- 底部：提示 + 手动输入 + 闪光灯 -->
+    <!-- 底部：提示 + 手动输入 + 闪光灯（v4.19：加 id 以便应用导航栏 inset） -->
     <LinearLayout
+        android:id="@+id/bottom_bar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"

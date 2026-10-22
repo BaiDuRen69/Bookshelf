@@ -76,6 +76,11 @@ public class ScanActivity extends BaseActivity {
         b = ActivityScanBinding.inflate(getLayoutInflater());
         setContentView(b.getRoot());
 
+        // v4.19：本页是自绘的取景界面（没有 MaterialToolbar），不会自动避让状态栏，
+        // 标题与返回键会被系统时间压住，这里手动加上下系统栏 inset
+        com.bai.bookshelf.util.InsetsHelper.applyTopInset(b.topBar);
+        com.bai.bookshelf.util.InsetsHelper.applyBottomInset(b.bottomBar);
+
         scanner = BarcodeScanning.getClient();
 
         b.btnBack.setOnClickListener(v -> finish());

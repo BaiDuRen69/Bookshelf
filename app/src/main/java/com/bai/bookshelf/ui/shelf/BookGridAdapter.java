@@ -36,8 +36,6 @@ public class BookGridAdapter extends RecyclerView.Adapter<BookGridAdapter.VH> {
     private OnBookLongClick onBookLongClick;
     private boolean selectionMode;                 // 多选模式：高亮已选项
     private final java.util.Set<Long> selectedIds = new java.util.HashSet<>();
-    /** v4.18：封面高度（px），按列数与屏幕宽度动态换算；<=0 表示用布局默认值 */
-    private int coverHeight;
 
     public BookGridAdapter(OnBookClick onBookClick) {
         this.onBookClick = onBookClick;
@@ -55,15 +53,6 @@ public class BookGridAdapter extends RecyclerView.Adapter<BookGridAdapter.VH> {
         if (ids != null) {
             selectedIds.addAll(ids);
         }
-        notifyDataSetChanged();
-    }
-
-    /** v4.18：设置封面高度（px），并刷新已显示的 item */
-    public void setCoverHeight(int heightPx) {
-        if (heightPx <= 0 || heightPx == coverHeight) {
-            return;
-        }
-        coverHeight = heightPx;
         notifyDataSetChanged();
     }
 
@@ -94,12 +83,8 @@ public class BookGridAdapter extends RecyclerView.Adapter<BookGridAdapter.VH> {
         h.b.tvTitle.setText(book.title);
         h.b.tvRead.setText(StatusText.read(book.readStatus));
 
-        // v4.18：封面高度按列数动态设定（列数越多单列越窄，封面相应压低）
-        if (coverHeight > 0 && h.b.ivCover.getLayoutParams() != null
-                && h.b.ivCover.getLayoutParams().height != coverHeight) {
-            h.b.ivCover.getLayoutParams().height = coverHeight;
-            h.b.ivCover.setLayoutParams(h.b.ivCover.getLayoutParams());
-        }
+        // v4.19：封面高度交给 RatioImageView 按实测宽度自行换算（3:4），
+        // 这里不再做任何高度估算，保证所有列的封面比例完全一致。
 
         // 封面：支持网络链接与本地文件路径（拍照/相册封面）
         Glide.with(h.b.ivCover)

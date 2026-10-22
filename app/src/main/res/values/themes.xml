@@ -18,6 +18,28 @@
         <item name="outline_strong">@color/outline_strong</item>
         <item name="on_surface">@color/text_main</item>
         <item name="on_surface_variant">@color/text_sub</item>
+        <!-- v4.19：容器色给基线默认值，避免在弹窗主题（ThemeOverlay）下引用时取不到值 -->
+        <item name="primary_container">@color/green_container</item>
+        <item name="on_primary_container">@color/green_on_container</item>
+        <!-- v4.19：标签底色也给基线默认值（同上） -->
+        <item name="chip_bg">@color/chip_bg</item>
+        <!-- v4.19：把 Material3 的「表面色系」对齐到应用的暖白语义色。
+             M3 默认 colorSurfaceContainerHigh 是淡紫色 #ECE6F0，弹窗底色会与
+             应用整体的米白/白卡片风格打架，这里统一到 surface / surface_dim。 -->
+        <item name="colorSurface">@color/surface</item>
+        <item name="colorSurfaceBright">@color/surface</item>
+        <item name="colorSurfaceDim">@color/surface_dim</item>
+        <item name="colorSurfaceContainer">@color/surface</item>
+        <item name="colorSurfaceContainerLow">@color/surface</item>
+        <item name="colorSurfaceContainerLowest">@color/surface</item>
+        <item name="colorSurfaceContainerHigh">@color/surface</item>
+        <item name="colorSurfaceContainerHighest">@color/surface_dim</item>
+        <item name="colorOutline">@color/outline</item>
+        <item name="colorOutlineVariant">@color/outline</item>
+        <!-- v4.19：关闭 M3 的 elevation overlay（elevated 表面会按主色染色）。
+             本应用是「0 投影 + 1dp 描边」的扁平风格，开启后弹窗/FAB 等 elevated
+             表面会被主色染成淡绿（实测弹窗底 #E8EFED 而不是纯白），与米白基调不符。 -->
+        <item name="elevationOverlayEnabled">false</item>
         <!-- 组件统一形状 -->
         <item name="materialButtonStyle">@style/Widget.Bookshelf.Button</item>
         <item name="textInputStyle">@style/Widget.Bookshelf.TextField</item>
@@ -29,12 +51,24 @@
         <item name="materialAlertDialogTheme">@style/ThemeOverlay.Bookshelf.Dialog</item>
     </style>
 
-    <!-- v4.18：弹窗主题覆盖：标题更紧凑、正文次级色、按钮统一为文本按钮 -->
+    <!-- v4.18：弹窗主题覆盖：标题更紧凑、正文次级色、按钮统一为文本按钮
+
+         ⚠ v4.19 修复（重要）：materialAlertDialogTitleTextStyle / BodyTextStyle
+         指向的样式<b>必须继承 Material 自己的弹窗样式</b>。
+         原因：Material 的 m3_alert_dialog_title.xml 里，标题控件
+         <DialogTitle style="?attr/materialAlertDialogTitleTextStyle"/> 并没有写
+         android:layout_width / layout_height，这两项来自样式链末端
+         Base.MaterialAlertDialog.MaterialComponents.Title.Text。
+         如果把该属性指向一个「纯 TextAppearance」（只管字号字色），
+         标题控件就拿不到布局尺寸，弹窗一打开即抛
+         InflateException: You must supply a layout_width attribute，
+         导致全应用所有弹窗一点就闪退。 -->
     <style name="ThemeOverlay.Bookshelf.Dialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
         <item name="materialAlertDialogTitleTextStyle">@style/TextAppearance.Bookshelf.DialogTitle</item>
         <item name="materialAlertDialogBodyTextStyle">@style/TextAppearance.Bookshelf.DialogBody</item>
-        <item name="buttonBarPositiveButtonStyle">@style/Widget.Bookshelf.Button.Text</item>
-        <item name="buttonBarNegativeButtonStyle">@style/Widget.Bookshelf.Button.Text</item>
+        <item name="buttonBarPositiveButtonStyle">@style/Widget.Bookshelf.Button.Dialog</item>
+        <item name="buttonBarNegativeButtonStyle">@style/Widget.Bookshelf.Button.Dialog</item>
+        <item name="buttonBarNeutralButtonStyle">@style/Widget.Bookshelf.Button.Dialog</item>
         <!-- 弹窗背景圆角：M3 默认 28dp 过大，这里收紧到与应用卡片一致 -->
         <item name="shapeAppearanceCornerExtraLarge">@style/ShapeAppearance.Bookshelf.Dialog</item>
     </style>
@@ -44,15 +78,18 @@
         <item name="cornerSize">@dimen/card_corner</item>
     </style>
 
-    <!-- 弹窗标题：16sp 加粗（应用内标题层级，M3 默认 24sp 过大） -->
-    <style name="TextAppearance.Bookshelf.DialogTitle" parent="TextAppearance.Material3.TitleLarge">
+    <!-- 弹窗标题：16sp 加粗（应用内标题层级，M3 默认 24sp 过大）
+         v4.19：parent 改为 Material 的弹窗标题样式，保留其 layout_width/height、
+         ellipsize、singleLine、layout_gravity 等布局属性（详见 ThemeOverlay.Bookshelf.Dialog 注释） -->
+    <style name="TextAppearance.Bookshelf.DialogTitle" parent="MaterialAlertDialog.Material3.Title.Text">
         <item name="android:textSize">@dimen/text_title_toolbar</item>
         <item name="android:textStyle">bold</item>
         <item name="android:textColor">?attr/on_surface</item>
     </style>
 
-    <!-- 弹窗正文：13sp 次级色 -->
-    <style name="TextAppearance.Bookshelf.DialogBody" parent="TextAppearance.Material3.BodyMedium">
+    <!-- 弹窗正文：13sp 次级色
+         v4.19：同样继承 Material 的弹窗正文样式，保持 textAppearance 链完整 -->
+    <style name="TextAppearance.Bookshelf.DialogBody" parent="MaterialAlertDialog.Material3.Body.Text">
         <item name="android:textSize">@dimen/text_body_small</item>
         <item name="android:textColor">?attr/on_surface_variant</item>
         <item name="android:lineSpacingMultiplier">1.4</item>

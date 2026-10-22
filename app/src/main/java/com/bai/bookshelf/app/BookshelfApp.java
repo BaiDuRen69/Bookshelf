@@ -52,6 +52,9 @@ public class BookshelfApp extends Application {
     public void onCreate() {
         super.onCreate();
         instance = this;
+        // v4.19：装全局崩溃兜底，把未捕获异常的堆栈写进 files/crash.log，
+        // 用户可在「我的 → 设置 → 崩溃日志」里看到并复制出来反馈
+        com.bai.bookshelf.util.CrashHandler.install(this);
         // 记录首次打开 App 的时间（只写一次，老用户升级后记为近似值）
         SharedPreferences prefs = appPrefs();
         if (!prefs.contains(KEY_FIRST_LAUNCH_AT)) {

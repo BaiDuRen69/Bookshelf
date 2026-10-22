@@ -164,6 +164,7 @@ public class MineFragment extends Fragment {
         b.rowFeedbackGithub.setOnClickListener(v -> openGitHubIssues());
         b.rowGithub.setOnClickListener(v -> openGitHubRepo());
         b.rowReward.setOnClickListener(v -> showSupportDialog());
+        b.rowCrashLog.setOnClickListener(v -> showCrashLog());
         refreshUpdateToggleRow();
         refreshStateRows();
     }
@@ -173,9 +174,52 @@ public class MineFragment extends Fragment {
         if (b == null) {
             return;
         }
-        b.tvThemeState.setText("当前：" + ThemeManager.names()[ThemeManager.current(requireContext())]);
+        // v4.19：主题 id 越界保护（历史数据异常时不让数组下标越界直接崩）
+        String[] themeNames = ThemeManager.names();
+        int cur = ThemeManager.current(requireContext());
+        if (cur < 0 || cur >= themeNames.length) {
+            cur = 0;
+        }
+        b.tvThemeState.setText("当前：" + themeNames[cur]);
         b.tvAboutState.setText("v" + BuildConfig.VERSION_NAME + " · 作者 BaiDuRen");
+        // v4.19：只有真的崩过才显示「崩溃日志」入口
+        boolean has = com.bai.bookshelf.util.CrashHandler.hasLog(requireContext());
+        b.rowCrashLog.setVisibility(has ? android.view.View.VISIBLE : android.view.View.GONE);
         refreshBackupRows();
+    }
+
+    /**
+     * 展示最近一次崩溃日志（v4.19）。
+     *
+     * <p>用户反馈「很多地方一点就闪退」时，系统弹窗拿不到堆栈。这里把
+     * {@link com.bai.bookshelf.util.CrashHandler} 记下的完整堆栈显示出来，
+     * 并提供「复制」按钮，方便用户直接粘给开发者。
+     */
+    private void showCrashLog() {
+        String log = com.bai.bookshelf.util.CrashHandler.readLog(requireContext());
+        if (log == null || log.trim().isEmpty()) {
+            Toast.makeText(requireContext(), "暂无崩溃记录", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        android.widget.ScrollView sv = new android.widget.ScrollView(requireContext());
+        TextView tv = new TextView(requireContext());
+        tv.setText(log);
+        tv.setTextSize(11);
+        tv.setTextColor(ContextCompat.getColor(requireContext(), com.bai.bookshelf.R.color.text_main));
+        tv.setPadding(dp(20), dp(16), dp(20), dp(16));
+        tv.setTextIsSelectable(true);
+        sv.addView(tv);
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle("崩溃日志")
+                .setView(sv)
+                .setPositiveButton("复制", (d, w) -> copyToClipboard(log, "崩溃日志已复制"))
+                .setNeutralButton("清空", (d, w) -> {
+                    com.bai.bookshelf.util.CrashHandler.clearLog(requireContext());
+                    refreshStateRows();
+                    Toast.makeText(requireContext(), "已清空", Toast.LENGTH_SHORT).show();
+                })
+                .setNegativeButton(com.bai.bookshelf.R.string.action_cancel, null)
+                .show();
     }
 
     @Override
@@ -422,10 +466,15 @@ public class MineFragment extends Fragment {
     /** 主题选择弹窗：色点 + 名称 + 当前勾选，选中后保存并重建界面生效 */
     private void showThemePicker() {
         android.content.Context ctx = requireContext();
-        int current = ThemeManager.current(ctx);
         String[] names = ThemeManager.names();
         int[] colors = ThemeManager.previewColors();
-
+        // v4.19：主题 id 来自 SharedPreferences，若历史数据越界（如版本升级后
+        // 主题数量变化）会直接取 names[current] 抛 ArrayIndexOutOfBoundsException，
+        // 这里先夹到合法范围，避免一点就闪退。
+        int current = ThemeManager.current(ctx);
+        if (current < 0 || current >= names.length) {
+            current = 0;
+        }
         LinearLayout root = new LinearLayout(ctx);
         root.setOrientation(LinearLayout.VERTICAL);
         // v4.18：与其它弹窗统一左右留白（对齐对话框标题的 24dp）

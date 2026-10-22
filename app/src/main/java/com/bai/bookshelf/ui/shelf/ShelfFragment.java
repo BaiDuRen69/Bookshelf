@@ -534,23 +534,27 @@ public class ShelfFragment extends Fragment {
             int span = getResources().getInteger(R.integer.shelf_grid_span);
             b.recycler.setLayoutManager(new GridLayoutManager(requireContext(), span));
             b.recycler.setAdapter(gridAdapter);
-            // v4.18：间距统一由分配器控制（item 自身不再带 margin），
-            // 并按列数换算封面高度，使书籍比例在各设备上都接近真实书籍
+            // v4.18：间距统一由分配器控制（item 自身不再带 margin）
+            // v4.19：页面左右留白改由 RecyclerView 的 padding 承担，
+            // 分配器只管列间距且每列左右对称 —— 这样 GridLayoutManager
+            // 平分出来的每一列内容宽度完全相同，封面比例才不会参差不齐。
             float density = getResources().getDisplayMetrics().density;
             int spacingX = Math.round(6 * density);
             int spacingY = Math.round(10 * density);
-            int edge = Math.round(getResources().getDimensionPixelSize(R.dimen.page_padding));
-            gridSpacing = new ShelfGridSpacing(span, spacingX, spacingY, edge);
+            int edge = getResources().getDimensionPixelSize(R.dimen.page_padding);
+            setRecyclerEdgePadding(edge);
+            gridSpacing = new ShelfGridSpacing(span, spacingX, spacingY);
             b.recycler.addItemDecoration(gridSpacing);
-            applyGridCoverHeight(span, spacingX, edge);
             b.btnView.setText("文字"); // 按钮显示下一个模式
         } else if (viewMode == 2) {
             b.recycler.setLayoutManager(new LinearLayoutManager(requireContext()));
             b.recycler.setAdapter(textAdapter);
+            setRecyclerEdgePadding(0);
             b.btnView.setText("列表");
         } else {
             b.recycler.setLayoutManager(new LinearLayoutManager(requireContext()));
             b.recycler.setAdapter(adapter);
+            setRecyclerEdgePadding(0);
             b.btnView.setText("封面");
         }
         // v3.2：改成「只渲染当前视图」后，换适配器必须重新喂一次数据，
@@ -559,21 +563,16 @@ public class ShelfFragment extends Fragment {
     }
 
     /**
-     * 按当前列数与可用宽度换算封面高度，并同步到网格适配器的每个 item。
-     * 列数越多（大屏）单列越窄，封面相应压低，避免又高又窄的比例。
+     * 设置列表左右留白（网格模式用；列表模式由 item 自带 marginHorizontal 处理）。
+     *
+     * <p>v4.19：网格模式下把页面留白放到 RecyclerView 的 padding 上，
+     * 让 GridLayoutManager 在「扣掉留白后的宽度」里平分列，每列宽度才一致。
      */
-    private void applyGridCoverHeight(int span, int spacingX, int edge) {
+    private void setRecyclerEdgePadding(int edgePx) {
         if (b == null || b.recycler == null) {
             return;
         }
-        int width = b.recycler.getWidth();
-        if (width <= 0) {
-            // 尚未布局，用屏幕宽度估算（减去页面左右留白）
-            width = getResources().getDisplayMetrics().widthPixels
-                    - edge * 2 - b.recycler.getPaddingLeft() - b.recycler.getPaddingRight();
-        }
-        int h = ShelfGridSpacing.coverHeightFor(span, width, spacingX, edge);
-        gridAdapter.setCoverHeight(h);
+        b.recycler.setPadding(edgePx, b.recycler.getPaddingTop(), edgePx, b.recycler.getPaddingBottom());
     }
 
     /**

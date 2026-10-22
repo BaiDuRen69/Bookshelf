@@ -1,7 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- 书架封面视图项：封面大图 + 左上角标 + 下方书名
      v4.18：去掉外层卡片，改为「封面描边 + 紧凑书名」，缩小书籍间距，
-     并用 1dp 描边（bg_cover_stroke）勾出每本书的边界 -->
+     并用 1dp 描边（bg_cover_stroke）勾出每本书的边界
+     v4.19：封面改用 RatioImageView，高度由控件按实测宽度自行换算（3:4），
+     保证每一列、每一个屏幕上的封面比例完全一致（原先按估算宽度算高，
+     边列比中间列窄，封面长宽比参差不齐） -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
@@ -12,13 +15,13 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content">
 
-        <ImageView
+        <com.bai.bookshelf.ui.widget.RatioImageView
             android:id="@+id/iv_cover"
-            android:contentDescription="书籍封面"
             android:layout_width="match_parent"
-            android:layout_height="168dp"
+            android:layout_height="wrap_content"
             android:background="@drawable/bg_cover"
             android:clipToOutline="true"
+            android:contentDescription="书籍封面"
             android:foreground="@drawable/bg_cover_stroke"
             android:scaleType="centerCrop"
             android:src="@drawable/ic_cover_placeholder" />
