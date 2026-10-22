@@ -2,7 +2,6 @@
 <!-- 超大屏（横屏平板 / 桌面窗口）尺寸覆盖 -->
 <resources>
     <dimen name="page_padding">40dp</dimen>
-    <dimen name="page_padding_v">20dp</dimen>
     <dimen name="content_max_width">880dp</dimen>
     <dimen name="tab_icon_size">28dp</dimen>
     <dimen name="tab_label_size">13sp</dimen>

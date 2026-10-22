@@ -249,10 +249,27 @@ public final class ExcelExporter {
             return null;
         }
         try {
-            byte[] raw = java.nio.file.Files.readAllBytes(f.toPath());
+            // v4.16：原用 Files.readAllBytes(f.toPath())，该 API 需要 API 26，
+            // 而 App 的 minSdk 是 24 —— Android 7.0/7.1 上导出会直接崩。
+            // 改用 FileInputStream，API 24 起可用，行为不变。
+            byte[] raw = readAllBytesCompat(f);
             return compressBitmap(raw);
         } catch (Exception e) {
             return null; // 单张封面失败不拖垮整个导出
+        }
+    }
+
+    /** 读取文件全部字节（兼容 API 24/25，不依赖 java.nio.file.Files） */
+    private static byte[] readAllBytesCompat(File file) throws Exception {
+        try (java.io.FileInputStream in = new java.io.FileInputStream(file)) {
+            java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream(
+                    (int) Math.max(file.length(), 1024));
+            byte[] buf = new byte[8192];
+            int n;
+            while ((n = in.read(buf)) > 0) {
+                out.write(buf, 0, n);
+            }
+            return out.toByteArray();
         }
     }
 
