@@ -111,6 +111,18 @@
                         android:textSize="22sp"
                         android:textColor="?attr/colorPrimary"
                         android:background="?attr/selectableItemBackground" />
+
+                    <!-- v4.20：点击标题直接弹出年/月选择器（原先只能靠 ‹ › 一格格翻） -->
+                    <ImageView
+                        android:id="@+id/btn_month_pick"
+                        android:layout_width="32dp"
+                        android:layout_height="40dp"
+                        android:layout_marginStart="2dp"
+                        android:background="?attr/selectableItemBackground"
+                        android:contentDescription="选择月份"
+                        android:padding="6dp"
+                        android:src="@drawable/ic_chevron_down"
+                        app:tint="?attr/colorPrimary" />
                 </LinearLayout>
 
                 <TextView
@@ -121,6 +133,16 @@
                     android:text="本月购买 0 本 · 录入 0 本"
                     android:textColor="@color/text_main"
                     android:textSize="14sp" />
+
+                <!-- v4.20：本月花费（仅统计自购，排除赠送/借阅） -->
+                <TextView
+                    android:id="@+id/tv_month_cost"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="本月花费 ¥0"
+                    android:textColor="@color/text_sub"
+                    android:textSize="13sp" />
 
                 <TextView
                     android:layout_width="wrap_content"
@@ -143,6 +165,48 @@
                     android:layout_height="200dp"
                     android:layout_marginTop="8dp"
                     android:visibility="gone" />
+
+                <!-- v4.20：购买日历热力图（参照微信读书「阅读天数」） -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="18dp"
+                    android:text="购买日历"
+                    android:textColor="@color/text_sub"
+                    android:textSize="12sp" />
+
+                <com.bai.bookshelf.ui.stats.PurchaseHeatmapView
+                    android:id="@+id/heatmap_month"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp" />
+
+                <!-- v4.20：点击某天后在下方显示当天买了几本 -->
+                <TextView
+                    android:id="@+id/tv_month_day_detail"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="@string/stats_click_day_hint"
+                    android:textColor="@color/text_sub"
+                    android:textSize="13sp" />
+
+                <!-- v4.20：本月购买排行（按天降序；没有购买的天不入榜） -->
+                <TextView
+                    android:id="@+id/tv_month_rank_title"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="18dp"
+                    android:text="本月购买排行"
+                    android:textColor="@color/text_sub"
+                    android:textSize="12sp" />
+
+                <LinearLayout
+                    android:id="@+id/ll_month_rank"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:orientation="vertical" />
             </LinearLayout>
 
             <!-- ==================== 年视图 ==================== -->
@@ -189,6 +253,18 @@
                         android:textSize="22sp"
                         android:textColor="?attr/colorPrimary"
                         android:background="?attr/selectableItemBackground" />
+
+                    <!-- v4.20：点击标题直接弹出年份选择器 -->
+                    <ImageView
+                        android:id="@+id/btn_year_pick"
+                        android:layout_width="32dp"
+                        android:layout_height="40dp"
+                        android:layout_marginStart="2dp"
+                        android:background="?attr/selectableItemBackground"
+                        android:contentDescription="选择年份"
+                        android:padding="6dp"
+                        android:src="@drawable/ic_chevron_down"
+                        app:tint="?attr/colorPrimary" />
                 </LinearLayout>
 
                 <TextView
@@ -199,6 +275,16 @@
                     android:text="本年购买 0 本 · 录入 0 本"
                     android:textColor="@color/text_main"
                     android:textSize="14sp" />
+
+                <!-- v4.20：本年花费（仅统计自购，排除赠送/借阅） -->
+                <TextView
+                    android:id="@+id/tv_year_cost"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="本年花费 ¥0"
+                    android:textColor="@color/text_sub"
+                    android:textSize="13sp" />
 
                 <TextView
                     android:layout_width="wrap_content"
@@ -213,6 +299,54 @@
                     android:layout_width="match_parent"
                     android:layout_height="200dp"
                     android:layout_marginTop="4dp" />
+
+                <!-- v4.20：购买日历热力图（年模式：全年格子按周排列，可横向滚动） -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="18dp"
+                    android:text="购买日历"
+                    android:textColor="@color/text_sub"
+                    android:textSize="12sp" />
+
+                <HorizontalScrollView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:scrollbars="none">
+
+                    <com.bai.bookshelf.ui.stats.PurchaseHeatmapView
+                        android:id="@+id/heatmap_year"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content" />
+                </HorizontalScrollView>
+
+                <!-- v4.20：点击某天后在下方显示当天买了几本 -->
+                <TextView
+                    android:id="@+id/tv_year_day_detail"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="@string/stats_click_day_hint"
+                    android:textColor="@color/text_sub"
+                    android:textSize="13sp" />
+
+                <!-- v4.20：本年购买排行（按月降序；没有购买的月份不入榜） -->
+                <TextView
+                    android:id="@+id/tv_year_rank_title"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="18dp"
+                    android:text="本年购买排行"
+                    android:textColor="@color/text_sub"
+                    android:textSize="12sp" />
+
+                <LinearLayout
+                    android:id="@+id/ll_year_rank"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:orientation="vertical" />
             </LinearLayout>
 
             <!-- ==================== 总视图 ==================== -->

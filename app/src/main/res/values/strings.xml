@@ -18,4 +18,7 @@
     <string name="action_delete">删除</string>
     <string name="action_edit">编辑</string>
     <string name="action_ok">确定</string>
+
+    <!-- 我的阅读（v4.20） -->
+    <string name="stats_click_day_hint">点击日历上的某一天，查看当天购买详情</string>
 </resources>
