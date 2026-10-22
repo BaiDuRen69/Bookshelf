@@ -1,6 +1,6 @@
 package com.bai.bookshelf.ui.detail;
 
-import android.app.AlertDialog;
+import androidx.appcompat.app.AlertDialog;
 import android.net.Uri;
 import android.os.Bundle;
 import android.text.util.Linkify;
@@ -37,6 +37,7 @@ import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 /**
  * 借出记录二级页：某本书的全部借出历史（借出中/已归还），
@@ -159,7 +160,7 @@ public class BorrowHistoryActivity extends BaseActivity {
             Toast.makeText(this, "请先勾选要删除的记录", Toast.LENGTH_SHORT).show();
             return;
         }
-        new AlertDialog.Builder(this)
+        new MaterialAlertDialogBuilder(this)
                 .setTitle("批量删除记录")
                 .setMessage("删除已选的 " + count + " 条借出记录？此操作不可恢复。")
                 .setPositiveButton("删除", (d, w) -> {
@@ -232,7 +233,7 @@ public class BorrowHistoryActivity extends BaseActivity {
             }
         });
 
-        AlertDialog dialog = new AlertDialog.Builder(this)
+        AlertDialog dialog = new MaterialAlertDialogBuilder(this)
                 .setTitle("编辑借出记录")
                 .setView(db.getRoot())
                 .setPositiveButton("保存", (d, w) -> {
@@ -371,18 +372,16 @@ public class BorrowHistoryActivity extends BaseActivity {
     }
 
     private void showEditNotePreview(DialogBorrowEditBinding db, NoteImage img) {
-        ImageView iv = new ImageView(this);
-        iv.setAdjustViewBounds(true);
-        iv.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        int pad = dp(8);
-        iv.setPadding(pad, pad, pad, pad);
+        // v4.18: 图片放进圆角卡片底（dialog_image_preview）
+        com.bai.bookshelf.databinding.DialogImagePreviewBinding pb =
+                com.bai.bookshelf.databinding.DialogImagePreviewBinding.inflate(getLayoutInflater());
         Glide.with(this).load(new File(img.path))
                 .placeholder(R.drawable.ic_cover_placeholder)
                 .error(R.drawable.ic_cover_placeholder)
-                .into(iv);
-        new AlertDialog.Builder(this)
+                .into(pb.ivPreview);
+        new MaterialAlertDialogBuilder(this)
                 .setTitle("备注图片")
-                .setView(iv)
+                .setView(pb.getRoot())
                 .setPositiveButton("关闭", null)
                 .setNegativeButton("移除", (d, w) -> {
                     currentEditImages.remove(img);
@@ -400,7 +399,7 @@ public class BorrowHistoryActivity extends BaseActivity {
 
     /** 删除记录（带确认）：同时清理该记录的备注图片 */
     private void confirmDelete(BorrowRecord record) {
-        new AlertDialog.Builder(this)
+        new MaterialAlertDialogBuilder(this)
                 .setTitle("删除借出记录")
                 .setMessage("删除借给「" + record.borrower + "」的这条记录？")
                 .setPositiveButton("删除", (d, w) -> {
@@ -535,7 +534,7 @@ public class BorrowHistoryActivity extends BaseActivity {
             root.addView(hsv);
         }
         sv.addView(root);
-        new AlertDialog.Builder(this)
+        new MaterialAlertDialogBuilder(this)
                 .setTitle("借给 " + r.borrower)
                 .setView(sv)
                 .setPositiveButton("关闭", null)
@@ -544,18 +543,16 @@ public class BorrowHistoryActivity extends BaseActivity {
 
     /** 查看单张备注图片大图 */
     private void showImagePreview(NoteImage img) {
-        ImageView iv = new ImageView(this);
-        iv.setAdjustViewBounds(true);
-        iv.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        int p = dp(8);
-        iv.setPadding(p, p, p, p);
+        // v4.18: 图片放进圆角卡片底（dialog_image_preview）
+        com.bai.bookshelf.databinding.DialogImagePreviewBinding pb =
+                com.bai.bookshelf.databinding.DialogImagePreviewBinding.inflate(getLayoutInflater());
         Glide.with(this).load(new File(img.path))
                 .placeholder(R.drawable.ic_cover_placeholder)
                 .error(R.drawable.ic_cover_placeholder)
-                .into(iv);
-        new AlertDialog.Builder(this)
+                .into(pb.ivPreview);
+        new MaterialAlertDialogBuilder(this)
                 .setTitle("备注图片")
-                .setView(iv)
+                .setView(pb.getRoot())
                 .setPositiveButton("关闭", null)
                 .show();
     }

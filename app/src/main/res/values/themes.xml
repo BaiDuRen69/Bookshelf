@@ -22,6 +22,40 @@
         <item name="materialButtonStyle">@style/Widget.Bookshelf.Button</item>
         <item name="textInputStyle">@style/Widget.Bookshelf.TextField</item>
         <item name="materialCardViewStyle">@style/Widget.Bookshelf.MaterialCard</item>
+        <!-- v4.18：Chip 全局统一（胶囊形 + 浅底 + 描边），弹窗与页面一致 -->
+        <item name="chipStyle">@style/Widget.Bookshelf.Chip</item>
+        <item name="chipGroupStyle">@style/Widget.Bookshelf.ChipGroup</item>
+        <!-- v4.18：弹窗统一走 Material3 对话框外观（圆角、标题层级、按钮位置） -->
+        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Bookshelf.Dialog</item>
+    </style>
+
+    <!-- v4.18：弹窗主题覆盖：标题更紧凑、正文次级色、按钮统一为文本按钮 -->
+    <style name="ThemeOverlay.Bookshelf.Dialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
+        <item name="materialAlertDialogTitleTextStyle">@style/TextAppearance.Bookshelf.DialogTitle</item>
+        <item name="materialAlertDialogBodyTextStyle">@style/TextAppearance.Bookshelf.DialogBody</item>
+        <item name="buttonBarPositiveButtonStyle">@style/Widget.Bookshelf.Button.Text</item>
+        <item name="buttonBarNegativeButtonStyle">@style/Widget.Bookshelf.Button.Text</item>
+        <!-- 弹窗背景圆角：M3 默认 28dp 过大，这里收紧到与应用卡片一致 -->
+        <item name="shapeAppearanceCornerExtraLarge">@style/ShapeAppearance.Bookshelf.Dialog</item>
+    </style>
+
+    <!-- 弹窗形状：16dp 圆角（与应用卡片一致，M3 默认 28dp 过大） -->
+    <style name="ShapeAppearance.Bookshelf.Dialog" parent="ShapeAppearance.Material3.Corner.Large">
+        <item name="cornerSize">@dimen/card_corner</item>
+    </style>
+
+    <!-- 弹窗标题：16sp 加粗（应用内标题层级，M3 默认 24sp 过大） -->
+    <style name="TextAppearance.Bookshelf.DialogTitle" parent="TextAppearance.Material3.TitleLarge">
+        <item name="android:textSize">@dimen/text_title_toolbar</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textColor">?attr/on_surface</item>
+    </style>
+
+    <!-- 弹窗正文：13sp 次级色 -->
+    <style name="TextAppearance.Bookshelf.DialogBody" parent="TextAppearance.Material3.BodyMedium">
+        <item name="android:textSize">@dimen/text_body_small</item>
+        <item name="android:textColor">?attr/on_surface_variant</item>
+        <item name="android:lineSpacingMultiplier">1.4</item>
     </style>
 
     <style name="Theme.Bookshelf" parent="Theme.Bookshelf.Base">

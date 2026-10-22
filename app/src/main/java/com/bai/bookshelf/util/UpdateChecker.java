@@ -1,7 +1,7 @@
 package com.bai.bookshelf.util;
 
 import android.app.Activity;
-import android.app.AlertDialog;
+import androidx.appcompat.app.AlertDialog;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
@@ -22,6 +22,7 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 /**
  * 应用更新检查（v4.7）：以 GitHub Release 为版本源。
@@ -146,8 +147,9 @@ public final class UpdateChecker {
         }
         b.tvUpdateNotes.setText(notes.isEmpty() ? "暂无更新说明" : notes);
 
-        AlertDialog dialog = new AlertDialog.Builder(act)
-                .setTitle("发现新版本 🎉")
+        AlertDialog dialog = new MaterialAlertDialogBuilder(act)
+                // v4.18: 去掉 emoji，标题走 Material 弹窗标题样式
+                .setTitle("发现新版本")
                 .setView(b.getRoot())
                 .create();
         // 点击弹窗外不关闭：四个按钮语义明确，避免误触关闭后不确定状态

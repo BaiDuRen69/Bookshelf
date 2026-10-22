@@ -1,24 +1,42 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 收款码弹窗：大图 + 保存按钮（v2.5 打赏功能） -->
+<!-- 收款码弹窗：大图 + 保存按钮（v2.5 打赏功能）
+     v4.18：二维码放进描边卡片（白底 + 圆角 + 描边），与整体卡片语言一致。 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    style="@style/DialogContent"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="vertical"
-    android:padding="16dp">
+    android:orientation="vertical">
 
-    <ImageView
-        android:id="@+id/iv_qr"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:adjustViewBounds="true"
-        android:maxHeight="400dp"
-        android:scaleType="fitCenter"
-        android:src="@drawable/alipay_qr" />
+        android:background="@drawable/bg_card"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:padding="@dimen/space_md">
+
+        <ImageView
+            android:id="@+id/iv_qr"
+            android:contentDescription="收款码"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:adjustViewBounds="true"
+            android:maxHeight="360dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/alipay_qr" />
+    </LinearLayout>
+
+    <TextView
+        style="@style/DialogHint"
+        android:gravity="center"
+        android:text="长按二维码可识别，或点击下方按钮保存到相册" />
 
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btn_save"
+        style="@style/Widget.Bookshelf.Button"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:text="保存" />
+        android:layout_marginTop="@dimen/space_md"
+        android:text="保存到相册" />
 </LinearLayout>

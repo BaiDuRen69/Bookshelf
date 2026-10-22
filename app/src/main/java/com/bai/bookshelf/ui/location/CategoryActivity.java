@@ -1,6 +1,6 @@
 package com.bai.bookshelf.ui.location;
 
-import android.app.AlertDialog;
+import androidx.appcompat.app.AlertDialog;
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.LayoutInflater;
@@ -28,6 +28,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 /**
  * 二级分类管理/选择页（v4.8）：一级/二级两级分类，操作逻辑与来源渠道管理一致。
@@ -157,9 +158,9 @@ public class CategoryActivity extends BaseActivity {
             edit.setText(editing.name);
             edit.setSelection(editing.name.length());
         } else {
-            edit.setHint(parentOfNew == null ? "一级分类名（如 文学）" : "二级分类名（如 小说）");
+            db.inputLayout.setHint(parentOfNew == null ? "一级分类名（如 文学）" : "二级分类名（如 小说）");
         }
-        new AlertDialog.Builder(this)
+        new MaterialAlertDialogBuilder(this)
                 .setTitle(isRename ? "重命名分类" : (parentOfNew == null ? "添加一级分类" : "添加二级分类"))
                 .setView(db.getRoot())
                 .setPositiveButton(isRename ? "确定" : "创建", (d, w) -> {
@@ -225,7 +226,7 @@ public class CategoryActivity extends BaseActivity {
         String msg = isChild
                 ? "从分类库删除二级分类「" + cat.name + "」？所有书籍上的这个分类也会一并清空。"
                 : "删除一级分类「" + cat.name + "」及其下所有二级分类？\n所有书籍上的这些分类都会一并清空。";
-        new AlertDialog.Builder(this)
+        new MaterialAlertDialogBuilder(this)
                 .setTitle("删除分类")
                 .setMessage(msg)
                 .setPositiveButton("删除", (d, w) -> {

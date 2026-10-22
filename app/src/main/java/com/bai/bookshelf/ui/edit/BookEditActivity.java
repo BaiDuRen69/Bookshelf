@@ -31,6 +31,7 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 /**
  * 书籍编辑页，三种场景共用：
@@ -260,7 +261,7 @@ public class BookEditActivity extends BaseActivity {
             finish();
             return;
         }
-        new android.app.AlertDialog.Builder(this)
+        new MaterialAlertDialogBuilder(this)
                 .setTitle("未保存的更改")
                 .setMessage("内容有修改，要保存后再离开吗？")
                 .setPositiveButton("保存", (d, w) -> save()) // 保存成功会自行 finish
@@ -364,18 +365,16 @@ public class BookEditActivity extends BaseActivity {
 
     /** 点缩略图：大图预览，可直接移除这张 */
     private void showNoteImagePreview(com.bai.bookshelf.data.entity.NoteImage img) {
-        android.widget.ImageView iv = new android.widget.ImageView(this);
-        iv.setAdjustViewBounds(true);
-        iv.setScaleType(android.widget.ImageView.ScaleType.FIT_CENTER);
-        int pad = (int) (8 * getResources().getDisplayMetrics().density);
-        iv.setPadding(pad, pad, pad, pad);
+        // v4.18: 图片放进圆角卡片底
+        com.bai.bookshelf.databinding.DialogImagePreviewBinding pb =
+                com.bai.bookshelf.databinding.DialogImagePreviewBinding.inflate(getLayoutInflater());
         Glide.with(this).load(new File(img.path))
                 .placeholder(R.drawable.ic_cover_placeholder)
                 .error(R.drawable.ic_cover_placeholder)
-                .into(iv);
-        new android.app.AlertDialog.Builder(this)
+                .into(pb.ivPreview);
+        new MaterialAlertDialogBuilder(this)
                 .setTitle("备注图片")
-                .setView(iv)
+                .setView(pb.getRoot())
                 .setPositiveButton("关闭", null)
                 .setNegativeButton("移除", (d, w) -> removeNoteImage(img))
                 .show();
@@ -772,7 +771,7 @@ public class BookEditActivity extends BaseActivity {
         addChip.setOnClickListener(v -> showNewCountryInput(db, selected, chips));
         db.chipGroup.addView(addChip);
 
-        new android.app.AlertDialog.Builder(this)
+        new MaterialAlertDialogBuilder(this)
                 .setTitle("选择国家/地区（单选）")
                 .setView(db.getRoot())
                 .setPositiveButton("完成", (d, w) -> b.etCountry.setText(selected[0]))
@@ -808,7 +807,7 @@ public class BookEditActivity extends BaseActivity {
     private void showCountryOptions(com.bai.bookshelf.data.entity.Country c,
                                     com.google.android.material.chip.Chip chip,
                                     String[] selected) {
-        new android.app.AlertDialog.Builder(this)
+        new MaterialAlertDialogBuilder(this)
                 .setTitle("国家/地区「" + c.name + "」")
                 .setItems(new String[]{"重命名", "删除"}, (d, which) -> {
                     if (which == 0) {
@@ -828,7 +827,7 @@ public class BookEditActivity extends BaseActivity {
                 com.bai.bookshelf.databinding.DialogInputBinding.inflate(getLayoutInflater());
         ib.edit.setText(c.name);
         ib.edit.setSelection(c.name.length());
-        new android.app.AlertDialog.Builder(this)
+        new MaterialAlertDialogBuilder(this)
                 .setTitle("重命名国家/地区")
                 .setView(ib.getRoot())
                 .setPositiveButton("确定", (d, w) -> {
@@ -864,7 +863,7 @@ public class BookEditActivity extends BaseActivity {
     private void confirmDeleteCountry(com.bai.bookshelf.data.entity.Country c,
                                       com.google.android.material.chip.Chip chip,
                                       String[] selected) {
-        new android.app.AlertDialog.Builder(this)
+        new MaterialAlertDialogBuilder(this)
                 .setTitle("删除国家/地区")
                 .setMessage("从国家库删除「" + c.name + "」？所有书籍上的这个国家/地区也会一并清空。")
                 .setPositiveButton("删除", (d, w) -> {
@@ -897,8 +896,8 @@ public class BookEditActivity extends BaseActivity {
                                      java.util.List<com.google.android.material.chip.Chip> chips) {
         com.bai.bookshelf.databinding.DialogInputBinding ib =
                 com.bai.bookshelf.databinding.DialogInputBinding.inflate(getLayoutInflater());
-        ib.edit.setHint("国家/地区名（如 中国 / 日本）");
-        new android.app.AlertDialog.Builder(this)
+        ib.inputLayout.setHint("国家/地区名（如 中国 / 日本）");
+        new MaterialAlertDialogBuilder(this)
                 .setTitle("新建国家/地区")
                 .setView(ib.getRoot())
                 .setPositiveButton("创建", (d, w) -> {
@@ -955,7 +954,7 @@ public class BookEditActivity extends BaseActivity {
         addChip.setOnClickListener(v -> showNewPublisherInput(db, selected, chips));
         db.chipGroup.addView(addChip);
 
-        new android.app.AlertDialog.Builder(this)
+        new MaterialAlertDialogBuilder(this)
                 .setTitle("选择出版社（单选）")
                 .setView(db.getRoot())
                 .setPositiveButton("完成", (d, w) -> b.etPublisher.setText(selected[0]))
@@ -991,7 +990,7 @@ public class BookEditActivity extends BaseActivity {
     private void showPublisherOptions(com.bai.bookshelf.data.entity.Publisher p,
                                       com.google.android.material.chip.Chip chip,
                                       String[] selected) {
-        new android.app.AlertDialog.Builder(this)
+        new MaterialAlertDialogBuilder(this)
                 .setTitle("出版社「" + p.name + "」")
                 .setItems(new String[]{"重命名", "删除"}, (d, which) -> {
                     if (which == 0) {
@@ -1011,7 +1010,7 @@ public class BookEditActivity extends BaseActivity {
                 com.bai.bookshelf.databinding.DialogInputBinding.inflate(getLayoutInflater());
         ib.edit.setText(p.name);
         ib.edit.setSelection(p.name.length());
-        new android.app.AlertDialog.Builder(this)
+        new MaterialAlertDialogBuilder(this)
                 .setTitle("重命名出版社")
                 .setView(ib.getRoot())
                 .setPositiveButton("确定", (d, w) -> {
@@ -1050,7 +1049,7 @@ public class BookEditActivity extends BaseActivity {
     private void confirmDeletePublisher(com.bai.bookshelf.data.entity.Publisher p,
                                         com.google.android.material.chip.Chip chip,
                                         String[] selected) {
-        new android.app.AlertDialog.Builder(this)
+        new MaterialAlertDialogBuilder(this)
                 .setTitle("删除出版社")
                 .setMessage("从出版社库删除「" + p.name + "」？所有书籍上的这个出版社也会一并清空。")
                 .setPositiveButton("删除", (d, w) -> {
@@ -1086,8 +1085,8 @@ public class BookEditActivity extends BaseActivity {
                                        java.util.List<com.google.android.material.chip.Chip> chips) {
         com.bai.bookshelf.databinding.DialogInputBinding ib =
                 com.bai.bookshelf.databinding.DialogInputBinding.inflate(getLayoutInflater());
-        ib.edit.setHint("出版社名（如 人民文学出版社）");
-        new android.app.AlertDialog.Builder(this)
+        ib.inputLayout.setHint("出版社名（如 人民文学出版社）");
+        new MaterialAlertDialogBuilder(this)
                 .setTitle("新建出版社")
                 .setView(ib.getRoot())
                 .setPositiveButton("创建", (d, w) -> {
@@ -1408,8 +1407,8 @@ public class BookEditActivity extends BaseActivity {
     private void showAddLocationDialog() {
         com.bai.bookshelf.databinding.DialogInputBinding db =
                 com.bai.bookshelf.databinding.DialogInputBinding.inflate(getLayoutInflater());
-        db.edit.setHint("如：书房-书架A-第2层");
-        new android.app.AlertDialog.Builder(this)
+        db.inputLayout.setHint("如：书房-书架A-第2层");
+        new MaterialAlertDialogBuilder(this)
                 .setTitle("添加地点")
                 .setView(db.getRoot())
                 .setPositiveButton("添加", (d, w) -> {
@@ -1439,8 +1438,8 @@ public class BookEditActivity extends BaseActivity {
         String[] hints = {"拼多多、淘宝", "市图书馆", "鉴书团"};
         com.bai.bookshelf.databinding.DialogInputBinding db =
                 com.bai.bookshelf.databinding.DialogInputBinding.inflate(getLayoutInflater());
-        db.edit.setHint("如：" + hints[ownType]);
-        new android.app.AlertDialog.Builder(this)
+        db.inputLayout.setHint("如：" + hints[ownType]);
+        new MaterialAlertDialogBuilder(this)
                 .setTitle("添加" + CHANNEL_LABELS[ownType])
                 .setView(db.getRoot())
                 .setPositiveButton("添加", (d, w) -> {
@@ -1616,7 +1615,7 @@ public class BookEditActivity extends BaseActivity {
         addChip.setOnClickListener(v -> showNewTagInput(db, selected));
         db.chipGroup.addView(addChip);
 
-        new android.app.AlertDialog.Builder(this)
+        new MaterialAlertDialogBuilder(this)
                 .setTitle("选择标签")
                 .setView(db.getRoot())
                 .setPositiveButton("完成", (d, w) -> {
@@ -1660,7 +1659,7 @@ public class BookEditActivity extends BaseActivity {
                                 com.google.android.material.chip.Chip chip,
                                 java.util.Set<String> selected) {
         String[] options = {"重命名", "删除"};
-        new android.app.AlertDialog.Builder(this)
+        new MaterialAlertDialogBuilder(this)
                 .setTitle("标签「" + tag.name + "」")
                 .setItems(options, (d, which) -> {
                     if (which == 0) {
@@ -1680,7 +1679,7 @@ public class BookEditActivity extends BaseActivity {
                 com.bai.bookshelf.databinding.DialogInputBinding.inflate(getLayoutInflater());
         ib.edit.setText(tag.name);
         ib.edit.setSelection(tag.name.length());
-        new android.app.AlertDialog.Builder(this)
+        new MaterialAlertDialogBuilder(this)
                 .setTitle("重命名标签")
                 .setView(ib.getRoot())
                 .setPositiveButton("确定", (d, w) -> {
@@ -1715,7 +1714,7 @@ public class BookEditActivity extends BaseActivity {
     private void confirmDeleteTag(com.bai.bookshelf.data.entity.Tag tag,
                                   com.google.android.material.chip.Chip chip,
                                   java.util.Set<String> selected) {
-        new android.app.AlertDialog.Builder(this)
+        new MaterialAlertDialogBuilder(this)
                 .setTitle("删除标签")
                 .setMessage("从标签库删除「" + tag.name + "」？所有书籍上的这个标签也会一并移除。")
                 .setPositiveButton("删除", (d, w) -> {
@@ -1742,8 +1741,8 @@ public class BookEditActivity extends BaseActivity {
                                  java.util.Set<String> selected) {
         com.bai.bookshelf.databinding.DialogInputBinding ib =
                 com.bai.bookshelf.databinding.DialogInputBinding.inflate(getLayoutInflater());
-        ib.edit.setHint("标签名（不能含逗号）");
-        new android.app.AlertDialog.Builder(this)
+        ib.inputLayout.setHint("标签名（不能含逗号）");
+        new MaterialAlertDialogBuilder(this)
                 .setTitle("新建标签")
                 .setView(ib.getRoot())
                 .setPositiveButton("创建", (d, w) -> {
@@ -1916,7 +1915,7 @@ public class BookEditActivity extends BaseActivity {
                 Book exist = book.isbn.isEmpty() ? null : app.db().bookDao().getByIsbn(book.isbn);
                 if (exist != null) {
                     // 已录入过：提示是否改为编辑已有书籍
-                    app.ui(() -> new android.app.AlertDialog.Builder(this)
+                    app.ui(() -> new MaterialAlertDialogBuilder(this)
                             .setTitle("书籍已录入")
                             .setMessage("《" + exist.title + "》已在书架中，要改为修改它吗？")
                             .setPositiveButton("修改已有书籍", (d, w) -> {

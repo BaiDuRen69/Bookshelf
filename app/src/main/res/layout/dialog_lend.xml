@@ -1,69 +1,75 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 借出登记对话框：借阅人选择（可管理） + 借出备注 -->
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- 借出登记对话框：借阅人选择（可管理） + 借出备注
+     v4.18：输入框改用描边式（Widget.Bookshelf.TextField），Chip 统一全局样式。 -->
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="vertical"
-    android:padding="20dp">
+    android:scrollbars="none">
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="借给谁（长按可重命名/删除）"
-        android:textSize="13sp"
-        android:textColor="@color/text_sub" />
-
-    <com.google.android.material.chip.ChipGroup
-        android:id="@+id/chip_group"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        app:chipSpacingHorizontal="8dp"
-        app:singleLine="false" />
+        android:orientation="vertical"
+        android:paddingStart="@dimen/space_xl"
+        android:paddingEnd="@dimen/space_xl"
+        android:paddingTop="@dimen/space_sm"
+        android:paddingBottom="@dimen/space_sm">
 
-    <com.google.android.material.textfield.TextInputLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:hint="借出备注（原因、联系方式等，可空）">
+        <TextView
+            style="@style/DialogSectionTitle"
+            android:text="借给谁（长按可重命名/删除）" />
 
-        <com.google.android.material.textfield.TextInputEditText
-            android:id="@+id/et_note"
+        <com.google.android.material.chip.ChipGroup
+            android:id="@+id/chip_group"
+            style="@style/Widget.Bookshelf.ChipGroup"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+        <com.google.android.material.textfield.TextInputLayout
+            style="@style/Widget.Bookshelf.TextField"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:minLines="1"
-            android:inputType="text" />
-    </com.google.android.material.textfield.TextInputLayout>
+            android:layout_marginTop="@dimen/space_md"
+            android:hint="借出备注（原因、联系方式等，可空）">
 
-    <!-- 借出备注图片附件 -->
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btn_add_note_image"
-        style="@style/Widget.Bookshelf.Button.Outlined"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="10dp"
-        android:minWidth="0dp"
-        android:minHeight="0dp"
-        android:paddingHorizontal="12dp"
-        android:paddingVertical="4dp"
-        android:insetTop="0dp"
-        android:insetBottom="0dp"
-        android:text="＋ 添加备注图片"
-        android:textSize="12sp" />
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/et_note"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minLines="1"
+                android:inputType="text" />
+        </com.google.android.material.textfield.TextInputLayout>
 
-    <HorizontalScrollView
-        android:id="@+id/scroll_note_thumbs"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
-        android:scrollbars="none"
-        android:visibility="gone">
-
-        <LinearLayout
-            android:id="@+id/container_note_thumbs"
+        <!-- 借出备注图片附件 -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_add_note_image"
+            style="@style/Widget.Bookshelf.Button.Outlined"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:orientation="horizontal" />
-    </HorizontalScrollView>
-</LinearLayout>
+            android:layout_marginTop="@dimen/space_sm"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:paddingHorizontal="12dp"
+            android:paddingVertical="6dp"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:text="＋ 添加备注图片"
+            android:textSize="@dimen/text_body_small" />
+
+        <HorizontalScrollView
+            android:id="@+id/scroll_note_thumbs"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/space_sm"
+            android:scrollbars="none"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:id="@+id/container_note_thumbs"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal" />
+        </HorizontalScrollView>
+    </LinearLayout>
+</ScrollView>

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Chip 背景色状态选择器（v4.18 弹窗/标签统一）：
+     选中 = 主题主色浅容器（强调），未选中 = 主题 chip 浅底，
+     描边统一由 outline 提供，保证换肤后依然协调。 -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_checked="true" android:color="?attr/primary_container" />
+    <item android:state_selected="true" android:color="?attr/primary_container" />
+    <item android:color="?attr/chip_bg" />
+</selector>

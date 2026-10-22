@@ -1,6 +1,6 @@
 package com.bai.bookshelf.ui.location;
 
-import android.app.AlertDialog;
+import androidx.appcompat.app.AlertDialog;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -23,6 +23,7 @@ import com.bai.bookshelf.databinding.ItemLocationBinding;
 
 import java.util.ArrayList;
 import java.util.List;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 /**
  * 标签管理：标签库的统一维护（重命名/删除/新增）。
@@ -87,7 +88,7 @@ public class TagActivity extends BaseActivity {
             Toast.makeText(this, "请先勾选要删除的标签", Toast.LENGTH_SHORT).show();
             return;
         }
-        new AlertDialog.Builder(this)
+        new MaterialAlertDialogBuilder(this)
                 .setTitle("批量删除标签")
                 .setMessage("删除已选的 " + count + " 个标签？所有书籍上的这些标签也会一并移除。")
                 .setPositiveButton("删除", (d, w) -> {
@@ -138,12 +139,12 @@ public class TagActivity extends BaseActivity {
     private void showNameDialog(Tag editing) {
         DialogInputBinding db = DialogInputBinding.inflate(getLayoutInflater());
         EditText edit = db.edit;
-        edit.setHint("如：科幻、想读、镇架之宝");
+        db.inputLayout.setHint("如：科幻、想读、镇架之宝");
         if (editing != null) {
             edit.setText(editing.name);
             edit.setSelection(editing.name.length());
         }
-        new AlertDialog.Builder(this)
+        new MaterialAlertDialogBuilder(this)
                 .setTitle(editing == null ? "添加标签" : "重命名标签")
                 .setView(db.getRoot())
                 .setPositiveButton("确定", (d, w) -> {
@@ -179,7 +180,7 @@ public class TagActivity extends BaseActivity {
     }
 
     private void confirmDelete(Tag tag) {
-        new AlertDialog.Builder(this)
+        new MaterialAlertDialogBuilder(this)
                 .setTitle("删除标签")
                 .setMessage("删除「" + tag.name + "」？所有书籍上的这个标签也会一并移除。")
                 .setPositiveButton("删除", (d, w) -> {

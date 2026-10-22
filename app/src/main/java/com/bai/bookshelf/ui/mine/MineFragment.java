@@ -1,6 +1,6 @@
 package com.bai.bookshelf.ui.mine;
 
-import android.app.AlertDialog;
+import androidx.appcompat.app.AlertDialog;
 import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Intent;
@@ -31,6 +31,7 @@ import com.bai.bookshelf.data.entity.Location;
 import com.bai.bookshelf.databinding.DialogRewardQrBinding;
 import com.bai.bookshelf.databinding.DialogSupportBinding;
 import com.bai.bookshelf.databinding.FragmentMineBinding;
+import com.bai.bookshelf.util.InsetsHelper;
 import com.bai.bookshelf.ui.location.LocationActivity;
 import com.bai.bookshelf.ui.scan.ScanActivity;
 import com.bai.bookshelf.util.BackupManager;
@@ -49,6 +50,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 /**
  * 我的页：数据概览 + 分区功能入口（藏书管理 / 数据与备份 / 设置）。
@@ -123,6 +125,9 @@ public class MineFragment extends Fragment {
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
                              @Nullable Bundle savedInstanceState) {
         b = FragmentMineBinding.inflate(inflater, container, false);
+        // v4.18：Android 15+ 强制 edge-to-edge，给顶部栏加状态栏内边距，
+        // 避免「我的」标题被状态栏遮挡
+        InsetsHelper.applyTopInset(b.toolbar);
         return b.getRoot();
     }
 
@@ -304,7 +309,7 @@ public class MineFragment extends Fragment {
 
     /** 导入前确认：说明规则，避免误操作 */
     private void confirmImport() {
-        new AlertDialog.Builder(requireContext())
+        new MaterialAlertDialogBuilder(requireContext())
                 .setTitle("导入备份")
                 .setMessage("请选择备份文件：\n\n"
                         + "· xlsx（导出 Excel 生成）：按 ISBN 合并导入，已存在的书会跳过；\n"
@@ -346,7 +351,7 @@ public class MineFragment extends Fragment {
 
     /** zip 整包恢复前的二次确认（会清空当前数据，必须显式确认） */
     private void confirmZipRestore(Uri uri) {
-        new AlertDialog.Builder(requireContext())
+        new MaterialAlertDialogBuilder(requireContext())
                 .setTitle("恢复 zip 备份")
                 .setMessage("将清空当前所有藏书、借出记录与媒体文件，并按备份内容整体恢复。\n\n确定继续吗？（建议先导出一次当前数据）")
                 .setPositiveButton("确认恢复", (d, w) -> restoreZip(uri))
@@ -368,7 +373,7 @@ public class MineFragment extends Fragment {
                     if (!isAdded()) {
                         return;
                     }
-                    new AlertDialog.Builder(requireContext())
+                    new MaterialAlertDialogBuilder(requireContext())
                             .setTitle("恢复完成")
                             .setMessage(msg)
                             .setPositiveButton("知道了", null)
@@ -399,7 +404,7 @@ public class MineFragment extends Fragment {
                     if (!isAdded()) {
                         return;
                     }
-                    new AlertDialog.Builder(requireContext())
+                    new MaterialAlertDialogBuilder(requireContext())
                             .setTitle("导入完成")
                             .setMessage(finalMsg)
                             .setPositiveButton("知道了", null)
@@ -423,28 +428,31 @@ public class MineFragment extends Fragment {
 
         LinearLayout root = new LinearLayout(ctx);
         root.setOrientation(LinearLayout.VERTICAL);
-        int pad = dp(16);
-        root.setPadding(pad, dp(8), pad, dp(8));
+        // v4.18：与其它弹窗统一左右留白（对齐对话框标题的 24dp）
+        int pad = dp(24);
+        root.setPadding(pad, dp(4), pad, dp(4));
 
-        final android.app.AlertDialog[] holder = new android.app.AlertDialog[1];
+        final androidx.appcompat.app.AlertDialog[] holder = new androidx.appcompat.app.AlertDialog[1];
         for (int i = 0; i < names.length; i++) {
             final int idx = i;
             TextView row = new TextView(ctx);
-            row.setText(names[i] + (i == current ? "   ✓" : ""));
+            row.setText(names[i]);
             row.setTextSize(15);
             row.setTextColor(ContextCompat.getColor(ctx, com.bai.bookshelf.R.color.text_main));
-            row.setPadding(dp(12), dp(12), dp(12), dp(12));
+            row.setPadding(dp(14), dp(14), dp(14), dp(14));
+            row.setGravity(android.view.Gravity.CENTER_VERTICAL);
             // 主题色圆点
             GradientDrawable dot = new GradientDrawable();
             dot.setShape(GradientDrawable.OVAL);
             dot.setColor(colors[i]);
-            dot.setSize(dp(16), dp(16));
+            dot.setSize(dp(18), dp(18));
             row.setCompoundDrawablesRelativeWithIntrinsicBounds(dot, null, null, null);
             row.setCompoundDrawablePadding(dp(12));
-            row.setBackgroundResource(com.bai.bookshelf.R.drawable.bg_chip);
+            // v4.18：改为描边卡片底（bg_dialog_row），与其它弹窗入口行一致
+            row.setBackgroundResource(com.bai.bookshelf.R.drawable.bg_dialog_row);
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-            lp.topMargin = dp(6);
+            lp.topMargin = dp(8);
             row.setLayoutParams(lp);
             row.setOnClickListener(v -> {
                 ThemeManager.set(ctx, idx);
@@ -456,8 +464,9 @@ public class MineFragment extends Fragment {
             });
             root.addView(row);
         }
-        holder[0] = new AlertDialog.Builder(ctx)
-                .setTitle("主题颜色")
+        // v4.18：当前主题标记放在标题里，避免在选项文字后拼接符号
+        holder[0] = new MaterialAlertDialogBuilder(ctx)
+                .setTitle("主题颜色（当前：" + names[current] + "）")
                 .setView(root)
                 .setNegativeButton(com.bai.bookshelf.R.string.action_cancel, null)
                 .show();
@@ -523,7 +532,7 @@ public class MineFragment extends Fragment {
     /** 「支持作者」弹窗：支付宝 / 微信 两个入口 */
     private void showSupportDialog() {
         DialogSupportBinding db = DialogSupportBinding.inflate(getLayoutInflater());
-        android.app.AlertDialog dialog = new AlertDialog.Builder(requireContext())
+        androidx.appcompat.app.AlertDialog dialog = new MaterialAlertDialogBuilder(requireContext())
                 .setView(db.getRoot())
                 .setNegativeButton(com.bai.bookshelf.R.string.action_cancel, null)
                 .show();
@@ -541,7 +550,7 @@ public class MineFragment extends Fragment {
     private void showRewardQrDialog(int imgRes, String name) {
         DialogRewardQrBinding db = DialogRewardQrBinding.inflate(getLayoutInflater());
         Glide.with(this).load(imgRes).into(db.ivQr);
-        new AlertDialog.Builder(requireContext())
+        new MaterialAlertDialogBuilder(requireContext())
                 .setTitle(name + "收款码")
                 .setView(db.getRoot())
                 .setNegativeButton(com.bai.bookshelf.R.string.action_cancel, null)

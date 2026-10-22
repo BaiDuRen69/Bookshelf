@@ -1,37 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 微信式标签选择弹窗：Chip 流式布局，点选 + 末尾「新建标签」 -->
+<!-- 标签/分类选择弹窗：Chip 流式布局，点选 + 末尾「新建标签」
+     v4.18：统一 Chip 样式（全局 Widget.Bookshelf.Chip），说明文字用统一样式；
+     移除多余的顶部小标题（对话框标题已由 setTitle 提供）。 -->
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content">
+    android:layout_height="wrap_content"
+    android:scrollbars="none">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="18dp">
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="我的标签"
-            android:textSize="13sp"
-            android:textColor="@color/text_sub" />
+        android:paddingStart="@dimen/space_xl"
+        android:paddingEnd="@dimen/space_xl"
+        android:paddingTop="@dimen/space_sm"
+        android:paddingBottom="@dimen/space_sm">
 
         <com.google.android.material.chip.ChipGroup
             android:id="@+id/chip_group"
+            style="@style/Widget.Bookshelf.ChipGroup"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            app:chipSpacingHorizontal="8dp"
-            app:singleLine="false" />
+            android:layout_height="wrap_content" />
 
         <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            android:text="点按选中/取消；长按标签可重命名或删除；「＋ 新建标签」创建新标签"
-            android:textSize="12sp"
-            android:textColor="@color/text_sub" />
+            style="@style/DialogHint"
+            android:text="点按选中/取消；长按标签可重命名或删除；「＋ 新建标签」创建新标签" />
     </LinearLayout>
 </ScrollView>

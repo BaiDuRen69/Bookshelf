@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- v4.18：系统栏 inset 处理用的视图标记 id。
+     View.setTag(int, Object) 要求 key 必须是应用自定义资源 id，
+     不能用普通字符串常量，所以在这里显式声明。 -->
+<resources>
+    <!-- 记录视图「加 inset 之前」的原始顶部内边距 -->
+    <item name="insets_base_pad_top" type="id" />
+    <!-- 记录视图「加 inset 之前」的原始底部内边距 -->
+    <item name="insets_base_pad_bottom" type="id" />
+    <!-- 记录工具栏「加 inset 之前」的原始固定高度 -->
+    <item name="insets_base_height" type="id" />
+</resources>

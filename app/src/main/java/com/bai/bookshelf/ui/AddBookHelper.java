@@ -1,7 +1,7 @@
 package com.bai.bookshelf.ui;
 
 import android.app.Activity;
-import android.app.AlertDialog;
+import androidx.appcompat.app.AlertDialog;
 import android.content.Intent;
 import android.widget.ProgressBar;
 import android.widget.Toast;
@@ -10,6 +10,7 @@ import com.bai.bookshelf.api.IsbnQueryService;
 import com.bai.bookshelf.app.BookshelfApp;
 import com.bai.bookshelf.data.entity.Book;
 import com.bai.bookshelf.ui.edit.BookEditActivity;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 /**
  * 「按 ISBN 新增一本书」的统一流程（扫码页、手动输入共用）：
@@ -36,7 +37,7 @@ public final class AddBookHelper {
             app.ui(() -> {
                 if (exist != null) {
                     // 已录入过：提示是否修改；对话框关闭后回调收尾（修复扫码页加载圈卡死）
-                    new AlertDialog.Builder(activity)
+                    new MaterialAlertDialogBuilder(activity)
                             .setTitle("书籍已录入")
                             .setMessage(com.bai.bookshelf.util.BookText.quotedTitle(exist.title)
                                     + "已在书架中，要修改它的信息吗？")
@@ -71,7 +72,7 @@ public final class AddBookHelper {
         }
 
         // 查询中转圈
-        AlertDialog loading = new AlertDialog.Builder(activity)
+        AlertDialog loading = new MaterialAlertDialogBuilder(activity)
                 .setView(new ProgressBar(activity))
                 .setCancelable(false)
                 .create();

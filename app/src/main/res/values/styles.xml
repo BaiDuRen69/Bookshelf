@@ -88,6 +88,89 @@
         <item name="android:textColor">@color/white</item>
     </style>
 
+    <!-- ===== 弹窗（v4.18）：统一内容区与标题的视觉规范 ===== -->
+
+    <!-- Chip（全局统一，v4.18）：胶囊形 + 浅底 + 描边，选中态用主色容器 -->
+    <style name="Widget.Bookshelf.Chip" parent="Widget.Material3.Chip.Assist">
+        <item name="shapeAppearance">@style/ShapeAppearance.Bookshelf.Pill</item>
+        <item name="chipBackgroundColor">@color/chip_bg_state</item>
+        <item name="chipStrokeColor">@color/chip_stroke_state</item>
+        <item name="chipStrokeWidth">1dp</item>
+        <item name="android:textColor">@color/chip_text_state</item>
+        <item name="android:textSize">@dimen/text_body_small</item>
+        <item name="chipMinHeight">32dp</item>
+        <item name="chipIconVisible">false</item>
+        <item name="checkedIconVisible">false</item>
+        <item name="closeIconVisible">false</item>
+        <!-- 弹窗内 Chip 排得紧凑，关闭最小触摸区扩展，避免行高过大 -->
+        <item name="ensureMinTouchTargetSize">false</item>
+        <item name="chipStartPadding">4dp</item>
+        <item name="chipEndPadding">4dp</item>
+        <item name="textStartPadding">10dp</item>
+        <item name="textEndPadding">10dp</item>
+    </style>
+
+    <!-- Chip 胶囊形状 -->
+    <style name="ShapeAppearance.Bookshelf.Pill" parent="ShapeAppearance.Material3.Corner.Full">
+        <item name="cornerSize">50%</item>
+    </style>
+
+    <!-- Chip 描边状态色 -->
+    <style name="Widget.Bookshelf.ChipGroup" parent="Widget.Material3.ChipGroup">
+        <item name="chipSpacingHorizontal">8dp</item>
+        <item name="chipSpacingVertical">4dp</item>
+        <item name="singleLine">false</item>
+    </style>
+
+    <!-- 弹窗内容区：统一的左右留白与底部留白 -->
+    <style name="DialogContent">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:paddingStart">@dimen/space_xl</item>
+        <item name="android:paddingEnd">@dimen/space_xl</item>
+        <item name="android:paddingTop">@dimen/space_sm</item>
+        <item name="android:paddingBottom">@dimen/space_xs</item>
+    </style>
+
+    <!-- 弹窗内的分组小标题 -->
+    <style name="DialogSectionTitle">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginBottom">@dimen/space_sm</item>
+        <item name="android:textColor">?attr/on_surface_variant</item>
+        <item name="android:textSize">@dimen/text_caption</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <!-- 弹窗内的说明文字 -->
+    <style name="DialogHint">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">@dimen/space_sm</item>
+        <item name="android:lineSpacingMultiplier">1.35</item>
+        <item name="android:textColor">?attr/on_surface_variant</item>
+        <item name="android:textSize">@dimen/text_body_small</item>
+    </style>
+
+    <!-- 弹窗内的可点击入口行（卡片式，比裸 LinearLayout 更有层次） -->
+    <style name="DialogActionRow">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">@dimen/space_sm</item>
+        <item name="android:background">@drawable/bg_dialog_row</item>
+        <item name="android:clickable">true</item>
+        <item name="android:focusable">true</item>
+        <item name="android:foreground">?attr/selectableItemBackground</item>
+        <item name="android:gravity">center_vertical</item>
+        <item name="android:minHeight">60dp</item>
+        <item name="android:paddingStart">@dimen/space_md</item>
+        <item name="android:paddingEnd">@dimen/space_md</item>
+        <item name="android:paddingTop">@dimen/space_md</item>
+        <item name="android:paddingBottom">@dimen/space_md</item>
+    </style>
+
+    <!-- 弹窗入口行的图标底座（圆形，40dp） -->
+
     <!-- ===== 「我的」页功能入口行容器（描边卡片行） ===== -->
     <style name="MineRow">
         <item name="android:layout_width">match_parent</item>

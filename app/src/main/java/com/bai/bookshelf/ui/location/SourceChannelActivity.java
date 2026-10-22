@@ -1,6 +1,6 @@
 package com.bai.bookshelf.ui.location;
 
-import android.app.AlertDialog;
+import androidx.appcompat.app.AlertDialog;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -23,6 +23,7 @@ import com.bai.bookshelf.databinding.ItemLocationBinding;
 
 import java.util.ArrayList;
 import java.util.List;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 /**
  * 来源渠道管理：用户可自主增删改（如在「自购」来源下细分 拼多多/淘宝/多抓鱼）。
@@ -106,7 +107,7 @@ public class SourceChannelActivity extends BaseActivity {
             Toast.makeText(this, "请先勾选要删除的渠道", Toast.LENGTH_SHORT).show();
             return;
         }
-        new AlertDialog.Builder(this)
+        new MaterialAlertDialogBuilder(this)
                 .setTitle("批量删除渠道")
                 .setMessage("删除已选的 " + count + " 个渠道？已标记为这些渠道的书籍不受影响（仍显示原名称）。")
                 .setPositiveButton("删除", (d, w) -> {
@@ -155,12 +156,12 @@ public class SourceChannelActivity extends BaseActivity {
     private void showNameDialog(SourceChannel editing) {
         DialogInputBinding db = DialogInputBinding.inflate(getLayoutInflater());
         EditText edit = db.edit;
-        edit.setHint("如：拼多多、淘宝、多抓鱼");
+        db.inputLayout.setHint("如：拼多多、淘宝、多抓鱼");
         if (editing != null) {
             edit.setText(editing.name);
             edit.setSelection(editing.name.length());
         }
-        new AlertDialog.Builder(this)
+        new MaterialAlertDialogBuilder(this)
                 .setTitle(editing == null ? "添加渠道" : "重命名渠道")
                 .setView(db.getRoot())
                 .setPositiveButton("确定", (d, w) -> {
@@ -189,7 +190,7 @@ public class SourceChannelActivity extends BaseActivity {
     }
 
     private void confirmDelete(SourceChannel ch) {
-        new AlertDialog.Builder(this)
+        new MaterialAlertDialogBuilder(this)
                 .setTitle("删除渠道")
                 .setMessage("删除「" + ch.name + "」？已标记为该渠道的书籍不受影响（仍显示原名称）。")
                 .setPositiveButton("删除", (d, w) -> {

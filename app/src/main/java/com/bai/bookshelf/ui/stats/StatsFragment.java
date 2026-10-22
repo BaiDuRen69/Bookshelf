@@ -13,6 +13,7 @@ import androidx.fragment.app.Fragment;
 import com.bai.bookshelf.app.BookshelfApp;
 import com.bai.bookshelf.data.entity.Book;
 import com.bai.bookshelf.databinding.FragmentStatsBinding;
+import com.bai.bookshelf.util.InsetsHelper;
 import com.bai.bookshelf.util.BookSanitizer;
 import com.bai.bookshelf.util.BookText;
 import com.bai.bookshelf.util.ShelfNavigator;
@@ -36,6 +37,9 @@ public class StatsFragment extends Fragment {
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
                              @Nullable Bundle savedInstanceState) {
         b = FragmentStatsBinding.inflate(inflater, container, false);
+        // v4.18：Android 15+ 强制 edge-to-edge，给顶部栏加状态栏内边距，
+        // 避免「统计」标题被状态栏遮挡（工具栏是固定高度，工具会同时把高度补上）
+        InsetsHelper.applyTopInset(b.toolbar);
         // 「我的阅读」二级页（v2.8，月/年/总统计）
         b.cardReading.setOnClickListener(v ->
                 startActivity(new Intent(requireContext(), ReadingStatsActivity.class)));

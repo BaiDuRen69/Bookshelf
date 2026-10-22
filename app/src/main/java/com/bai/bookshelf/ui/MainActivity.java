@@ -15,6 +15,7 @@ import com.bai.bookshelf.databinding.ActivityMainBinding;
 import com.bai.bookshelf.ui.mine.MineFragment;
 import com.bai.bookshelf.ui.shelf.ShelfFragment;
 import com.bai.bookshelf.ui.stats.StatsFragment;
+import com.bai.bookshelf.util.InsetsHelper;
 import com.bai.bookshelf.util.ThemeManager;
 
 /**
@@ -48,6 +49,10 @@ public class MainActivity extends BaseActivity {
         super.onCreate(savedInstanceState);
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
+
+        // v4.18：Android 15+ 强制 edge-to-edge，底部导航会被系统手势条压住，
+        // 给它加导航栏内边距，让三个 Tab 上移到手势条上方
+        InsetsHelper.applyBottomInset(binding.bottomNav);
 
         // v4.5：优先复用 FragmentManager 还原的实例（带 tag 找回），没有才新建
         if (savedInstanceState != null) {

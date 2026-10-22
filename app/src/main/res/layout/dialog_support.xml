@@ -1,38 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 支持作者弹窗：支付宝 / 微信 两个入口（v2.5 打赏功能） -->
+<!-- 支持作者弹窗：支付宝 / 微信 两个入口（v2.5 打赏功能）
+     v4.18：入口行改为描边卡片样式（bg_dialog_row），去掉 emoji 标题，
+     视觉与「我的」页功能入口行保持一致。 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    style="@style/DialogContent"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="vertical"
-    android:padding="20dp">
+    android:orientation="vertical">
 
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:gravity="center"
-        android:text="💗 支持作者"
-        android:textColor="@color/text_main"
-        android:textSize="18sp"
-        android:textStyle="bold" />
+        android:text="感谢你的支持！选择一种方式，打赏给作者买杯咖啡吧。"
+        android:textColor="?attr/on_surface_variant"
+        android:textSize="@dimen/text_body_small"
+        android:lineSpacingMultiplier="1.35" />
 
     <!-- 支付宝 -->
     <LinearLayout
         android:id="@+id/row_alipay"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:background="@drawable/bg_chip"
-        android:clickable="true"
-        android:focusable="true"
-        android:foreground="?attr/selectableItemBackground"
-        android:gravity="center_vertical"
-        android:padding="14dp">
+        style="@style/DialogActionRow">
 
         <ImageView
             android:layout_width="40dp"
             android:layout_height="40dp"
             android:background="@drawable/bg_icon_blue"
+            android:contentDescription="支付宝收款码"
             android:padding="9dp"
             android:src="@drawable/ic_qr"
             app:tint="@color/white" />
@@ -40,7 +34,7 @@
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginStart="12dp"
+            android:layout_marginStart="@dimen/space_md"
             android:layout_weight="1"
             android:orientation="vertical">
 
@@ -48,8 +42,8 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="支付宝"
-                android:textColor="@color/text_main"
-                android:textSize="15sp"
+                android:textColor="?attr/on_surface"
+                android:textSize="@dimen/text_body"
                 android:textStyle="bold" />
 
             <TextView
@@ -57,39 +51,28 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"
                 android:text="推荐使用支付宝扫码"
-                android:textColor="@color/text_sub"
-                android:textSize="12sp" />
+                android:textColor="?attr/on_surface_variant"
+                android:textSize="@dimen/text_body_small" />
         </LinearLayout>
 
         <ImageView
             android:layout_width="18dp"
             android:layout_height="18dp"
+            android:contentDescription="进入"
             android:src="@drawable/ic_arrow_right"
-            app:tint="@color/text_sub" />
+            app:tint="?attr/on_surface_variant" />
     </LinearLayout>
-
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:layout_marginVertical="10dp"
-        android:background="@color/divider_soft" />
 
     <!-- 微信 -->
     <LinearLayout
         android:id="@+id/row_wechat"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="@drawable/bg_chip"
-        android:clickable="true"
-        android:focusable="true"
-        android:foreground="?attr/selectableItemBackground"
-        android:gravity="center_vertical"
-        android:padding="14dp">
+        style="@style/DialogActionRow">
 
         <ImageView
             android:layout_width="40dp"
             android:layout_height="40dp"
             android:background="@drawable/bg_icon_green"
+            android:contentDescription="微信收款码"
             android:padding="9dp"
             android:src="@drawable/ic_qr"
             app:tint="@color/white" />
@@ -97,7 +80,7 @@
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginStart="12dp"
+            android:layout_marginStart="@dimen/space_md"
             android:layout_weight="1"
             android:orientation="vertical">
 
@@ -105,8 +88,8 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="微信"
-                android:textColor="@color/text_main"
-                android:textSize="15sp"
+                android:textColor="?attr/on_surface"
+                android:textSize="@dimen/text_body"
                 android:textStyle="bold" />
 
             <TextView
@@ -114,14 +97,15 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"
                 android:text="推荐使用微信支付"
-                android:textColor="@color/text_sub"
-                android:textSize="12sp" />
+                android:textColor="?attr/on_surface_variant"
+                android:textSize="@dimen/text_body_small" />
         </LinearLayout>
 
         <ImageView
             android:layout_width="18dp"
             android:layout_height="18dp"
+            android:contentDescription="进入"
             android:src="@drawable/ic_arrow_right"
-            app:tint="@color/text_sub" />
+            app:tint="?attr/on_surface_variant" />
     </LinearLayout>
 </LinearLayout>

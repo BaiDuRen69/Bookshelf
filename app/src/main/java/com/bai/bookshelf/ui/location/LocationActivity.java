@@ -1,6 +1,6 @@
 package com.bai.bookshelf.ui.location;
 
-import android.app.AlertDialog;
+import androidx.appcompat.app.AlertDialog;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -23,6 +23,7 @@ import com.bai.bookshelf.databinding.ItemLocationBinding;
 
 import java.util.ArrayList;
 import java.util.List;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 /**
  * 存放地点管理：列表 + 添加 + 重命名 + 设为默认 + 删除。
@@ -82,7 +83,7 @@ public class LocationActivity extends BaseActivity {
             Toast.makeText(this, "请先勾选要删除的地点", Toast.LENGTH_SHORT).show();
             return;
         }
-        new AlertDialog.Builder(this)
+        new MaterialAlertDialogBuilder(this)
                 .setTitle("批量删除地点")
                 .setMessage("删除已选的 " + count + " 个地点？放在这些地点的书会变为「未设置地点」。")
                 .setPositiveButton("删除", (d, w) -> {
@@ -129,12 +130,12 @@ public class LocationActivity extends BaseActivity {
     private void showNameDialog(Location editing) {
         DialogInputBinding db = DialogInputBinding.inflate(getLayoutInflater());
         EditText edit = db.edit;
-        edit.setHint("如：书房-书架A-第2层");
+        db.inputLayout.setHint("如：书房-书架A-第2层");
         if (editing != null) {
             edit.setText(editing.name);
             edit.setSelection(editing.name.length()); // 光标移到末尾
         }
-        new AlertDialog.Builder(this)
+        new MaterialAlertDialogBuilder(this)
                 .setTitle(editing == null ? "添加地点" : "重命名地点")
                 .setView(db.getRoot())
                 .setPositiveButton("确定", (d, w) -> {
@@ -175,7 +176,7 @@ public class LocationActivity extends BaseActivity {
 
     /** 删除地点（带确认，引用书籍重置为未设置） */
     private void confirmDelete(Location loc) {
-        new AlertDialog.Builder(this)
+        new MaterialAlertDialogBuilder(this)
                 .setTitle("删除地点")
                 .setMessage("删除「" + loc.name + "」？放在这里的书会变为「未设置地点」。")
                 .setPositiveButton("删除", (d, w) -> {

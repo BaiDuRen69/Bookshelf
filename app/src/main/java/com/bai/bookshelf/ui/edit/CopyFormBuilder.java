@@ -22,6 +22,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 /**
  * 「逐本信息」副本表单的公共构建器。
@@ -355,18 +356,16 @@ public final class CopyFormBuilder {
 
     /** 预览大图并支持移除 */
     private static void showNoteImagePreview(Activity act, Holder h, NoteImage img) {
-        android.widget.ImageView iv = new android.widget.ImageView(act);
-        iv.setAdjustViewBounds(true);
-        iv.setScaleType(android.widget.ImageView.ScaleType.FIT_CENTER);
-        int pad = (int) (8 * act.getResources().getDisplayMetrics().density);
-        iv.setPadding(pad, pad, pad, pad);
+        // v4.18: 图片放进圆角卡片底
+        com.bai.bookshelf.databinding.DialogImagePreviewBinding pb =
+                com.bai.bookshelf.databinding.DialogImagePreviewBinding.inflate(act.getLayoutInflater());
         Glide.with(act).load(new File(img.path))
                 .placeholder(R.drawable.ic_cover_placeholder)
                 .error(R.drawable.ic_cover_placeholder)
-                .into(iv);
-        new android.app.AlertDialog.Builder(act)
+                .into(pb.ivPreview);
+        new MaterialAlertDialogBuilder(act)
                 .setTitle("备注图片")
-                .setView(iv)
+                .setView(pb.getRoot())
                 .setPositiveButton("关闭", null)
                 .setNegativeButton("移除", (d, w) -> removeNoteImage(h, img))
                 .show();

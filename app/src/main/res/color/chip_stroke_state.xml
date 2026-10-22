@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Chip 描边状态色（v4.18）：选中态描边用主色，未选中用常规描边 -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_checked="true" android:color="?attr/colorPrimary" />
+    <item android:state_selected="true" android:color="?attr/colorPrimary" />
+    <item android:color="?attr/outline" />
+</selector>

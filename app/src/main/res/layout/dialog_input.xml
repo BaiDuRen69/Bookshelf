@@ -1,13 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 通用单输入框对话框内容（标题由 AlertDialog 设置） -->
+<!-- 通用单输入框对话框内容（标题由 AlertDialog 设置）
+     v4.18：改用描边式输入框（Widget.Bookshelf.TextField），与全局表单风格统一 -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    style="@style/DialogContent"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:padding="20dp">
+    android:layout_height="wrap_content">
 
-    <EditText
-        android:id="@+id/edit"
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/input_layout"
+        style="@style/Widget.Bookshelf.TextField"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:inputType="text" />
+        app:boxBackgroundMode="outline">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/edit"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="text"
+            android:maxLines="1" />
+    </com.google.android.material.textfield.TextInputLayout>
 </FrameLayout>

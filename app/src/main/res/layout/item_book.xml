@@ -1,26 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 书架列表项：封面 + 书名/作者 + 地点状态标签 + 评分（v4.16 描边卡片 + 圆角封面） -->
+<!-- 书架列表项：封面 + 书名/作者 + 地点状态标签 + 评分
+     v4.18：缩小卡片外边距（间距过大的反馈），封面加 1dp 描边（bg_cover_stroke），
+     使相邻书籍之间有明确的分界线 -->
 <androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     style="@style/Widget.Bookshelf.Card"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginHorizontal="@dimen/page_padding"
-    android:layout_marginVertical="@dimen/space_xs">
+    android:layout_marginVertical="2dp">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:padding="@dimen/space_md">
+        android:padding="10dp">
 
         <ImageView
             android:id="@+id/iv_cover"
-            android:layout_width="56dp"
-            android:layout_height="76dp"
+            android:layout_width="54dp"
+            android:layout_height="72dp"
             android:background="@drawable/bg_cover"
             android:clipToOutline="true"
+            android:foreground="@drawable/bg_cover_stroke"
             android:scaleType="centerCrop"
             android:src="@drawable/ic_cover_placeholder" />
 
@@ -28,7 +31,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:layout_marginStart="@dimen/space_md"
+            android:layout_marginStart="10dp"
             android:orientation="vertical">
 
             <TextView
@@ -45,7 +48,7 @@
                 android:id="@+id/tv_author"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/space_xs"
+                android:layout_marginTop="2dp"
                 android:textSize="@dimen/text_body_small"
                 android:textColor="?attr/on_surface_variant"
                 android:maxLines="1"
@@ -54,7 +57,7 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/space_sm"
+                android:layout_marginTop="6dp"
                 android:orientation="horizontal">
 
                 <TextView

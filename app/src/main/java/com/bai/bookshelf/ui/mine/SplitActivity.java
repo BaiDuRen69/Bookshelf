@@ -1,6 +1,6 @@
 package com.bai.bookshelf.ui.mine;
 
-import android.app.AlertDialog;
+import androidx.appcompat.app.AlertDialog;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -23,6 +23,7 @@ import org.json.JSONObject;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 /**
  * 套装书籍购入价分摊：输入实付总额与每本书的定价，按比例分摊。
@@ -89,7 +90,7 @@ public class SplitActivity extends BaseActivity {
         try {
             results = PriceSplitter.split(totalPaid, inputs);
         } catch (PriceSplitter.SplitException e) {
-            new AlertDialog.Builder(this)
+            new MaterialAlertDialogBuilder(this)
                     .setTitle("无法分摊")
                     .setMessage(e.getMessage())
                     .setPositiveButton("知道了", null)

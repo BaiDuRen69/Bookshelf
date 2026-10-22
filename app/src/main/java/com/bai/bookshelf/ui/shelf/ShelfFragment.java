@@ -1,6 +1,6 @@
 package com.bai.bookshelf.ui.shelf;
 
-import android.app.AlertDialog;
+import androidx.appcompat.app.AlertDialog;
 import android.content.Intent;
 import android.os.Bundle;
 import android.text.Editable;
@@ -32,6 +32,7 @@ import com.bai.bookshelf.ui.detail.BookDetailActivity;
 import com.bai.bookshelf.ui.edit.BookEditActivity;
 import com.bai.bookshelf.ui.scan.ScanActivity;
 import com.bai.bookshelf.util.BookSanitizer;
+import com.bai.bookshelf.util.InsetsHelper;
 import com.bai.bookshelf.util.ThemeManager;
 
 import java.util.ArrayList;
@@ -39,6 +40,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 /**
  * 书架页：藏书列表 + 搜索 + 状态/地点筛选 + 排序 + 录入口。
@@ -50,6 +52,8 @@ public class ShelfFragment extends Fragment {
     private BookAdapter adapter;
     private BookGridAdapter gridAdapter;
     private BookAdapter textAdapter; // 纯文字列表（无封面）
+    /** v4.18：网格模式的间距分配器（切换视图时需要移除，避免叠加） */
+    private ShelfGridSpacing gridSpacing;
 
     private List<Book> allBooks = new ArrayList<>();
     private List<Location> locations = new ArrayList<>();
@@ -208,6 +212,13 @@ public class ShelfFragment extends Fragment {
 
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        // v4.18：应用 targetSdk 36，在 Android 15+ 强制 edge-to-edge，
+        // 内容会画到状态栏之下。v4.17 把顶部工具栏换成自定义 LinearLayout 后，
+        // 丢失了 MaterialToolbar 自带的自动避让能力，搜索框被状态栏压住点不到。
+        // 这里显式给头部加状态栏内边距：头部自身是主色背景，
+        // 加高后状态栏与头部连成一片（与 v4.16 观感一致），内容下移不被遮挡。
+        InsetsHelper.applyTopInset(b.header);
+
         // v4.4：首次加载指示改在视图创建时显示（此实例还没有任何数据可显示时），
         // 两段式渲染下 books 一到就隐藏（见 onBooksPushed 第一段）——
         // 指示只覆盖「Room 首推」的空窗，不再被启动期长任务拖长
@@ -481,7 +492,7 @@ public class ShelfFragment extends Fragment {
         if (count == 0) {
             return;
         }
-        new AlertDialog.Builder(requireContext())
+        new MaterialAlertDialogBuilder(requireContext())
                 .setTitle("批量删除")
                 .setMessage("确定删除已选的 " + count + " 本书吗？此操作不可恢复。")
                 .setPositiveButton("删除", (d, w) -> {
@@ -515,11 +526,23 @@ public class ShelfFragment extends Fragment {
         if (b == null) {
             return;
         }
+        // v4.18：切换视图前清掉旧的间距分配器，避免叠加导致间距越来越大
+        b.recycler.removeItemDecoration(gridSpacing);
+        gridSpacing = null;
         if (viewMode == 1) {
             // v4.16：网格列数随屏幕宽度自适应（values / sw600dp / sw840dp 覆盖）
-            b.recycler.setLayoutManager(new GridLayoutManager(requireContext(),
-                    getResources().getInteger(R.integer.shelf_grid_span)));
+            int span = getResources().getInteger(R.integer.shelf_grid_span);
+            b.recycler.setLayoutManager(new GridLayoutManager(requireContext(), span));
             b.recycler.setAdapter(gridAdapter);
+            // v4.18：间距统一由分配器控制（item 自身不再带 margin），
+            // 并按列数换算封面高度，使书籍比例在各设备上都接近真实书籍
+            float density = getResources().getDisplayMetrics().density;
+            int spacingX = Math.round(6 * density);
+            int spacingY = Math.round(10 * density);
+            int edge = Math.round(getResources().getDimensionPixelSize(R.dimen.page_padding));
+            gridSpacing = new ShelfGridSpacing(span, spacingX, spacingY, edge);
+            b.recycler.addItemDecoration(gridSpacing);
+            applyGridCoverHeight(span, spacingX, edge);
             b.btnView.setText("文字"); // 按钮显示下一个模式
         } else if (viewMode == 2) {
             b.recycler.setLayoutManager(new LinearLayoutManager(requireContext()));
@@ -533,6 +556,24 @@ public class ShelfFragment extends Fragment {
         // v3.2：改成「只渲染当前视图」后，换适配器必须重新喂一次数据，
         // 否则新挂载的适配器是空的。首次加载时 allBooks 为空，applyFilters 会直接返回。
         applyFilters();
+    }
+
+    /**
+     * 按当前列数与可用宽度换算封面高度，并同步到网格适配器的每个 item。
+     * 列数越多（大屏）单列越窄，封面相应压低，避免又高又窄的比例。
+     */
+    private void applyGridCoverHeight(int span, int spacingX, int edge) {
+        if (b == null || b.recycler == null) {
+            return;
+        }
+        int width = b.recycler.getWidth();
+        if (width <= 0) {
+            // 尚未布局，用屏幕宽度估算（减去页面左右留白）
+            width = getResources().getDisplayMetrics().widthPixels
+                    - edge * 2 - b.recycler.getPaddingLeft() - b.recycler.getPaddingRight();
+        }
+        int h = ShelfGridSpacing.coverHeightFor(span, width, spacingX, edge);
+        gridAdapter.setCoverHeight(h);
     }
 
     /**
@@ -1114,7 +1155,7 @@ public class ShelfFragment extends Fragment {
     /** 录入方式选择弹窗 */
     private void showAddOptions() {
         String[] options = {"扫码录入", "手动输入 ISBN", "完全手动录入"};
-        new AlertDialog.Builder(requireContext())
+        new MaterialAlertDialogBuilder(requireContext())
                 .setItems(options, (d, which) -> {
                     if (which == 0) {
                         launchAndRefresh(new Intent(requireContext(), ScanActivity.class));
@@ -1131,9 +1172,9 @@ public class ShelfFragment extends Fragment {
     private void showIsbnInput() {
         DialogInputBinding db = DialogInputBinding.inflate(getLayoutInflater());
         EditText edit = db.edit;
-        edit.setHint("输入 10 或 13 位 ISBN");
+        db.inputLayout.setHint("输入 10 或 13 位 ISBN");
         edit.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
-        new AlertDialog.Builder(requireContext())
+        new MaterialAlertDialogBuilder(requireContext())
                 .setTitle("按 ISBN 查询")
                 .setView(db.getRoot())
                 .setPositiveButton("查询", (d, w) -> {

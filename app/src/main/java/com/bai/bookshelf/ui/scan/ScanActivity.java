@@ -1,7 +1,7 @@
 package com.bai.bookshelf.ui.scan;
 
 import android.Manifest;
-import android.app.AlertDialog;
+import androidx.appcompat.app.AlertDialog;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.text.InputType;
@@ -33,6 +33,7 @@ import com.google.mlkit.vision.common.InputImage;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 /**
  * 扫码录入页：CameraX 预览 + ML Kit 本地识别条形码。
@@ -242,9 +243,9 @@ public class ScanActivity extends BaseActivity {
     private void showManualInput() {
         DialogInputBinding db = DialogInputBinding.inflate(getLayoutInflater());
         EditText edit = db.edit;
-        edit.setHint("输入 10 或 13 位 ISBN");
+        db.inputLayout.setHint("输入 10 或 13 位 ISBN");
         edit.setInputType(InputType.TYPE_CLASS_NUMBER);
-        new AlertDialog.Builder(this)
+        new MaterialAlertDialogBuilder(this)
                 .setTitle("手动输入 ISBN")
                 .setView(db.getRoot())
                 .setPositiveButton("查询", (d, w) -> {

@@ -1,6 +1,6 @@
 package com.bai.bookshelf.ui.detail;
 
-import android.app.AlertDialog;
+import androidx.appcompat.app.AlertDialog;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
@@ -37,6 +37,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 /**
  * 书籍详情页：展示书目与管理信息，提供 编辑 / 借出归还 / 删除 操作。
@@ -400,7 +401,7 @@ public class BookDetailActivity extends BaseActivity {
     }
 
     private void showFullTag(String fullTag) {
-        new AlertDialog.Builder(this)
+        new MaterialAlertDialogBuilder(this)
                 .setTitle("完整标签")
                 .setMessage(fullTag)
                 .setPositiveButton("知道了", null)
@@ -682,18 +683,16 @@ public class BookDetailActivity extends BaseActivity {
     }
 
     private void previewLendNoteImage(NoteImage img) {
-        ImageView iv = new ImageView(this);
-        iv.setAdjustViewBounds(true);
-        iv.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        int pad = dp(8);
-        iv.setPadding(pad, pad, pad, pad);
+        // v4.18: 图片放进圆角卡片底（dialog_image_preview）
+        com.bai.bookshelf.databinding.DialogImagePreviewBinding pb =
+                com.bai.bookshelf.databinding.DialogImagePreviewBinding.inflate(getLayoutInflater());
         Glide.with(this).load(new File(img.path))
                 .placeholder(R.drawable.ic_cover_placeholder)
                 .error(R.drawable.ic_cover_placeholder)
-                .into(iv);
-        new AlertDialog.Builder(this)
+                .into(pb.ivPreview);
+        new MaterialAlertDialogBuilder(this)
                 .setTitle("借出备注图片")
-                .setView(iv)
+                .setView(pb.getRoot())
                 .setPositiveButton("关闭", null)
                 .show();
     }
@@ -744,18 +743,16 @@ public class BookDetailActivity extends BaseActivity {
 
     /** 点击图片：放大预览（文件缺失时由 Glide 兜底占位图） */
     private void previewNoteImage(NoteImage img) {
-        ImageView iv = new ImageView(this);
-        iv.setAdjustViewBounds(true);
-        iv.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        int pad = dp(8);
-        iv.setPadding(pad, pad, pad, pad);
+        // v4.18: 图片放进圆角卡片底（dialog_image_preview）
+        com.bai.bookshelf.databinding.DialogImagePreviewBinding pb =
+                com.bai.bookshelf.databinding.DialogImagePreviewBinding.inflate(getLayoutInflater());
         Glide.with(this).load(new File(img.path))
                 .placeholder(R.drawable.ic_cover_placeholder)
                 .error(R.drawable.ic_cover_placeholder)
-                .into(iv);
-        new AlertDialog.Builder(this)
+                .into(pb.ivPreview);
+        new MaterialAlertDialogBuilder(this)
                 .setTitle("备注图片")
-                .setView(iv)
+                .setView(pb.getRoot())
                 .setPositiveButton("关闭", null)
                 .show();
     }
@@ -903,7 +900,7 @@ public class BookDetailActivity extends BaseActivity {
         });
         renderLendNoteThumbs(db);
 
-        new AlertDialog.Builder(this)
+        new MaterialAlertDialogBuilder(this)
                 .setTitle("借出登记（第 " + lendCopyIndex + " 本）")
                 .setView(db.getRoot())
                 .setPositiveButton("借出", (d, w) ->
@@ -973,18 +970,16 @@ public class BookDetailActivity extends BaseActivity {
     }
 
     private void showLendNotePreview(NoteImage img, com.bai.bookshelf.databinding.DialogLendBinding db) {
-        ImageView iv = new ImageView(this);
-        iv.setAdjustViewBounds(true);
-        iv.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        int pad = dp(8);
-        iv.setPadding(pad, pad, pad, pad);
+        // v4.18: 图片放进圆角卡片底（dialog_image_preview）
+        com.bai.bookshelf.databinding.DialogImagePreviewBinding pb =
+                com.bai.bookshelf.databinding.DialogImagePreviewBinding.inflate(getLayoutInflater());
         Glide.with(this).load(new File(img.path))
                 .placeholder(R.drawable.ic_cover_placeholder)
                 .error(R.drawable.ic_cover_placeholder)
-                .into(iv);
-        new AlertDialog.Builder(this)
+                .into(pb.ivPreview);
+        new MaterialAlertDialogBuilder(this)
                 .setTitle("备注图片")
-                .setView(iv)
+                .setView(pb.getRoot())
                 .setPositiveButton("关闭", null)
                 .setNegativeButton("移除", (d, w) -> {
                     pendingLendImages.remove(img);
@@ -1027,7 +1022,7 @@ public class BookDetailActivity extends BaseActivity {
                                      com.google.android.material.chip.Chip chip,
                                      String[] selected) {
         String[] options = {"重命名", "删除"};
-        new AlertDialog.Builder(this)
+        new MaterialAlertDialogBuilder(this)
                 .setTitle("借阅人「" + borrower.name + "」")
                 .setItems(options, (d, which) -> {
                     if (which == 0) {
@@ -1046,7 +1041,7 @@ public class BookDetailActivity extends BaseActivity {
         DialogInputBinding ib = DialogInputBinding.inflate(getLayoutInflater());
         ib.edit.setText(borrower.name);
         ib.edit.setSelection(borrower.name.length());
-        new AlertDialog.Builder(this)
+        new MaterialAlertDialogBuilder(this)
                 .setTitle("重命名借阅人")
                 .setView(ib.getRoot())
                 .setPositiveButton("确定", (d, w) -> {
@@ -1072,7 +1067,7 @@ public class BookDetailActivity extends BaseActivity {
     private void confirmDeleteBorrower(com.bai.bookshelf.data.entity.Borrower borrower,
                                        com.google.android.material.chip.Chip chip,
                                        String[] selected) {
-        new AlertDialog.Builder(this)
+        new MaterialAlertDialogBuilder(this)
                 .setTitle("删除借阅人")
                 .setMessage("从常用借阅人里删除「" + borrower.name + "」？历史借出记录不受影响。")
                 .setPositiveButton("删除", (d, w) -> {
@@ -1099,8 +1094,8 @@ public class BookDetailActivity extends BaseActivity {
                                       String[] selected,
                                       List<com.google.android.material.chip.Chip> chips) {
         DialogInputBinding ib = DialogInputBinding.inflate(getLayoutInflater());
-        ib.edit.setHint("姓名或称呼（如 小王、表姐）");
-        new AlertDialog.Builder(this)
+        ib.inputLayout.setHint("姓名或称呼（如 小王、表姐）");
+        new MaterialAlertDialogBuilder(this)
                 .setTitle("新建借阅人")
                 .setView(ib.getRoot())
                 .setPositiveButton("创建", (d, w) -> {
@@ -1215,7 +1210,7 @@ public class BookDetailActivity extends BaseActivity {
     }
 
     private void confirmDelete() {
-        new AlertDialog.Builder(this)
+        new MaterialAlertDialogBuilder(this)
                 .setTitle("删除书籍")
                 .setMessage("确定把" + com.bai.bookshelf.util.BookText.quotedTitle(book.title)
                         + "从书架删除吗？此操作不可恢复。")

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Chip 文字色状态选择器（v4.18）：选中态用容器上的文字色，未选中用正文色 -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_checked="true" android:color="?attr/on_primary_container" />
+    <item android:state_selected="true" android:color="?attr/on_primary_container" />
+    <item android:color="?attr/on_surface" />
+</selector>
