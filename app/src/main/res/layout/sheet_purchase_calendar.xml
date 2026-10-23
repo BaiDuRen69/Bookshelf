@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- v4.22：底部半屏日历面板（参照微信读书「阅读天数」）
+     结构：标题行（周期 + 右上角「按月 / 按年」分段）→ 固定星期表头
+          → 滚动区（全部年份的日历块）→ 底部钉住的当天详情条。
+
+     ⚠ calendar_scroll 的高度在代码里设置（LayoutParams.height），
+       android:maxHeight 对 NestedScrollView 无效。 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/sheet_root"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical">
+
+    <!-- 拖拽把手 -->
+    <View
+        android:layout_width="36dp"
+        android:layout_height="4dp"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="@dimen/space_md"
+        android:background="@drawable/bg_sheet_handle" />
+
+    <!-- 顶部：标题（周期）+ 右上角「按月 / 按年」分段 + 关闭 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="@dimen/space_xl"
+        android:paddingTop="@dimen/space_md"
+        android:paddingEnd="@dimen/space_sm"
+        android:paddingBottom="@dimen/space_sm">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/sheet_title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/stats_calendar_title"
+                android:textColor="@color/text_main"
+                android:textSize="@dimen/text_headline"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/sheet_summary"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:textColor="@color/text_sub"
+                android:textSize="@dimen/text_body_small" />
+        </LinearLayout>
+
+        <!-- 分段切换：按月 / 按年（位于日历右上角） -->
+        <LinearLayout
+            android:id="@+id/ll_mode_switch"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/bg_seg_track"
+            android:orientation="horizontal"
+            android:padding="3dp">
+
+            <TextView
+                android:id="@+id/tv_mode_month"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:paddingStart="14dp"
+                android:paddingTop="5dp"
+                android:paddingEnd="14dp"
+                android:paddingBottom="5dp"
+                android:text="@string/stats_calendar_by_month"
+                android:textColor="@color/text_sub"
+                android:textSize="@dimen/text_body_small" />
+
+            <TextView
+                android:id="@+id/tv_mode_year"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:paddingStart="14dp"
+                android:paddingTop="5dp"
+                android:paddingEnd="14dp"
+                android:paddingBottom="5dp"
+                android:text="@string/stats_calendar_by_year"
+                android:textColor="@color/text_sub"
+                android:textSize="@dimen/text_body_small" />
+        </LinearLayout>
+
+        <ImageView
+            android:id="@+id/sheet_close"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="@dimen/space_xs"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/stats_sheet_close"
+            android:padding="10dp"
+            android:src="@drawable/ic_close"
+            app:tint="@color/text_sub" />
+    </LinearLayout>
+
+    <!-- 固定星期表头（只在按月模式显示；与下方月历网格同宽，列严格对齐） -->
+    <FrameLayout
+        android:id="@+id/ll_week_header"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingStart="@dimen/space_xl"
+        android:paddingEnd="@dimen/space_xl">
+
+        <com.bai.bookshelf.ui.stats.PurchaseHeatmapView
+            android:id="@+id/heatmap_week_header"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+    </FrameLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginTop="@dimen/space_xs"
+        android:background="@color/divider_gray" />
+
+    <!-- 滚动区：全部年份的日历块（按月=每月一块，按年=每年一块） -->
+    <androidx.core.widget.NestedScrollView
+        android:id="@+id/calendar_scroll"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:scrollbars="none">
+
+        <LinearLayout
+            android:id="@+id/ll_calendar_blocks"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingStart="@dimen/space_xl"
+            android:paddingTop="@dimen/space_sm"
+            android:paddingEnd="@dimen/space_xl"
+            android:paddingBottom="@dimen/space_lg" />
+    </androidx.core.widget.NestedScrollView>
+
+    <TextView
+        android:id="@+id/tv_calendar_empty"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:paddingTop="@dimen/space_lg"
+        android:paddingBottom="@dimen/space_lg"
+        android:text="@string/stats_calendar_empty"
+        android:textColor="@color/text_sub"
+        android:textSize="@dimen/text_body_small"
+        android:visibility="gone" />
+
+    <!-- 底部钉住：选中某天的详情（微信读书样式：左侧主色竖线 + 数值 + 日期） -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="@color/divider_gray" />
+
+    <LinearLayout
+        android:id="@+id/ll_day_detail"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="?attr/surface"
+        android:gravity="center_vertical"
+        android:minHeight="60dp"
+        android:orientation="horizontal"
+        android:paddingStart="@dimen/space_xl"
+        android:paddingTop="@dimen/space_md"
+        android:paddingEnd="@dimen/space_xl"
+        android:paddingBottom="@dimen/space_md">
+
+        <View
+            android:id="@+id/v_day_accent"
+            android:layout_width="3dp"
+            android:layout_height="30dp"
+            android:layout_marginEnd="@dimen/space_md"
+            android:background="?attr/colorPrimary" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/tv_day_value"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/stats_click_day_hint"
+                android:textColor="@color/text_main"
+                android:textSize="@dimen/text_body" />
+
+            <TextView
+                android:id="@+id/tv_day_date"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:textColor="@color/text_sub"
+                android:textSize="@dimen/text_caption"
+                android:visibility="gone" />
+        </LinearLayout>
+    </LinearLayout>
+</LinearLayout>

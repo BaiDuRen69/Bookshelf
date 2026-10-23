@@ -22,12 +22,28 @@
     <!-- 我的阅读（v4.20） -->
     <string name="stats_click_day_hint">点击日历上的某一天，查看当天购买详情</string>
 
-    <!-- 我的阅读 · 「全部记录」底部半屏面板（v4.21） -->
+    <!-- 我的阅读 · 「全部记录」入口按钮（v4.21） -->
     <string name="stats_all_records">全部记录</string>
     <string name="stats_sheet_close">关闭</string>
-    <string name="stats_sheet_empty">暂无购买记录</string>
-    <!-- 明细行的数值，如「4 本」 -->
-    <string name="stats_value_books">%1$d 本</string>
-    <!-- 底部面板汇总，如「4 天有购买记录 · 合计 10 本」 -->
-    <string name="stats_sheet_summary">%1$d %2$s有购买记录 · 合计 %3$d 本</string>
+
+    <!-- 我的阅读 · 「全部记录」日历面板（v4.22） -->
+    <!-- 日历区标题（后面会拼上当前聚焦周期，如「购买日历 · 2026/10」） -->
+    <string name="stats_calendar_title">购买日历</string>
+    <!-- 视图切换：按月 / 按年 -->
+    <string name="stats_calendar_by_month">按月</string>
+    <string name="stats_calendar_by_year">按年</string>
+    <!-- 没有任何购买记录时的空态 -->
+    <string name="stats_calendar_empty">暂无购买记录</string>
+    <!-- 面板副标题：如「全部年份 · 30 天有记录 · 合计 32 本」 -->
+    <string name="stats_calendar_summary">全部年份 · %1$d 天有记录 · 合计 %2$d 本</string>
+    <!-- 日历块副标题：如「有购买记录 4 天」 -->
+    <string name="stats_calendar_active_days">有购买记录 %1$d 天</string>
+    <!-- 日历块标题（按月）：如「2026年10月 · 累计购买 4 本」 -->
+    <string name="stats_calendar_block_month">%1$d年%2$d月 · 累计购买 %3$d 本</string>
+    <!-- 日历块标题（按年）：如「2026年 · 累计购买 16 本」 -->
+    <string name="stats_calendar_block_year">%1$d年 · 累计购买 %2$d 本</string>
+    <!-- 底部详情条：当天买了几本，如「购买 3 本」 -->
+    <string name="stats_day_bought">购买 %1$d 本</string>
+    <!-- 底部详情条：当天没有记录 -->
+    <string name="stats_day_none">当天没有购买记录</string>
 </resources>

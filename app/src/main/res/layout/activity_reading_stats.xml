@@ -174,7 +174,7 @@
                         android:paddingTop="4dp"
                         android:paddingEnd="4dp"
                         android:paddingBottom="4dp"
-                        android:text="全部记录"
+                        android:text="@string/stats_all_records"
                         android:textColor="?attr/colorPrimary"
                         android:textSize="12sp" />
                 </LinearLayout>
@@ -342,7 +342,7 @@
                         android:paddingTop="4dp"
                         android:paddingEnd="4dp"
                         android:paddingBottom="4dp"
-                        android:text="全部记录"
+                        android:text="@string/stats_all_records"
                         android:textColor="?attr/colorPrimary"
                         android:textSize="12sp" />
                 </LinearLayout>
@@ -634,7 +634,7 @@
                         android:paddingTop="4dp"
                         android:paddingEnd="4dp"
                         android:paddingBottom="4dp"
-                        android:text="全部记录"
+                        android:text="@string/stats_all_records"
                         android:textColor="?attr/colorPrimary"
                         android:textSize="12sp" />
                 </LinearLayout>

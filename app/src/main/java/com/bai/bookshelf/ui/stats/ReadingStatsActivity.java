@@ -69,6 +69,13 @@ public class ReadingStatsActivity extends BaseActivity {
     private int globalMaxPerDay = 0;
     /** 全部书籍里「某一月最多买了几本」 */
     private int globalMaxPerMonth = 0;
+    /**
+     * v4.22：全部年份的每日购买量（键 yyyy-MM-dd → 本数）。
+     *
+     * <p>v4.20 的热力图只喂「当前游标月/年」，导致日历被限制在当前或近一年数据。
+     * 现在一次性汇总全量数据，「全部记录」面板按月/按年切分后即可覆盖所有年份。
+     */
+    private final Map<String, Integer> allDailyCounts = new LinkedHashMap<>();
 
     /** 当前打开的年/月选择弹窗（选完直接关闭） */
     private androidx.appcompat.app.AlertDialog pickerDialog;
@@ -155,12 +162,16 @@ public class ReadingStatsActivity extends BaseActivity {
     private void computeGlobalMax() {
         Map<String, Integer> perDay = new LinkedHashMap<>();
         Map<String, Integer> perMonth = new LinkedHashMap<>();
+        // v4.22：同时汇总「全部年份」的每日购买量，供日历面板使用
+        allDailyCounts.clear();
         for (Book book : books) {
             int[] pd = parseYmd(book.purchaseDate);
             if (pd == null) {
                 continue;
             }
-            perDay.merge(pd[0] + "-" + pad2(pd[1] + 1) + "-" + pad2(pd[2]), 1, Integer::sum);
+            String dayKey = pd[0] + "-" + pad2(pd[1] + 1) + "-" + pad2(pd[2]);
+            perDay.merge(dayKey, 1, Integer::sum);
+            allDailyCounts.merge(dayKey, 1, Integer::sum);
             perMonth.merge(pd[0] + "-" + pad2(pd[1] + 1), 1, Integer::sum);
         }
         globalMaxPerDay = 0;
@@ -368,111 +379,83 @@ public class ReadingStatsActivity extends BaseActivity {
         return list;
     }
 
-    // ==================== 「全部记录」底部半屏面板（v4.21） ====================
+    // ==================== 「全部记录」日历面板（v4.22） ====================
 
     /**
-     * 月视图的「全部记录」：列出本月每一天的购买记录。
+     * 月视图的「全部记录」：打开日历面板（按月粒度），初始定位到当前游标月。
      *
-     * <p>参照微信读书「阅读时长」页：面板从底部升起，按时间顺序列出完整记录，
-     * 没有购买记录的日子置灰显示「—」。
+     * <p>v4.22：面板内的日历展示<b>全部年份</b>的记录，不限于当前月；
+     * 右上角可切换「按月 / 按年」，切换后展示对应粒度下的完整记录。
      */
     private void showMonthDetailSheet() {
         int year = monthCursor.get(Calendar.YEAR);
         int month = monthCursor.get(Calendar.MONTH);
-        int days = daysInMonth(year, month);
-        int[] daily = dailyCounts(year, month);
-
-        List<PurchaseDetailSheet.Row> rows = new ArrayList<>();
-        for (int d = 1; d <= days; d++) {
-            rows.add(new PurchaseDetailSheet.Row(
-                    String.format(Locale.getDefault(), "%d月%d日", month + 1, d),
-                    daily[d - 1],
-                    weekLabel(year, month, d)));
-        }
-
-        final com.google.android.material.bottomsheet.BottomSheetDialog[] holder =
-                new com.google.android.material.bottomsheet.BottomSheetDialog[1];
-        holder[0] = PurchaseDetailSheet.show(this,
-                String.format(Locale.getDefault(), "%d年%d月 全部记录", year, month + 1),
-                PurchaseDetailSheet.buildSummary(this, rows, 0),
-                rows,
-                (index) -> {
-                    // 点某一天：关闭面板并把当天详情显示在下方
-                    b.tvMonthDayDetail.setText(dayDetailText(year, month, index + 1, daily[index]));
-                    if (holder[0] != null) {
-                        holder[0].dismiss();
-                    }
-                });
+        showCalendarSheet(false, year, month);
     }
 
     /**
-     * 年视图的「全部记录」：列出本年每个月的购买记录（按微信读书的层级，
-     * 年视图统计到月，不再细分到日）。
+     * 年视图的「全部记录」：打开日历面板（按年粒度），初始定位到当前游标年。
      */
     private void showYearDetailSheet() {
         int year = yearCursor.get(Calendar.YEAR);
-        int[] monthly = monthlyCounts(year);
-
-        List<PurchaseDetailSheet.Row> rows = new ArrayList<>();
-        for (int m = 0; m < 12; m++) {
-            rows.add(new PurchaseDetailSheet.Row((m + 1) + "月", monthly[m], null));
-        }
-
-        final com.google.android.material.bottomsheet.BottomSheetDialog[] holder =
-                new com.google.android.material.bottomsheet.BottomSheetDialog[1];
-        holder[0] = PurchaseDetailSheet.show(this,
-                year + "年 全部记录",
-                PurchaseDetailSheet.buildSummary(this, rows, 1),
-                rows,
-                (index) -> {
-                    // 点某个月：切换到该月并展示明细
-                    monthCursor.set(year, index, 1);
-                    selectTab(0);
-                    b.tvMonthDayDetail.setText(
-                            String.format(Locale.getDefault(), "%d年%d月 · 购买 %d 本",
-                                    year, index + 1, monthly[index]));
-                    if (holder[0] != null) {
-                        holder[0].dismiss();
-                    }
-                });
+        showCalendarSheet(true, year, 0);
     }
 
     /**
-     * 总视图的「全部记录」：列出有购买记录的每一个年份。
+     * 总视图的「全部记录」：打开日历面板（按年粒度），定位到有记录的最新年份。
      */
     private void showTotalDetailSheet() {
-        TreeMap<Integer, Integer> yearly = new TreeMap<>();
-        for (Book book : books) {
-            int[] pd = parseYmd(book.purchaseDate);
-            if (pd != null) {
-                yearly.merge(pd[0], 1, Integer::sum);
+        int year = latestYearWithRecords();
+        showCalendarSheet(true, year, 0);
+    }
+
+    /**
+     * 打开「全部记录」日历面板。
+     *
+     * @param yearMode true=按年，false=按月
+     * @param year    初始聚焦的年
+     * @param month0  初始聚焦的月（0-based）
+     */
+    private void showCalendarSheet(boolean yearMode, int year, int month0) {
+        // 标题的周期后缀由面板自己管理（切换粒度时会跟着变），
+        // 这里只传基名「购买日历」。
+        String summary = getString(R.string.stats_calendar_summary,
+                activeDayCount(), totalBookCount());
+
+        PurchaseCalendarSheet.show(this, getString(R.string.stats_calendar_title),
+                summary, allDailyCounts,
+                new PurchaseCalendarSheet.Start(yearMode, year, month0),
+                (y, m, d, count) -> {
+                    // 选中某天：把下方页面的当天详情同步更新
+                    b.tvMonthDayDetail.setText(dayDetailText(y, m, d, count));
+                    b.tvYearDayDetail.setText(dayDetailText(y, m, d, count));
+                });
+    }
+
+    /** 有购买记录的天数（全部年份） */
+    private int activeDayCount() {
+        return allDailyCounts.size();
+    }
+
+    /** 有购买记录的书的总数（全部年份） */
+    private int totalBookCount() {
+        int sum = 0;
+        for (int v : allDailyCounts.values()) {
+            sum += v;
+        }
+        return sum;
+    }
+
+    /** 最新一个有购买记录的年份（没有记录时返回当前年） */
+    private int latestYearWithRecords() {
+        int year = 0;
+        for (String key : allDailyCounts.keySet()) {
+            int[] pd = parseYmd(key);
+            if (pd != null && pd[0] > year) {
+                year = pd[0];
             }
         }
-        List<PurchaseDetailSheet.Row> rows = new ArrayList<>();
-        List<Integer> years = new ArrayList<>(yearly.keySet());
-        Collections.reverse(years);
-        for (int y : years) {
-            rows.add(new PurchaseDetailSheet.Row(y + "年", yearly.get(y), null));
-        }
-        if (rows.isEmpty()) {
-            rows.add(new PurchaseDetailSheet.Row(getString(R.string.stats_sheet_empty), 0, null));
-        }
-
-        final com.google.android.material.bottomsheet.BottomSheetDialog[] holder =
-                new com.google.android.material.bottomsheet.BottomSheetDialog[1];
-        holder[0] = PurchaseDetailSheet.show(this, "全部记录",
-                PurchaseDetailSheet.buildSummary(this, rows, 2),
-                rows,
-                (index) -> {
-                    // 点某一年：切到该年的年视图
-                    if (index < years.size()) {
-                        yearCursor.set(years.get(index), 0, 1);
-                        selectTab(1);
-                    }
-                    if (holder[0] != null) {
-                        holder[0].dismiss();
-                    }
-                });
+        return year > 0 ? year : Calendar.getInstance().get(Calendar.YEAR);
     }
 
     /** 月视图柱状图点击：联动下方的当天详情 */
@@ -530,13 +513,8 @@ public class ReadingStatsActivity extends BaseActivity {
         c.clear();
         c.set(year, month0, day);
         String[] names = {"周一", "周二", "周三", "周四", "周五", "周六", "周日"};
-        // Calendar.DAY_OF_WEEK：1=周日 … 7=周六
-        int dow = c.get(Calendar.DAY_OF_WEEK) - 1;
-        if (dow == 0) {
-            dow = 6;
-        } else {
-            dow = dow - 1;
-        }
+        // Calendar.DAY_OF_WEEK：1=周日 … 7=周六 → 转成「周一为 0」
+        int dow = (c.get(Calendar.DAY_OF_WEEK) + 5) % 7;
         return names[dow];
     }
 
@@ -932,12 +910,13 @@ public class ReadingStatsActivity extends BaseActivity {
 
     /** 点击日历某天后的详情文案（v4.20） */
     private String dayDetailText(int year, int month0, int day, int count) {
+        String week = weekLabel(year, month0, day);
         if (count > 0) {
-            return String.format(Locale.getDefault(), "%d年%d月%d日 · 购买 %d 本",
-                    year, month0 + 1, day, count);
+            return String.format(Locale.getDefault(), "%d年%d月%d日 %s · 购买 %d 本",
+                    year, month0 + 1, day, week, count);
         }
-        return String.format(Locale.getDefault(), "%d年%d月%d日 · 没有购买记录",
-                year, month0 + 1, day);
+        return String.format(Locale.getDefault(), "%d年%d月%d日 %s · 没有购买记录",
+                year, month0 + 1, day, week);
     }
 
     /** 金额展示：¥123.45 / ¥123（去掉多余的 .00） */

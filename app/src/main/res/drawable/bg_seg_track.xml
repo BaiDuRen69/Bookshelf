@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- v4.22：分段控件（按月 / 按年）的底槽
+     参照微信读书「阅读天数」右上角的分段切换：浅灰底槽 + 白色选中块。
+     这里用应用语义色 surface_dim 作底槽，跟随主题换肤。 -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="?attr/surface_dim" />
+    <corners android:radius="16dp" />
+</shape>
