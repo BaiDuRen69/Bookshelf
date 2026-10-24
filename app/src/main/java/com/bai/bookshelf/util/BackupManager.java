@@ -147,6 +147,29 @@ public final class BackupManager {
         return files;
     }
 
+    // ======================= 备份文件管理（v4.23） =======================
+
+    /**
+     * 列出应用内部存储 backups/ 目录的全部备份文件（旧→新）。
+     *
+     * <p>审查 #3 修掉的缺口：内部备份此前是个「假安全网」——没有任何
+     * 导出/分享入口，用户看不到也拿不走，卸载即全灭。本方法配合
+     * 「我的 → 备份文件管理」把文件交还用户（查看 / 分享 / 删除）。
+     */
+    public static List<File> listInternalBackups(Context ctx) {
+        return new ArrayList<>(Arrays.asList(listInternal(new File(ctx.getFilesDir(), INTERNAL_DIR))));
+    }
+
+    /** 删除一份内部备份文件。返回是否删除成功（文件不存在视为已删除）。 */
+    public static boolean deleteInternalBackup(File f) {
+        return !f.exists() || f.delete();
+    }
+
+    /** 备份文件名前缀（供管理页识别/展示用） */
+    public static String backupPrefix() {
+        return BACKUP_PREFIX;
+    }
+
     // ======================= SAF 文件夹（外部副本） =======================
 
     /** 写入用户自选的 SAF 文件夹（带去重 + 轮换清理） */

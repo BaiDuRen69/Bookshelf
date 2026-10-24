@@ -1307,10 +1307,19 @@ public class BookEditActivity extends BaseActivity {
     /**
      * 后台线程：整批重建某书的副本（数量减到 1 时自然清空）。
      * 同时保存每本副本的备注图片（ownerKey = copy:{bookId}:{copyIndex}）。
+     *
+     * <p>v4.23 修复：副本是「全删全插」，数量减少后被删副本
+     * （copy:{bookId}:{index}，index >= 新数量）的备注图没人管，
+     * 记录和文件都永久泄漏。现在重建前按 ownerKey 前缀查出全部旧图，
+     * 超出新数量的连同磁盘文件一起回收。
      */
     private void saveCopies(BookshelfApp app, long bookId,
                             List<com.bai.bookshelf.data.entity.BookCopy> copies,
                             java.util.Map<Integer, java.util.List<NoteImage>> copyImages) {
+        // 先取旧副本备注图（deleteByBook 之前，否则查不到）
+        java.util.List<NoteImage> oldCopyImgs = app.db().noteImageDao()
+                .getByOwnerKeyPrefix("copy:" + bookId + ":%");
+
         app.db().bookCopyDao().deleteByBook(bookId);
         for (com.bai.bookshelf.data.entity.BookCopy c : copies) {
             c.bookId = bookId;
@@ -1318,11 +1327,42 @@ public class BookEditActivity extends BaseActivity {
         if (!copies.isEmpty()) {
             app.db().bookCopyDao().insertAll(copies);
         }
+
+        // 回收被删副本的备注图：index >= 新副本数量的逐行清掉（记录 + 文件）。
+        // ⚠ 不能按前缀整批删——保留副本若本次没在 UI 打开（图不在 copyImages map），
+        //   整批删会连它的历史图一起丢，且无处重建。
+        int kept = copies.size();
+        for (NoteImage img : oldCopyImgs) {
+            int idx = parseCopyIndex(img.ownerKey, bookId);
+            if (idx >= kept) {
+                app.db().noteImageDao().deleteById(img.id);
+                if (img.path != null && !img.path.isEmpty()) {
+                    new File(img.path).delete();
+                }
+            }
+        }
+
         // 保存每本副本的备注图片；数量为 1 或二级页没图时 map 为空/没项
         if (copyImages != null) {
             for (java.util.Map.Entry<Integer, java.util.List<NoteImage>> e : copyImages.entrySet()) {
                 saveNoteImages(app, "copy:" + bookId + ":" + e.getKey(), e.getValue());
             }
+        }
+    }
+
+    /** 从 ownerKey「copy:{bookId}:{index}」解析副本下标；格式不符返回 Integer.MAX_VALUE（视为要删） */
+    private static int parseCopyIndex(String ownerKey, long bookId) {
+        if (ownerKey == null) {
+            return Integer.MAX_VALUE;
+        }
+        String prefix = "copy:" + bookId + ":";
+        if (!ownerKey.startsWith(prefix)) {
+            return Integer.MAX_VALUE;
+        }
+        try {
+            return Integer.parseInt(ownerKey.substring(prefix.length()));
+        } catch (NumberFormatException e) {
+            return Integer.MAX_VALUE;
         }
     }
 

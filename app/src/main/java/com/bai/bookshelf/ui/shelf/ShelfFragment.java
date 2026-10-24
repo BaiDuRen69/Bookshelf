@@ -499,16 +499,12 @@ public class ShelfFragment extends Fragment {
                     BookshelfApp app = BookshelfApp.get();
                     java.util.Set<Long> ids = new java.util.HashSet<>(selectedIds);
                     app.io(() -> {
+                        // v4.23：级联清理收敛到 BookCascade（原手写版漏借出记录与封面文件）
+                        // 需要封面路径 → 先按 id 查书再删
                         for (Long id : ids) {
-                            // 联动清理：备注图片（文件+记录）、逐本信息
-                            java.util.List<com.bai.bookshelf.data.entity.NoteImage> imgs =
-                                    app.db().noteImageDao().getByOwnerKey("book:" + id);
-                            app.db().noteImageDao().deleteByBook(id);
-                            for (com.bai.bookshelf.data.entity.NoteImage img : imgs) {
-                                new java.io.File(img.path).delete();
-                            }
-                            app.db().bookCopyDao().deleteByBook(id);
-                            app.db().bookDao().deleteById(id);
+                            com.bai.bookshelf.data.entity.Book bk = app.db().bookDao().getById(id);
+                            com.bai.bookshelf.util.BookCascade.deleteBook(
+                                    app, id, bk == null ? null : bk.coverUrl);
                         }
                         app.ui(() -> {
                             exitSelection();

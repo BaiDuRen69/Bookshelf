@@ -42,4 +42,8 @@ public interface BorrowRecordDao {
 
     @Query("DELETE FROM borrow_records WHERE id = :id")
     void deleteById(long id);
+
+    /** v4.23：删书级联——删掉该书全部借出记录（原先是孤儿，永久残留） */
+    @Query("DELETE FROM borrow_records WHERE bookId = :bookId")
+    void deleteByBook(long bookId);
 }

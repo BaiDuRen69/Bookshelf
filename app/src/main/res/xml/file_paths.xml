@@ -7,4 +7,6 @@
     <files-path name="covers" path="covers/" />
     <!-- 备注图片（应用内部存储，预览时对外分享需 content:// URI） -->
     <files-path name="note_images" path="note_images/" />
+    <!-- 自动备份 zip（应用内部存储，v4.23「备份文件管理」分享时需要 content:// URI） -->
+    <files-path name="backups" path="backups/" />
 </paths>

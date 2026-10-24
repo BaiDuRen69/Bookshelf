@@ -29,7 +29,7 @@
 
 ## 📲 下载安装
 
-1. 打开 [**Releases 下载页**](https://github.com/BaiDuRen69/Bookshelf/releases/latest)，下载 `XiaoShuFang-v4.22.apk`
+1. 打开 [**Releases 下载页**](https://github.com/BaiDuRen69/Bookshelf/releases/latest)，下载 `XiaoShuFang-v4.23.apk`
 2. 在手机上点开下载好的文件（若提示「不允许安装未知应用」，按手机提示允许即可）
 3. 安装完成，打开小书房，开始扫第一本书 🎉
 
@@ -63,7 +63,7 @@
 <summary><b>换手机了，藏书怎么迁移？</b></summary>
 <br>
 
-旧手机：我的 → 找到自动备份的 zip 文件，发送给自己（微信文件传输助手 / 网盘均可）。
+旧手机：我的 → 备份文件管理 → 选一份备份 → 分享到应用外（微信文件传输助手 / 网盘均可）。
 新手机：安装小书房 → 我的 → 导入备份 → 选择 zip 文件 → 完成。
 </details>
 
@@ -94,7 +94,22 @@
 原生 Android（Java）· Room（12 版保数据迁移）· CameraX 1.4.2 + ML Kit 17.3.0（条形码识别，
 原生库已适配 Android 15+ 的 16 KB 内存页）·
 Retrofit · Glide · 零依赖手写 XLSX 读写器（不引入 POI）· EncryptedSharedPreferences（API 密钥加密存储）
-当前版本 v4.22（versionCode 61，Room 数据库 v13）。
+当前版本 v4.23（versionCode 62，Room 数据库 v13）。
+
+### v4.23 新增（发布安全 + 数据一致性，审查整改）
+
+- **交付物切换为 release 构建**：`debuggable=false`——adb 无法再 `run-as` 读取应用数据库，
+  EncryptedSharedPreferences 的 API 密钥保护真正生效（此前被 debug 包抵消）。签名不变，老用户可直接覆盖安装。
+  注意：release 强制 https，如个别封面源是 http 将无法加载（debug 构建仍放行明文）。
+- **关闭系统云备份**（`allowBackup=false`）：数据库与应用私有文件不再进入系统 D2D 云迁移，
+  与「数据只保存在你自己手机里」的产品承诺一致；备份/迁移一律走应用内备份闭环。
+- **新增「我的 → 备份文件管理」**：列出应用内自动备份的 zip（份数/大小/时间），支持**分享到应用外**
+  （微信 / 网盘 / 邮件，FileProvider）与删除。此前内部备份没有任何出口（README 教的「发送给自己」实际做不到），卸载即全灭。
+- **删书级联补全**：删除书籍（详情页单删 / 书架批量删）现在同时清理**借出记录**（原先永久残留成孤儿）
+  与**本地封面文件**（原先永不回收）。级联逻辑收敛到 `BookCascade` 一处，两处删除共用。
+- **副本缩数量不再泄漏备注图**：多副本数量减少后，被删副本的逐本备注图（记录+文件）现在会被回收，
+  且不会误删保留副本的历史图。
+- **旋转屏不再跳回书架 Tab**：旋转屏 / 进程回收后停留在原 Tab。
 
 ### v4.22 新增（统计页「全部记录」日历面板）
 
@@ -128,10 +143,12 @@ Retrofit · Glide · 零依赖手写 XLSX 读写器（不引入 POI）· Encrypt
 Android Studio 打开本目录直接同步即可；或命令行：
 
 ```
-./gradlew :app:assembleDebug
+./gradlew :app:assembleRelease
 ```
 
-交付物即为 debug 构建产物（v4.1 起不再区分测试版/正式版，功能一致）。
+交付物为 **release 构建**（v4.23 起）：同 debug 签名、功能一致，但
+`debuggable=false`（adb 无法 run-as 读应用数据，EncryptedSharedPreferences 的密钥保护真正生效），
+并强制 https（debug 构建仍放行明文便于抓包调试）。
 要求：JDK 17+、Android SDK Platform 36、Gradle 9.4.1（wrapper 已指定）。
 Room schema 导出于 `app/schemas/`（迁移比对与测试用）。
 

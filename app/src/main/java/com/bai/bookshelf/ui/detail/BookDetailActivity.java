@@ -1217,14 +1217,8 @@ public class BookDetailActivity extends BaseActivity {
                 .setPositiveButton("删除", (d, w) -> {
                     BookshelfApp app = BookshelfApp.get();
                     app.io(() -> {
-                        // 联动清理：该书全部备注图片文件与记录、逐本信息
-                        List<NoteImage> imgs = app.db().noteImageDao().getByBook(book.id);
-                        app.db().noteImageDao().deleteByBook(book.id);
-                        for (NoteImage img : imgs) {
-                            new File(img.path).delete();
-                        }
-                        app.db().bookCopyDao().deleteByBook(book.id);
-                        app.db().bookDao().deleteById(book.id);
+                        // v4.23：级联清理收敛到 BookCascade（备注图+副本+借出记录+封面文件）
+                        com.bai.bookshelf.util.BookCascade.deleteBook(app, book.id, book.coverUrl);
                         app.ui(() -> {
                             Toast.makeText(this, "已删除", Toast.LENGTH_SHORT).show();
                             finish();

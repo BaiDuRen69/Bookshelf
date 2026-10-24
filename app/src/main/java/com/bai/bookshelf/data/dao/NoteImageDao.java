@@ -28,6 +28,14 @@ public interface NoteImageDao {
     @Query("DELETE FROM note_images WHERE bookId = :bookId")
     void deleteByBook(long bookId);
 
+    /** v4.23：按 ownerKey 前缀查（LIKE）——缩数量时找出被删副本（copy:{bookId}:{index}）的图 */
+    @Query("SELECT * FROM note_images WHERE ownerKey LIKE :prefix ORDER BY sort ASC")
+    List<NoteImage> getByOwnerKeyPrefix(String prefix);
+
+    /** v4.23：精确删单行——缩数量回收被删副本的图（不能用前缀整批删，会误删保留副本的历史图） */
+    @Query("DELETE FROM note_images WHERE id = :id")
+    void deleteById(long id);
+
     /** zip 备份恢复用：全部备注图片记录 */
     @Query("SELECT * FROM note_images")
     List<NoteImage> getAll();

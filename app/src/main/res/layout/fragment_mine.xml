@@ -338,6 +338,36 @@
                     app:tint="@color/text_sub" />
             </LinearLayout>
 
+            <!-- v4.23：备份文件管理（审查 #3）——内部备份此前没有任何出口，
+                 用户拿不到文件、卸载即全灭；现在可查看/分享/删除 -->
+            <LinearLayout
+                android:id="@+id/row_backup_files"
+                style="@style/MineRow">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        style="@style/MineRowTitle"
+                        android:text="备份文件管理" />
+
+                    <TextView
+                        android:id="@+id/tv_backup_files_state"
+                        style="@style/MineRowSubtitle"
+                        android:text="暂无备份" />
+                </LinearLayout>
+
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_marginStart="8dp"
+                    android:src="@drawable/ic_arrow_right"
+                    app:tint="@color/text_sub" />
+            </LinearLayout>
+
             <!-- ==================== 应用更新（v4.7） ==================== -->
             <TextView
                 style="@style/MineSectionTitle"

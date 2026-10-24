@@ -32,6 +32,12 @@ public class MainActivity extends BaseActivity {
     private static final String TAG_STATS = "tab_stats";
     private static final String TAG_MINE = "tab_mine";
 
+    /** v4.23：保存当前 Tab 索引的 key（旋转屏/进程回收后恢复） */
+    private static final String KEY_TAB = "main_current_tab";
+
+    /** v4.23：当前选中的 Tab 索引（0=书架 1=统计 2=我的），供 onSaveInstanceState 保存 */
+    private int currentTab = 0;
+
     // v4.5：不再用字段初始化直接 new——Activity 重建（旋转屏/进程被杀后恢复）时
     // FragmentManager 会还原上次的实例，字段必须改指还原实例，否则 selectTab 会
     // 把新实例再 add 一遍，新旧两套叠加（旧书架 hide 不掉，透在其它 Tab 下面）
@@ -74,8 +80,12 @@ public class MainActivity extends BaseActivity {
         binding.tabStats.setOnClickListener(v -> selectTab(1));
         binding.tabMine.setOnClickListener(v -> selectTab(2));
 
-        // 默认展示书架
-        selectTab(0);
+        // v4.23：恢复旋转屏/进程回收前的 Tab（savedInstanceState 为 null 时默认书架）
+        int restoredTab = 0;
+        if (savedInstanceState != null) {
+            restoredTab = savedInstanceState.getInt(KEY_TAB, 0);
+        }
+        selectTab(restoredTab);
 
         // v2.9：被二级页以 REORDER_TO_FRONT 重新拉起时，走 onNewIntent；
         // 全新实例启动时（冷启动带 extra），在 onCreate 里应用
@@ -111,6 +121,7 @@ public class MainActivity extends BaseActivity {
 
     /** 切换 Tab：显示目标 Fragment、隐藏其余两个 + 更新三个 Tab 的选中配色 */
     private void selectTab(int index) {
+        currentTab = index;
         Fragment target = index == 1 ? statsFragment : (index == 2 ? mineFragment : shelfFragment);
         if (!fragmentsAdded) {
             // 首次进入：一次性挂载三个 Tab 的 Fragment（v4.1，评审 #8）。
@@ -167,6 +178,13 @@ public class MainActivity extends BaseActivity {
         } else {
             pill.setBackgroundColor(android.graphics.Color.TRANSPARENT);
         }
+    }
+
+    @Override
+    protected void onSaveInstanceState(android.os.Bundle outState) {
+        super.onSaveInstanceState(outState);
+        // v4.23：旋转屏后停在原 Tab，而不是总是跳回书架
+        outState.putInt(KEY_TAB, currentTab);
     }
 
     /** 单个 Tab 的图标与文字统一着色 */

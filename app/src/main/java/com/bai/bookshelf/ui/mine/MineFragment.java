@@ -24,6 +24,7 @@ import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 
+import com.bai.bookshelf.R;
 import com.bai.bookshelf.api.ApiPrefs;
 import com.bai.bookshelf.app.BookshelfApp;
 import com.bai.bookshelf.data.entity.Book;
@@ -145,6 +146,7 @@ public class MineFragment extends Fragment {
         b.rowImport.setOnClickListener(v -> confirmImport());
         b.rowAutoBackup.setOnClickListener(v -> toggleAutoBackup());
         b.rowBackupDir.setOnClickListener(v -> pickTreeLauncher.launch(null));
+        b.rowBackupFiles.setOnClickListener(v -> showBackupFiles());
         refreshBackupRows();
         // 应用更新（v4.7）：启动检查开关 + 手动检查
         b.rowUpdateToggle.setOnClickListener(v -> toggleUpdateCheck());
@@ -240,6 +242,11 @@ public class MineFragment extends Fragment {
 
     private void onVisible() {
         loadSummary();
+        // v4.23：切回本页时同步刷新状态行。原先只刷概览计数——
+        // 冷启动后自动备份在后台线程写 zip，晚于 onViewCreated 的
+        // 首次计算，而 show/hide 切 Tab 不触发 onResume，
+        // 「备份文件管理」副标题会一直停留成「暂无备份」。
+        refreshStateRows();
     }
 
     /** 概览：藏书数 / 地点数 */
@@ -328,6 +335,105 @@ public class MineFragment extends Fragment {
                 ? "已开启（每次启动时备份）" : "已关闭");
         String dirName = BackupManager.getTreeName(requireContext());
         b.tvBackupDirName.setText(dirName.isEmpty() ? "未选择" : dirName);
+        // v4.23：备份文件管理副标题（数量 + 总大小；小于 1MB 用 KB 展示）
+        java.util.List<java.io.File> files = BackupManager.listInternalBackups(requireContext());
+        if (files.isEmpty()) {
+            b.tvBackupFilesState.setText("暂无备份（开启自动备份后生成）");
+        } else {
+            long total = 0;
+            for (java.io.File f : files) {
+                total += f.length();
+            }
+            b.tvBackupFilesState.setText(files.size() + " 份 · 共 " + humanSize(total));
+        }
+    }
+
+    /** 文件大小自适应单位（<1MB 用 KB，否则用 MB） */
+    private static String humanSize(long bytes) {
+        if (bytes < 1024 * 1024) {
+            return String.format(java.util.Locale.getDefault(), "%.0f KB", bytes / 1024f);
+        }
+        return String.format(java.util.Locale.getDefault(), "%.1f MB", bytes / 1024f / 1024f);
+    }
+
+    /**
+     * 备份文件管理（v4.23，审查 #3）：列出内部备份 zip，支持分享与删除。
+     *
+     * <p>先弹文件列表，点某个文件再弹操作选择（分享 / 删除）。
+     * 分享走 FileProvider（backups/ 已加入 file_paths.xml），
+     * 系统分享面板可发微信 / 网盘 / 邮件等——这就是 README 里
+     * 「发送给自己」真正可用的入口。
+     */
+    private void showBackupFiles() {
+        java.util.List<java.io.File> files = BackupManager.listInternalBackups(requireContext());
+        if (files.isEmpty()) {
+            new com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+                    .setTitle("备份文件管理")
+                    .setMessage("还没有备份文件。\n\n开启「自动备份」后，每次启动会在应用内保留最近 "
+                            + "5 份备份；也可以在这里把备份 zip 分享给自己（微信 / 网盘）。\n\n"
+                            + "⚠ 卸载应用会清空这里的备份，重要数据请定期分享到应用外。")
+                    .setPositiveButton(R.string.action_ok, null)
+                    .show();
+            return;
+        }
+        // 列表项：新→旧展示（用户最关心最近的备份）
+        java.util.Collections.reverse(files);
+        String[] labels = new String[files.size()];
+        java.text.SimpleDateFormat df =
+                new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault());
+        for (int i = 0; i < files.size(); i++) {
+            java.io.File f = files.get(i);
+            labels[i] = String.format(java.util.Locale.getDefault(), "%s（%s）",
+                    df.format(new java.util.Date(f.lastModified())), humanSize(f.length()));
+        }
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+                .setTitle("备份文件（新 → 旧）")
+                .setItems(labels, (d, which) -> showBackupFileActions(files.get(which)))
+                .setNegativeButton(R.string.action_cancel, null)
+                .show();
+    }
+
+    /** 单个备份文件的操作选择：分享 / 删除 */
+    private void showBackupFileActions(java.io.File f) {
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+                .setTitle(f.getName())
+                .setItems(new String[]{"分享到应用外…", "删除此备份"}, (d, which) -> {
+                    if (which == 0) {
+                        shareBackup(f);
+                    } else {
+                        confirmDeleteBackup(f);
+                    }
+                })
+                .setNegativeButton(R.string.action_cancel, null)
+                .show();
+    }
+
+    /** 通过系统分享面板把备份 zip 发出去（微信文件传输助手 / 网盘 / 邮件均可） */
+    private void shareBackup(java.io.File f) {
+        try {
+            android.net.Uri uri = androidx.core.content.FileProvider.getUriForFile(
+                    requireContext(), requireContext().getPackageName() + ".fileprovider", f);
+            android.content.Intent send = new android.content.Intent(android.content.Intent.ACTION_SEND);
+            send.setType("application/zip");
+            send.putExtra(android.content.Intent.EXTRA_STREAM, uri);
+            send.addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            startActivity(android.content.Intent.createChooser(send, "分享备份文件"));
+        } catch (Exception e) {
+            Toast.makeText(requireContext(), "分享失败：" + e.getMessage(), Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    /** 删除一份备份（二次确认；删后刷新副标题） */
+    private void confirmDeleteBackup(java.io.File f) {
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+                .setTitle("删除备份")
+                .setMessage("确定删除 " + f.getName() + " 吗？此操作不可恢复。")
+                .setPositiveButton(R.string.action_delete, (d, w) -> {
+                    BackupManager.deleteInternalBackup(f);
+                    refreshBackupRows();
+                })
+                .setNegativeButton(R.string.action_cancel, null)
+                .show();
     }
 
     /** 开关「启动时检查应用更新」（v4.7） */
