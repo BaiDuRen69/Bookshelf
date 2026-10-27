@@ -29,7 +29,7 @@
 
 ## 📲 下载安装
 
-1. 打开 [**Releases 下载页**](https://github.com/BaiDuRen69/Bookshelf/releases/latest)，下载 `XiaoShuFang-v4.23.apk`
+1. 打开 [**Releases 下载页**](https://github.com/BaiDuRen69/Bookshelf/releases/latest)下载
 2. 在手机上点开下载好的文件（若提示「不允许安装未知应用」，按手机提示允许即可）
 3. 安装完成，打开小书房，开始扫第一本书 🎉
 
