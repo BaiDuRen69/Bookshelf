@@ -1,13 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 紧凑版 Spinner 闭合态（v4.16）：13sp + 主题前景色，右侧留出箭头空间 -->
+<!-- v4.24：筛选胶囊的闭合态（wrap_content 宽度，箭头由适配器作为 compound drawable 添加） -->
 <TextView xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
+    android:layout_width="wrap_content"
     android:layout_height="wrap_content"
     android:ellipsize="end"
     android:gravity="center_vertical"
-    android:paddingStart="10dp"
-    android:paddingEnd="22dp"
-    android:paddingVertical="7dp"
+    android:minHeight="40dp"
+    android:paddingStart="6dp"
+    android:paddingEnd="1dp"
+    android:paddingVertical="0dp"
     android:singleLine="true"
     android:textColor="?attr/on_surface"
     android:textSize="@dimen/text_body_small" />

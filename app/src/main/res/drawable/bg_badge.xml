@@ -2,5 +2,5 @@
 <!-- 封面角标背景：琥珀色圆角小块（配合 backgroundTint 可换成其他颜色） -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android">
     <solid android:color="?attr/colorSecondary" />
-    <corners android:radius="4dp" />
+    <corners android:radius="8dp" />
 </shape>

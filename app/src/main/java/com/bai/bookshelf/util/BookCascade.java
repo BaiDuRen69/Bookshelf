@@ -41,17 +41,25 @@ public final class BookCascade {
             }
         }
 
-        // 2) 逐本信息
+        // 2) 摘抄：记录 + 摘抄图片文件（v4.50）
+        List<com.bai.bookshelf.data.entity.Excerpt> excerpts =
+                app.db().excerptDao().getByBook(bookId);
+        app.db().excerptDao().deleteByBook(bookId);
+        for (com.bai.bookshelf.data.entity.Excerpt e : excerpts) {
+            ExcerptFiles.deleteQuietly(app, e.imagePath);
+        }
+
+        // 3) 逐本信息
         app.db().bookCopyDao().deleteByBook(bookId);
 
-        // 3) 借出记录（v4.23 补：原先漏删，变永久孤儿并被 zip 备份带走）
+        // 4) 借出记录（v4.23 补：原先漏删，变永久孤儿并被 zip 备份带走）
         app.db().borrowRecordDao().deleteByBook(bookId);
 
-        // 4) 本地封面文件（v4.23 补）：只删 filesDir/covers/ 下自己的文件，
+        // 5) 本地封面文件（v4.23 补）：只删 filesDir/covers/ 下自己的文件，
         //    网络 URL 与用户手填的任意路径一律不动
         deleteLocalCover(app, coverUrl);
 
-        // 5) 书籍主记录
+        // 6) 书籍主记录
         app.db().bookDao().deleteById(bookId);
         return bookId;
     }

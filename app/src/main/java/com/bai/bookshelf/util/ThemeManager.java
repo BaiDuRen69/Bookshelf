@@ -23,6 +23,7 @@ public final class ThemeManager {
     public static final int THEME_ORANGE = 3;    // 暖橙
     public static final int THEME_PURPLE = 4;    // 紫罗兰
     public static final int THEME_GRAPHITE = 5;  // 石墨
+    public static final int THEME_NIGHT = 6;     // 夜读（v4.31 深色）
 
     private static final String PREF = "ui_prefs";
     private static final String KEY_THEME = "theme_id";
@@ -35,6 +36,9 @@ public final class ThemeManager {
 
     /** colorSecondary 属性 id（material 库定义，同上需走库 R 引用） */
     public static final int ATTR_COLOR_SECONDARY = com.google.android.material.R.attr.colorSecondary;
+
+    /** 黄铜文字色（v4.24，app 自定义 attr）：填充仍用 colorSecondary */
+    public static final int ATTR_ACCENT_TEXT = R.attr.accent_text;
 
     private ThemeManager() {
     }
@@ -67,6 +71,8 @@ public final class ThemeManager {
                 return R.style.Theme_Bookshelf_Purple;
             case THEME_GRAPHITE:
                 return R.style.Theme_Bookshelf_Graphite;
+            case THEME_NIGHT:
+                return R.style.Theme_Bookshelf_Night;
             case THEME_GREEN:
             default:
                 return R.style.Theme_Bookshelf;
@@ -75,7 +81,7 @@ public final class ThemeManager {
 
     /** 选择器用的主题名称（与 id 顺序一致） */
     public static String[] names() {
-        return new String[]{"墨绿（默认）", "黛蓝", "赭红", "暖橙", "紫罗兰", "石墨"};
+        return new String[]{"墨绿（默认）", "黛蓝", "赭红", "暖橙", "紫罗兰", "石墨", "夜读"};
     }
 
     /** 选择器用的主题预览色（与 id 顺序一致，与 colors.xml 中各主题 primary 一致） */
@@ -87,11 +93,39 @@ public final class ThemeManager {
                 0xFFC2701E, // 暖橙
                 0xFF6B4E9E, // 紫罗兰
                 0xFF4A6B70, // 石墨
+                0xFFC9A66B, // 夜读（暗金作识别色）
+        };
+    }
+
+    /** 选择器用的纸色（v4.30：每套主题的页面底色，用于色卡底） */
+    public static int[] paperColors() {
+        return new int[]{
+                0xFFFAF7F2, // 墨绿
+                0xFFF4F6FA, // 黛蓝
+                0xFFFAF4EE, // 赭红
+                0xFFFBF4E9, // 暖橙
+                0xFFF8F5FA, // 紫罗兰
+                0xFFF6F5F2, // 石墨
+                0xFF151311, // 夜读
+        };
+    }
+
+    /** 选择器用的纸色描边（与各主题 outline 一致） */
+    public static int[] paperOutlineColors() {
+        return new int[]{
+                0xFFE6E0D5, // 墨绿
+                0xFFDCE3EE, // 黛蓝
+                0xFFE9DDD4, // 赭红
+                0xFFEADCCB, // 暖橙
+                0xFFE4DBEA, // 紫罗兰
+                0xFFDFDDD7, // 石墨
+                0xFF3A342E, // 夜读
         };
     }
 
     /** 从上下文主题解析属性颜色（替代代码里写死的 R.color.primary 等） */
-    public static int resolveColor(Context ctx, int attr) {
+    @androidx.annotation.ColorInt
+    public static int resolveColor(Context ctx, @androidx.annotation.AttrRes int attr) {
         TypedValue tv = new TypedValue();
         ctx.getTheme().resolveAttribute(attr, tv, true);
         if (tv.type >= TypedValue.TYPE_FIRST_COLOR_INT && tv.type <= TypedValue.TYPE_LAST_COLOR_INT) {

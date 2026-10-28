@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 统一空态（v4.28）：线稿插画 + 衬线标题 + 说明 + 主按钮
+     与书架空态同一套视觉；统计页/购书统计页通过 <include> 复用 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:paddingHorizontal="24dp"
+    android:paddingTop="32dp"
+    android:paddingBottom="32dp">
+
+    <ImageView
+        android:layout_width="104dp"
+        android:layout_height="104dp"
+        android:alpha="0.9"
+        android:contentDescription="空书架"
+        android:src="@drawable/il_empty_shelf" />
+
+    <TextView
+        android:id="@+id/tv_empty_title"
+        style="@style/Text.Bookshelf.SerifHeadline"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/space_md"
+        android:textSize="@dimen/text_title"
+        android:text="书架还是空的"
+        android:textColor="?attr/on_surface" />
+
+    <TextView
+        android:id="@+id/tv_empty_desc"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:gravity="center"
+        android:lineSpacingMultiplier="1.4"
+        android:textColor="?attr/on_surface_variant"
+        android:textSize="@dimen/text_body_small" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btn_empty_cta"
+        style="@style/Widget.Bookshelf.Button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/space_lg"
+        android:paddingHorizontal="@dimen/space_lg"
+        android:text="去录入第一本书" />
+</LinearLayout>

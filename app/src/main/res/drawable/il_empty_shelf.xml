@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- v4.30：空态双色插画（墨绿书本 + 黄铜书签 + 浅描边书架线），不再整体单色 tint -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="104dp"
+    android:height="104dp"
+    android:viewportWidth="96"
+    android:viewportHeight="96">
+    <path
+        android:fillColor="@android:color/transparent"
+        android:pathData="M48,30 C40,23 30,23 22,27 L22,68 C30,64 40,64 48,70 C56,64 66,64 74,68 L74,27 C66,23 56,23 48,30 M48,30 L48,70"
+        android:strokeColor="#FF2E6E5C"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeWidth="1.75" />
+    <path
+        android:fillColor="@android:color/transparent"
+        android:pathData="M57,27 L57,44 L62,40 L67,44 L67,27"
+        android:strokeColor="#FFC08A3E"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeWidth="1.75" />
+    <path
+        android:fillColor="@android:color/transparent"
+        android:pathData="M14,78 H82 M20,84 H76"
+        android:strokeColor="#FFCFC5B4"
+        android:strokeLineCap="round"
+        android:strokeWidth="1.75" />
+</vector>

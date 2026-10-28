@@ -122,7 +122,7 @@ public final class DoubanService {
 
     /** 作者名归一化：去空格转小写，便于互相包含比较 */
     private static String normalize(String s) {
-        return s == null ? "" : s.replaceAll("\\s+", "").toLowerCase();
+        return s == null ? "" : s.replaceAll("\\s+", "").toLowerCase(java.util.Locale.ROOT);
     }
 
     private static String getHtml(String url) throws Exception {

@@ -1,6 +1,5 @@
 package com.bai.bookshelf.ui.edit;
 
-import android.app.DatePickerDialog;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
@@ -16,6 +15,7 @@ import com.bai.bookshelf.ui.BaseActivity;
 import androidx.core.content.FileProvider;
 
 import com.bai.bookshelf.R;
+import com.bai.bookshelf.util.ThemeManager;
 import com.bai.bookshelf.app.BookshelfApp;
 import com.bai.bookshelf.util.BookSanitizer;
 import com.bai.bookshelf.data.entity.Book;
@@ -29,7 +29,6 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.List;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
@@ -139,6 +138,9 @@ public class BookEditActivity extends BaseActivity {
         super.onCreate(savedInstanceState);
         b = ActivityBookEditBinding.inflate(getLayoutInflater());
         setContentView(b.getRoot());
+        // v4.25：固定保存底栏需要避开系统手势条
+        // v4.28：Android 15+ 键盘不会再压缩窗口，取 ime 与导航栏的较大值，保存按钮始终在键盘上方
+        com.bai.bookshelf.util.InsetsHelper.applyBottomInsetWithIme(b.bottomBar);
         b.toolbar.setNavigationOnClickListener(v -> attemptExit());
 
         // 系统返回键同样走未保存确认
@@ -164,6 +166,7 @@ public class BookEditActivity extends BaseActivity {
             }
         }
 
+        setupFormSections();
         setupSpinners();
         bindFields();
         initialTags = nz(book.tags); // 脏检查基准：标签由选择器直接写 book，需单独留底
@@ -526,6 +529,15 @@ public class BookEditActivity extends BaseActivity {
         if (!b.etDouban.getText().toString().trim().equals(nz(book.doubanRating).trim())) {
             return true;
         }
+        if (!b.etSeriesName.getText().toString().trim().equals(nz(book.seriesName).trim())) {
+            return true;
+        }
+        if (!b.etSeriesVolume.getText().toString().trim().equals(nz(book.seriesVolume).trim())) {
+            return true;
+        }
+        if (parseInt(b.etSeriesOrder.getText().toString()) != book.seriesOrder) {
+            return true;
+        }
         if (!b.etCoverUrl.getText().toString().trim().equals(nz(book.coverUrl).trim())) {
             return true;
         }
@@ -638,6 +650,30 @@ public class BookEditActivity extends BaseActivity {
         });
     }
 
+    /** v4.29：封面链接默认收起；出版信息默认折叠，减少首屏字段墙 */
+    private void setupFormSections() {
+        b.btnCoverLink.setOnClickListener(v -> {
+            boolean show = b.tilCoverUrl.getVisibility() != android.view.View.VISIBLE;
+            b.tilCoverUrl.setVisibility(show ? android.view.View.VISIBLE : android.view.View.GONE);
+            if (show) {
+                b.etCoverUrl.requestFocus();
+            }
+        });
+        b.tvPublishToggle.setOnClickListener(v ->
+                applyPublishExpanded(b.llPublishGroup.getVisibility() != android.view.View.VISIBLE));
+        applyPublishExpanded(false);
+    }
+
+    private void applyPublishExpanded(boolean expand) {
+        b.llPublishGroup.setVisibility(expand ? android.view.View.VISIBLE : android.view.View.GONE);
+        b.tvPublishToggle.setText(expand ? "收起出版信息" : "展开更多出版信息");
+        b.tvPublishToggle.setCompoundDrawablesRelativeWithIntrinsicBounds(0, 0,
+                expand ? R.drawable.ic_chevron_up_line : R.drawable.ic_chevron_down_line, 0);
+        b.tvPublishToggle.setCompoundDrawableTintList(android.content.res.ColorStateList.valueOf(
+                ThemeManager.resolveColor(this,
+                        ThemeManager.ATTR_COLOR_PRIMARY)));
+    }
+
     /** 把 book 对象的值填进表单（老数据的 TEXT 列可能是 NULL，一律经 nz 归一化防显示成 "null"） */
     private void bindFields() {
         b.etTitle.setText(nz(book.title));
@@ -662,8 +698,22 @@ public class BookEditActivity extends BaseActivity {
         // 字数统一存「X万字」，编辑时剥掉单位
         b.etWordCount.setText(stripWanSuffix(book.wordCount));
         b.etDouban.setText(nz(book.doubanRating));
+        // 已有出版/页数/定价等数据时自动展开，避免编辑时看不到已有值
+        if (!nz(book.publisher).trim().isEmpty()
+                || !nz(book.publishDate).trim().isEmpty()
+                || !nz(book.printing).trim().isEmpty()
+                || book.pages > 0 || book.listPrice > 0
+                || !nz(book.wordCount).trim().isEmpty()
+                || !nz(book.doubanRating).trim().isEmpty()) {
+            applyPublishExpanded(true);
+        }
         // 标签存储为逗号分隔，展示为「, 」分隔
         b.etTags.setText(nz(book.tags).replace(",", ", "));
+        b.etSeriesName.setText(nz(book.seriesName));
+        b.etSeriesVolume.setText(nz(book.seriesVolume));
+        if (book.seriesOrder > 0) {
+            b.etSeriesOrder.setText(String.valueOf(book.seriesOrder));
+        }
         b.etCoverUrl.setText(nz(book.coverUrl));
         b.etPurchaseDate.setText(nz(book.purchaseDate));
         if (book.purchasePrice > 0) {
@@ -744,6 +794,118 @@ public class BookEditActivity extends BaseActivity {
                 tryBuildCopyForms();
             });
         });
+    }
+
+    // ======================= 系列选择器（v4.53：单选已有系列或新建） =======================
+
+    private void showSeriesPicker() {
+        BookshelfApp app = BookshelfApp.get();
+        app.io(() -> {
+            java.util.List<Book> all = app.db().bookDao().getAll();
+            java.util.Map<String, java.util.List<Book>> groups =
+                    com.bai.bookshelf.util.BookSeries.group(all);
+            app.ui(() -> showSeriesDialog(groups));
+        });
+    }
+
+    private void showSeriesDialog(java.util.Map<String, java.util.List<Book>> groups) {
+        com.bai.bookshelf.databinding.DialogTagsBinding db =
+                com.bai.bookshelf.databinding.DialogTagsBinding.inflate(getLayoutInflater());
+        final String[] selected = {b.etSeriesName.getText().toString().trim()};
+        db.tvHint.setText("点按选中/取消；「＋ 新建系列」创建新系列。系列名可在「我的 → 系列书架」里重命名");
+        final com.google.android.material.chip.Chip[] noneChip = {null};
+        final java.util.List<com.google.android.material.chip.Chip> chips = new ArrayList<>();
+        com.google.android.material.chip.Chip clearChip =
+                new com.google.android.material.chip.Chip(this);
+        clearChip.setText("不设系列");
+        clearChip.setCheckable(true);
+        clearChip.setChecked(selected[0].isEmpty());
+        clearChip.setOnClickListener(v -> {
+            selected[0] = "";
+            clearChip.setChecked(true);
+            for (com.google.android.material.chip.Chip other : chips) {
+                other.setChecked(false);
+            }
+        });
+        noneChip[0] = clearChip;
+        db.chipGroup.addView(clearChip);
+        for (java.util.Map.Entry<String, java.util.List<Book>> e : groups.entrySet()) {
+            com.google.android.material.chip.Chip chip = new com.google.android.material.chip.Chip(this);
+            chip.setText(e.getValue().size() > 1
+                    ? e.getKey() + "（" + e.getValue().size() + "）" : e.getKey());
+            chip.setCheckable(true);
+            chip.setChecked(e.getKey().equals(selected[0]));
+            chip.setOnClickListener(v -> {
+                if (e.getKey().equals(selected[0])) {
+                    selected[0] = "";
+                    chip.setChecked(false);
+                    noneChip[0].setChecked(true);
+                } else {
+                    selected[0] = e.getKey();
+                    for (com.google.android.material.chip.Chip other : chips) {
+                        other.setChecked(other == chip);
+                    }
+                    noneChip[0].setChecked(false);
+                }
+            });
+            chips.add(chip);
+            db.chipGroup.addView(chip);
+        }
+
+        final androidx.appcompat.app.AlertDialog dialog = new MaterialAlertDialogBuilder(this)
+                .setTitle("选择系列（单选）")
+                .setView(db.getRoot())
+                .setPositiveButton("完成", (d, w) ->
+                        applySeriesSelection(selected[0], groups))
+                .setNegativeButton(R.string.action_cancel, null)
+                .show();
+
+        com.google.android.material.chip.Chip addChip = new com.google.android.material.chip.Chip(this);
+        addChip.setText("＋ 新建系列");
+        addChip.setOnClickListener(v -> showNewSeriesInput(dialog));
+        db.chipGroup.addView(addChip);
+    }
+
+    /** 应用系列选择：换系列且卷号为空时，带出该系列的下一卷建议 */
+    private void applySeriesSelection(String name,
+                                      java.util.Map<String, java.util.List<Book>> groups) {
+        if (name.isEmpty()) {
+            b.etSeriesName.setText("");
+            b.etSeriesVolume.setText("");
+            b.etSeriesOrder.setText("");
+            return;
+        }
+        b.etSeriesName.setText(name);
+        if (b.etSeriesVolume.getText().toString().trim().isEmpty()) {
+            String next = com.bai.bookshelf.util.BookSeries.nextVolume(groups.get(name));
+            if (!next.isEmpty()) {
+                b.etSeriesVolume.setText(next);
+                Toast.makeText(this, "已带出下一卷 " + next + "，可修改", Toast.LENGTH_SHORT).show();
+            }
+        }
+    }
+
+    private void showNewSeriesInput(androidx.appcompat.app.AlertDialog parent) {
+        com.bai.bookshelf.databinding.DialogInputBinding ib =
+                com.bai.bookshelf.databinding.DialogInputBinding.inflate(getLayoutInflater());
+        ib.inputLayout.setHint("系列名（如：三体、哈利·波特）");
+        String current = b.etSeriesName.getText().toString().trim();
+        ib.edit.setText(current);
+        ib.edit.setSelection(current.length());
+        new MaterialAlertDialogBuilder(this)
+                .setTitle("新建系列")
+                .setView(ib.getRoot())
+                .setPositiveButton("确定", (d, w) -> {
+                    String name = ib.edit.getText().toString().trim();
+                    if (name.isEmpty()) {
+                        Toast.makeText(this, "系列名不能为空", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    b.etSeriesName.setText(name);
+                    parent.dismiss();
+                })
+                .setNegativeButton(R.string.action_cancel, null)
+                .show();
     }
 
     // ======================= 国家/地区选择器（单选，结构同分类选择器） =======================
@@ -1161,15 +1323,21 @@ public class BookEditActivity extends BaseActivity {
             b.tvCopiesEntry.setVisibility(android.view.View.VISIBLE);
             boolean show = copiesExpanded;
             b.containerCopies.setVisibility(show ? android.view.View.VISIBLE : android.view.View.GONE);
-            b.tvCopiesEntry.setText(show
-                    ? "逐本信息（共 " + quantity + " 本）‹ 收起"
-                    : "逐本信息（共 " + quantity + " 本）› 展开");
+            b.tvCopiesEntry.setText("逐本信息（共 " + quantity + " 本）");
+            setCopiesEntryChevron(show ? R.drawable.ic_chevron_up_line : R.drawable.ic_chevron_down_line);
         } else {
             // >3 本：页面内不铺开，点入口进二级页统一填写
             b.tvCopiesEntry.setVisibility(android.view.View.VISIBLE);
             b.containerCopies.setVisibility(android.view.View.GONE);
-            b.tvCopiesEntry.setText("逐本信息（共 " + quantity + " 本）› 打开逐本编辑页");
+            b.tvCopiesEntry.setText("逐本信息（共 " + quantity + " 本）");
+            setCopiesEntryChevron(R.drawable.ic_chevron_right_line);
         }
+    }
+
+    private void setCopiesEntryChevron(int drawableRes) {
+        b.tvCopiesEntry.setCompoundDrawablesRelativeWithIntrinsicBounds(0, 0, drawableRes, 0);
+        b.tvCopiesEntry.setCompoundDrawableTintList(android.content.res.ColorStateList.valueOf(
+                ThemeManager.resolveColor(this, ThemeManager.ATTR_COLOR_PRIMARY)));
     }
 
     /** 当前副本数据快照：内联表单存在时从表单读，否则用二级页回传的数据 */
@@ -1402,6 +1570,26 @@ public class BookEditActivity extends BaseActivity {
         return String.format(java.util.Locale.getDefault(), "%.2f", v);
     }
 
+    /** 购买日期文本 → yyyyMMdd；兼容 yyyy / yyyy-MM / yyyy-MM-dd，解析失败返回 0 */
+    private static int parseDayKey(String raw) {
+        if (raw == null || raw.trim().isEmpty()) {
+            return 0;
+        }
+        java.util.regex.Matcher m = java.util.regex.Pattern
+                .compile("(\\d{4})(?:[-/年.](\\d{1,2}))?(?:[-/月.](\\d{1,2}))?")
+                .matcher(raw.trim());
+        if (!m.find()) {
+            return 0;
+        }
+        int year = Integer.parseInt(m.group(1));
+        int month = m.group(2) == null ? 1 : Integer.parseInt(m.group(2));
+        int day = m.group(3) == null ? 1 : Integer.parseInt(m.group(3));
+        if (month < 1 || month > 12 || day < 1 || day > 31) {
+            return 0;
+        }
+        return year * 10000 + month * 100 + day;
+    }
+
     /** 来源二级选项下拉：按大类过滤，第一项「（无）」，值为名称字符串 */
     private void loadChannels(int ownType) {
         BookshelfApp app = BookshelfApp.get();
@@ -1525,13 +1713,14 @@ public class BookEditActivity extends BaseActivity {
             }
         });
 
-        // 购买日期：弹出日期选择器
+        // 购买日期：v4.40 改用与筛选同款的自绘日历（跟随主题，比系统 DatePickerDialog 好看）
         b.etPurchaseDate.setOnClickListener(v -> {
-            Calendar cal = Calendar.getInstance();
-            new DatePickerDialog(this, (view, year, month, dayOfMonth) ->
-                    b.etPurchaseDate.setText(String.format("%04d-%02d-%02d", year, month + 1, dayOfMonth)),
-                    cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH))
-                    .show();
+            int current = parseDayKey(b.etPurchaseDate.getText().toString().trim());
+            com.bai.bookshelf.ui.widget.CalendarPicker.showSingle(
+                    this, "购买日期", current,
+                    key -> b.etPurchaseDate.setText(String.format(java.util.Locale.ROOT,
+                            "%04d-%02d-%02d", key / 10000, key / 100 % 100, key % 100)),
+                    () -> b.etPurchaseDate.setText(""));
         });
 
         // 封面：链接预览 / 拍照 / 相册
@@ -1566,6 +1755,7 @@ public class BookEditActivity extends BaseActivity {
             categoryPickerLauncher.launch(intent);
         });
         b.etCountry.setOnClickListener(v -> showCountryPicker()); // 国家/地区：标签式单选
+        b.etSeriesName.setOnClickListener(v -> showSeriesPicker()); // 系列：已有系列 + 新建
         b.etPublisher.setFocusable(false);
         b.etPublisher.setClickable(true);
         b.etPublisher.setOnClickListener(v -> showPublisherPicker()); // 出版社：标签式单选
@@ -1874,13 +2064,23 @@ public class BookEditActivity extends BaseActivity {
         });
     }
 
-    /** 加载封面：支持 http(s) 链接与本地文件路径 */
+    /** 加载封面：支持 http(s) 链接与本地文件路径；无封面时用布面首字封面 */
     private void loadCover() {
         String url = b.etCoverUrl.getText().toString().trim();
+        String title = b.etTitle.getText().toString().trim();
+        android.graphics.drawable.Drawable placeholder =
+                new com.bai.bookshelf.ui.widget.BookCoverDrawable(this,
+                        title.isEmpty() ? "书" : title);
+        if (url.isEmpty()) {
+            Glide.with(this).clear(b.ivCover);
+            b.ivCover.setImageDrawable(placeholder);
+            return;
+        }
         Glide.with(this)
-                .load(url.isEmpty() ? null : (url.startsWith("http") ? url : new File(url)))
-                .placeholder(R.drawable.ic_cover_placeholder)
-                .error(R.drawable.ic_cover_placeholder)
+                .load(url.startsWith("http") ? url : new File(url))
+                .placeholder(placeholder)
+                .error(placeholder)
+                .transition(com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions.withCrossFade(180))
                 .into(b.ivCover);
     }
 
@@ -1893,12 +2093,21 @@ public class BookEditActivity extends BaseActivity {
         }
 
         // 表单 → 对象
+        final int oldReadStatus = book.readStatus; // v4.44：用来判断阅读状态是否变化
         book.title = title;
         book.isbn = b.etIsbn.getText().toString().trim();
         book.author = b.etAuthor.getText().toString().trim();
         book.translator = b.etTranslator.getText().toString().trim();
         book.country = b.etCountry.getText().toString().trim();
         book.category = categoryRawFromField().trim();
+        book.seriesName = b.etSeriesName.getText().toString().trim();
+        book.seriesVolume = b.etSeriesVolume.getText().toString().trim();
+        book.seriesOrder = parseInt(b.etSeriesOrder.getText().toString());
+        if (book.seriesName.isEmpty()) {
+            // 没有系列时卷号/阅读顺序没有意义，一并清掉，避免成为脏数据
+            book.seriesVolume = "";
+            book.seriesOrder = 0;
+        }
         book.publisher = b.etPublisher.getText().toString().trim();
         book.publishDate = joinEdition(b.etPubYear, b.etPubMonth, b.etPubEdition); // 版次 yyyy-mm|N
         book.printing = joinEdition(b.etPrintYear, b.etPrintMonth, b.etPrintNo);   // 印次 yyyy-mm|N
@@ -1914,7 +2123,9 @@ public class BookEditActivity extends BaseActivity {
         book.quantity = Math.max(1, parseInt(b.etQuantity.getText().toString()));
         book.note = b.etNote.getText().toString().trim();
         book.stockStatus = b.spStock.getSelectedItemPosition();
-        book.readStatus = b.spRead.getSelectedItemPosition();
+        int newReadStatus = b.spRead.getSelectedItemPosition();
+        book.readStatus = newReadStatus;
+        applyReadingDates(oldReadStatus, newReadStatus);
         book.ownType = b.spOwn.getSelectedItemPosition();
         int locPos = b.spLocation.getSelectedItemPosition();
         book.locationId = (locPos > 0 && locPos <= locations.size()) ? locations.get(locPos - 1).id : null;
@@ -1954,40 +2165,116 @@ public class BookEditActivity extends BaseActivity {
                 // 新增前按 ISBN 查重（ISBN 为空则跳过）
                 Book exist = book.isbn.isEmpty() ? null : app.db().bookDao().getByIsbn(book.isbn);
                 if (exist != null) {
-                    // 已录入过：提示是否改为编辑已有书籍
+                    // v4.41：重复 ISBN 给三条路——改已有 / 加一本副本 / 仍然独立新建
+                    final Book existing = exist;
                     app.ui(() -> new MaterialAlertDialogBuilder(this)
                             .setTitle("书籍已录入")
-                            .setMessage("《" + exist.title + "》已在书架中，要改为修改它吗？")
+                            .setMessage("《" + existing.title + "》已在书架中（共 "
+                                    + existing.quantity + " 本），要怎么处理？")
                             .setPositiveButton("修改已有书籍", (d, w) -> {
                                 android.content.Intent intent = new android.content.Intent(
                                         this, BookEditActivity.class);
-                                intent.putExtra(EXTRA_BOOK, exist);
+                                intent.putExtra(EXTRA_BOOK, existing);
                                 startActivity(intent);
                                 finish();
                             })
-                            .setNegativeButton("返回继续编辑", null)
+                            .setNeutralButton("增加一本副本", (d, w) ->
+                                    app.io(() -> {
+                                        addCopyToExisting(app, existing, now);
+                                        app.ui(() -> {
+                                            cleanupRemovedNoteImageFiles();
+                                            Toast.makeText(this, "已增加到《"
+                                                            + com.bai.bookshelf.util.BookText.bareTitle(existing.title)
+                                                            + "》，共 " + (existing.quantity + 1) + " 本",
+                                                    Toast.LENGTH_SHORT).show();
+                                            finish();
+                                        });
+                                    }))
+                            .setNegativeButton("仍然新建一本", (d, w) ->
+                                    app.io(() -> {
+                                        insertNewBook(app, copiesToSave, copyImagesToSave,
+                                                imagesToSave, now);
+                                        app.ui(this::finishAfterSave);
+                                    }))
                             .show());
                     return;
                 }
-                book.createdAt = now;
-                book.id = app.db().bookDao().insert(book);
-                saveCopies(app, book.id, copiesToSave, copyImagesToSave);
-                if (book.id > 0) {
-                    saveNoteImages(app, ownerKeyForBookNote(), imagesToSave);
-                }
-                // 记住本次地点，下次录入自动选中
-                getSharedPreferences("ui_prefs", MODE_PRIVATE).edit()
-                        .putLong("last_location_id", book.locationId == null ? -1 : book.locationId)
-                        .apply();
+                insertNewBook(app, copiesToSave, copyImagesToSave, imagesToSave, now);
             }
-            app.ui(() -> {
-                cleanupRemovedNoteImageFiles(); // 移除的旧图文件 / 未保留的新图文件落地清理
-                // v2.8：保存提示不再额外包书名号（用户反馈），统一走 BookText 剥掉自带书名号
-                Toast.makeText(this, "已保存 " + com.bai.bookshelf.util.BookText.bareTitle(book.title),
-                        Toast.LENGTH_SHORT).show();
-                finish();
-            });
+            app.ui(this::finishAfterSave);
         });
+    }
+
+    /** 新建一本：写 books / 副本 / 备注图片，并记住本次地点 */
+    private void insertNewBook(BookshelfApp app,
+                               List<com.bai.bookshelf.data.entity.BookCopy> copies,
+                               java.util.Map<Integer, java.util.List<NoteImage>> copyImgs,
+                               List<NoteImage> images, long now) {
+        book.createdAt = now;
+        book.id = app.db().bookDao().insert(book);
+        saveCopies(app, book.id, copies, copyImgs);
+        if (book.id > 0) {
+            saveNoteImages(app, ownerKeyForBookNote(), images);
+        }
+        getSharedPreferences("ui_prefs", MODE_PRIVATE).edit()
+                .putLong("last_location_id", book.locationId == null ? -1 : book.locationId)
+                .apply();
+    }
+
+    /** 已存在的书再加一本：数量 +1，并把本次表单填写的地点/购入信息挂到新副本上 */
+    private void addCopyToExisting(BookshelfApp app, Book exist, long now) {
+        exist.quantity = exist.quantity + 1;
+        exist.updatedAt = now;
+        exist.dirty = true;
+        app.db().bookDao().update(exist);
+        com.bai.bookshelf.data.entity.BookCopy copy = new com.bai.bookshelf.data.entity.BookCopy();
+        copy.bookId = exist.id;
+        copy.copyIndex = exist.quantity;
+        copy.stockStatus = Book.STOCK_IN;
+        copy.locationId = book.locationId;
+        copy.ownType = book.ownType;
+        copy.sourceChannel = book.sourceChannel;
+        copy.purchaseDate = book.purchaseDate;
+        copy.purchasePrice = book.purchasePrice;
+        app.db().bookCopyDao().insert(copy);
+    }
+
+    private void finishAfterSave() {
+        cleanupRemovedNoteImageFiles(); // 移除的旧图文件 / 未保留的新图文件落地清理
+        // v2.8：保存提示不再额外包书名号（用户反馈），统一走 BookText 剥掉自带书名号
+        Toast.makeText(this, "已保存 " + com.bai.bookshelf.util.BookText.bareTitle(book.title),
+                Toast.LENGTH_SHORT).show();
+        // v4.49：调用方（想读「转为藏书」）据此判断是否要从清单里移除
+        setResult(RESULT_OK);
+        finish();
+    }
+
+    /**
+     * 阅读记录（v4.44）：状态第一次切到「在读」记开始日期；
+     * 切到「已读」补开始（若缺）并记读完日期；从「已读」改回其它状态则清空读完日期。
+     */
+    private void applyReadingDates(int oldStatus, int newStatus) {
+        String today = com.bai.bookshelf.util.StatusText.today();
+        if (book.readingStartDate == null) {
+            book.readingStartDate = "";
+        }
+        if (book.readingFinishDate == null) {
+            book.readingFinishDate = "";
+        }
+        if (oldStatus != Book.READING && newStatus == Book.READING
+                && book.readingStartDate.isEmpty()) {
+            book.readingStartDate = today;
+        }
+        if (newStatus == Book.READ_DONE) {
+            if (book.readingStartDate.isEmpty()) {
+                book.readingStartDate = today;
+            }
+            if (book.readingFinishDate.isEmpty()) {
+                book.readingFinishDate = today;
+            }
+        } else {
+            book.readingFinishDate = "";
+        }
     }
 
     /** 把版次/印次存储串拆进三段输入框；自由文本旧格式原文塞进年框保留（不丢数据） */

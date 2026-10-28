@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 我的阅读（v2.8）：月/年/总 三个 Tab 的阅读统计 -->
+<!-- 购书统计（v2.8，v4.41 更名）：月/年/总 三个 Tab 的购入/录入/花费统计 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
@@ -12,61 +12,63 @@
         android:layout_width="match_parent"
         android:layout_height="@dimen/toolbar_h"
         app:navigationIcon="@drawable/ic_back"
-        app:title="我的阅读" />
+        app:title="购书统计" />
 
-    <!-- 顶部 Tab：月 / 年 / 总 -->
+    <!-- 顶部 Tab：月 / 年 / 总（v4.25 统一为 v4.22 分段控件） -->
     <LinearLayout
+        android:id="@+id/ll_tabs"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_margin="12dp"
-        android:background="@drawable/bg_chip"
+        android:layout_marginHorizontal="@dimen/page_padding"
+        android:layout_marginTop="12dp"
+        android:background="@drawable/bg_seg_track"
         android:orientation="horizontal"
         android:padding="4dp">
 
         <TextView
             android:id="@+id/tab_month"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            android:layout_height="40dp"
             android:layout_weight="1"
             android:gravity="center"
-            android:padding="10dp"
             android:text="月"
-            android:textColor="@color/text_main"
-            android:textSize="14sp" />
+            android:textColor="?attr/on_surface"
+            android:textSize="@dimen/text_body_small" />
 
         <TextView
             android:id="@+id/tab_year"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            android:layout_height="40dp"
             android:layout_weight="1"
             android:gravity="center"
-            android:padding="10dp"
             android:text="年"
-            android:textColor="@color/text_main"
-            android:textSize="14sp" />
+            android:textColor="?attr/on_surface"
+            android:textSize="@dimen/text_body_small" />
 
         <TextView
             android:id="@+id/tab_total"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            android:layout_height="40dp"
             android:layout_weight="1"
             android:gravity="center"
-            android:padding="10dp"
             android:text="总"
-            android:textColor="@color/text_main"
-            android:textSize="14sp" />
+            android:textColor="?attr/on_surface"
+            android:textSize="@dimen/text_body_small" />
     </LinearLayout>
 
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1">
+        android:layout_weight="1"
+        android:fillViewport="true">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="12dp">
+            android:paddingHorizontal="@dimen/page_padding"
+            android:paddingTop="@dimen/space_sm"
+            android:paddingBottom="@dimen/space_xl">
 
             <!-- ==================== 月视图 ==================== -->
             <LinearLayout
@@ -81,15 +83,21 @@
                     android:gravity="center_vertical"
                     android:orientation="horizontal">
 
-                    <TextView
+                    <!-- 与右侧 32dp 选择按钮对称，让标题真正居中 -->
+                    <View
+                        android:layout_width="34dp"
+                        android:layout_height="1dp" />
+
+                    <ImageButton
                         android:id="@+id/btn_month_prev"
                         android:layout_width="40dp"
                         android:layout_height="40dp"
-                        android:gravity="center"
-                        android:text="‹"
-                        android:textSize="22sp"
-                        android:textColor="?attr/colorPrimary"
-                        android:background="?attr/selectableItemBackground" />
+                        android:background="?attr/selectableItemBackground"
+                        android:contentDescription="上个月"
+                        android:padding="10dp"
+                        android:scaleType="centerInside"
+                        android:src="@drawable/ic_chevron_left_line"
+                        app:tint="?attr/colorPrimary" />
 
                     <TextView
                         android:id="@+id/tv_month_label"
@@ -98,19 +106,21 @@
                         android:layout_weight="1"
                         android:gravity="center"
                         android:text="2026年10月"
-                        android:textColor="@color/text_main"
+                        android:textColor="?attr/on_surface"
                         android:textSize="17sp"
-                        android:textStyle="bold" />
+                        android:fontFamily="serif"
+                        android:includeFontPadding="false" />
 
-                    <TextView
+                    <ImageButton
                         android:id="@+id/btn_month_next"
                         android:layout_width="40dp"
                         android:layout_height="40dp"
-                        android:gravity="center"
-                        android:text="›"
-                        android:textSize="22sp"
-                        android:textColor="?attr/colorPrimary"
-                        android:background="?attr/selectableItemBackground" />
+                        android:background="?attr/selectableItemBackground"
+                        android:contentDescription="下个月"
+                        android:padding="10dp"
+                        android:scaleType="centerInside"
+                        android:src="@drawable/ic_chevron_right_line"
+                        app:tint="?attr/colorPrimary" />
 
                     <!-- v4.20：点击标题直接弹出年/月选择器（原先只能靠 ‹ › 一格格翻） -->
                     <ImageView
@@ -121,45 +131,114 @@
                         android:background="?attr/selectableItemBackground"
                         android:contentDescription="选择月份"
                         android:padding="6dp"
-                        android:src="@drawable/ic_chevron_down"
+                        android:src="@drawable/ic_chevron_down_line"
                         app:tint="?attr/colorPrimary" />
                 </LinearLayout>
 
-                <TextView
-                    android:id="@+id/tv_month_summary"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
-                    android:text="本月购买 0 本 · 录入 0 本"
-                    android:textColor="@color/text_main"
-                    android:textSize="14sp" />
-
-                <!-- v4.20：本月花费（仅统计自购，排除赠送/借阅） -->
-                <TextView
-                    android:id="@+id/tv_month_cost"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:text="本月花费 ¥0"
-                    android:textColor="@color/text_sub"
-                    android:textSize="13sp" />
-
-                <!-- v4.21：图表标题行右端加「全部记录」按钮（参照微信读书），
-                     点击后从底部升起半屏面板，列出本月的完整逐日记录 -->
+                <!-- v4.25：tinted 摘要卡，突出购买 / 录入 / 花费三个数字 -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="14dp"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal">
+                    android:layout_marginTop="10dp"
+                    android:background="@drawable/bg_summary_card"
+                    android:orientation="horizontal"
+                    android:padding="@dimen/space_lg">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/tv_month_bought"
+                            style="@style/Text.Bookshelf.SerifNumber"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="0"
+                            android:textColor="?attr/colorPrimary"
+                            android:textSize="@dimen/text_title" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="本月购买"
+                            android:textColor="?attr/on_primary_container"
+                            android:textSize="@dimen/text_caption" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/tv_month_entered"
+                            style="@style/Text.Bookshelf.SerifNumber"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="0"
+                            android:textColor="?attr/colorPrimary"
+                            android:textSize="@dimen/text_title" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="本月录入"
+                            android:textColor="?attr/on_primary_container"
+                            android:textSize="@dimen/text_caption" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/tv_month_cost_value"
+                            style="@style/Text.Bookshelf.SerifNumber"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="¥0"
+                            android:textColor="?attr/colorPrimary"
+                            android:textSize="@dimen/text_title" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="本月花费"
+                            android:textColor="?attr/on_primary_container"
+                            android:textSize="@dimen/text_caption" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- 每日购买柱状图卡 -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:background="@drawable/bg_card"
+                    android:orientation="vertical"
+                    android:padding="@dimen/space_lg">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
 
                     <TextView
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:text="每日购买本数"
-                        android:textColor="@color/text_sub"
-                        android:textSize="12sp" />
+                        android:textColor="?attr/on_surface_variant"
+                        android:textSize="@dimen/text_body_small" />
 
                     <TextView
                         android:id="@+id/btn_month_detail"
@@ -176,7 +255,7 @@
                         android:paddingBottom="4dp"
                         android:text="@string/stats_all_records"
                         android:textColor="?attr/colorPrimary"
-                        android:textSize="12sp" />
+                        android:textSize="@dimen/text_body_small" />
                 </LinearLayout>
 
                 <com.bai.bookshelf.ui.stats.MiniBarChartView
@@ -192,48 +271,72 @@
                     android:layout_height="200dp"
                     android:layout_marginTop="8dp"
                     android:visibility="gone" />
+                </LinearLayout>
 
-                <!-- v4.20：购买日历热力图（参照微信读书「阅读天数」） -->
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="18dp"
-                    android:text="购买日历"
-                    android:textColor="@color/text_sub"
-                    android:textSize="12sp" />
-
-                <com.bai.bookshelf.ui.stats.PurchaseHeatmapView
-                    android:id="@+id/heatmap_month"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp" />
-
-                <!-- v4.20：点击某天后在下方显示当天买了几本 -->
-                <TextView
-                    android:id="@+id/tv_month_day_detail"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:text="@string/stats_click_day_hint"
-                    android:textColor="@color/text_sub"
-                    android:textSize="13sp" />
-
-                <!-- v4.20：本月购买排行（按天降序；没有购买的天不入榜） -->
-                <TextView
-                    android:id="@+id/tv_month_rank_title"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="18dp"
-                    android:text="本月购买排行"
-                    android:textColor="@color/text_sub"
-                    android:textSize="12sp" />
-
+                <!-- 购买日历热力图卡 -->
                 <LinearLayout
-                    android:id="@+id/ll_month_rank"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:orientation="vertical" />
+                    android:layout_marginTop="12dp"
+                    android:background="@drawable/bg_card"
+                    android:orientation="vertical"
+                    android:padding="@dimen/space_lg">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="购买日历"
+                        android:textColor="?attr/on_surface_variant"
+                        android:textSize="@dimen/text_body_small" />
+
+                    <com.bai.bookshelf.ui.stats.PurchaseHeatmapView
+                        android:id="@+id/heatmap_month"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp" />
+
+                    <TextView
+                        android:id="@+id/tv_month_day_detail"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:text="@string/stats_click_day_hint"
+                        android:textColor="?attr/on_surface_variant"
+                        android:textSize="@dimen/text_body_small" />
+
+                    <LinearLayout
+                        android:id="@+id/ll_month_legend"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal" />
+                </LinearLayout>
+
+                <!-- 本月购买排行卡 -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:background="@drawable/bg_card"
+                    android:orientation="vertical"
+                    android:padding="@dimen/space_lg">
+
+                    <TextView
+                        android:id="@+id/tv_month_rank_title"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="本月购买排行"
+                        android:textColor="?attr/on_surface_variant"
+                        android:textSize="@dimen/text_body_small" />
+
+                    <LinearLayout
+                        android:id="@+id/ll_month_rank"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:orientation="vertical" />
+                </LinearLayout>
             </LinearLayout>
 
             <!-- ==================== 年视图 ==================== -->
@@ -250,15 +353,21 @@
                     android:gravity="center_vertical"
                     android:orientation="horizontal">
 
-                    <TextView
+                    <!-- 与右侧 32dp 选择按钮对称，让标题真正居中 -->
+                    <View
+                        android:layout_width="34dp"
+                        android:layout_height="1dp" />
+
+                    <ImageButton
                         android:id="@+id/btn_year_prev"
                         android:layout_width="40dp"
                         android:layout_height="40dp"
-                        android:gravity="center"
-                        android:text="‹"
-                        android:textSize="22sp"
-                        android:textColor="?attr/colorPrimary"
-                        android:background="?attr/selectableItemBackground" />
+                        android:background="?attr/selectableItemBackground"
+                        android:contentDescription="上一年"
+                        android:padding="10dp"
+                        android:scaleType="centerInside"
+                        android:src="@drawable/ic_chevron_left_line"
+                        app:tint="?attr/colorPrimary" />
 
                     <TextView
                         android:id="@+id/tv_year_label"
@@ -267,19 +376,21 @@
                         android:layout_weight="1"
                         android:gravity="center"
                         android:text="2026年"
-                        android:textColor="@color/text_main"
+                        android:textColor="?attr/on_surface"
                         android:textSize="17sp"
-                        android:textStyle="bold" />
+                        android:fontFamily="serif"
+                        android:includeFontPadding="false" />
 
-                    <TextView
+                    <ImageButton
                         android:id="@+id/btn_year_next"
                         android:layout_width="40dp"
                         android:layout_height="40dp"
-                        android:gravity="center"
-                        android:text="›"
-                        android:textSize="22sp"
-                        android:textColor="?attr/colorPrimary"
-                        android:background="?attr/selectableItemBackground" />
+                        android:background="?attr/selectableItemBackground"
+                        android:contentDescription="下一年"
+                        android:padding="10dp"
+                        android:scaleType="centerInside"
+                        android:src="@drawable/ic_chevron_right_line"
+                        app:tint="?attr/colorPrimary" />
 
                     <!-- v4.20：点击标题直接弹出年份选择器 -->
                     <ImageView
@@ -290,44 +401,113 @@
                         android:background="?attr/selectableItemBackground"
                         android:contentDescription="选择年份"
                         android:padding="6dp"
-                        android:src="@drawable/ic_chevron_down"
+                        android:src="@drawable/ic_chevron_down_line"
                         app:tint="?attr/colorPrimary" />
                 </LinearLayout>
 
-                <TextView
-                    android:id="@+id/tv_year_summary"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
-                    android:text="本年购买 0 本 · 录入 0 本"
-                    android:textColor="@color/text_main"
-                    android:textSize="14sp" />
-
-                <!-- v4.20：本年花费（仅统计自购，排除赠送/借阅） -->
-                <TextView
-                    android:id="@+id/tv_year_cost"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:text="本年花费 ¥0"
-                    android:textColor="@color/text_sub"
-                    android:textSize="13sp" />
-
-                <!-- v4.21：年视图图表标题行右端的「全部记录」按钮 -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="14dp"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal">
+                    android:layout_marginTop="10dp"
+                    android:background="@drawable/bg_summary_card"
+                    android:orientation="horizontal"
+                    android:padding="@dimen/space_lg">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/tv_year_bought"
+                            style="@style/Text.Bookshelf.SerifNumber"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="0"
+                            android:textColor="?attr/colorPrimary"
+                            android:textSize="@dimen/text_title" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="本年购买"
+                            android:textColor="?attr/on_primary_container"
+                            android:textSize="@dimen/text_caption" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/tv_year_entered"
+                            style="@style/Text.Bookshelf.SerifNumber"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="0"
+                            android:textColor="?attr/colorPrimary"
+                            android:textSize="@dimen/text_title" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="本年录入"
+                            android:textColor="?attr/on_primary_container"
+                            android:textSize="@dimen/text_caption" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/tv_year_cost_value"
+                            style="@style/Text.Bookshelf.SerifNumber"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="¥0"
+                            android:textColor="?attr/colorPrimary"
+                            android:textSize="@dimen/text_title" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="本年花费"
+                            android:textColor="?attr/on_primary_container"
+                            android:textSize="@dimen/text_caption" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- 每月购买柱状图卡 -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:background="@drawable/bg_card"
+                    android:orientation="vertical"
+                    android:padding="@dimen/space_lg">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
 
                     <TextView
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:text="每月购买本数"
-                        android:textColor="@color/text_sub"
-                        android:textSize="12sp" />
+                        android:textColor="?attr/on_surface_variant"
+                        android:textSize="@dimen/text_body_small" />
 
                     <TextView
                         android:id="@+id/btn_year_detail"
@@ -344,7 +524,7 @@
                         android:paddingBottom="4dp"
                         android:text="@string/stats_all_records"
                         android:textColor="?attr/colorPrimary"
-                        android:textSize="12sp" />
+                        android:textSize="@dimen/text_body_small" />
                 </LinearLayout>
 
                 <com.bai.bookshelf.ui.stats.MiniBarChartView
@@ -352,54 +532,78 @@
                     android:layout_width="match_parent"
                     android:layout_height="200dp"
                     android:layout_marginTop="4dp" />
+                </LinearLayout>
 
-                <!-- v4.20：购买日历热力图（年模式：全年格子按周排列，可横向滚动） -->
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="18dp"
-                    android:text="购买日历"
-                    android:textColor="@color/text_sub"
-                    android:textSize="12sp" />
-
-                <HorizontalScrollView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:scrollbars="none">
-
-                    <com.bai.bookshelf.ui.stats.PurchaseHeatmapView
-                        android:id="@+id/heatmap_year"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content" />
-                </HorizontalScrollView>
-
-                <!-- v4.20：点击某天后在下方显示当天买了几本 -->
-                <TextView
-                    android:id="@+id/tv_year_day_detail"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:text="@string/stats_click_day_hint"
-                    android:textColor="@color/text_sub"
-                    android:textSize="13sp" />
-
-                <!-- v4.20：本年购买排行（按月降序；没有购买的月份不入榜） -->
-                <TextView
-                    android:id="@+id/tv_year_rank_title"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="18dp"
-                    android:text="本年购买排行"
-                    android:textColor="@color/text_sub"
-                    android:textSize="12sp" />
-
+                <!-- 购买日历热力图卡 -->
                 <LinearLayout
-                    android:id="@+id/ll_year_rank"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:orientation="vertical" />
+                    android:layout_marginTop="12dp"
+                    android:background="@drawable/bg_card"
+                    android:orientation="vertical"
+                    android:padding="@dimen/space_lg">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="购买日历"
+                        android:textColor="?attr/on_surface_variant"
+                        android:textSize="@dimen/text_body_small" />
+
+                    <HorizontalScrollView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:scrollbars="none">
+
+                        <com.bai.bookshelf.ui.stats.PurchaseHeatmapView
+                            android:id="@+id/heatmap_year"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content" />
+                    </HorizontalScrollView>
+
+                    <TextView
+                        android:id="@+id/tv_year_day_detail"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:text="@string/stats_click_day_hint"
+                        android:textColor="?attr/on_surface_variant"
+                        android:textSize="@dimen/text_body_small" />
+
+                    <LinearLayout
+                        android:id="@+id/ll_year_legend"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal" />
+                </LinearLayout>
+
+                <!-- 本年购买排行卡 -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:background="@drawable/bg_card"
+                    android:orientation="vertical"
+                    android:padding="@dimen/space_lg">
+
+                    <TextView
+                        android:id="@+id/tv_year_rank_title"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="本年购买排行"
+                        android:textColor="?attr/on_surface_variant"
+                        android:textSize="@dimen/text_body_small" />
+
+                    <LinearLayout
+                        android:id="@+id/ll_year_rank"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:orientation="vertical" />
+                </LinearLayout>
             </LinearLayout>
 
             <!-- ==================== 总视图 ==================== -->
@@ -439,8 +643,8 @@
                             android:layout_marginTop="8dp"
                             android:gravity="center"
                             android:text="从购买第一本书起计算"
-                            android:textColor="@color/text_sub"
-                            android:textSize="12sp" />
+                            android:textColor="?attr/on_surface_variant"
+                            android:textSize="@dimen/text_body_small" />
 
                         <TextView
                             android:id="@+id/tv_total_companion"
@@ -448,8 +652,8 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="2dp"
                             android:gravity="center"
-                            android:textColor="@color/text_sub"
-                            android:textSize="12sp" />
+                            android:textColor="?attr/on_surface_variant"
+                            android:textSize="@dimen/text_body_small" />
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
 
@@ -464,7 +668,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="horizontal"
-                        android:padding="14dp">
+                        android:padding="@dimen/space_lg">
 
                         <!-- 左列：未读 / 在读 / 已读 -->
                         <LinearLayout
@@ -483,8 +687,8 @@
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
                                     android:text="未读"
-                                    android:textColor="@color/text_sub"
-                                    android:textSize="12sp" />
+                                    android:textColor="?attr/on_surface_variant"
+                                    android:textSize="@dimen/text_body_small" />
 
                                 <TextView
                                     android:id="@+id/tv_total_none"
@@ -493,8 +697,10 @@
                                     android:layout_marginTop="2dp"
                                     android:text="0"
                                     android:textColor="?attr/colorPrimary"
-                                    android:textSize="26sp"
-                                    android:textStyle="bold" />
+                                    android:textSize="@dimen/text_display"
+                                    android:fontFamily="serif"
+                                    android:fontFeatureSettings="tnum"
+                                    android:includeFontPadding="false" />
                             </LinearLayout>
 
                             <LinearLayout
@@ -507,8 +713,8 @@
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
                                     android:text="在读"
-                                    android:textColor="@color/text_sub"
-                                    android:textSize="12sp" />
+                                    android:textColor="?attr/on_surface_variant"
+                                    android:textSize="@dimen/text_body_small" />
 
                                 <TextView
                                     android:id="@+id/tv_total_reading"
@@ -517,8 +723,10 @@
                                     android:layout_marginTop="2dp"
                                     android:text="0"
                                     android:textColor="?attr/colorPrimary"
-                                    android:textSize="26sp"
-                                    android:textStyle="bold" />
+                                    android:textSize="@dimen/text_display"
+                                    android:fontFamily="serif"
+                                    android:fontFeatureSettings="tnum"
+                                    android:includeFontPadding="false" />
                             </LinearLayout>
 
                             <LinearLayout
@@ -531,8 +739,8 @@
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
                                     android:text="已读"
-                                    android:textColor="@color/text_sub"
-                                    android:textSize="12sp" />
+                                    android:textColor="?attr/on_surface_variant"
+                                    android:textSize="@dimen/text_body_small" />
 
                                 <TextView
                                     android:id="@+id/tv_total_done"
@@ -541,8 +749,10 @@
                                     android:layout_marginTop="2dp"
                                     android:text="0"
                                     android:textColor="?attr/colorPrimary"
-                                    android:textSize="26sp"
-                                    android:textStyle="bold" />
+                                    android:textSize="@dimen/text_display"
+                                    android:fontFamily="serif"
+                                    android:fontFeatureSettings="tnum"
+                                    android:includeFontPadding="false" />
                             </LinearLayout>
                         </LinearLayout>
 
@@ -564,8 +774,8 @@
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
                                     android:text="买了"
-                                    android:textColor="@color/text_sub"
-                                    android:textSize="12sp" />
+                                    android:textColor="?attr/on_surface_variant"
+                                    android:textSize="@dimen/text_body_small" />
 
                                 <TextView
                                     android:id="@+id/tv_total_bought"
@@ -574,8 +784,10 @@
                                     android:layout_marginTop="2dp"
                                     android:text="0"
                                     android:textColor="?attr/colorPrimary"
-                                    android:textSize="26sp"
-                                    android:textStyle="bold" />
+                                    android:textSize="@dimen/text_display"
+                                    android:fontFamily="serif"
+                                    android:fontFeatureSettings="tnum"
+                                    android:includeFontPadding="false" />
                             </LinearLayout>
 
                             <LinearLayout
@@ -588,8 +800,8 @@
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
                                     android:text="录入"
-                                    android:textColor="@color/text_sub"
-                                    android:textSize="12sp" />
+                                    android:textColor="?attr/on_surface_variant"
+                                    android:textSize="@dimen/text_body_small" />
 
                                 <TextView
                                     android:id="@+id/tv_total_entered"
@@ -598,65 +810,79 @@
                                     android:layout_marginTop="2dp"
                                     android:text="0"
                                     android:textColor="?attr/colorPrimary"
-                                    android:textSize="26sp"
-                                    android:textStyle="bold" />
+                                    android:textSize="@dimen/text_display"
+                                    android:fontFamily="serif"
+                                    android:fontFeatureSettings="tnum"
+                                    android:includeFontPadding="false" />
                             </LinearLayout>
                         </LinearLayout>
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
 
-                <!-- v4.21：总视图图表标题行右端的「全部记录」按钮（按年列出） -->
+                <!-- 每年购买柱状图卡 -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="14dp"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal">
+                    android:layout_marginTop="12dp"
+                    android:background="@drawable/bg_card"
+                    android:orientation="vertical"
+                    android:padding="@dimen/space_lg">
 
-                    <TextView
-                        android:layout_width="0dp"
+                    <LinearLayout
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="每年购买本数"
-                        android:textColor="@color/text_sub"
-                        android:textSize="12sp" />
-
-                    <TextView
-                        android:id="@+id/btn_total_detail"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:background="?attr/selectableItemBackground"
-                        android:drawableEnd="@drawable/ic_arrow_small"
-                        android:drawablePadding="2dp"
-                        android:drawableTint="?attr/colorPrimary"
                         android:gravity="center_vertical"
-                        android:paddingStart="8dp"
-                        android:paddingTop="4dp"
-                        android:paddingEnd="4dp"
-                        android:paddingBottom="4dp"
-                        android:text="@string/stats_all_records"
-                        android:textColor="?attr/colorPrimary"
-                        android:textSize="12sp" />
-                </LinearLayout>
+                        android:orientation="horizontal">
 
-                <com.bai.bookshelf.ui.stats.MiniBarChartView
-                    android:id="@+id/chart_total"
-                    android:layout_width="match_parent"
-                    android:layout_height="200dp"
-                    android:layout_marginTop="4dp" />
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="每年购买本数"
+                            android:textColor="?attr/on_surface_variant"
+                            android:textSize="@dimen/text_body_small" />
+
+                        <TextView
+                            android:id="@+id/btn_total_detail"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:background="?attr/selectableItemBackground"
+                            android:drawableEnd="@drawable/ic_arrow_small"
+                            android:drawablePadding="2dp"
+                            android:drawableTint="?attr/colorPrimary"
+                            android:gravity="center_vertical"
+                            android:paddingStart="8dp"
+                            android:paddingTop="4dp"
+                            android:paddingEnd="4dp"
+                            android:paddingBottom="4dp"
+                            android:text="@string/stats_all_records"
+                            android:textColor="?attr/colorPrimary"
+                            android:textSize="@dimen/text_body_small" />
+                    </LinearLayout>
+
+                    <com.bai.bookshelf.ui.stats.MiniBarChartView
+                        android:id="@+id/chart_total"
+                        android:layout_width="match_parent"
+                        android:layout_height="200dp"
+                        android:layout_marginTop="4dp" />
+                </LinearLayout>
             </LinearLayout>
 
-            <!-- 空数据提示 -->
-            <TextView
-                android:id="@+id/tv_empty"
+            <!-- 空态（v4.29）：与书架一致，垂直居中 -->
+            <FrameLayout
+                android:id="@+id/empty_state_container"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="60dp"
-                android:gravity="center"
-                android:text="暂无藏书数据"
-                android:textColor="@color/text_sub"
-                android:textSize="14sp"
-                android:visibility="gone" />
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:visibility="gone">
+
+                <include
+                    android:id="@+id/empty_state"
+                    layout="@layout/view_empty_state"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center" />
+            </FrameLayout>
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
 </LinearLayout>

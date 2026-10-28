@@ -1,58 +1,81 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 书架封面视图项：封面大图 + 左上角标 + 下方书名
-     v4.18：去掉外层卡片，改为「封面描边 + 紧凑书名」，缩小书籍间距，
-     并用 1dp 描边（bg_cover_stroke）勾出每本书的边界
-     v4.19：封面改用 RatioImageView，高度由控件按实测宽度自行换算（3:4），
-     保证每一列、每一个屏幕上的封面比例完全一致（原先按估算宽度算高，
-     边列比中间列窄，封面长宽比参差不齐） -->
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- 书架封面视图项（v4.30 重写）：ConstraintLayout + 3:4 比例约束
+     —— 封面高度由 layout_constraintDimensionRatio 决定，不受内部角标/色条测量影响
+     （旧版 wrap_content 在「有状态角标」的书上会把封面容器撑高、把书名挤掉）。
+     封面 2dp 柔和接触阴影（暖灰），状态收成书脊底部 3dp 色条。 -->
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="vertical">
+    android:foreground="?attr/selectableItemBackground"
+    android:stateListAnimator="@animator/press_scale">
 
     <FrameLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content">
+        android:id="@+id/cover_frame"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:background="@drawable/bg_cover"
+        android:clipToOutline="true"
+        android:elevation="2dp"
+        android:foreground="@drawable/bg_cover_stroke"
+        android:outlineAmbientShadowColor="#1A3A3228"
+        android:outlineSpotShadowColor="#1A3A3228"
+        app:layout_constraintDimensionRatio="H,3:4"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
 
         <com.bai.bookshelf.ui.widget.RatioImageView
             android:id="@+id/iv_cover"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="@drawable/bg_cover"
-            android:clipToOutline="true"
+            android:layout_height="match_parent"
             android:contentDescription="书籍封面"
-            android:foreground="@drawable/bg_cover_stroke"
-            android:scaleType="centerCrop"
-            android:src="@drawable/ic_cover_placeholder" />
+            android:scaleType="centerCrop" />
 
-        <!-- 左上角标：阅读状态 -->
-        <TextView
-            android:id="@+id/tv_read"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="top|start"
-            android:layout_margin="5dp"
-            android:background="@drawable/bg_badge"
-            android:backgroundTint="?attr/colorPrimary"
-            android:paddingHorizontal="6dp"
-            android:paddingVertical="2dp"
-            android:text="未读"
-            android:textColor="@color/white"
-            android:textSize="@dimen/text_caption" />
+        <!-- 6dp 书脊只给生成封面；真实封面用 2dp 低透明度内边缘，避免双书脊 -->
+        <View
+            android:id="@+id/v_spine"
+            android:layout_width="6dp"
+            android:layout_height="match_parent"
+            android:layout_gravity="start"
+            android:background="@drawable/bg_book_spine" />
+
+        <View
+            android:id="@+id/v_edge"
+            android:layout_width="2dp"
+            android:layout_height="match_parent"
+            android:layout_gravity="start"
+            android:background="@drawable/bg_book_edge"
+            android:visibility="gone" />
+
+        <!-- 状态：书脊底部的 3dp 色条（像书签尾），颜色由代码按状态着色 -->
+        <View
+            android:id="@+id/v_status_accent"
+            android:layout_width="3dp"
+            android:layout_height="26dp"
+            android:layout_gravity="bottom|start"
+            android:layout_marginStart="4dp"
+            android:layout_marginBottom="10dp"
+            android:background="@drawable/bg_status_accent"
+            android:visibility="gone" />
     </FrameLayout>
 
     <!-- 书名：两行居中，行距收紧 -->
     <TextView
         android:id="@+id/tv_title"
-        android:layout_width="match_parent"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginTop="5dp"
         android:ellipsize="end"
+        android:fontFamily="serif"
         android:gravity="center"
+        android:includeFontPadding="false"
         android:lineSpacingMultiplier="1.15"
         android:maxLines="2"
         android:minLines="2"
+        android:textColor="?attr/on_surface"
         android:textSize="@dimen/text_body_small"
-        android:textColor="?attr/on_surface" />
-</LinearLayout>
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/cover_frame" />
+</androidx.constraintlayout.widget.ConstraintLayout>

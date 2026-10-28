@@ -7,8 +7,9 @@
     style="@style/Widget.Bookshelf.Card"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginHorizontal="@dimen/page_padding"
-    android:layout_marginVertical="2dp">
+    android:layout_marginHorizontal="@dimen/page_padding_list"
+    android:layout_marginVertical="2dp"
+    android:foreground="?attr/selectableItemBackground">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -39,7 +40,9 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:textSize="@dimen/text_headline"
-                android:textStyle="bold"
+                android:fontFamily="serif"
+                android:includeFontPadding="false"
+                android:letterSpacing="0.02"
                 android:textColor="?attr/on_surface"
                 android:maxLines="2"
                 android:ellipsize="end" />
@@ -98,6 +101,6 @@
             android:layout_height="wrap_content"
             android:layout_marginStart="@dimen/space_sm"
             android:textSize="@dimen/text_body_small"
-            android:textColor="?attr/colorSecondary" />
+            android:textColor="?attr/accent_text" />
     </LinearLayout>
 </androidx.cardview.widget.CardView>

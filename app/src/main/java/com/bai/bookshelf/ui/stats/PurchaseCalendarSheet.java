@@ -135,8 +135,8 @@ public class PurchaseCalendarSheet {
             this.listener = listener;
             this.b = SheetPurchaseCalendarBinding.inflate(LayoutInflater.from(context));
             this.primary = ThemeManager.resolveColor(context, ThemeManager.ATTR_COLOR_PRIMARY);
-            this.textMain = ContextCompat.getColor(context, R.color.text_main);
-            this.textSub = ContextCompat.getColor(context, R.color.text_sub);
+            this.textMain = ThemeManager.resolveColor(context, R.attr.on_surface);
+            this.textSub = ThemeManager.resolveColor(context, R.attr.on_surface_variant);
             this.mode = start.yearMode ? MODE_YEAR : MODE_MONTH;
             this.focusYear = start.year;
             this.focusMonth = start.month0;

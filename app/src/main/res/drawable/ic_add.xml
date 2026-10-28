@@ -1,7 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 新增（v4.26）：1.75dp 线稿 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="24dp" android:height="24dp"
-    android:viewportWidth="24" android:viewportHeight="24">
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
     <path
-        android:fillColor="#FFFFFFFF"
-        android:pathData="M11,5h2v6h6v2h-6v6h-2v-6L5,13v-2h6z" />
+        android:fillColor="@android:color/transparent"
+        android:pathData="M12,5 L12,19 M5,12 L19,12"
+        android:strokeColor="#FF000000"
+        android:strokeLineCap="round"
+        android:strokeWidth="1.75" />
 </vector>

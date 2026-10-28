@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- 封面占位底（v4.16）：暖灰纸感底 + 圆角，配合 clipToOutline 裁圆
-     v4.18：圆角 10→12dp，与封面描边（bg_cover_stroke）保持一致 -->
+     v4.24：圆角收到 8dp（12dp 偏「卡片」，书不像书） -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
     <solid android:color="@color/cover_placeholder_bg" />
-    <corners android:radius="@dimen/radius_md" />
+    <corners android:radius="@dimen/radius_sm" />
 </shape>

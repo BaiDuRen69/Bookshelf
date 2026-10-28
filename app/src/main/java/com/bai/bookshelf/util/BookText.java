@@ -7,7 +7,35 @@ package com.bai.bookshelf.util;
  */
 public final class BookText {
 
+    /** 书名缺失时的占位文案（v4.27） */
+    public static final String UNSET_TITLE = "（未命名）";
+
     private BookText() {
+    }
+
+    /**
+     * 列表/网格/详情展示用书名（v4.27）：
+     * 标题为 null、纯空白，或只由零宽字符 / 控制字符组成时，返回占位文案，
+     * 避免出现「只有封面、下面没有书名」的空条目。其余情况原样返回（trim 后）。
+     */
+    public static String displayTitle(String title) {
+        if (title == null) {
+            return UNSET_TITLE;
+        }
+        String trimmed = title.trim();
+        if (trimmed.isEmpty()) {
+            return UNSET_TITLE;
+        }
+        for (int i = 0; i < trimmed.length(); ) {
+            int cp = trimmed.codePointAt(i);
+            int type = Character.getType(cp);
+            if (type != Character.CONTROL && type != Character.FORMAT
+                    && type != Character.UNASSIGNED) {
+                return trimmed;
+            }
+            i += Character.charCount(cp);
+        }
+        return UNSET_TITLE;
     }
 
     /**

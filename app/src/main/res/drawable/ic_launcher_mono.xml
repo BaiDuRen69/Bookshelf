@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 单色层（Android 13 主题图标）：只保留书本轮廓 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M38,28h32a6,6 0 0 1 6,6v40a6,6 0 0 1 -6,6H38a6,6 0 0 1 -6,-6V34a6,6 0 0 1 6,-6zM60,28h6v26l-3,-5l-3,5z" />
+</vector>

@@ -11,7 +11,7 @@ import java.util.List;
  * <ol>
  *   <li><b>空安全清洗</b>：为什么需要 —— Room 里 Java String 字段对应的是<b>可空 TEXT 列</b>，
  *   迁移历史里曾多次把列建成 NOT NULL 又修回可空，因此老设备上的存量数据可能存在 null；
- *   而 UI 层普遍直接调用 {@code book.title.toLowerCase()}、{@code book.author.isEmpty()} 这类方法，
+ *   而 UI 层普遍直接调用 {@code book.title.toLowerCase(java.util.Locale.ROOT)}、{@code book.author.isEmpty()} 这类方法，
  *   一旦命中 null 就会 NPE 崩溃。做法是在「数据进入 UI / 工具层」的入口处统一把 null 归一化为 ""，
  *   下游代码即可放心直接调用字符串方法，不必到处写判空。
  *   注意：只在读取路径调用，不要在保存路径调用（保存前应保持用户原始输入）。</li>
@@ -49,6 +49,11 @@ public final class BookSanitizer {
         b.purchaseDate = nz(b.purchaseDate);
         b.locationDetail = nz(b.locationDetail);
         b.note = nz(b.note);
+        b.readingStartDate = nz(b.readingStartDate);
+        b.readingFinishDate = nz(b.readingFinishDate);
+        b.review = nz(b.review);
+        b.seriesName = nz(b.seriesName).trim();
+        b.seriesVolume = nz(b.seriesVolume).trim();
         return b;
     }
 

@@ -49,10 +49,10 @@
 
                 <ImageView
                     android:id="@+id/iv_tab_shelf"
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
                     android:contentDescription="书架"
-                    android:src="@drawable/ic_book" />
+                    android:src="@drawable/ic_book_line" />
 
                 <TextView
                     android:id="@+id/tv_tab_shelf"
@@ -88,10 +88,10 @@
 
                 <ImageView
                     android:id="@+id/iv_tab_stats"
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
                     android:contentDescription="统计"
-                    android:src="@drawable/ic_chart" />
+                    android:src="@drawable/ic_chart_line" />
 
                 <TextView
                     android:id="@+id/tv_tab_stats"
@@ -127,10 +127,10 @@
 
                 <ImageView
                     android:id="@+id/iv_tab_mine"
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
                     android:contentDescription="我的"
-                    android:src="@drawable/ic_person" />
+                    android:src="@drawable/ic_person_line" />
 
                 <TextView
                     android:id="@+id/tv_tab_mine"

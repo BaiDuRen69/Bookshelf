@@ -10,6 +10,7 @@ import com.bai.bookshelf.data.entity.BorrowRecord;
 import com.bai.bookshelf.data.entity.Borrower;
 import com.bai.bookshelf.data.entity.Category;
 import com.bai.bookshelf.data.entity.Country;
+import com.bai.bookshelf.data.entity.Excerpt;
 import com.bai.bookshelf.data.entity.Location;
 import com.bai.bookshelf.data.entity.NoteImage;
 import com.bai.bookshelf.data.entity.Publisher;
@@ -109,6 +110,7 @@ public final class ZipRestore {
             db.bookCopyDao().deleteAll();
             db.borrowRecordDao().deleteAll();
             db.noteImageDao().deleteAll();
+            db.excerptDao().deleteAll();
             db.locationDao().deleteAll();
             db.sourceChannelDao().deleteAll();
             db.tagDao().deleteAll();
@@ -134,6 +136,10 @@ public final class ZipRestore {
             for (NoteImage n : imgs) {
                 n.path = ZipBackup.toAbs(n.path, filesDirPath);
                 db.noteImageDao().insert(n);
+            }
+            for (Excerpt e : readList(root, "excerpts", new TypeToken<List<Excerpt>>() {})) {
+                e.imagePath = ZipBackup.toAbs(e.imagePath, filesDirPath);
+                db.excerptDao().insert(e);
             }
             for (Location x : readList(root, "locations", new TypeToken<List<Location>>() {})) {
                 db.locationDao().insert(x);

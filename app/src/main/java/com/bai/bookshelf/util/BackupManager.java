@@ -94,6 +94,9 @@ public final class BackupManager {
                 if (app.db().bookDao().count() == 0) {
                     return; // 规则 1：藏书为零不备份
                 }
+                if (backedUpToday(ctx)) {
+                    return; // v4.45：每天最多一次，避免每次启动都压缩整库
+                }
                 byte[] zip = ZipBackup.create(ctx);
                 // 默认存放位置：应用内部存储 backups/ 目录
                 writeInternal(ctx, zip);
@@ -106,6 +109,97 @@ public final class BackupManager {
                 // 静默失败：文件夹授权失效等情况，用户下次手动备份时会发现
             }
         });
+    }
+
+    /** 最近一份内部备份（没有则 null） */
+    public static File latestInternalBackup(Context ctx) {
+        File[] all = listInternal(new File(ctx.getFilesDir(), INTERNAL_DIR));
+        return all.length == 0 ? null : all[all.length - 1];
+    }
+
+    /** 今天是否已经备份过（自动备份每天最多一次） */
+    private static boolean backedUpToday(Context ctx) {
+        File latest = latestInternalBackup(ctx);
+        if (latest == null) {
+            return false;
+        }
+        java.util.Calendar a = java.util.Calendar.getInstance();
+        a.setTimeInMillis(latest.lastModified());
+        java.util.Calendar b = java.util.Calendar.getInstance();
+        return a.get(java.util.Calendar.YEAR) == b.get(java.util.Calendar.YEAR)
+                && a.get(java.util.Calendar.DAY_OF_YEAR) == b.get(java.util.Calendar.DAY_OF_YEAR);
+    }
+
+    /**
+     * 手动立即备份（忽略「每天一次」限制）。
+     *
+     * @return 备份压缩包字节数；0 = 还没有藏书；-1 = 失败
+     */
+    public static long backupNow(Context ctx) {
+        try {
+            BookshelfApp app = BookshelfApp.get();
+            if (app.db().bookDao().count() == 0) {
+                return 0;
+            }
+            byte[] zip = ZipBackup.create(ctx);
+            writeInternal(ctx, zip);
+            Uri treeUri = getTreeUri(ctx);
+            if (treeUri != null) {
+                try {
+                    writeTree(ctx, treeUri, zip);
+                } catch (Exception ignored) {
+                    // 外部文件夹授权失效不影响内部备份
+                }
+            }
+            return zip.length;
+        } catch (Exception e) {
+            return -1;
+        }
+    }
+
+    /** 预览一个 zip 备份：返回 {藏书册数, 解压后内容字节数}，读不出册数时为 -1 */
+    public static long[] inspectBackup(Context ctx, Uri uri) {
+        long bytes = 0;
+        String json = null;
+        try (InputStream in = ctx.getContentResolver().openInputStream(uri)) {
+            if (in == null) {
+                return new long[]{-1, -1};
+            }
+            try (java.util.zip.ZipInputStream zis = new java.util.zip.ZipInputStream(in)) {
+                java.util.zip.ZipEntry entry;
+                while ((entry = zis.getNextEntry()) != null) {
+                    if (entry.isDirectory()) {
+                        continue;
+                    }
+                    byte[] data = readStream(zis);
+                    bytes += data.length;
+                    if ("data.json".equals(entry.getName())) {
+                        json = new String(data, java.nio.charset.StandardCharsets.UTF_8);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            return new long[]{-1, -1};
+        }
+        int books = -1;
+        if (json != null) {
+            try {
+                org.json.JSONArray array = new org.json.JSONObject(json).optJSONArray("books");
+                books = array == null ? 0 : array.length();
+            } catch (Exception ignored) {
+            }
+        }
+        return new long[]{books, bytes};
+    }
+
+    private static byte[] readStream(InputStream in) throws java.io.IOException {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        byte[] buffer = new byte[8192];
+        int len;
+        while ((len = in.read(buffer)) > 0) {
+            out.write(buffer, 0, len);
+        }
+        return out.toByteArray();
     }
 
     // ======================= 应用内部存储 =======================

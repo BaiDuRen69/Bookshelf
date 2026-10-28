@@ -15,4 +15,6 @@
     <attr name="on_surface_variant" format="color" />
     <attr name="primary_container" format="color" />
     <attr name="on_primary_container" format="color" />
+    <!-- v4.24：黄铜作文字时的深色版本（填充仍用 colorSecondary） -->
+    <attr name="accent_text" format="color" />
 </resources>

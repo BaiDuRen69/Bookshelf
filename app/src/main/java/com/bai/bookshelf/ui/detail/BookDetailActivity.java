@@ -1,31 +1,39 @@
 package com.bai.bookshelf.ui.detail;
 
-import androidx.appcompat.app.AlertDialog;
+import android.content.Context;
 import android.content.Intent;
+import android.content.res.ColorStateList;
+import android.graphics.Color;
+import android.graphics.Typeface;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.text.SpannableString;
+import android.text.style.ForegroundColorSpan;
+import android.util.TypedValue;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.PopupMenu;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
-import com.bai.bookshelf.ui.BaseActivity;
 
 import com.bai.bookshelf.R;
 import com.bai.bookshelf.app.BookshelfApp;
 import com.bai.bookshelf.data.entity.Book;
 import com.bai.bookshelf.data.entity.BookCopy;
 import com.bai.bookshelf.data.entity.BorrowRecord;
+import com.bai.bookshelf.data.entity.Excerpt;
 import com.bai.bookshelf.data.entity.Location;
 import com.bai.bookshelf.data.entity.NoteImage;
 import com.bai.bookshelf.databinding.ActivityBookDetailBinding;
 import com.bai.bookshelf.databinding.DialogInputBinding;
 import com.bai.bookshelf.databinding.ItemDetailCopyBinding;
+import com.bai.bookshelf.ui.BaseActivity;
 import com.bai.bookshelf.ui.edit.BookEditActivity;
+import com.bai.bookshelf.util.InsetsHelper;
 import com.bai.bookshelf.util.StatusText;
 import com.bai.bookshelf.util.ThemeManager;
 import com.bumptech.glide.Glide;
@@ -36,6 +44,7 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
@@ -56,6 +65,10 @@ public class BookDetailActivity extends BaseActivity {
     private ActivityBookDetailBinding b;
     private Book book;
     private String locationName = "未设置地点";
+    /** 已加载的封面标识（url|书名）：reload 重绘时封面没变就不重复请求 Glide */
+    private String loadedCoverKey = "";
+    /** 已渲染的标签串：reload 重绘时标签没变就不重建 Chip */
+    private String loadedTags;
 
     /** 分类展示串「一级-二级」（v4.9，reload 时解析好再给 bind 用） */
     private String categoryDisplay = "";
@@ -64,6 +77,7 @@ public class BookDetailActivity extends BaseActivity {
     private List<BookCopy> copies = new ArrayList<>();
     private Map<Long, String> copyLocNames = new HashMap<>();   // 副本地点 id → 名称
     private List<NoteImage> noteImages = new ArrayList<>();     // 备注图片（默认折叠）
+    private List<Excerpt> excerpts = new ArrayList<>();         // 摘抄（v4.50，详情页只预览前 2 条）
     private boolean noteImagesExpanded = false;
     private boolean copiesExpanded = false;                     // 逐本信息 >3 本时是否展开全部
     private boolean bookNoteExpanded = false;                   // 书籍备注是否展开
@@ -88,6 +102,7 @@ public class BookDetailActivity extends BaseActivity {
         b = ActivityBookDetailBinding.inflate(getLayoutInflater());
         setContentView(b.getRoot());
         b.toolbar.setNavigationOnClickListener(v -> finish());
+        InsetsHelper.applyBottomInset(b.bottomBar);
 
         pickLendImageLauncher = registerForActivityResult(
                 new androidx.activity.result.contract.ActivityResultContracts.GetContent(),
@@ -103,6 +118,9 @@ public class BookDetailActivity extends BaseActivity {
             finish();
             return;
         }
+        // 先用 Intent 里的数据把详情画出来（首帧立即有内容），
+        // 地点名/借出记录/逐本/备注图后台刷新后再重绘。
+        bind();
 
         b.btnEdit.setOnClickListener(v -> {
             Intent intent = new Intent(this, BookEditActivity.class);
@@ -111,7 +129,7 @@ public class BookDetailActivity extends BaseActivity {
         });
         // 单本时的借出按钮（多本时隐藏，改为逐本信息里的行内按钮）
         b.btnLend.setOnClickListener(v -> toggleLend());
-        b.btnDelete.setOnClickListener(v -> confirmDelete());
+        b.btnMore.setOnClickListener(v -> showMoreActions());
         b.rowBorrowHistory.setOnClickListener(v -> {
             Intent intent = new Intent(this, BorrowHistoryActivity.class);
             intent.putExtra(BorrowHistoryActivity.EXTRA_BOOK_ID, book.id);
@@ -154,19 +172,41 @@ public class BookDetailActivity extends BaseActivity {
             }
             book = fresh;
             Location loc = book.locationId == null ? null : app.db().locationDao().getById(book.locationId);
-            // 多本时可同时存在多条借出中记录（逐本借出）
-            List<BorrowRecord> openList = app.db().borrowRecordDao().findOpenListByBook(book.id);
-            int recordCount = app.db().borrowRecordDao().getByBook(book.id).size();
+            // v4.39：查询收敛。借出记录一次取全再在内存里拆「借出中 / 总数」；
+            // 地点一次取全；备注图一次取全按 ownerKey 分组——原先是逐本、逐条记录
+            // 各查一次（N+1），套装书要发几十条查询。
+            List<BorrowRecord> allRecords = app.db().borrowRecordDao().getByBook(book.id);
+            int recordCount = allRecords.size();
+            List<BorrowRecord> openList = new ArrayList<>();
+            for (BorrowRecord r : allRecords) {
+                if (r.status == BorrowRecord.STATUS_OUT) {
+                    openList.add(r);
+                }
+            }
             // 逐本信息 + 各地点名称解析
             List<BookCopy> copyList = app.db().bookCopyDao().getByBook(book.id);
             Map<Long, String> locNames = new HashMap<>();
+            for (Location l : app.db().locationDao().getAll()) {
+                locNames.put(l.id, l.name);
+            }
             for (BookCopy c : copyList) {
                 if (c.locationId != null && !locNames.containsKey(c.locationId)) {
-                    Location l = app.db().locationDao().getById(c.locationId);
-                    locNames.put(c.locationId, l == null ? "未设置地点" : l.name);
+                    locNames.put(c.locationId, "未设置地点"); // 地点已被删除
                 }
             }
-            List<NoteImage> imgs = app.db().noteImageDao().getByOwnerKey("book:" + book.id);
+            // 备注图片（书级 + 各借出记录）一次取全
+            Map<String, List<NoteImage>> imgsByOwner = new HashMap<>();
+            for (NoteImage img : app.db().noteImageDao().getByBook(book.id)) {
+                List<NoteImage> list = imgsByOwner.get(img.ownerKey);
+                if (list == null) {
+                    list = new ArrayList<>();
+                    imgsByOwner.put(img.ownerKey, list);
+                }
+                list.add(img);
+            }
+            List<NoteImage> foundImgs = imgsByOwner.get("book:" + book.id);
+            final List<NoteImage> imgs = foundImgs == null ? new ArrayList<>() : foundImgs;
+            List<Excerpt> excerptList = app.db().excerptDao().getByBook(book.id);
             // v4.9：分类展示格式「一级-二级」（书里只存名字，需查分类库解析上级）
             String catDisplay = com.bai.bookshelf.util.CategoryPropagator
                     .displayPath(book.category, app.db().categoryDao().getAll());
@@ -174,8 +214,8 @@ public class BookDetailActivity extends BaseActivity {
             // 加载每本当前借出记录的备注图片
             Map<Integer, List<NoteImage>> lendImgs = new HashMap<>();
             for (BorrowRecord r : openList) {
-                List<NoteImage> list = app.db().noteImageDao().getByOwnerKey("borrow:" + r.id);
-                if (!list.isEmpty()) {
+                List<NoteImage> list = imgsByOwner.get("borrow:" + r.id);
+                if (list != null && !list.isEmpty()) {
                     lendImgs.put(r.copyIndex, list);
                 }
             }
@@ -185,11 +225,12 @@ public class BookDetailActivity extends BaseActivity {
                 copies = copyList;
                 copyLocNames = locNames;
                 noteImages = imgs;
+                excerpts = excerptList;
                 copyLendImages = lendImgs;
                 categoryDisplay = fCatDisplay;
                 // 借出过才显示「借出记录」入口
                 b.rowBorrowHistory.setVisibility(recordCount > 0 ? View.VISIBLE : View.GONE);
-                b.rowBorrowHistory.setText("借出记录（" + recordCount + " 条）›");
+                b.rowBorrowHistory.setText("借出记录（" + recordCount + " 条）");
                 bind();
             });
         });
@@ -197,88 +238,139 @@ public class BookDetailActivity extends BaseActivity {
 
     /** 把书籍信息渲染到界面 */
     private void bind() {
-        b.tvTitle.setText(book.title);
-        // 封面：支持网络链接与本地文件路径
-        Glide.with(this)
-                .load(book.coverUrl.isEmpty() ? null
-                        : (book.coverUrl.startsWith("http") ? book.coverUrl : new File(book.coverUrl)))
-                .placeholder(R.drawable.ic_cover_placeholder)
-                .error(R.drawable.ic_cover_placeholder)
-                .into(b.ivCover);
+        b.tvTitle.setText(com.bai.bookshelf.util.BookText.displayTitle(book.title));
 
-        // 书目信息块
-        StringBuilder info = new StringBuilder();
-        appendLine(info, "作者", book.author);
-        appendLine(info, "译者", book.translator);
-        appendLine(info, "国家/地区", book.country);
-        appendLine(info, "出版社", book.publisher);
-        appendLine(info, "版次", book.publishDate);
-        appendLine(info, "印次", book.printing);
-        if (book.pages > 0) {
-            appendLine(info, "页数", book.pages + " 页");
-        }
-        appendLine(info, "字数", book.wordCount);
-        if (book.listPrice > 0) {
-            appendLine(info, "定价", "¥" + book.listPrice);
-        }
-        if (book.quantity > 1) {
-            appendLine(info, "拥有数量", book.quantity + " 本");
-        }
-        appendLine(info, "豆瓣评分", book.doubanRating);
-        appendLine(info, "分类", categoryDisplay);
-        appendLine(info, "ISBN", formatIsbn(book.isbn));
-        b.tvInfo.setText(section("书目信息", info.toString().trim()));
+        // hero：作者/译者/国家 + 状态 chips（书名与大信息量交给下面的两列信息块）
+        List<String> authors = new ArrayList<>();
+        addIfNotEmpty(authors, book.author);
+        addIfNotEmpty(authors, book.translator);
+        addIfNotEmpty(authors, book.country);
+        String authorLine = joinWithDot(authors);
+        b.tvHeroAuthor.setText(authorLine);
+        b.tvHeroAuthor.setVisibility(authorLine.isEmpty() ? View.GONE : View.VISIBLE);
+        bindHeroChip(b.tvHeroStock, StatusText.stock(book.stockStatus),
+                book.stockStatus == Book.STOCK_LENT);
+        bindHeroChip(b.tvHeroRead, StatusText.read(book.readStatus), false);
+        bindHeroChip(b.tvHeroOwn, StatusText.own(book.ownType), false);
 
+        // 封面：统一走 CoverLoader（180ms 淡入 / 布面首字占位）。
+        // v4.39：reload 重绘时封面没变就跳过——重复 into() 会让封面重新淡入，闪一下。
+        String coverKey = book.coverUrl + "|" + book.title;
+        if (!coverKey.equals(loadedCoverKey)) {
+            loadedCoverKey = coverKey;
+            com.bai.bookshelf.util.CoverLoader.load(b.ivCover, book);
+            // v4.30：hero 用封面做模糊底，叠 85% 纸色遮罩（每本书有自己的颜色情绪）
+            int scrimColor = ThemeManager.resolveColor(
+                    this, R.attr.primary_container);
+            b.vHeroScrim.setBackgroundColor(androidx.core.graphics.ColorUtils.setAlphaComponent(
+                    scrimColor, 217));
+            com.bai.bookshelf.util.CoverLoader.loadBlurred(b.ivHeroBg, book);
+        }
         boolean multi = book.quantity > 1;
         boolean hasLent = !openRecords.isEmpty();
 
-        // 藏书核心信息块（独立展示，全书只出现一次）：先来源，再状态；多本时不显示来源
-        StringBuilder core = new StringBuilder();
+        // 系列（v4.53）：有系列时在书目信息上方给一条可点入口
+        String seriesName = com.bai.bookshelf.util.BookSeries.name(book);
+        if (seriesName.isEmpty()) {
+            b.cardSeries.setVisibility(View.GONE);
+        } else {
+            String seriesVolume = com.bai.bookshelf.util.BookSeries.volumeLabel(book);
+            b.tvSeriesInfo.setText(seriesVolume.isEmpty()
+                    ? seriesName : seriesName + " · " + seriesVolume);
+            b.cardSeries.setVisibility(View.VISIBLE);
+            b.cardSeries.setOnClickListener(v -> {
+                android.content.Intent intent = new android.content.Intent(this,
+                        com.bai.bookshelf.ui.series.SeriesActivity.class);
+                intent.putExtra(com.bai.bookshelf.ui.series.SeriesActivity.EXTRA_SERIES_NAME,
+                        seriesName);
+                startActivity(intent);
+            });
+        }
+
+        // ===== 书目信息（两列 label/value） =====
+        List<String[]> info = new ArrayList<>();
+        addInfo(info, "出版社", book.publisher);
+        addInfo(info, "出版年", book.publishDate);
+        addInfo(info, "印次", printingText(book.printing));
+        if (book.pages > 0) {
+            addInfo(info, "页数", book.pages + " 页");
+        }
+        addInfo(info, "字数", book.wordCount);
+        if (book.listPrice > 0) {
+            addInfo(info, "定价", money(book.listPrice));
+        }
+        if (multi) {
+            addInfo(info, "拥有数量", book.quantity + " 本");
+        }
+        addInfo(info, "豆瓣评分", book.doubanRating);
+        addInfo(info, "分类", categoryDisplay);
+        addInfo(info, "ISBN", formatIsbn(book.isbn));
+        buildInfoGrid(b.llInfoGrid, info);
+        b.cardInfo.setVisibility(info.isEmpty() ? View.GONE : View.VISIBLE);
+
+        // ===== 藏书信息 =====
+        List<String[]> core = new ArrayList<>();
         // 书籍被借出时隐藏存放地点（v2.1 修复）
         if (!hasLent) {
-            appendLine(core, "存放地点", locationName);
+            addInfo(core, "存放地点", locationName);
         }
         // 来源：单本时展示；多本时不展示（逐本信息里各自有来源）
         if (!multi) {
-            // 未填渠道时按拥有类型给出明确提示，避免只显示「自购」看不出从哪里购买
             String source = book.sourceChannel.isEmpty()
                     ? StatusText.own(book.ownType) + "（" + channelHint(book.ownType) + "）"
                     : StatusText.own(book.ownType) + " · " + book.sourceChannel;
-            appendLine(core, "来源", source);
+            addInfo(core, "来源", source);
         }
         if (multi) {
-            // 多本：汇总各本状态，借给谁下放到逐本信息里按本显示
-            appendLine(core, "藏书状态", multiCopyStockSummary());
+            addInfo(core, "藏书状态", multiCopyStockSummary());
         } else {
-            appendLine(core, "藏书状态", StatusText.stock(book.stockStatus));
+            addInfo(core, "藏书状态", StatusText.stock(book.stockStatus));
             BorrowRecord open1 = openRecordForCopy(1);
             if (book.stockStatus == Book.STOCK_LENT && open1 != null) {
-                appendLine(core, "借给", open1.borrower + "（" + open1.lendDate + "）");
+                addInfo(core, "借给", open1.borrower + "（" + open1.lendDate + "）");
             }
         }
-        appendLine(core, "录入时间", StatusText.formatTime(book.createdAt));
-        b.tvCore.setText(section("藏书信息", core.toString().trim()));
+        addInfo(core, "录入时间", StatusText.formatTime(book.createdAt));
+        buildInfoGrid(b.llCoreGrid, core);
+        b.cardCore.setVisibility(core.isEmpty() ? View.GONE : View.VISIBLE);
 
-        // 管理信息块（不再包含「备注」与「各本存放位置」，这两处已分别下线/独立成块）
-        StringBuilder mg = new StringBuilder();
-        appendLine(mg, "阅读状态", StatusText.read(book.readStatus));
-        appendLine(mg, "购买日期", book.purchaseDate);
-        if (book.purchasePrice > 0) {
-            // 有定价时追加折扣（实付 ÷ 定价 × 10，保留两位小数，如 2.99折）
-            String paid = "¥" + book.purchasePrice;
-            if (book.listPrice > 0) {
-                paid += String.format(java.util.Locale.getDefault(),
-                        "（%.2f折）", book.purchasePrice / book.listPrice * 10);
-            }
-            appendLine(mg, "实付", paid);
+        // ===== 我的书房 =====
+        List<String[]> manage = new ArrayList<>();
+        addInfo(manage, "阅读状态", StatusText.read(book.readStatus));
+        if (!book.readingStartDate.isEmpty()) {
+            addInfo(manage, "开始阅读", book.readingStartDate);
         }
-        // 我的评分不在详情页展示（仍在编辑页和书架排序中可用）
-        b.tvManage.setText(section("管理信息", mg.toString().trim()));
-        // 管理信息为空（书刚录入、无借出无备注）时整块隐藏，避免空白卡片
-        b.tvManage.setVisibility(mg.toString().trim().isEmpty() ? View.GONE : View.VISIBLE);
+        if (!book.readingFinishDate.isEmpty()) {
+            String finish = book.readingFinishDate;
+            int startKey = com.bai.bookshelf.util.BorrowReminder
+                    .parseKey(book.readingStartDate);
+            int finishKey = com.bai.bookshelf.util.BorrowReminder
+                    .parseKey(book.readingFinishDate);
+            if (startKey > 0 && finishKey >= startKey) {
+                finish += "（" + com.bai.bookshelf.util.BorrowReminder
+                        .daysBetween(startKey, finishKey) + " 天）";
+            }
+            addInfo(manage, "读完日期", finish);
+        }
+        addInfo(manage, "购买日期", book.purchaseDate);
+        if (book.purchasePrice > 0) {
+            String paid = money(book.purchasePrice);
+            if (book.listPrice > 0) {
+                paid += String.format(Locale.getDefault(), "（%.2f折）",
+                        book.purchasePrice / book.listPrice * 10);
+            }
+            addInfo(manage, "购入价", paid);
+        }
+        buildInfoGrid(b.llManageGrid, manage);
+        b.cardManage.setVisibility(manage.isEmpty() ? View.GONE : View.VISIBLE);
 
         // 单本借出备注与图片：独立于管理信息块，文本前 20 字折叠、图片默认折叠
         BorrowRecord open1 = openRecordForCopy(1);
+        if (!multi && open1 != null) {
+            bindBorrowDue(open1);
+        } else {
+            b.tvBorrowDue.setVisibility(View.GONE);
+        }
         if (!multi && open1 != null && !open1.note.isEmpty()) {
             b.tvManageLendNote.setVisibility(View.VISIBLE);
             renderManageLendNote(open1.note);
@@ -303,8 +395,12 @@ public class BookDetailActivity extends BaseActivity {
         // 备注图片：默认折叠，位于备注下方
         renderNoteImagesArea();
 
+        // 摘抄与书评（v4.50）：短评 + 最新 2 条摘抄预览
+        bindExcerpts();
+
         // 逐本信息块：多本时按本铺开，第 1 本也在此显示（行尾带借出/归还按钮）；>3 本默认只显前 3 本
         b.btnLend.setVisibility(multi ? View.GONE : View.VISIBLE);
+        b.cardCopies.setVisibility(multi ? View.VISIBLE : View.GONE);
         if (multi) {
             b.containerCopies.setVisibility(View.VISIBLE);
             buildCopyRows();
@@ -315,41 +411,129 @@ public class BookDetailActivity extends BaseActivity {
         // 借出按钮文案随状态切换（单本才有此按钮）
         b.btnLend.setText(book.stockStatus == Book.STOCK_LENT ? "归还" : "借出");
 
-        // 标签独立区域展示（不与管理信息混在一起）
-        b.chipGroupTags.removeAllViews();
-        if (book.tags.trim().isEmpty()) {
-            b.tvTagsLabel.setVisibility(View.GONE);
-            b.chipGroupTags.setVisibility(View.GONE);
-        } else {
-            b.tvTagsLabel.setVisibility(View.VISIBLE);
-            b.chipGroupTags.setVisibility(View.VISIBLE);
-            for (String t : book.tags.split(",")) {
-                String name = t.trim();
-                if (name.isEmpty()) {
-                    continue;
+        // 标签独立区域展示（不与管理信息混在一起）；标签没变就不重建 Chip
+        String tags = book.tags.trim();
+        if (!tags.equals(loadedTags)) {
+            loadedTags = tags;
+            b.chipGroupTags.removeAllViews();
+            if (tags.isEmpty()) {
+                b.cardTags.setVisibility(View.GONE);
+                b.tvTagsLabel.setVisibility(View.GONE);
+                b.chipGroupTags.setVisibility(View.GONE);
+            } else {
+                b.cardTags.setVisibility(View.VISIBLE);
+                b.tvTagsLabel.setVisibility(View.VISIBLE);
+                b.chipGroupTags.setVisibility(View.VISIBLE);
+                for (String t : tags.split(",")) {
+                    String name = t.trim();
+                    if (name.isEmpty()) {
+                        continue;
+                    }
+                    com.google.android.material.chip.Chip chip = new com.google.android.material.chip.Chip(this);
+                    // 标签过长：截断显示前 20 字，点击看完整（同时避免超长 Chip 导致布局 bug）
+                    if (name.length() > 20) {
+                        chip.setText("# " + name.substring(0, 20) + "…");
+                        chip.setOnClickListener(v -> showFullTag(name));
+                    } else {
+                        chip.setText("# " + name);
+                        chip.setClickable(false);
+                    }
+                    chip.setMaxLines(1);
+                    chip.setEllipsize(android.text.TextUtils.TruncateAt.END);
+                    chip.setCheckable(false);
+                    b.chipGroupTags.addView(chip);
                 }
-                com.google.android.material.chip.Chip chip = new com.google.android.material.chip.Chip(this);
-                // 标签过长：截断显示前 20 字，点击看完整（同时避免超长 Chip 导致布局 bug）
-                if (name.length() > 20) {
-                    chip.setText("# " + name.substring(0, 20) + "…");
-                    chip.setOnClickListener(v -> showFullTag(name));
-                } else {
-                    chip.setText("# " + name);
-                    chip.setClickable(false);
-                }
-                chip.setMaxLines(1);
-                chip.setEllipsize(android.text.TextUtils.TruncateAt.END);
-                chip.setCheckable(false);
-                b.chipGroupTags.addView(chip);
             }
         }
 
         // v3.6：内容简介已停用（API 不再导入、布局中 tv_summary 永久 gone）
     }
 
+    /**
+     * 借阅到期横幅（v4.42）：显示应还/逾期天数；点按复制催还文案，长按修改应还日期。
+     * 未设日期时点按直接补设。
+     */
+    private void bindBorrowDue(BorrowRecord open) {
+        b.tvBorrowDue.setVisibility(View.VISIBLE);
+        int due = com.bai.bookshelf.util.BorrowReminder.parseKey(open.dueDate);
+        int today = com.bai.bookshelf.util.BorrowReminder.todayKey();
+        boolean overdue = due > 0 && due < today;
+        String text;
+        if (due == 0) {
+            text = "借出中 · 未设置应还日期（点按设置）";
+        } else if (overdue) {
+            text = "已逾期 " + com.bai.bookshelf.util.BorrowReminder.daysBetween(due, today)
+                    + " 天 · 应还 " + open.dueDate + " · 点按复制催还文案";
+        } else if (due == today) {
+            text = "今天到期 · 点按复制催还文案";
+        } else {
+            text = "应还 " + open.dueDate + " · 还有 "
+                    + com.bai.bookshelf.util.BorrowReminder.daysBetween(today, due)
+                    + " 天 · 点按复制催还文案";
+        }
+        b.tvBorrowDue.setText(text);
+        b.tvBorrowDue.setTextColor(overdue
+                ? ContextCompat.getColor(this, R.color.danger)
+                : ThemeManager.resolveColor(this, R.attr.on_surface));
+        b.tvBorrowDue.setOnClickListener(v -> {
+            if (due == 0) {
+                showDuePicker(open);
+            } else {
+                copyReminder(open);
+            }
+        });
+        b.tvBorrowDue.setOnLongClickListener(v -> {
+            showDuePicker(open);
+            return true;
+        });
+    }
+
+    private void copyReminder(BorrowRecord open) {
+        String text = com.bai.bookshelf.util.BorrowReminder.reminderText(book, open, null);
+        android.content.ClipboardManager cm =
+                (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+        if (cm != null) {
+            cm.setPrimaryClip(android.content.ClipData.newPlainText("催还文案", text));
+            Toast.makeText(this, "催还文案已复制", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void showDuePicker(BorrowRecord open) {
+        int key = com.bai.bookshelf.util.BorrowReminder.parseKey(open.dueDate);
+        com.bai.bookshelf.ui.widget.CalendarPicker.showSingle(this, "应还日期", key,
+                picked -> {
+                    open.dueDate = com.bai.bookshelf.util.BorrowReminder.formatKey(picked);
+                    saveDueDate(open);
+                },
+                () -> {
+                    open.dueDate = "";
+                    saveDueDate(open);
+                });
+    }
+
+    private void saveDueDate(BorrowRecord open) {
+        BookshelfApp app = BookshelfApp.get();
+        app.io(() -> {
+            app.db().borrowRecordDao().update(open);
+            app.ui(() -> {
+                reload();
+                com.bai.bookshelf.util.BorrowReminder.refresh(this);
+            });
+        });
+    }
+
+    /** Android 13+：借出时若设了应还日期，就申请通知权限；拒绝则靠书架「超期」角标 */
+    private void ensureNotifyPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+                && ContextCompat.checkSelfPermission(this,
+                android.Manifest.permission.POST_NOTIFICATIONS)
+                != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, 9101);
+        }
+    }
+
     /** 单本借出备注：超过 20 字默认截断，点击切换 */
-    private void renderManageLendNote(String note) {
-        if (note.length() <= LEND_NOTE_PREVIEW_MAX || manageLendNoteExpanded) {
+    private void renderManageLendNote(String note) {        if (note.length() <= LEND_NOTE_PREVIEW_MAX || manageLendNoteExpanded) {
             b.tvManageLendNote.setText("借出备注：" + note);
             b.tvManageLendNote.setOnClickListener(note.length() > LEND_NOTE_PREVIEW_MAX
                     ? v -> {
@@ -369,8 +553,8 @@ public class BookDetailActivity extends BaseActivity {
     /** 单本借出备注图片入口与内容区 */
     private void renderManageLendNoteImagesArea(List<NoteImage> imgs) {
         b.rowManageLendNoteImages.setText(manageLendImagesExpanded
-                ? "借出备注图片（" + imgs.size() + " 张）‹ 收起"
-                : "借出备注图片（" + imgs.size() + " 张）› 展开");
+                ? "借出备注图片（" + imgs.size() + " 张）· 收起"
+                : "借出备注图片（" + imgs.size() + " 张）· 展开");
         b.rowManageLendNoteImages.setOnClickListener(v -> {
             manageLendImagesExpanded = !manageLendImagesExpanded;
             renderManageLendNoteImagesArea(imgs);
@@ -435,7 +619,9 @@ public class BookDetailActivity extends BaseActivity {
     private void buildCopyRows() {
         b.containerCopies.removeAllViews();
         int showLimit = copiesExpanded ? book.quantity : Math.min(COPY_COLLAPSE_LIMIT, book.quantity);
-        for (int i = 1; i <= book.quantity; i++) {
+        // v4.39：只 inflate 真正显示的行。之前 8 本套装会把 5 行隐藏项也建出来，
+        // 首帧和 reload 重绘各多花 20ms+。
+        for (int i = 1; i <= showLimit; i++) {
             ItemDetailCopyBinding rb = ItemDetailCopyBinding.inflate(getLayoutInflater(), b.containerCopies, false);
             BorrowRecord open = openRecordForCopy(i);
             rb.tvCopyInfo.setText(copyLine(i, open));
@@ -478,9 +664,9 @@ public class BookDetailActivity extends BaseActivity {
             } else {
                 rb.tvCopyNote.setVisibility(View.GONE);
             }
-            rb.getRoot().setVisibility(i <= showLimit ? View.VISIBLE : View.GONE);
+            rb.getRoot().setVisibility(View.VISIBLE);
             b.containerCopies.addView(rb.getRoot());
-            // 行间细分割线（最后一行不画；隐藏行不需要分隔线）
+            // 行间细分割线（最后一行不画）
             if (i < showLimit) {
                 b.containerCopies.addView(divider());
             }
@@ -495,9 +681,9 @@ public class BookDetailActivity extends BaseActivity {
             expandRow.setTextColor(ThemeManager.resolveColor(this, ThemeManager.ATTR_COLOR_PRIMARY));
             expandRow.setTextSize(13);
             if (copiesExpanded) {
-                expandRow.setText("‹ 收起逐本信息");
+                expandRow.setText("收起逐本信息");
             } else {
-                expandRow.setText("展开剩余 " + (book.quantity - COPY_COLLAPSE_LIMIT) + " 本 ›");
+                expandRow.setText("展开剩余 " + (book.quantity - COPY_COLLAPSE_LIMIT) + " 本");
             }
             expandRow.setOnClickListener(v -> {
                 copiesExpanded = !copiesExpanded;
@@ -599,6 +785,13 @@ public class BookDetailActivity extends BaseActivity {
         }
         if (open != null) {
             line.append("｜借给 ").append(open.borrower).append("（").append(open.lendDate).append("）");
+            int due = com.bai.bookshelf.util.BorrowReminder.parseKey(open.dueDate);
+            if (due > 0) {
+                line.append("｜应还 ").append(open.dueDate);
+                if (due < com.bai.bookshelf.util.BorrowReminder.todayKey()) {
+                    line.append("（逾期）");
+                }
+            }
         }
         return line.toString();
     }
@@ -647,8 +840,8 @@ public class BookDetailActivity extends BaseActivity {
                                           List<NoteImage> imgs, int copyIndex) {
         boolean expanded = Boolean.TRUE.equals(copyLendImagesExpanded.get(copyIndex));
         entry.setText(expanded
-                ? "借出备注图片（" + imgs.size() + " 张）‹ 收起"
-                : "借出备注图片（" + imgs.size() + " 张）› 展开");
+                ? "借出备注图片（" + imgs.size() + " 张）· 收起"
+                : "借出备注图片（" + imgs.size() + " 张）· 展开");
         entry.setOnClickListener(v -> {
             copyLendImagesExpanded.put(copyIndex, !expanded);
             buildCopyRows(); // 重新渲染该本区域
@@ -699,6 +892,50 @@ public class BookDetailActivity extends BaseActivity {
 
     // ======================= 备注图片（默认折叠） =======================
 
+    // ======================= 摘抄与书评（v4.50） =======================
+
+    /** 详情页只做入口与预览：短评 + 最新 2 条摘抄，全部内容在摘抄页 */
+    private void bindExcerpts() {
+        List<Excerpt> list = excerpts == null ? new ArrayList<>() : excerpts;
+        b.tvExcerptCount.setText(list.isEmpty() ? "还没记录" : list.size() + " 条");
+
+        String review = book.review == null ? "" : book.review.trim();
+        b.tvDetailReview.setVisibility(review.isEmpty() ? View.GONE : View.VISIBLE);
+        if (!review.isEmpty()) {
+            b.tvDetailReview.setText("短评：" + review);
+        }
+
+        b.llExcerptPreview.removeAllViews();
+        for (int i = 0; i < Math.min(2, list.size()); i++) {
+            Excerpt e = list.get(i);
+            TextView tv = new TextView(this);
+            String prefix = e.page > 0 ? "P." + e.page + "  " : "";
+            tv.setText(prefix + e.content.trim().replace('\n', ' '));
+            tv.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX,
+                    getResources().getDimension(R.dimen.text_body_small));
+            tv.setTextColor(com.bai.bookshelf.util.ThemeManager.resolveColor(
+                    this, R.attr.on_surface_variant));
+            tv.setMaxLines(2);
+            tv.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT);
+            lp.topMargin = dp(6);
+            b.llExcerptPreview.addView(tv, lp);
+        }
+
+        b.rowAllExcerpts.setText(list.isEmpty()
+                ? "写下第一条摘抄 ›" : "查看全部 " + list.size() + " 条 ›");
+        b.cardExcerpts.setOnClickListener(v -> {
+            android.content.Intent intent = new android.content.Intent(
+                    this, com.bai.bookshelf.ui.excerpt.ExcerptListActivity.class);
+            intent.putExtra(com.bai.bookshelf.ui.excerpt.ExcerptListActivity.EXTRA_BOOK_ID, book.id);
+            intent.putExtra(com.bai.bookshelf.ui.excerpt.ExcerptListActivity.EXTRA_BOOK_TITLE,
+                    book.title);
+            startActivity(intent);
+        });
+    }
+
     /** 渲染备注图片入口行与内容区（有图才有入口；默认折叠） */
     private void renderNoteImagesArea() {
         if (noteImages.isEmpty()) {
@@ -709,8 +946,8 @@ public class BookDetailActivity extends BaseActivity {
         }
         b.rowNoteImages.setVisibility(View.VISIBLE);
         b.rowNoteImages.setText(noteImagesExpanded
-                ? "备注图片（" + noteImages.size() + " 张）‹ 收起"
-                : "备注图片（" + noteImages.size() + " 张）› 展开");
+                ? "备注图片（" + noteImages.size() + " 张）· 收起"
+                : "备注图片（" + noteImages.size() + " 张）· 展开");
         b.containerNoteImages.setVisibility(noteImagesExpanded ? View.VISIBLE : View.GONE);
         if (noteImagesExpanded) {
             renderNoteImages();
@@ -781,29 +1018,178 @@ public class BookDetailActivity extends BaseActivity {
         return (int) (value * getResources().getDisplayMetrics().density);
     }
 
-    private void appendLine(StringBuilder sb, String label, String value) {
-        if (value != null && !value.isEmpty()) {
-            sb.append(label).append("：").append(value).append("\n");
+    private void addIfNotEmpty(List<String> list, String value) {
+        if (value != null && !value.trim().isEmpty()) {
+            list.add(value.trim());
         }
     }
 
-    /**
-     * 分区文本（v4.16 视觉重构）：首行是加粗主色的小标题，正文常规字重，
-     * 让「书目信息 / 藏书信息 / 管理信息」三块有清晰层级，不再是同款文本块。
-     */
-    private CharSequence section(String title, String body) {
-        String content = body == null ? "" : body.trim();
-        String text = content.isEmpty() ? title : title + "\n" + content;
-        android.text.SpannableString ss = new android.text.SpannableString(text);
-        ss.setSpan(new android.text.style.StyleSpan(android.graphics.Typeface.BOLD),
-                0, title.length(), android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-        ss.setSpan(new android.text.style.ForegroundColorSpan(
-                        com.bai.bookshelf.util.ThemeManager.resolveColor(this,
-                                com.bai.bookshelf.util.ThemeManager.ATTR_COLOR_PRIMARY)),
-                0, title.length(), android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-        ss.setSpan(new android.text.style.RelativeSizeSpan(0.88f),
-                0, title.length(), android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-        return ss;
+    private static String joinWithDot(List<String> parts) {
+        StringBuilder sb = new StringBuilder();
+        for (String p : parts) {
+            if (sb.length() > 0) {
+                sb.append(" · ");
+            }
+            sb.append(p);
+        }
+        return sb.toString();
+    }
+
+    private void addInfo(List<String[]> items, String label, String value) {
+        if (value != null && !value.trim().isEmpty()) {
+            items.add(new String[]{label, value.trim()});
+        }
+    }
+
+    /** 词条式信息列表：label 固定 72dp，value 占满右侧，长值不再把两列撑得参差 */
+    private void buildInfoGrid(LinearLayout container, List<String[]> items) {
+        int size = items.size();
+        while (container.getChildCount() < size) {
+            container.addView(new InfoCell(this));
+        }
+        // v4.39：信息行改为代码构建 + 复用。原先每行一次 XML inflate，
+        // 实机 17 行要 22~27ms（每次 reload 重绘还要再来一遍）；
+        // 现在首帧只建一次、之后只改文字/显隐。
+        for (int i = 0; i < container.getChildCount(); i++) {
+            InfoCell row = (InfoCell) container.getChildAt(i);
+            if (i < size) {
+                row.setVisibility(View.VISIBLE);
+                row.label.setText(items.get(i)[0]);
+                row.value.setText(items.get(i)[1]);
+            } else {
+                row.setVisibility(View.GONE);
+            }
+        }
+    }
+
+    /** 词条式信息行：label 固定 72dp，value 占满右侧，长值不再把两列撑得参差 */
+    private static final class InfoCell extends LinearLayout {
+        final TextView label;
+        final TextView value;
+
+        InfoCell(Context ctx) {
+            super(ctx);
+            float density = ctx.getResources().getDisplayMetrics().density;
+            int padV = Math.round(7 * density);
+            setOrientation(HORIZONTAL);
+            setPadding(0, padV, 0, padV);
+            label = new TextView(ctx);
+            label.setLayoutParams(new LayoutParams(Math.round(72 * density), LayoutParams.WRAP_CONTENT));
+            label.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+            label.setLetterSpacing(0.04f);
+            label.setTextColor(ThemeManager.resolveColor(ctx, R.attr.on_surface_variant));
+            label.setTextSize(TypedValue.COMPLEX_UNIT_PX,
+                    ctx.getResources().getDimensionPixelSize(R.dimen.text_body_small));
+            value = new TextView(ctx);
+            value.setLayoutParams(new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
+            value.setLineSpacing(0, 1.35f);
+            value.setTextColor(ThemeManager.resolveColor(ctx, R.attr.on_surface));
+            value.setTextSize(TypedValue.COMPLEX_UNIT_PX,
+                    ctx.getResources().getDimensionPixelSize(R.dimen.text_body));
+            addView(label);
+            addView(value);
+        }
+    }
+
+    /** hero 状态 chip：借出用黄铜底白字，其余用白底主色字 */
+    private void bindHeroChip(TextView tv, String text, boolean emphasize) {
+        tv.setVisibility(View.VISIBLE);
+        tv.setText(text);
+        if (emphasize) {
+            tv.setBackgroundResource(R.drawable.bg_status_chip);
+            tv.setBackgroundTintList(ColorStateList.valueOf(
+                    ContextCompat.getColor(this, R.color.badge_borrowed)));
+            tv.setTextColor(Color.WHITE);
+        } else {
+            tv.setBackgroundResource(R.drawable.bg_status_chip);
+            tv.setBackgroundTintList(null);
+            tv.setTextColor(ThemeManager.resolveColor(this, ThemeManager.ATTR_COLOR_PRIMARY));
+        }
+    }
+
+    private String money(double value) {
+        return "¥" + String.format(Locale.getDefault(), "%.2f", value);
+    }
+
+    /** 印次存储格式 yyyy-mm|N：能解析出 N 时展示「第 N 次印刷」，否则原样显示 */
+    private String printingText(String printing) {
+        int count = com.bai.bookshelf.util.BookSanitizer.parsePrintingCount(printing);
+        return count > 0 ? "第 " + count + " 次印刷" : printing;
+    }
+
+    /** 底栏「更多」：删除收在这里，红字，不与编辑同权重 */
+    private void showMoreActions() {
+        PopupMenu popup = new PopupMenu(this, b.btnMore);
+        SpannableString delete = new SpannableString("删除这本书");
+        delete.setSpan(new ForegroundColorSpan(ContextCompat.getColor(this, R.color.danger)),
+                0, delete.length(), 0);
+        popup.getMenu().add(0, 2, 0, "分享书卡");
+        popup.getMenu().add(0, 1, 1, delete);
+        popup.setOnMenuItemClickListener(item -> {
+            if (item.getItemId() == 1) {
+                confirmDelete();
+                return true;
+            }
+            if (item.getItemId() == 2) {
+                shareBookCard();
+                return true;
+            }
+            return false;
+        });
+        popup.show();
+    }
+
+    /** v4.52：把当前这本书画成一张 1080×1440 的分享卡 */
+    private void shareBookCard() {
+        final Book snapshot = book;
+        BookshelfApp.get().io(() -> {
+            android.graphics.Bitmap cover = null;
+            try {
+                String url = snapshot.coverUrl;
+                if (url != null && !url.isEmpty()) {
+                    cover = Glide.with(getApplicationContext()).asBitmap()
+                            .load(url.startsWith("http") ? url : new File(url))
+                            .submit(640, 880)
+                            .get(5, java.util.concurrent.TimeUnit.SECONDS);
+                }
+            } catch (Exception ignored) {
+            }
+            final android.graphics.Bitmap fCover = cover;
+            runOnUiThread(() -> {
+                if (isFinishing() || isDestroyed()) {
+                    return;
+                }
+                android.graphics.Bitmap card =
+                        com.bai.bookshelf.util.BookShareCard.render(snapshot, fCover);
+                try {
+                    File dir = new File(getFilesDir(), "share");
+                    if (!dir.exists() && !dir.mkdirs()) {
+                        return;
+                    }
+                    File outFile = new File(dir,
+                            "book_" + snapshot.id + "_" + System.currentTimeMillis() + ".png");
+                    try (java.io.FileOutputStream out = new java.io.FileOutputStream(outFile)) {
+                        card.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out);
+                    }
+                    android.net.Uri uri = androidx.core.content.FileProvider.getUriForFile(
+                            this, getPackageName() + ".fileprovider", outFile);
+                    Intent send = new Intent(Intent.ACTION_SEND);
+                    send.setType("image/png");
+                    send.putExtra(Intent.EXTRA_STREAM, uri);
+                    send.putExtra(Intent.EXTRA_TEXT,
+                            "《" + com.bai.bookshelf.util.BookText.bareTitle(snapshot.title)
+                                    + "》" + (snapshot.author.isEmpty()
+                                    ? "" : " · " + snapshot.author) + " —— 来自「小书房」");
+                    send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    startActivity(Intent.createChooser(send, "分享书卡"));
+                    b.btnMore.performHapticFeedback(
+                            android.view.HapticFeedbackConstants.KEYBOARD_TAP);
+                } catch (Exception e) {
+                    Toast.makeText(this, "分享失败：" + e.getMessage(),
+                            Toast.LENGTH_LONG).show();
+                }
+            });
+        });
     }
 
     // ======================= 借出 ⇄ 归还 =======================
@@ -841,6 +1227,7 @@ public class BookDetailActivity extends BaseActivity {
             app.ui(() -> {
                 Toast.makeText(this, "第 " + index + " 本已归还", Toast.LENGTH_SHORT).show();
                 reload();
+                com.bai.bookshelf.util.BorrowReminder.refresh(this);
             });
         });
     }
@@ -890,6 +1277,26 @@ public class BookDetailActivity extends BaseActivity {
         addChip.setOnClickListener(v -> showNewBorrowerInput(db, selected, chips));
         db.chipGroup.addView(addChip);
 
+        // v4.42：选中借阅人时显示其联系方式（长按 Chip 可补充）
+        Runnable refreshContact = () -> {
+            String phone = "";
+            for (com.bai.bookshelf.data.entity.Borrower borrower : all) {
+                if (borrower.name.equals(selected[0])) {
+                    phone = borrower.phone == null ? "" : borrower.phone;
+                    break;
+                }
+            }
+            if (selected[0].isEmpty()) {
+                db.tvBorrowerContact.setText("未选择借阅人");
+            } else if (phone.isEmpty()) {
+                db.tvBorrowerContact.setText("联系方式：未填写（长按借阅人可补充）");
+            } else {
+                db.tvBorrowerContact.setText("联系方式：" + phone);
+            }
+        };
+        refreshContact.run();
+        db.chipGroup.setOnCheckedStateChangeListener((group, checkedIds) -> refreshContact.run());
+
         // 借出备注图片
         db.btnAddNoteImage.setOnClickListener(v -> {
             try {
@@ -900,13 +1307,41 @@ public class BookDetailActivity extends BaseActivity {
         });
         renderLendNoteThumbs(db);
 
+        // v4.42：应还日期（默认 30 天后，可清空；到期后由本地通知提醒）
+        final String[] dueDate = {defaultDueDate()};
+        Runnable refreshDue = () -> db.tvDueDate.setText(dueDate[0].isEmpty()
+                ? "应还日期：未设置"
+                : "应还日期：" + dueDate[0]);
+        refreshDue.run();
+        db.tvDueDate.setOnClickListener(v -> com.bai.bookshelf.ui.widget.CalendarPicker.showSingle(
+                this, "应还日期", com.bai.bookshelf.util.BorrowReminder.parseKey(dueDate[0]),
+                key -> {
+                    dueDate[0] = com.bai.bookshelf.util.BorrowReminder.formatKey(key);
+                    refreshDue.run();
+                },
+                () -> {
+                    dueDate[0] = "";
+                    refreshDue.run();
+                }));
+
         new MaterialAlertDialogBuilder(this)
                 .setTitle("借出登记（第 " + lendCopyIndex + " 本）")
                 .setView(db.getRoot())
                 .setPositiveButton("借出", (d, w) ->
-                        doLend(lendCopyIndex, selected[0], db.etNote.getText().toString().trim()))
+                        doLend(lendCopyIndex, selected[0], db.etNote.getText().toString().trim(),
+                                dueDate[0]))
                 .setNegativeButton(R.string.action_cancel, null)
                 .show();
+    }
+
+    /** 默认应还日期：今天 + 30 天 */
+    private String defaultDueDate() {
+        java.util.Calendar c = java.util.Calendar.getInstance();
+        c.add(java.util.Calendar.DAY_OF_MONTH, 30);
+        return com.bai.bookshelf.util.BorrowReminder.formatKey(
+                c.get(java.util.Calendar.YEAR) * 10000
+                        + (c.get(java.util.Calendar.MONTH) + 1) * 100
+                        + c.get(java.util.Calendar.DAY_OF_MONTH));
     }
 
     /** 把相册图落盘并加入借出登记弹窗的临时图片列表 */
@@ -1021,12 +1456,14 @@ public class BookDetailActivity extends BaseActivity {
     private void showBorrowerOptions(com.bai.bookshelf.data.entity.Borrower borrower,
                                      com.google.android.material.chip.Chip chip,
                                      String[] selected) {
-        String[] options = {"重命名", "删除"};
+        String[] options = {"重命名", "编辑联系方式", "删除"};
         new MaterialAlertDialogBuilder(this)
                 .setTitle("借阅人「" + borrower.name + "」")
                 .setItems(options, (d, which) -> {
                     if (which == 0) {
                         showRenameBorrowerInput(borrower, chip, selected);
+                    } else if (which == 1) {
+                        showBorrowerPhoneInput(borrower);
                     } else {
                         confirmDeleteBorrower(borrower, chip, selected);
                     }
@@ -1057,6 +1494,29 @@ public class BookDetailActivity extends BaseActivity {
                             chip.setText(newName);
                             Toast.makeText(this, "已重命名为「" + newName + "」", Toast.LENGTH_SHORT).show();
                         });
+                    });
+                })
+                .setNegativeButton(R.string.action_cancel, null)
+                .show();
+    }
+
+    /** 编辑借阅人联系方式（v4.42）：催还时可直接照着联系 */
+    private void showBorrowerPhoneInput(com.bai.bookshelf.data.entity.Borrower borrower) {
+        DialogInputBinding ib = DialogInputBinding.inflate(getLayoutInflater());
+        ib.inputLayout.setHint("电话 / 微信等联系方式");
+        ib.edit.setText(borrower.phone == null ? "" : borrower.phone);
+        new MaterialAlertDialogBuilder(this)
+                .setTitle("「" + borrower.name + "」的联系方式")
+                .setView(ib.getRoot())
+                .setPositiveButton("保存", (d, w) -> {
+                    String phone = ib.edit.getText().toString().trim();
+                    BookshelfApp app = BookshelfApp.get();
+                    app.io(() -> {
+                        borrower.phone = phone;
+                        app.db().borrowerDao().update(borrower);
+                        app.ui(() -> Toast.makeText(this,
+                                phone.isEmpty() ? "已清空联系方式" : "联系方式已保存",
+                                Toast.LENGTH_SHORT).show());
                     });
                 })
                 .setNegativeButton(R.string.action_cancel, null)
@@ -1128,7 +1588,7 @@ public class BookDetailActivity extends BaseActivity {
     }
 
     /** 登记借出某一本：该书这一本已借出时不能再次借出（需先归还） */
-    private void doLend(int copyIndex, String borrower, String note) {
+    private void doLend(int copyIndex, String borrower, String note, String dueDate) {
         if (borrower.isEmpty()) {
             Toast.makeText(this, "请选择或新建借阅人", Toast.LENGTH_SHORT).show();
             return;
@@ -1143,6 +1603,7 @@ public class BookDetailActivity extends BaseActivity {
             record.bookId = book.id;
             record.borrower = borrower;
             record.lendDate = StatusText.today();
+            record.dueDate = dueDate == null ? "" : dueDate;
             record.note = note;
             record.copyIndex = copyIndex;
             long recordId = app.db().borrowRecordDao().insert(record);
@@ -1184,6 +1645,11 @@ public class BookDetailActivity extends BaseActivity {
                 Toast.makeText(this, "第 " + copyIndex + " 本已借出给 " + borrower,
                         Toast.LENGTH_SHORT).show();
                 reload();
+                // v4.42：有应还日期就确保通知权限并重排提醒
+                if (dueDate != null && !dueDate.isEmpty()) {
+                    ensureNotifyPermission();
+                    com.bai.bookshelf.util.BorrowReminder.refresh(this);
+                }
             });
         });
     }

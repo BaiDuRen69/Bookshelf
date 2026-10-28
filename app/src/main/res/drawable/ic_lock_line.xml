@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 应用锁（v4.54）：1.75dp 线稿挂锁 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="@android:color/transparent"
+        android:pathData="M6,11a1,1 0 0,1 1,-1h10a1,1 0 0,1 1,1v7a1,1 0 0,1 -1,1H7a1,1 0 0,1 -1,-1z M9,10V7a3,3 0 0 1 6,0v3 M12,14.5v2"
+        android:strokeColor="#FF000000"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeWidth="1.75" />
+</vector>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 书房年报卡片底（v4.32）：纸色面 + 1dp 描边 + 20dp 圆角 -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="?android:attr/colorBackground" />
+    <stroke android:width="1dp" android:color="?attr/outline" />
+    <corners android:radius="20dp" />
+</shape>

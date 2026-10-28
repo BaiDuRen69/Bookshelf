@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 旧版（API 24-25）桌面图标：纸色圆角底 + 墨绿书本 + 黄铜书签 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <path
+        android:fillColor="#FFFAF7F2"
+        android:pathData="M24,0h60a24,24 0 0 1 24,24v60a24,24 0 0 1 -24,24H24A24,24 0 0 1 0,84V24A24,24 0 0 1 24,0z" />
+
+    <path
+        android:fillColor="#FF2E6E5C"
+        android:pathData="M36,24h36a7,7 0 0 1 7,7v46a7,7 0 0 1 -7,7H36a7,7 0 0 1 -7,-7V31a7,7 0 0 1 7,-7z" />
+
+    <path
+        android:fillColor="#33FFFFFF"
+        android:pathData="M35,33h2.5v38H35z" />
+
+    <path
+        android:fillColor="#FFC08A3E"
+        android:pathData="M58,24h9v30l-4.5,-6l-4.5,6z" />
+</vector>

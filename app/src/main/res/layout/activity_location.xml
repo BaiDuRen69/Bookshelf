@@ -38,7 +38,7 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:background="@color/selected_bg"
+        android:background="?attr/surface_dim"
         android:paddingHorizontal="12dp"
         android:paddingVertical="6dp"
         android:visibility="gone">
@@ -91,7 +91,7 @@
             android:background="?attr/selectableItemBackground"
             android:padding="8dp"
             android:text="取消"
-            android:textColor="@color/text_sub"
+            android:textColor="?attr/on_surface_variant"
             android:textSize="13sp" />
     </LinearLayout>
 
@@ -101,7 +101,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:layout_margin="14dp">
+        android:layout_margin="@dimen/page_padding">
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_batch"

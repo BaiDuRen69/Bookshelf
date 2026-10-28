@@ -1,7 +1,11 @@
 package com.bai.bookshelf.util;
 
+import android.graphics.Color;
+import android.os.Build;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.Window;
+import android.view.WindowManager;
 
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
@@ -111,6 +115,62 @@ public final class InsetsHelper {
             return insets;
         });
         ViewCompat.requestApplyInsets(view);
+    }
+
+    /**
+     * 底部按键栏：键盘弹出时用键盘高度、否则用导航栏高度（v4.28）。
+     *
+     * <p>Android 15（API 35）+ targetSdk 35 起强制 edge-to-edge，窗口不再随键盘
+     * 自动缩放（adjustResize 失效），编辑页的固定底栏会被键盘盖住、保存按钮
+     * 只剩上半截可点。这里取 systemBars 与 ime 的较大值，让底栏始终浮在键盘上方。
+     */
+    public static void applyBottomInsetWithIme(final View view) {
+        if (view == null) {
+            return;
+        }
+        if (view.getTag(TAG_BASE_PAD_BOTTOM) == null) {
+            view.setTag(TAG_BASE_PAD_BOTTOM, view.getPaddingBottom());
+        }
+        final int basePadBottom = (Integer) view.getTag(TAG_BASE_PAD_BOTTOM);
+
+        ViewCompat.setOnApplyWindowInsetsListener(view, (v, insets) -> {
+            Insets bars = insets.getInsets(
+                    WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
+            Insets ime = insets.getInsets(WindowInsetsCompat.Type.ime());
+            int bottom = Math.max(bars.bottom, ime.bottom);
+            v.setPadding(v.getPaddingLeft(), v.getPaddingTop(), v.getPaddingRight(),
+                    basePadBottom + bottom);
+            return insets;
+        });
+        ViewCompat.requestApplyInsets(view);
+    }
+
+    /**
+     * 自定义全屏底部面板的窗口设置（v4.40）：系统栏透明 + 内容铺到状态栏/导航栏之下。
+     *
+     * <p>为什么需要：自定义 Dialog 的窗口默认会被系统栏切掉一块，导航栏区域
+     * 还会被涂成黑色——面板铺到底部时与手势条之间就会露出一条黑边。
+     * 面板内容自己在底部补 {@link #systemBars(View)} 的内边距，就能既贴底又不被手势条压住。
+     */
+    public static void makeSheetWindowFullScreen(Window window) {
+        if (window == null) {
+            return;
+        }
+        window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
+        window.setStatusBarColor(Color.TRANSPARENT);
+        window.setNavigationBarColor(Color.TRANSPARENT);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            window.setNavigationBarContrastEnforced(false);
+            window.setStatusBarContrastEnforced(false);
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            window.setDecorFitsSystemWindows(false);
+        } else {
+            window.getDecorView().setSystemUiVisibility(
+                    View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                            | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                            | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
+        }
     }
 
     /**

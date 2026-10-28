@@ -35,10 +35,11 @@ public final class ExcelExporter {
             "ISBN", "书名", "作者", "译者", "国家/地区", "出版社",
             "版次", "印次", "页数", "字数", "定价", "豆瓣评分", "分类", "标签",
             "封面", "存放地点", "藏书状态", "阅读状态", "来源", "来源渠道",
-            "购买日期", "购买价格", "评分", "备注", "录入时间", "拥有数量"
+            "购买日期", "购买价格", "评分", "备注", "录入时间", "拥有数量",
+            "系列", "卷号", "阅读顺序"
     };
 
-    /** 数字列的下标（从 0 开始）：页数、定价、购买价格、评分、拥有数量 */
+    /** 数字列的下标（从 0 开始）：页数、定价、购买价格、评分、拥有数量、阅读顺序 */
     private static final Set<Integer> NUMERIC_COLS = new HashSet<>();
 
     static {
@@ -47,6 +48,7 @@ public final class ExcelExporter {
         NUMERIC_COLS.add(21);  // 购买价格
         NUMERIC_COLS.add(22);  // 评分
         NUMERIC_COLS.add(25);  // 拥有数量
+        NUMERIC_COLS.add(28);  // 阅读顺序
     }
 
     private ExcelExporter() {
@@ -143,7 +145,10 @@ public final class ExcelExporter {
                     StatusText.own(b.ownType), b.sourceChannel,
                     b.purchaseDate, String.valueOf(b.purchasePrice),
                     String.valueOf(b.rating), b.note, StatusText.formatTime(b.createdAt),
-                    String.valueOf(b.quantity)
+                    String.valueOf(b.quantity),
+                    b.seriesName == null ? "" : b.seriesName,
+                    b.seriesVolume == null ? "" : b.seriesVolume,
+                    String.valueOf(b.seriesOrder)
             });
             coverUrls.add(cover);
         }
@@ -189,7 +194,7 @@ public final class ExcelExporter {
         if (coverUrl == null) {
             return false;
         }
-        String t = coverUrl.trim().toLowerCase();
+        String t = coverUrl.trim().toLowerCase(java.util.Locale.ROOT);
         return t.startsWith("http://") || t.startsWith("https://");
     }
 

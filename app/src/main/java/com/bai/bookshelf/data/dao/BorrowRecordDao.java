@@ -32,6 +32,10 @@ public interface BorrowRecordDao {
     @Query("SELECT * FROM borrow_records WHERE bookId = :bookId ORDER BY id DESC")
     List<BorrowRecord> getByBook(long bookId);
 
+    /** v4.42：全部借出中的记录（到期末日提醒 / 书架「超期」智能入口用） */
+    @Query("SELECT * FROM borrow_records WHERE status = 0 ORDER BY dueDate ASC")
+    List<BorrowRecord> getAllOpen();
+
     /** zip 备份恢复用：全部借出记录 */
     @Query("SELECT * FROM borrow_records")
     List<BorrowRecord> getAll();

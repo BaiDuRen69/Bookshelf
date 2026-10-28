@@ -77,6 +77,12 @@ public class MineFragment extends Fragment {
     private int pendingSaveResId;
     private String pendingSaveName;
 
+    // ===== v4.51 拍照识字 =====
+    private androidx.activity.result.ActivityResultLauncher<Uri> ocrTakeLauncher;
+    private androidx.activity.result.ActivityResultLauncher<String> ocrPickLauncher;
+    private File ocrPendingPhoto;
+    private AlertDialog ocrProgress;
+
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -119,6 +125,25 @@ public class MineFragment extends Fragment {
                                 Toast.LENGTH_SHORT).show();
                     }
                 });
+        ocrTakeLauncher = registerForActivityResult(
+                new androidx.activity.result.contract.ActivityResultContracts.TakePicture(),
+                ok -> {
+                    if (!isAdded()) {
+                        return;
+                    }
+                    if (ok && ocrPendingPhoto != null) {
+                        runOcr(ocrPendingPhoto.getAbsolutePath());
+                    } else if (ocrPendingPhoto != null) {
+                        ocrPendingPhoto.delete();
+                    }
+                });
+        ocrPickLauncher = registerForActivityResult(
+                new androidx.activity.result.contract.ActivityResultContracts.GetContent(),
+                uri -> {
+                    if (uri != null && isAdded()) {
+                        copyOcrImage(uri);
+                    }
+                });
     }
 
     @Nullable
@@ -135,6 +160,7 @@ public class MineFragment extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         b.rowScan.setOnClickListener(v -> startActivity(new Intent(requireContext(), ScanActivity.class)));
+        b.rowOcr.setOnClickListener(v -> showOcrSourceDialog());
         b.rowLocation.setOnClickListener(v -> startActivity(new Intent(requireContext(), LocationActivity.class)));
         b.rowSource.setOnClickListener(v -> startActivity(new Intent(requireContext(),
                 com.bai.bookshelf.ui.location.SourceChannelActivity.class)));
@@ -144,6 +170,18 @@ public class MineFragment extends Fragment {
                 com.bai.bookshelf.ui.location.CategoryActivity.class)));
         b.rowExport.setOnClickListener(v -> exportExcel());
         b.rowImport.setOnClickListener(v -> confirmImport());
+        b.rowWish.setOnClickListener(v ->
+                startActivity(new android.content.Intent(requireContext(),
+                        com.bai.bookshelf.ui.wish.WishListActivity.class)));
+        b.rowSeries.setOnClickListener(v ->
+                startActivity(new android.content.Intent(requireContext(),
+                        com.bai.bookshelf.ui.series.SeriesListActivity.class)));
+        b.rowInventory.setOnClickListener(v -> {
+            android.content.Intent intent = new android.content.Intent(requireContext(),
+                    com.bai.bookshelf.ui.scan.ScanActivity.class);
+            intent.putExtra(com.bai.bookshelf.ui.scan.ScanActivity.EXTRA_INVENTORY, true);
+            startActivity(intent);
+        });
         b.rowAutoBackup.setOnClickListener(v -> toggleAutoBackup());
         b.rowBackupDir.setOnClickListener(v -> pickTreeLauncher.launch(null));
         b.rowBackupFiles.setOnClickListener(v -> showBackupFiles());
@@ -159,6 +197,7 @@ public class MineFragment extends Fragment {
                 ApiSettingsActivity.class)));
         b.rowSplit.setOnClickListener(v -> startActivity(new Intent(requireContext(),
                 com.bai.bookshelf.ui.mine.SplitActivity.class)));
+        b.rowAppLock.setOnClickListener(v -> toggleAppLock());
         b.rowAbout.setOnClickListener(v ->
                 startActivity(new Intent(requireContext(), AboutActivity.class)));
         b.rowTheme.setOnClickListener(v -> showThemePicker());
@@ -183,11 +222,55 @@ public class MineFragment extends Fragment {
             cur = 0;
         }
         b.tvThemeState.setText("当前：" + themeNames[cur]);
+        b.tvAppLockState.setText(com.bai.bookshelf.util.AppLock.isEnabled(requireContext())
+                ? "当前：已开启" : "未开启");
         b.tvAboutState.setText("v" + BuildConfig.VERSION_NAME + " · 作者 BaiDuRen");
         // v4.19：只有真的崩过才显示「崩溃日志」入口
         boolean has = com.bai.bookshelf.util.CrashHandler.hasLog(requireContext());
         b.rowCrashLog.setVisibility(has ? android.view.View.VISIBLE : android.view.View.GONE);
+        b.dividerCrash.setVisibility(has ? android.view.View.VISIBLE : android.view.View.GONE);
         refreshBackupRows();
+    }
+
+    /** 应用锁开关（v4.54）：用手机已有的指纹 / 面容 / 锁屏密码验证，不另设应用密码 */
+    private void toggleAppLock() {
+        android.content.Context ctx = requireContext();
+        if (com.bai.bookshelf.util.AppLock.isEnabled(ctx)) {
+            new MaterialAlertDialogBuilder(ctx)
+                    .setTitle("关闭应用锁")
+                    .setMessage("关闭后，进入小书房将不再需要指纹或密码。")
+                    .setPositiveButton("关闭", (d, w) -> {
+                        com.bai.bookshelf.util.AppLock.setEnabled(ctx, false);
+                        refreshStateRows();
+                        Toast.makeText(ctx, "应用锁已关闭", Toast.LENGTH_SHORT).show();
+                    })
+                    .setNegativeButton(R.string.action_cancel, null)
+                    .show();
+            return;
+        }
+        if (!com.bai.bookshelf.util.AppLock.canAuthenticate(ctx)) {
+            new MaterialAlertDialogBuilder(ctx)
+                    .setTitle("先给手机设置锁屏")
+                    .setMessage("应用锁使用手机的指纹 / 面容或锁屏密码验证。"
+                            + "请先在系统设置里设置一种锁屏方式。")
+                    .setPositiveButton("去设置", (d, w) -> {
+                        try {
+                            startActivity(new Intent(
+                                    android.provider.Settings.ACTION_SECURITY_SETTINGS));
+                        } catch (Exception e) {
+                            Toast.makeText(ctx, "无法打开系统设置", Toast.LENGTH_SHORT).show();
+                        }
+                    })
+                    .setNegativeButton(R.string.action_cancel, null)
+                    .show();
+            return;
+        }
+        com.bai.bookshelf.util.AppLock.setEnabled(ctx, true);
+        refreshStateRows();
+        String how = com.bai.bookshelf.util.AppLock.hasBiometric(ctx)
+                ? "指纹 / 面容或手机密码" : "手机锁屏密码";
+        Toast.makeText(ctx, "应用锁已开启：离开 1 分钟后回来需用" + how + "解锁",
+                Toast.LENGTH_LONG).show();
     }
 
     /**
@@ -207,7 +290,7 @@ public class MineFragment extends Fragment {
         TextView tv = new TextView(requireContext());
         tv.setText(log);
         tv.setTextSize(11);
-        tv.setTextColor(ContextCompat.getColor(requireContext(), com.bai.bookshelf.R.color.text_main));
+        tv.setTextColor(ThemeManager.resolveColor(requireContext(), R.attr.on_surface));
         tv.setPadding(dp(20), dp(16), dp(20), dp(16));
         tv.setTextIsSelectable(true);
         sv.addView(tv);
@@ -220,7 +303,7 @@ public class MineFragment extends Fragment {
                     refreshStateRows();
                     Toast.makeText(requireContext(), "已清空", Toast.LENGTH_SHORT).show();
                 })
-                .setNegativeButton(com.bai.bookshelf.R.string.action_cancel, null)
+                .setNegativeButton(R.string.action_cancel, null)
                 .show();
     }
 
@@ -249,17 +332,60 @@ public class MineFragment extends Fragment {
         refreshStateRows();
     }
 
-    /** 概览：藏书数 / 地点数 */
+    /** 概览：藏书 / 已读 / 在读 + 已读比例 + 地点/来源/标签数量（v4.24 hero 区） */
     private void loadSummary() {
         BookshelfApp app = BookshelfApp.get();
         app.io(() -> {
-            int bookCount = app.db().bookDao().count();
-            int locCount = app.db().locationDao().count();
-            app.ui(() -> {
-                if (b != null) {
-                    b.tvSummary.setText("藏书 " + bookCount + " 册 · 地点 " + locCount + " 个\n"
-                            + "数据保存在本机，记得定期导出 Excel 备份");
+            int bookCount = 0;
+            int readCount = 0;
+            int readingCount = 0;
+            int locCount = 0;
+            int channelCount = 0;
+            int channelUsedCount = 0;
+            int tagCount = 0;
+            try {
+                List<Book> books = app.db().bookDao().getAll();
+                bookCount = books.size();
+                for (Book bk : books) {
+                    if (bk.readStatus == 2) {
+                        readCount++;
+                    } else if (bk.readStatus == 1) {
+                        readingCount++;
+                    }
                 }
+                locCount = app.db().locationDao().count();
+                channelCount = app.db().sourceChannelDao().count();
+                tagCount = app.db().tagDao().count();
+                // 渠道：字典数量之外，再统计藏书里真正用到的渠道（v4.28，避免 0 本时
+                // 「来源 12」被误读成藏书用了 12 个来源）
+                java.util.Set<String> used = new java.util.HashSet<>();
+                for (Book bk : books) {
+                    String ch = bk.sourceChannel == null ? "" : bk.sourceChannel.trim();
+                    if (!ch.isEmpty()) {
+                        used.add(ch);
+                    }
+                }
+                channelUsedCount = used.size();
+            } catch (Exception ignored) {
+                // 单项查询失败时保持 0，概览不阻塞其它入口
+            }
+            final int fBooks = bookCount;
+            final int fRead = readCount;
+            final int fReading = readingCount;
+            final int fLoc = locCount;
+            final int fChannel = channelCount;
+            final int fChannelUsed = channelUsedCount;
+            final int fTag = tagCount;
+            app.ui(() -> {
+                if (b == null) {
+                    return;
+                }
+                b.tvHeroSummary.setText("藏书 " + fBooks + " 册 · 已读 " + fRead
+                        + " · 在读 " + fReading);
+                b.tvHeroLocations.setText(String.valueOf(fLoc));
+                b.tvHeroChannels.setText(String.valueOf(fChannelUsed));
+                b.tvHeroTags.setText(String.valueOf(fTag));
+                b.tvChannelSub.setText("字典 " + fChannel + " 个 · 已用 " + fChannelUsed + " 个");
             });
         });
     }
@@ -332,20 +458,38 @@ public class MineFragment extends Fragment {
             return;
         }
         b.tvAutoBackupState.setText(BackupManager.isEnabled(requireContext())
-                ? "已开启（每次启动时备份）" : "已关闭");
+                ? "已开启（每天最多一次）" : "已关闭");
         String dirName = BackupManager.getTreeName(requireContext());
         b.tvBackupDirName.setText(dirName.isEmpty() ? "未选择" : dirName);
-        // v4.23：备份文件管理副标题（数量 + 总大小；小于 1MB 用 KB 展示）
+        // v4.45：备份区直接给「上次备份时间 · 大小 · 份数」，让用户对备份有底
         java.util.List<java.io.File> files = BackupManager.listInternalBackups(requireContext());
         if (files.isEmpty()) {
-            b.tvBackupFilesState.setText("暂无备份（开启自动备份后生成）");
+            b.tvBackupFilesState.setText("还没有备份（点此立即备份）");
         } else {
-            long total = 0;
-            for (java.io.File f : files) {
-                total += f.length();
-            }
-            b.tvBackupFilesState.setText(files.size() + " 份 · 共 " + humanSize(total));
+            java.io.File latest = files.get(files.size() - 1);
+            b.tvBackupFilesState.setText("上次 " + friendlyTime(latest.lastModified())
+                    + " · " + humanSize(latest.length()) + " · 共 " + files.size() + " 份");
         }
+    }
+
+    /** 备份时间的人话展示：今天/昨天 时:分，更早则 月日 时:分 */
+    private static String friendlyTime(long time) {
+        java.util.Calendar target = java.util.Calendar.getInstance();
+        target.setTimeInMillis(time);
+        java.util.Calendar now = java.util.Calendar.getInstance();
+        java.text.SimpleDateFormat hm =
+                new java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault());
+        boolean today = target.get(java.util.Calendar.YEAR) == now.get(java.util.Calendar.YEAR)
+                && target.get(java.util.Calendar.DAY_OF_YEAR) == now.get(java.util.Calendar.DAY_OF_YEAR);
+        if (today) {
+            return "今天 " + hm.format(target.getTime());
+        }
+        now.add(java.util.Calendar.DAY_OF_YEAR, -1);
+        boolean yesterday = target.get(java.util.Calendar.YEAR) == now.get(java.util.Calendar.YEAR)
+                && target.get(java.util.Calendar.DAY_OF_YEAR) == now.get(java.util.Calendar.DAY_OF_YEAR);
+        java.text.SimpleDateFormat md =
+                new java.text.SimpleDateFormat("M月d日 HH:mm", java.util.Locale.getDefault());
+        return (yesterday ? "昨天 " : "") + (yesterday ? "" : md.format(target.getTime()));
     }
 
     /** 文件大小自适应单位（<1MB 用 KB，否则用 MB） */
@@ -356,6 +500,30 @@ public class MineFragment extends Fragment {
         return String.format(java.util.Locale.getDefault(), "%.1f MB", bytes / 1024f / 1024f);
     }
 
+    /** 立即备份（v4.45）：后台生成 zip，完成后刷新状态并提示大小 */
+    private void doManualBackup() {
+        final android.content.Context appCtx = requireContext().getApplicationContext();
+        Toast.makeText(appCtx, "正在备份…", Toast.LENGTH_SHORT).show();
+        BookshelfApp.get().bg(() -> {
+            long size = com.bai.bookshelf.util.BackupManager.backupNow(appCtx);
+            BookshelfApp.get().ui(() -> {
+                if (!isAdded()) {
+                    return;
+                }
+                refreshBackupRows();
+                String msg;
+                if (size > 0) {
+                    msg = "备份完成（" + humanSize(size) + "）";
+                } else if (size == 0) {
+                    msg = "还没有藏书，无需备份";
+                } else {
+                    msg = "备份失败，请稍后再试";
+                }
+                Toast.makeText(requireContext(), msg, Toast.LENGTH_LONG).show();
+            });
+        });
+    }
+
     /**
      * 备份文件管理（v4.23，审查 #3）：列出内部备份 zip，支持分享与删除。
      *
@@ -364,6 +532,118 @@ public class MineFragment extends Fragment {
      * 系统分享面板可发微信 / 网盘 / 邮件等——这就是 README 里
      * 「发送给自己」真正可用的入口。
      */
+    // ======================= v4.51 拍照识字 =======================
+
+    private void showOcrSourceDialog() {
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle("拍照识字")
+                .setItems(new String[]{"拍封面 / 扉页", "从相册选择"}, (d, which) -> {
+                    if (which == 0) {
+                        takeOcrPhoto();
+                    } else {
+                        ocrPickLauncher.launch("image/*");
+                    }
+                })
+                .setNegativeButton(R.string.action_cancel, null)
+                .show();
+    }
+
+    /** 直接调系统相机（TakePicture 契约不需要 CAMERA 权限） */
+    private void takeOcrPhoto() {
+        File dir = new File(requireContext().getFilesDir(), "covers");
+        if (!dir.exists()) {
+            dir.mkdirs();
+        }
+        ocrPendingPhoto = new File(dir, "cover_ocr_" + System.currentTimeMillis() + ".jpg");
+        Uri uri = androidx.core.content.FileProvider.getUriForFile(requireContext(),
+                requireContext().getPackageName() + ".fileprovider", ocrPendingPhoto);
+        ocrTakeLauncher.launch(uri);
+    }
+
+    private void copyOcrImage(Uri uri) {
+        BookshelfApp app = BookshelfApp.get();
+        app.io(() -> {
+            try {
+                String path = com.bai.bookshelf.util.CoverFiles.copyToCovers(requireContext(), uri);
+                app.ui(() -> {
+                    if (isAdded()) {
+                        runOcr(path);
+                    }
+                });
+            } catch (Exception e) {
+                app.ui(() -> {
+                    if (isAdded()) {
+                        Toast.makeText(requireContext(), "图片读取失败：" + e.getMessage(),
+                                Toast.LENGTH_LONG).show();
+                    }
+                });
+            }
+        });
+    }
+
+    private void runOcr(String coverPath) {
+        if (ocrProgress != null && ocrProgress.isShowing()) {
+            ocrProgress.dismiss();
+        }
+        android.widget.ProgressBar bar = new android.widget.ProgressBar(requireContext());
+        int pad = Math.round(24 * getResources().getDisplayMetrics().density);
+        bar.setPadding(pad, pad, pad, pad);
+        ocrProgress = new MaterialAlertDialogBuilder(requireContext())
+                .setTitle("正在识别封面文字…")
+                .setView(bar)
+                .setCancelable(false)
+                .create();
+        ocrProgress.show();
+
+        com.bai.bookshelf.util.BookOcr.recognize(requireContext(),
+                Uri.fromFile(new File(coverPath)),
+                new com.bai.bookshelf.util.BookOcr.Callback() {
+                    @Override
+                    public void onDone(com.bai.bookshelf.util.BookOcr.Result result) {
+                        if (ocrProgress != null && ocrProgress.isShowing()) {
+                            ocrProgress.dismiss();
+                        }
+                        if (!isAdded()) {
+                            return;
+                        }
+                        openOcrEditor(coverPath, result);
+                    }
+
+                    @Override
+                    public void onFailed(String message) {
+                        if (ocrProgress != null && ocrProgress.isShowing()) {
+                            ocrProgress.dismiss();
+                        }
+                        if (!isAdded()) {
+                            return;
+                        }
+                        openOcrEditor(coverPath, new com.bai.bookshelf.util.BookOcr.Result());
+                        Toast.makeText(requireContext(),
+                                "识别失败，已把照片设为封面，请手动填写书名",
+                                Toast.LENGTH_LONG).show();
+                    }
+                });
+    }
+
+    /** 预填书名/作者/出版社 + 封面，交给编辑页人工确认 */
+    private void openOcrEditor(String coverPath,
+                               com.bai.bookshelf.util.BookOcr.Result result) {
+        Book prefill = new Book();
+        prefill.title = result.title;
+        prefill.author = result.author;
+        prefill.publisher = result.publisher;
+        prefill.coverUrl = coverPath;
+        Intent intent = new Intent(requireContext(),
+                com.bai.bookshelf.ui.edit.BookEditActivity.class);
+        intent.putExtra(com.bai.bookshelf.ui.edit.BookEditActivity.EXTRA_PREFILL, prefill);
+        startActivity(intent);
+        Toast.makeText(requireContext(),
+                result.title.isEmpty()
+                        ? "没认出书名，已把照片设为封面，请手动填写"
+                        : "已识别：" + result.title + "（请确认后保存）",
+                Toast.LENGTH_LONG).show();
+    }
+
     private void showBackupFiles() {
         java.util.List<java.io.File> files = BackupManager.listInternalBackups(requireContext());
         if (files.isEmpty()) {
@@ -372,6 +652,7 @@ public class MineFragment extends Fragment {
                     .setMessage("还没有备份文件。\n\n开启「自动备份」后，每次启动会在应用内保留最近 "
                             + "5 份备份；也可以在这里把备份 zip 分享给自己（微信 / 网盘）。\n\n"
                             + "⚠ 卸载应用会清空这里的备份，重要数据请定期分享到应用外。")
+                    .setNeutralButton("立即备份", (d, w) -> doManualBackup())
                     .setPositiveButton(R.string.action_ok, null)
                     .show();
             return;
@@ -388,6 +669,7 @@ public class MineFragment extends Fragment {
         }
         new com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
                 .setTitle("备份文件（新 → 旧）")
+                .setNeutralButton("立即备份", (d, w) -> doManualBackup())
                 .setItems(labels, (d, which) -> showBackupFileActions(files.get(which)))
                 .setNegativeButton(R.string.action_cancel, null)
                 .show();
@@ -480,7 +762,7 @@ public class MineFragment extends Fragment {
     private void importExcel(Uri uri) {
         // v2.8：.zip 走整包恢复（先向用户确认替换语义），其余按 xlsx 合并导入
         String name = queryFileName(uri);
-        if (name != null && name.toLowerCase().endsWith(".zip")) {
+        if (name != null && name.toLowerCase(java.util.Locale.ROOT).endsWith(".zip")) {
             confirmZipRestore(uri);
             return;
         }
@@ -501,12 +783,45 @@ public class MineFragment extends Fragment {
 
     /** zip 整包恢复前的二次确认（会清空当前数据，必须显式确认） */
     private void confirmZipRestore(Uri uri) {
-        new MaterialAlertDialogBuilder(requireContext())
-                .setTitle("恢复 zip 备份")
-                .setMessage("将清空当前所有藏书、借出记录与媒体文件，并按备份内容整体恢复。\n\n确定继续吗？（建议先导出一次当前数据）")
-                .setPositiveButton("确认恢复", (d, w) -> restoreZip(uri))
-                .setNegativeButton("取消", null)
-                .show();
+        // v4.45：先读备份内容（册数/大小/文件名），让用户知道要恢复的是什么再确认
+        final android.content.Context appCtx = requireContext().getApplicationContext();
+        BookshelfApp.get().io(() -> {
+            long[] info = com.bai.bookshelf.util.BackupManager.inspectBackup(appCtx, uri);
+            String name = "";
+            long fileSize = -1;
+            try (android.database.Cursor c = appCtx.getContentResolver().query(uri,
+                    new String[]{android.provider.OpenableColumns.DISPLAY_NAME,
+                            android.provider.OpenableColumns.SIZE}, null, null, null)) {
+                if (c != null && c.moveToFirst()) {
+                    name = c.getString(0);
+                    fileSize = c.getLong(1);
+                }
+            } catch (Exception ignored) {
+            }
+            final long books = info[0];
+            final long size = fileSize > 0 ? fileSize : info[1];
+            final String fileName = name;
+            BookshelfApp.get().ui(() -> {
+                if (!isAdded()) {
+                    return;
+                }
+                StringBuilder msg = new StringBuilder();
+                if (!fileName.isEmpty()) {
+                    msg.append("备份：").append(fileName).append('\n');
+                }
+                msg.append(books >= 0 ? "内含 " + books + " 本藏书" : "无法读取备份详情");
+                if (size > 0) {
+                    msg.append(" · ").append(humanSize(size));
+                }
+                msg.append("\n\n将清空当前所有藏书、借出记录与媒体文件，并按备份内容整体恢复。\n\n确定继续吗？（建议先备份一次当前数据）");
+                new MaterialAlertDialogBuilder(requireContext())
+                        .setTitle("恢复 zip 备份")
+                        .setMessage(msg)
+                        .setPositiveButton("确认恢复", (d, w) -> restoreZip(uri))
+                        .setNegativeButton("取消", null)
+                        .show();
+            });
+        });
     }
 
     /** 后台线程执行 zip 恢复，完成后弹结果统计 */
@@ -569,11 +884,13 @@ public class MineFragment extends Fragment {
 
     // ======================= 主题颜色（v2.5） =======================
 
-    /** 主题选择弹窗：色点 + 名称 + 当前勾选，选中后保存并重建界面生效 */
+    /** 主题选择弹窗（v4.28）：3 列 × 2 行色卡，当前项加主色描边 + 对勾 */
     private void showThemePicker() {
         android.content.Context ctx = requireContext();
         String[] names = ThemeManager.names();
         int[] colors = ThemeManager.previewColors();
+        int[] papers = ThemeManager.paperColors();
+        int[] paperOutlines = ThemeManager.paperOutlineColors();
         // v4.19：主题 id 来自 SharedPreferences，若历史数据越界（如版本升级后
         // 主题数量变化）会直接取 names[current] 抛 ArrayIndexOutOfBoundsException，
         // 这里先夹到合法范围，避免一点就闪退。
@@ -581,49 +898,65 @@ public class MineFragment extends Fragment {
         if (current < 0 || current >= names.length) {
             current = 0;
         }
-        LinearLayout root = new LinearLayout(ctx);
-        root.setOrientation(LinearLayout.VERTICAL);
-        // v4.18：与其它弹窗统一左右留白（对齐对话框标题的 24dp）
-        int pad = dp(24);
-        root.setPadding(pad, dp(4), pad, dp(4));
 
+        com.bai.bookshelf.databinding.DialogThemePickerBinding db =
+                com.bai.bookshelf.databinding.DialogThemePickerBinding.inflate(getLayoutInflater());
+        db.tvThemeCurrent.setText("当前：" + names[current]);
+
+        final int selected = current;
+        final int primary = ThemeManager.resolveColor(ctx, ThemeManager.ATTR_COLOR_PRIMARY);
         final androidx.appcompat.app.AlertDialog[] holder = new androidx.appcompat.app.AlertDialog[1];
         for (int i = 0; i < names.length; i++) {
             final int idx = i;
-            TextView row = new TextView(ctx);
-            row.setText(names[i]);
-            row.setTextSize(15);
-            row.setTextColor(ContextCompat.getColor(ctx, com.bai.bookshelf.R.color.text_main));
-            row.setPadding(dp(14), dp(14), dp(14), dp(14));
-            row.setGravity(android.view.Gravity.CENTER_VERTICAL);
-            // 主题色圆点
+            com.bai.bookshelf.databinding.ItemThemeSwatchBinding cell =
+                    com.bai.bookshelf.databinding.ItemThemeSwatchBinding.inflate(
+                            getLayoutInflater(), db.gridThemes, false);
+            cell.tvName.setText(names[i]);
+
+            // v4.30：色卡 = 纸色圆 + 主色圆点，预览更接近真实换肤
+            GradientDrawable paper = new GradientDrawable();
+            paper.setShape(GradientDrawable.OVAL);
+            paper.setColor(papers[i]);
+            paper.setStroke(dp(1), paperOutlines[i]);
+            if (idx == selected) {
+                paper.setStroke(dp(2), primary);
+            }
             GradientDrawable dot = new GradientDrawable();
             dot.setShape(GradientDrawable.OVAL);
             dot.setColor(colors[i]);
-            dot.setSize(dp(18), dp(18));
-            row.setCompoundDrawablesRelativeWithIntrinsicBounds(dot, null, null, null);
-            row.setCompoundDrawablePadding(dp(12));
-            // v4.18：改为描边卡片底（bg_dialog_row），与其它弹窗入口行一致
-            row.setBackgroundResource(com.bai.bookshelf.R.drawable.bg_dialog_row);
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-            lp.topMargin = dp(8);
-            row.setLayoutParams(lp);
-            row.setOnClickListener(v -> {
+            android.graphics.drawable.LayerDrawable swatch =
+                    new android.graphics.drawable.LayerDrawable(
+                            new android.graphics.drawable.Drawable[]{paper, dot});
+            swatch.setLayerInset(1, dp(11), dp(11), dp(11), dp(11));
+            cell.vSwatch.setBackground(swatch);
+            cell.ivCheck.setVisibility(idx == selected
+                    ? android.view.View.VISIBLE : android.view.View.GONE);
+
+            android.widget.GridLayout.LayoutParams lp =
+                    new android.widget.GridLayout.LayoutParams(
+                            android.widget.GridLayout.spec(idx / 3),
+                            android.widget.GridLayout.spec(idx % 3, 1f));
+            lp.width = 0;
+            lp.height = android.widget.GridLayout.LayoutParams.WRAP_CONTENT;
+            cell.getRoot().setLayoutParams(lp);
+
+            cell.getRoot().setOnClickListener(v -> {
                 ThemeManager.set(ctx, idx);
-                Toast.makeText(ctx, "已切换主题：" + names[idx], Toast.LENGTH_SHORT).show();
                 if (holder[0] != null) {
                     holder[0].dismiss();
                 }
-                requireActivity().recreate(); // 重建当前界面使新主题生效
+                // v4.30：不再弹 Toast（色卡已有勾选），用淡入淡出代替硬重建的闪屏
+                requireActivity().recreate();
+                requireActivity().overridePendingTransition(
+                        android.R.anim.fade_in, android.R.anim.fade_out);
             });
-            root.addView(row);
+            db.gridThemes.addView(cell.getRoot());
         }
-        // v4.18：当前主题标记放在标题里，避免在选项文字后拼接符号
+
         holder[0] = new MaterialAlertDialogBuilder(ctx)
-                .setTitle("主题颜色（当前：" + names[current] + "）")
-                .setView(root)
-                .setNegativeButton(com.bai.bookshelf.R.string.action_cancel, null)
+                .setTitle("主题颜色")
+                .setView(db.getRoot())
+                .setNegativeButton(R.string.action_cancel, null)
                 .show();
     }
 
@@ -689,15 +1022,15 @@ public class MineFragment extends Fragment {
         DialogSupportBinding db = DialogSupportBinding.inflate(getLayoutInflater());
         androidx.appcompat.app.AlertDialog dialog = new MaterialAlertDialogBuilder(requireContext())
                 .setView(db.getRoot())
-                .setNegativeButton(com.bai.bookshelf.R.string.action_cancel, null)
+                .setNegativeButton(R.string.action_cancel, null)
                 .show();
         db.rowAlipay.setOnClickListener(v -> {
             dialog.dismiss();
-            showRewardQrDialog(com.bai.bookshelf.R.drawable.alipay_qr, "支付宝");
+            showRewardQrDialog(R.drawable.alipay_qr, "支付宝");
         });
         db.rowWechat.setOnClickListener(v -> {
             dialog.dismiss();
-            showRewardQrDialog(com.bai.bookshelf.R.drawable.wechat_qr, "微信");
+            showRewardQrDialog(R.drawable.wechat_qr, "微信");
         });
     }
 
@@ -708,7 +1041,7 @@ public class MineFragment extends Fragment {
         new MaterialAlertDialogBuilder(requireContext())
                 .setTitle(name + "收款码")
                 .setView(db.getRoot())
-                .setNegativeButton(com.bai.bookshelf.R.string.action_cancel, null)
+                .setNegativeButton(R.string.action_cancel, null)
                 .show();
         db.btnSave.setOnClickListener(v -> saveImageToGallery(imgRes, name));
     }

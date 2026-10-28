@@ -1,7 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 删除（v4.26）：1.75dp 线稿，保留错误红 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="24dp" android:height="24dp"
-    android:viewportWidth="24" android:viewportHeight="24">
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
     <path
-        android:fillColor="#FFB00020"
-        android:pathData="M6,7h12l-1,14a2,2 0 0,1 -2,2L9,23a2,2 0 0,1 -2,-2zM9,4h6l1,2L8,6z" />
+        android:fillColor="@android:color/transparent"
+        android:pathData="M4,7 L20,7 M9,7 L9,5 A1,1 0 0 1 10,4 L14,4 A1,1 0 0 1 15,5 L15,7 M6.5,7 L7.5,19.5 A1.5,1.5 0 0 0 9,21 L15,21 A1.5,1.5 0 0 0 16.5,19.5 L17.5,7 M10.5,11 L10.5,17 M13.5,11 L13.5,17"
+        android:strokeColor="#FFB00020"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeWidth="1.75" />
 </vector>

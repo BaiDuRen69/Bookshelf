@@ -260,7 +260,7 @@ public final class UpdateChecker {
             for (int i = 0; i < assets.size(); i++) {
                 JsonObject a = assets.get(i).getAsJsonObject();
                 String name = a.has("name") ? a.get("name").getAsString() : "";
-                if (name.toLowerCase().endsWith(".apk")) {
+                if (name.toLowerCase(java.util.Locale.ROOT).endsWith(".apk")) {
                     release.downloadUrl = a.get("browser_download_url").getAsString();
                     break;
                 }

@@ -29,6 +29,26 @@ public class BaseActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
     }
 
+    /**
+     * v4.54：应用锁统一拦截。所有业务页面都继承本类，因此无论从最近任务、
+     * 通知还是应用内跳转进入，都会先被锁屏页挡在前面。
+     */
+    @Override
+    protected void onStart() {
+        super.onStart();
+        if (this instanceof com.bai.bookshelf.ui.lock.AppLockActivity) {
+            return;
+        }
+        com.bai.bookshelf.util.AppLock.beforeActivityStart(this);
+        if (com.bai.bookshelf.util.AppLock.isLocked(this)) {
+            android.content.Intent intent = new android.content.Intent(this,
+                    com.bai.bookshelf.ui.lock.AppLockActivity.class);
+            intent.addFlags(android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP
+                    | android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            startActivity(intent);
+        }
+    }
+
     @Override
     public void onContentChanged() {
         super.onContentChanged();

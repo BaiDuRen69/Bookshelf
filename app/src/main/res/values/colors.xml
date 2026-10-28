@@ -5,16 +5,81 @@
     <color name="primary_dark">#1F4D40</color>
     <color name="accent">#C08A3E</color>
     <color name="bg_page">#FAF7F2</color>
+    <!-- v4.28：自适应桌面图标的纸色底 -->
+    <color name="icon_paper">#FAF7F2</color>
     <color name="text_main">#2B2B2B</color>
-    <color name="text_sub">#8A8A8A</color>
+    <!-- v4.24：原 #8A8A8A 在米白底上约 3.2:1，13sp 副标题偏灰难读；改到约 5.3:1 -->
+    <color name="text_sub">#6B6660</color>
     <color name="white">#FFFFFF</color>
-    <color name="stat_bar">#7FB3A2</color>
+    <!-- 黄铜只做填充；作为文字时用更深的 accent_text（约 5.4:1） -->
+    <color name="accent_text">#8A5A1A</color>
+    <color name="accent_text_brass">#7A5A22</color>
+    <color name="accent_text_olive">#4F6B24</color>
+    <color name="accent_text_graphite">#7A5220</color>
+    <!-- 借出角标（白字可读的深黄铜） -->
+    <color name="badge_borrowed">#8A5A1A</color>
+    <!-- 打赏入口的浅黄铜底 -->
+    <color name="brass_container">#F5E9D6</color>
+    <!-- 条形榜底槽（对白卡可辨识） -->
+    <color name="bar_track">#EDE7DC</color>
+    <!-- 无封面占位：六种布面书封 -->
+    <color name="book_cloth_green">#2E6E5C</color>
+    <color name="book_cloth_indigo">#3A5BA0</color>
+    <color name="book_cloth_rust">#9E4A3A</color>
+    <color name="book_cloth_ochre">#A9762E</color>
+    <color name="book_cloth_plum">#6B5A7E</color>
+    <color name="book_cloth_charcoal">#33383A</color>
     <color name="danger">#C0392B</color>
-    <color name="selected_bg">#222E6E5C</color>
 
     <!-- ===== 语义色层（v4.16 视觉重构）：卡片面 / 描边 / 次级面 ===== -->
     <!-- 卡片面（与页面底色拉开一档） -->
-    <color name="surface">#FFFFFF</color>
+    <!-- v4.30：每套主题各自的「纸」：页面底 / 卡面 / 次级底色 / 描边 / 强描边 -->
+    <!-- v4.31：夜读（暖炭黑 + 纸白 + 暗金） -->
+    <color name="night_page">#151311</color>
+    <color name="night_surface">#1E1B18</color>
+    <color name="night_surface_dim">#262220</color>
+    <color name="night_outline">#3A342E</color>
+    <color name="night_outline_strong">#4C443B</color>
+    <color name="night_text_main">#EDE7DE</color>
+    <color name="night_text_sub">#B5AEA3</color>
+    <color name="night_primary_dark">#243D36</color>
+    <color name="night_accent">#C9A66B</color>
+    <color name="night_chip_bg">#2A2723</color>
+    <color name="night_container">#26302C</color>
+    <color name="night_on_container">#D9E2D6</color>
+    <color name="night_accent_text">#D8B77E</color>
+    <color name="night_ink">#1A1510</color>
+    <color name="green_page">#FAF7F2</color>
+    <color name="green_surface">#FFFDF9</color>
+    <color name="green_surface_dim">#F3EEE6</color>
+    <color name="green_outline">#E6E0D5</color>
+    <color name="green_outline_strong">#D8D0C2</color>
+    <color name="blue_page">#F4F6FA</color>
+    <color name="blue_surface">#FFFFFF</color>
+    <color name="blue_surface_dim">#EDF1F7</color>
+    <color name="blue_outline">#DCE3EE</color>
+    <color name="blue_outline_strong">#CDD7E6</color>
+    <color name="red_page">#FAF4EE</color>
+    <color name="red_surface">#FFFDFB</color>
+    <color name="red_surface_dim">#F5EDE7</color>
+    <color name="red_outline">#E9DDD4</color>
+    <color name="red_outline_strong">#DCCCC0</color>
+    <color name="orange_page">#FBF4E9</color>
+    <color name="orange_surface">#FFFDF8</color>
+    <color name="orange_surface_dim">#F7EDDF</color>
+    <color name="orange_outline">#EADCCB</color>
+    <color name="orange_outline_strong">#DECBB6</color>
+    <color name="purple_page">#F8F5FA</color>
+    <color name="purple_surface">#FFFDFF</color>
+    <color name="purple_surface_dim">#F1EDF4</color>
+    <color name="purple_outline">#E4DBEA</color>
+    <color name="purple_outline_strong">#D6C9DF</color>
+    <color name="graphite_page">#F6F5F2</color>
+    <color name="graphite_surface">#FFFFFF</color>
+    <color name="graphite_surface_dim">#EFEEEA</color>
+    <color name="graphite_outline">#DFDDD7</color>
+    <color name="graphite_outline_strong">#D2CFC7</color>
+    <color name="surface">#FFFDF9</color>
     <!-- 卡片内的次级面（输入框、占位图、进度条底） -->
     <color name="surface_dim">#F4F0E9</color>
     <!-- 常规描边：卡片、输入框、筛选器 -->
@@ -24,19 +89,15 @@
     <!-- 封面占位底色（替代写死的 #EEE） -->
     <color name="cover_placeholder_bg">#E9E3D8</color>
     <!-- 底部导航条面（白底 + 上描边） -->
-    <color name="nav_bar_bg">#FFFFFF</color>
 
     <!-- ===== 分割线 / 遮罩等半透明中性色（v3.0 收拢，避免各布局散落魔法值） ===== -->
     <!-- 极弱分割线：书脊下方阴影、卡片描边等 -->
-    <color name="divider_faint">#12000000</color>
     <!-- 弱分割线：关于页/我的页分组之间 -->
     <color name="divider_soft">#14000000</color>
     <!-- 常规分割线：书架列表行分隔 -->
-    <color name="divider_normal">#1A000000</color>
     <!-- 不透明浅灰分割线：详情页分隔线 -->
     <color name="divider_gray">#DDDDDD</color>
     <!-- 半透明黑色遮罩：扫描页取景框外区域 -->
-    <color name="scrim_dark">#66000000</color>
 
     <!-- ===== 标签底色：随主题覆盖，保证换肤后协调（默认墨绿浅色） ===== -->
     <color name="chip_bg">#E8F0ED</color>

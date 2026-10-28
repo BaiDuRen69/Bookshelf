@@ -119,7 +119,7 @@
                 android:lineSpacingMultiplier="1.4"
                 android:text="腾讯云市场（聚美智数 34136）填法：\n地址：https://ap-guangzhou.cloudmarket-apigw.com/service-ed62t9xo/isbn/query\n密钥：腾讯云控制台 → 云市场 → 已购产品与服务 → 管理 中查看 SecretId/SecretKey（网关密钥，仅用于扫码查书）。\n\n这里的网关密钥与「用量查询」所需的腾讯云账号密钥不是一套，用量查询请前往「用量查询」页填写。"
                 android:textSize="12sp"
-                android:textColor="@color/text_sub" />
+                android:textColor="?attr/on_surface_variant" />
         </LinearLayout>
         </androidx.constraintlayout.widget.ConstraintLayout>
     </ScrollView>

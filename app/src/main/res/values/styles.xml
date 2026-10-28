@@ -86,16 +86,65 @@
     <!-- 工具栏：主色底 + 白色标题 + 无阴影 -->
     <style name="Widget.Bookshelf.Toolbar" parent="Widget.Material3.Toolbar">
         <item name="android:background">?attr/colorPrimary</item>
-        <item name="titleTextColor">@color/white</item>
+        <item name="titleTextColor">?attr/colorOnPrimary</item>
         <item name="titleTextAppearance">@style/TextAppearance.Bookshelf.ToolbarTitle</item>
-        <item name="navigationIconTint">@color/white</item>
+        <item name="navigationIconTint">?attr/colorOnPrimary</item>
         <item name="android:elevation">0dp</item>
     </style>
 
     <style name="TextAppearance.Bookshelf.ToolbarTitle" parent="TextAppearance.Material3.TitleLarge">
-        <item name="android:textSize">@dimen/text_title_toolbar</item>
-        <item name="android:textStyle">bold</item>
+        <item name="android:textSize">@dimen/text_title</item>
+        <item name="android:fontFamily">serif</item>
+        <item name="android:textStyle">normal</item>
+        <item name="android:letterSpacing">0.04</item>
         <item name="android:textColor">@color/white</item>
+    </style>
+
+    <!-- 两级标题：CardTitle（独立卡片 17sp 衬线）/ SectionTitle（卡内小标题 13sp sans-medium 次级色） -->
+    <style name="CardTitle">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textSize">@dimen/text_headline</item>
+        <item name="android:fontFamily">serif</item>
+        <item name="android:includeFontPadding">false</item>
+        <item name="android:letterSpacing">0.02</item>
+        <item name="android:textColor">?attr/on_surface</item>
+    </style>
+
+    <!-- ===== v4.24 字体体系：衬线只用于展示层（17sp 以上），正文与表单保持黑体 ===== -->
+    <style name="Text.Bookshelf" parent="" />
+
+    <style name="Text.Bookshelf.SerifTitle">
+        <item name="android:fontFamily">serif</item>
+        <item name="android:textSize">@dimen/text_title</item>
+        <item name="android:includeFontPadding">false</item>
+        <item name="android:letterSpacing">0.02</item>
+    </style>
+
+    <style name="Text.Bookshelf.SerifHeadline">
+        <item name="android:fontFamily">serif</item>
+        <item name="android:textSize">@dimen/text_headline</item>
+        <item name="android:includeFontPadding">false</item>
+        <item name="android:letterSpacing">0.02</item>
+    </style>
+
+    <!-- 数字：衬线 + 等宽数字，避免统计值跳动时左右抖动 -->
+    <style name="Text.Bookshelf.SerifNumber">
+        <item name="android:fontFamily">serif</item>
+        <item name="android:includeFontPadding">false</item>
+        <item name="android:fontFeatureSettings">tnum</item>
+    </style>
+
+    <!-- 11–13sp 小标题统一走 sans-serif-medium（见 MineSectionTitle / DialogSectionTitle） -->
+
+    <!-- ===== 详情页（v4.25） ===== -->
+    <style name="DetailSectionTitle">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textSize">@dimen/text_body_small</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:textColor">?attr/on_surface_variant</item>
+        <item name="android:letterSpacing">0.04</item>
     </style>
 
     <!-- ===== 弹窗（v4.18）：统一内容区与标题的视觉规范 ===== -->
@@ -149,7 +198,8 @@
         <item name="android:layout_marginBottom">@dimen/space_sm</item>
         <item name="android:textColor">?attr/on_surface_variant</item>
         <item name="android:textSize">@dimen/text_caption</item>
-        <item name="android:textStyle">bold</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:letterSpacing">0.06</item>
     </style>
 
     <!-- 弹窗内的说明文字 -->
@@ -181,12 +231,10 @@
 
     <!-- 弹窗入口行的图标底座（圆形，40dp） -->
 
-    <!-- ===== 「我的」页功能入口行容器（描边卡片行） ===== -->
+    <!-- ===== 「我的」页功能入口行（v4.24：分区卡内的一行） ===== -->
     <style name="MineRow">
         <item name="android:layout_width">match_parent</item>
         <item name="android:layout_height">wrap_content</item>
-        <item name="android:layout_marginTop">@dimen/space_sm</item>
-        <item name="android:background">@drawable/bg_card</item>
         <item name="android:clickable">true</item>
         <item name="android:focusable">true</item>
         <item name="android:foreground">?attr/selectableItemBackground</item>
@@ -194,8 +242,36 @@
         <item name="android:minHeight">60dp</item>
         <item name="android:paddingStart">@dimen/space_lg</item>
         <item name="android:paddingEnd">@dimen/space_md</item>
-        <item name="android:paddingTop">@dimen/space_md</item>
-        <item name="android:paddingBottom">@dimen/space_md</item>
+        <item name="android:paddingTop">10dp</item>
+        <item name="android:paddingBottom">10dp</item>
+    </style>
+
+    <!-- 行首 36dp 主色浅容器图标底座 -->
+    <style name="MineRowIcon">
+        <item name="android:layout_width">@dimen/mine_icon_box</item>
+        <item name="android:layout_height">@dimen/mine_icon_box</item>
+        <item name="android:background">@drawable/bg_icon_container</item>
+        <item name="android:padding">8dp</item>
+        <item name="android:scaleType">centerInside</item>
+        <item name="android:tint">?attr/colorPrimary</item>
+    </style>
+
+    <!-- 行与行之间的内缩分割线（左起 56dp） -->
+    <style name="MineRowDivider">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">1dp</item>
+        <item name="android:layout_marginStart">64dp</item>
+        <item name="android:background">@color/divider_soft</item>
+    </style>
+
+    <!-- 行尾统一 16dp 细线箭头 -->
+    <style name="MineRowChevron">
+        <item name="android:layout_width">16dp</item>
+        <item name="android:layout_height">16dp</item>
+        <item name="android:layout_marginStart">@dimen/space_sm</item>
+        <item name="android:scaleType">centerInside</item>
+        <item name="android:src">@drawable/ic_chevron_right_line</item>
+        <item name="android:tint">?attr/on_surface_variant</item>
     </style>
 
     <!-- 行内主标题 -->
@@ -204,7 +280,7 @@
         <item name="android:layout_height">wrap_content</item>
         <item name="android:textColor">?attr/on_surface</item>
         <item name="android:textSize">@dimen/text_body</item>
-        <item name="android:textStyle">bold</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
     </style>
 
     <!-- 行内副标题（功能说明 / 实时状态） -->
@@ -221,15 +297,22 @@
         <item name="android:layout_width">match_parent</item>
         <item name="android:layout_height">wrap_content</item>
         <item name="android:layout_marginTop">@dimen/space_xl</item>
-        <item name="android:layout_marginBottom">2dp</item>
+        <item name="android:layout_marginBottom">@dimen/space_sm</item>
         <item name="android:paddingStart">@dimen/space_xs</item>
         <item name="android:textColor">?attr/on_surface_variant</item>
-        <item name="android:textSize">@dimen/text_caption</item>
-        <item name="android:textStyle">bold</item>
+        <item name="android:textSize">@dimen/text_body_small</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:letterSpacing">0.04</item>
     </style>
 
     <!-- 底部导航小字号（配合低高度导航栏） -->
     <style name="BottomNavText">
         <item name="android:textSize">@dimen/tab_label_size</item>
+    </style>
+
+    <!-- 底部面板窗口动画（v4.27）：只做淡入淡出，不位移、不缩放 -->
+    <style name="Animation.Bookshelf.Sheet" parent="@android:style/Animation.Dialog">
+        <item name="android:windowEnterAnimation">@anim/sheet_fade_in</item>
+        <item name="android:windowExitAnimation">@anim/sheet_fade_out</item>
     </style>
 </resources>

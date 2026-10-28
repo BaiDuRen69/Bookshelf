@@ -74,6 +74,25 @@ public class Book implements Serializable {
     public String locationDetail = ""; // 各本存放位置（多本时填写，如「2本书房/1本客厅」）
     public int rating;                // 个人评分 0-5
     public String note = "";          // 备注
+    // ---- v4.44：阅读记录（状态切到在读/已读时自动写入）----
+    @ColumnInfo(defaultValue = "")
+    public String readingStartDate = "";   // 开始阅读 yyyy-MM-dd
+    @ColumnInfo(defaultValue = "")
+    public String readingFinishDate = "";  // 读完日期 yyyy-MM-dd
+    @ColumnInfo(defaultValue = "0")
+    public int readingProgress;            // 阅读进度 0-100（手动）
+
+    // ---- v4.50：个人短评（摘抄页维护，一条）----
+    @ColumnInfo(defaultValue = "")
+    public String review = "";
+
+    // ---- v4.53：系列 / 套装 ----
+    @ColumnInfo(defaultValue = "")
+    public String seriesName = "";    // 系列名（空 = 不属于任何系列）
+    @ColumnInfo(defaultValue = "")
+    public String seriesVolume = "";  // 卷号（自由文本，如「2」「外传」）
+    @ColumnInfo(defaultValue = "0")
+    public int seriesOrder;           // 阅读顺序（0 = 留空，按卷号排）
 
     // ---- 元数据 ----
     public long createdAt;            // 录入时间戳

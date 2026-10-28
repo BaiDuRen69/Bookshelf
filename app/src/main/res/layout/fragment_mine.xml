@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 我的页：数据概览 + 分区功能入口（v2.7 按功能分组、按使用频率重排） -->
+<!-- 我的页（v4.24 重构）：hero 概览 + 四个分区卡 + 打赏入口
+     每个分区一张卡，行与行之间用内缩分割线；行首统一 36dp 图标底座 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
@@ -18,676 +19,1010 @@
         android:layout_height="0dp"
         android:layout_weight="1">
 
-                <androidx.constraintlayout.widget.ConstraintLayout
+        <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content">
 
-<LinearLayout
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:paddingHorizontal="@dimen/page_padding"
-            android:paddingTop="@dimen/space_sm"
-            android:paddingBottom="@dimen/space_xl"
-                    app:layout_constraintWidth_max="@dimen/content_max_width"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintHorizontal_bias="0.5"
-                    app:layout_constraintTop_toTopOf="parent"
-                    app:layout_constraintBottom_toBottomOf="parent"
-                >
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingHorizontal="@dimen/page_padding"
+                android:paddingTop="@dimen/space_sm"
+                android:paddingBottom="@dimen/space_xl"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintHorizontal_bias="0.5"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintWidth_max="@dimen/content_max_width">
 
-            <!-- 数据概览卡片 -->
-            <androidx.cardview.widget.CardView
-                style="@style/Widget.Bookshelf.Card"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content">
+                <!-- ==================== Hero 概览 ==================== -->
+                <androidx.cardview.widget.CardView
+                    style="@style/Widget.Bookshelf.Card"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content">
 
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="@dimen/space_lg">
+
+                        <TextView
+                            android:id="@+id/tv_hero_summary"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="藏书 0 册 · 已读 0 · 在读 0"
+                            android:textColor="?attr/on_surface_variant"
+                            android:textSize="@dimen/text_body_small" />
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:layout_marginTop="12dp"
+                            android:layout_marginBottom="14dp"
+                            android:background="?attr/outline" />
+
+                        <!-- 管理维度（v4.28）：藏书统计交给统计页，我的页只留管理侧数据 -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal">
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:gravity="center_horizontal"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:id="@+id/tv_hero_locations"
+                                    style="@style/Text.Bookshelf.SerifNumber"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="0"
+                                    android:textColor="?attr/colorPrimary"
+                                    android:textSize="@dimen/text_title" />
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="2dp"
+                                    android:text="地点"
+                                    android:textColor="?attr/on_surface_variant"
+                                    android:textSize="@dimen/text_caption" />
+                            </LinearLayout>
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:gravity="center_horizontal"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:id="@+id/tv_hero_channels"
+                                    style="@style/Text.Bookshelf.SerifNumber"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="0"
+                                    android:textColor="?attr/colorPrimary"
+                                    android:textSize="@dimen/text_title" />
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="2dp"
+                                    android:text="渠道（已用）"
+                                    android:textColor="?attr/on_surface_variant"
+                                    android:textSize="@dimen/text_caption" />
+                            </LinearLayout>
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:gravity="center_horizontal"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:id="@+id/tv_hero_tags"
+                                    style="@style/Text.Bookshelf.SerifNumber"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="0"
+                                    android:textColor="?attr/colorPrimary"
+                                    android:textSize="@dimen/text_title" />
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="2dp"
+                                    android:text="标签"
+                                    android:textColor="?attr/on_surface_variant"
+                                    android:textSize="@dimen/text_caption" />
+                            </LinearLayout>
+                        </LinearLayout>
+                    </LinearLayout>
+                </androidx.cardview.widget.CardView>
+
+                <!-- ==================== 藏书管理 ==================== -->
                 <TextView
-                    android:id="@+id/tv_summary"
+                    style="@style/MineSectionTitle"
+                    android:text="藏书管理" />
+
+                <androidx.cardview.widget.CardView
+                    style="@style/Widget.Bookshelf.Card"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical">
+
+                        <LinearLayout
+                            android:id="@+id/row_scan"
+                            style="@style/MineRow">
+
+                            <ImageView
+                                style="@style/MineRowIcon"
+                                android:contentDescription="扫码录入"
+                                android:src="@drawable/ic_scan_line" />
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="@dimen/space_md"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    style="@style/MineRowTitle"
+                                    android:text="扫码录入" />
+
+                                <TextView
+                                    style="@style/MineRowSubtitle"
+                                    android:text="扫 ISBN 条形码快速添加书籍" />
+                            </LinearLayout>
+
+                            <ImageView style="@style/MineRowChevron" />
+                        </LinearLayout>
+
+                        <View style="@style/MineRowDivider" />
+
+                        <LinearLayout
+                            android:id="@+id/row_ocr"
+                            style="@style/MineRow">
+
+                            <ImageView
+                                style="@style/MineRowIcon"
+                                android:contentDescription="拍照识字"
+                                android:src="@drawable/ic_camera" />
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="@dimen/space_md"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    style="@style/MineRowTitle"
+                                    android:text="拍照识字" />
+
+                                <TextView
+                                    style="@style/MineRowSubtitle"
+                                    android:text="拍封面或扉页，自动识别书名和作者" />
+                            </LinearLayout>
+
+                            <ImageView style="@style/MineRowChevron" />
+                        </LinearLayout>
+
+                        <View style="@style/MineRowDivider" />
+
+                        <LinearLayout
+                            android:id="@+id/row_inventory"
+                            style="@style/MineRow">
+
+                            <ImageView
+                                style="@style/MineRowIcon"
+                                android:contentDescription="盘点模式"
+                                android:src="@drawable/ic_check_line" />
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="@dimen/space_md"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    style="@style/MineRowTitle"
+                                    android:text="盘点模式" />
+
+                                <TextView
+                                    style="@style/MineRowSubtitle"
+                                    android:text="扫一遍书房，找出不在架上的书" />
+                            </LinearLayout>
+
+                            <ImageView style="@style/MineRowChevron" />
+                        </LinearLayout>
+
+                        <View style="@style/MineRowDivider" />
+
+                        <LinearLayout
+                            android:id="@+id/row_wish"
+                            style="@style/MineRow">
+
+                            <ImageView
+                                style="@style/MineRowIcon"
+                                android:contentDescription="想读清单"
+                                android:src="@drawable/ic_book_line" />
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="@dimen/space_md"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    style="@style/MineRowTitle"
+                                    android:text="想读清单" />
+
+                                <TextView
+                                    style="@style/MineRowSubtitle"
+                                    android:text="买之前先记下，避免买重" />
+                            </LinearLayout>
+
+                            <ImageView style="@style/MineRowChevron" />
+                        </LinearLayout>
+
+                        <View style="@style/MineRowDivider" />
+
+                        <LinearLayout
+                            android:id="@+id/row_series"
+                            style="@style/MineRow">
+
+                            <ImageView
+                                style="@style/MineRowIcon"
+                                android:contentDescription="系列书架"
+                                android:src="@drawable/ic_series_line" />
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="@dimen/space_md"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    style="@style/MineRowTitle"
+                                    android:text="系列书架" />
+
+                                <TextView
+                                    style="@style/MineRowSubtitle"
+                                    android:text="多卷本 / 套装按阅读顺序收在一起" />
+                            </LinearLayout>
+
+                            <ImageView style="@style/MineRowChevron" />
+                        </LinearLayout>
+
+                        <View style="@style/MineRowDivider" />
+
+                        <LinearLayout
+                            android:id="@+id/row_location"
+                            style="@style/MineRow">
+
+                            <ImageView
+                                style="@style/MineRowIcon"
+                                android:contentDescription="存放地点管理"
+                                android:src="@drawable/ic_pin_line" />
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="@dimen/space_md"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    style="@style/MineRowTitle"
+                                    android:text="存放地点管理" />
+
+                                <TextView
+                                    style="@style/MineRowSubtitle"
+                                    android:text="书房、客厅、卧室…书籍放在哪里" />
+                            </LinearLayout>
+
+                            <ImageView style="@style/MineRowChevron" />
+                        </LinearLayout>
+
+                        <View style="@style/MineRowDivider" />
+
+                        <LinearLayout
+                            android:id="@+id/row_source"
+                            style="@style/MineRow">
+
+                            <ImageView
+                                style="@style/MineRowIcon"
+                                android:contentDescription="来源渠道管理"
+                                android:src="@drawable/ic_store_line" />
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="@dimen/space_md"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    style="@style/MineRowTitle"
+                                    android:text="来源渠道管理" />
+
+                                <TextView
+                                    android:id="@+id/tv_channel_sub"
+                                    style="@style/MineRowSubtitle"
+                                    android:text="如 拼多多 / 淘宝 / 书店，记录从哪里购买" />
+                            </LinearLayout>
+
+                            <ImageView style="@style/MineRowChevron" />
+                        </LinearLayout>
+
+                        <View style="@style/MineRowDivider" />
+
+                        <LinearLayout
+                            android:id="@+id/row_tag"
+                            style="@style/MineRow">
+
+                            <ImageView
+                                style="@style/MineRowIcon"
+                                android:contentDescription="标签管理"
+                                android:src="@drawable/ic_tag_line" />
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="@dimen/space_md"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    style="@style/MineRowTitle"
+                                    android:text="标签管理" />
+
+                                <TextView
+                                    style="@style/MineRowSubtitle"
+                                    android:text="自定义标签，在书架中快速筛选" />
+                            </LinearLayout>
+
+                            <ImageView style="@style/MineRowChevron" />
+                        </LinearLayout>
+
+                        <View style="@style/MineRowDivider" />
+
+                        <LinearLayout
+                            android:id="@+id/row_category"
+                            style="@style/MineRow">
+
+                            <ImageView
+                                style="@style/MineRowIcon"
+                                android:contentDescription="分类管理"
+                                android:src="@drawable/ic_category_line" />
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="@dimen/space_md"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    style="@style/MineRowTitle"
+                                    android:text="分类管理" />
+
+                                <TextView
+                                    style="@style/MineRowSubtitle"
+                                    android:text="一级/二级分类的增删改与选择" />
+                            </LinearLayout>
+
+                            <ImageView style="@style/MineRowChevron" />
+                        </LinearLayout>
+
+                        <View style="@style/MineRowDivider" />
+
+                        <LinearLayout
+                            android:id="@+id/row_split"
+                            style="@style/MineRow">
+
+                            <ImageView
+                                style="@style/MineRowIcon"
+                                android:contentDescription="购入价分摊"
+                                android:src="@drawable/ic_split_line" />
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="@dimen/space_md"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    style="@style/MineRowTitle"
+                                    android:text="套装书籍购入价分摊" />
+
+                                <TextView
+                                    style="@style/MineRowSubtitle"
+                                    android:text="按册数把套装总价拆分到每一本书" />
+                            </LinearLayout>
+
+                            <ImageView style="@style/MineRowChevron" />
+                        </LinearLayout>
+                    </LinearLayout>
+                </androidx.cardview.widget.CardView>
+
+                <!-- ==================== 数据与备份 ==================== -->
+                <TextView
+                    style="@style/MineSectionTitle"
+                    android:text="数据与备份" />
+
+                <androidx.cardview.widget.CardView
+                    style="@style/Widget.Bookshelf.Card"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical">
+
+                        <LinearLayout
+                            android:id="@+id/row_export"
+                            style="@style/MineRow">
+
+                            <ImageView
+                                style="@style/MineRowIcon"
+                                android:contentDescription="导出 Excel"
+                                android:src="@drawable/ic_export_line" />
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="@dimen/space_md"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    style="@style/MineRowTitle"
+                                    android:text="导出 Excel" />
+
+                                <TextView
+                                    style="@style/MineRowSubtitle"
+                                    android:text="便于查看分享的清单；全量备份请用 zip" />
+                            </LinearLayout>
+
+                            <ImageView style="@style/MineRowChevron" />
+                        </LinearLayout>
+
+                        <View style="@style/MineRowDivider" />
+
+                        <LinearLayout
+                            android:id="@+id/row_import"
+                            style="@style/MineRow">
+
+                            <ImageView
+                                style="@style/MineRowIcon"
+                                android:contentDescription="导入备份"
+                                android:src="@drawable/ic_import_line" />
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="@dimen/space_md"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    style="@style/MineRowTitle"
+                                    android:text="导入备份" />
+
+                                <TextView
+                                    style="@style/MineRowSubtitle"
+                                    android:text="zip 整包全量恢复 / xlsx 合并导入" />
+                            </LinearLayout>
+
+                            <ImageView style="@style/MineRowChevron" />
+                        </LinearLayout>
+
+                        <View style="@style/MineRowDivider" />
+
+                        <LinearLayout
+                            android:id="@+id/row_auto_backup"
+                            style="@style/MineRow">
+
+                            <ImageView
+                                style="@style/MineRowIcon"
+                                android:contentDescription="自动备份"
+                                android:src="@drawable/ic_backup_line" />
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="@dimen/space_md"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    style="@style/MineRowTitle"
+                                    android:text="自动备份" />
+
+                                <TextView
+                                    android:id="@+id/tv_auto_backup_state"
+                                    style="@style/MineRowSubtitle"
+                                    android:text="已关闭" />
+                            </LinearLayout>
+
+                            <ImageView style="@style/MineRowChevron" />
+                        </LinearLayout>
+
+                        <View style="@style/MineRowDivider" />
+
+                        <LinearLayout
+                            android:id="@+id/row_backup_dir"
+                            style="@style/MineRow">
+
+                            <ImageView
+                                style="@style/MineRowIcon"
+                                android:contentDescription="备份文件夹"
+                                android:src="@drawable/ic_folder_line" />
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="@dimen/space_md"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    style="@style/MineRowTitle"
+                                    android:text="备份文件夹" />
+
+                                <TextView
+                                    android:id="@+id/tv_backup_dir_name"
+                                    style="@style/MineRowSubtitle"
+                                    android:text="未选择" />
+                            </LinearLayout>
+
+                            <ImageView style="@style/MineRowChevron" />
+                        </LinearLayout>
+
+                        <View style="@style/MineRowDivider" />
+
+                        <LinearLayout
+                            android:id="@+id/row_backup_files"
+                            style="@style/MineRow">
+
+                            <ImageView
+                                style="@style/MineRowIcon"
+                                android:contentDescription="备份文件管理"
+                                android:src="@drawable/ic_archive_line" />
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="@dimen/space_md"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    style="@style/MineRowTitle"
+                                    android:text="备份文件管理" />
+
+                                <TextView
+                                    android:id="@+id/tv_backup_files_state"
+                                    style="@style/MineRowSubtitle"
+                                    android:text="暂无备份" />
+                            </LinearLayout>
+
+                            <ImageView style="@style/MineRowChevron" />
+                        </LinearLayout>
+                    </LinearLayout>
+                </androidx.cardview.widget.CardView>
+
+                <!-- ==================== 应用更新 ==================== -->
+                <TextView
+                    style="@style/MineSectionTitle"
+                    android:text="应用更新" />
+
+                <androidx.cardview.widget.CardView
+                    style="@style/Widget.Bookshelf.Card"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical">
+
+                        <LinearLayout
+                            android:id="@+id/row_update_toggle"
+                            style="@style/MineRow">
+
+                            <ImageView
+                                style="@style/MineRowIcon"
+                                android:contentDescription="启动时检查更新"
+                                android:src="@drawable/ic_sync_line" />
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="@dimen/space_md"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    style="@style/MineRowTitle"
+                                    android:text="启动时检查应用更新" />
+
+                                <TextView
+                                    android:id="@+id/tv_update_toggle_state"
+                                    style="@style/MineRowSubtitle"
+                                    android:text="已开启（发现新版本时提醒）" />
+                            </LinearLayout>
+
+                            <ImageView style="@style/MineRowChevron" />
+                        </LinearLayout>
+
+                        <View style="@style/MineRowDivider" />
+
+                        <LinearLayout
+                            android:id="@+id/row_check_update"
+                            style="@style/MineRow">
+
+                            <ImageView
+                                style="@style/MineRowIcon"
+                                android:contentDescription="检查更新"
+                                android:src="@drawable/ic_download_line" />
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="@dimen/space_md"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    style="@style/MineRowTitle"
+                                    android:text="检查应用更新" />
+
+                                <TextView
+                                    style="@style/MineRowSubtitle"
+                                    android:text="手动检查是否有新版本" />
+                            </LinearLayout>
+
+                            <ImageView style="@style/MineRowChevron" />
+                        </LinearLayout>
+                    </LinearLayout>
+                </androidx.cardview.widget.CardView>
+
+                <!-- ==================== 设置 ==================== -->
+                <TextView
+                    style="@style/MineSectionTitle"
+                    android:text="设置" />
+
+                <androidx.cardview.widget.CardView
+                    style="@style/Widget.Bookshelf.Card"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical">
+
+                        <LinearLayout
+                            android:id="@+id/row_api"
+                            style="@style/MineRow">
+
+                            <ImageView
+                                style="@style/MineRowIcon"
+                                android:contentDescription="API 设置"
+                                android:src="@drawable/ic_sliders_line" />
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="@dimen/space_md"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    style="@style/MineRowTitle"
+                                    android:text="API 设置" />
+
+                                <TextView
+                                    style="@style/MineRowSubtitle"
+                                    android:text="ISBN 数据源配置与用量查询" />
+                            </LinearLayout>
+
+                            <ImageView style="@style/MineRowChevron" />
+                        </LinearLayout>
+
+                        <View style="@style/MineRowDivider" />
+
+                        <LinearLayout
+                            android:id="@+id/row_app_lock"
+                            style="@style/MineRow">
+
+                            <ImageView
+                                style="@style/MineRowIcon"
+                                android:contentDescription="应用锁"
+                                android:src="@drawable/ic_lock_line" />
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="@dimen/space_md"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    style="@style/MineRowTitle"
+                                    android:text="应用锁" />
+
+                                <TextView
+                                    android:id="@+id/tv_app_lock_state"
+                                    style="@style/MineRowSubtitle"
+                                    android:text="未开启" />
+                            </LinearLayout>
+
+                            <ImageView style="@style/MineRowChevron" />
+                        </LinearLayout>
+
+                        <View style="@style/MineRowDivider" />
+
+                        <LinearLayout
+                            android:id="@+id/row_theme"
+                            style="@style/MineRow">
+
+                            <ImageView
+                                style="@style/MineRowIcon"
+                                android:contentDescription="主题颜色"
+                                android:src="@drawable/ic_palette_line" />
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="@dimen/space_md"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    style="@style/MineRowTitle"
+                                    android:text="主题颜色" />
+
+                                <TextView
+                                    android:id="@+id/tv_theme_state"
+                                    style="@style/MineRowSubtitle"
+                                    android:text="当前：墨绿" />
+                            </LinearLayout>
+
+                            <ImageView style="@style/MineRowChevron" />
+                        </LinearLayout>
+
+                        <View
+                            android:id="@+id/divider_crash"
+                            style="@style/MineRowDivider"
+                            android:visibility="gone" />
+
+                        <!-- 仅在真的发生过崩溃时显示 -->
+                        <LinearLayout
+                            android:id="@+id/row_crash_log"
+                            style="@style/MineRow"
+                            android:visibility="gone">
+
+                            <ImageView
+                                style="@style/MineRowIcon"
+                                android:contentDescription="崩溃日志"
+                                android:src="@drawable/ic_bug_line" />
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="@dimen/space_md"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    style="@style/MineRowTitle"
+                                    android:text="崩溃日志" />
+
+                                <TextView
+                                    android:id="@+id/tv_crash_log_state"
+                                    style="@style/MineRowSubtitle"
+                                    android:text="上次异常记录（点击查看并复制）" />
+                            </LinearLayout>
+
+                            <ImageView style="@style/MineRowChevron" />
+                        </LinearLayout>
+
+                        <View
+                            android:id="@+id/divider_feedback"
+                            style="@style/MineRowDivider" />
+
+                        <LinearLayout
+                            android:id="@+id/row_feedback_email"
+                            style="@style/MineRow">
+
+                            <ImageView
+                                style="@style/MineRowIcon"
+                                android:contentDescription="邮件反馈"
+                                android:src="@drawable/ic_mail_line" />
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="@dimen/space_md"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    style="@style/MineRowTitle"
+                                    android:text="邮件反馈" />
+
+                                <TextView
+                                    style="@style/MineRowSubtitle"
+                                    android:text="baiduren69@outlook.com（点击直接写信）" />
+                            </LinearLayout>
+
+                            <ImageView style="@style/MineRowChevron" />
+                        </LinearLayout>
+
+                        <View style="@style/MineRowDivider" />
+
+                        <LinearLayout
+                            android:id="@+id/row_feedback_github"
+                            style="@style/MineRow">
+
+                            <ImageView
+                                style="@style/MineRowIcon"
+                                android:contentDescription="GitHub Issues"
+                                android:src="@drawable/ic_github_line" />
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="@dimen/space_md"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    style="@style/MineRowTitle"
+                                    android:text="GitHub Issues 反馈" />
+
+                                <TextView
+                                    style="@style/MineRowSubtitle"
+                                    android:text="浏览器打开 Issue 提交页" />
+                            </LinearLayout>
+
+                            <ImageView style="@style/MineRowChevron" />
+                        </LinearLayout>
+
+                        <View style="@style/MineRowDivider" />
+
+                        <LinearLayout
+                            android:id="@+id/row_github"
+                            style="@style/MineRow">
+
+                            <ImageView
+                                style="@style/MineRowIcon"
+                                android:contentDescription="我的 GitHub"
+                                android:src="@drawable/ic_github_line" />
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="@dimen/space_md"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    style="@style/MineRowTitle"
+                                    android:text="我的 GitHub" />
+
+                                <TextView
+                                    style="@style/MineRowSubtitle"
+                                    android:text="github.com/BaiDuRen69/Bookshelf" />
+                            </LinearLayout>
+
+                            <ImageView style="@style/MineRowChevron" />
+                        </LinearLayout>
+
+                        <View style="@style/MineRowDivider" />
+
+                        <LinearLayout
+                            android:id="@+id/row_about"
+                            style="@style/MineRow">
+
+                            <ImageView
+                                style="@style/MineRowIcon"
+                                android:contentDescription="关于"
+                                android:src="@drawable/ic_info_line" />
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="@dimen/space_md"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    style="@style/MineRowTitle"
+                                    android:text="关于与免责声明" />
+
+                                <TextView
+                                    android:id="@+id/tv_about_state"
+                                    style="@style/MineRowSubtitle"
+                                    android:text="版本与作者信息" />
+                            </LinearLayout>
+
+                            <ImageView style="@style/MineRowChevron" />
+                        </LinearLayout>
+                    </LinearLayout>
+                </androidx.cardview.widget.CardView>
+
+                <!-- ==================== 打赏 ==================== -->
+                <androidx.cardview.widget.CardView
+                    style="@style/Widget.Bookshelf.Card"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:padding="@dimen/space_lg"
-                    android:textSize="@dimen/text_body"
-                    android:lineSpacingMultiplier="1.5"
-                    android:textColor="?attr/on_surface"
-                    android:text="藏书 0 册 · 地点 0 个" />
-            </androidx.cardview.widget.CardView>
-
-            <!-- ==================== 藏书管理 ==================== -->
-            <TextView
-                style="@style/MineSectionTitle"
-                android:text="藏书管理" />
-
-            <!-- 扫码录入：最高频操作，置顶 -->
-            <LinearLayout
-                android:id="@+id/row_scan"
-                style="@style/MineRow">
-
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
-
-                    <TextView
-                        style="@style/MineRowTitle"
-                        android:text="扫码录入" />
-
-                    <TextView
-                        style="@style/MineRowSubtitle"
-                        android:text="扫 ISBN 条形码快速添加书籍" />
-                </LinearLayout>
-
-                <ImageView
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
-                    android:layout_marginStart="8dp"
-                    android:src="@drawable/ic_arrow_right"
-                    app:tint="@color/text_sub" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:id="@+id/row_location"
-                style="@style/MineRow">
-
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
-
-                    <TextView
-                        style="@style/MineRowTitle"
-                        android:text="存放地点管理" />
-
-                    <TextView
-                        style="@style/MineRowSubtitle"
-                        android:text="书房、客厅、卧室…书籍放在哪里" />
-                </LinearLayout>
-
-                <ImageView
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
-                    android:layout_marginStart="8dp"
-                    android:src="@drawable/ic_arrow_right"
-                    app:tint="@color/text_sub" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:id="@+id/row_source"
-                style="@style/MineRow">
-
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
-
-                    <TextView
-                        style="@style/MineRowTitle"
-                        android:text="来源渠道管理" />
-
-                    <TextView
-                        style="@style/MineRowSubtitle"
-                        android:text="如 拼多多 / 淘宝 / 书店，记录从哪里购买" />
-                </LinearLayout>
-
-                <ImageView
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
-                    android:layout_marginStart="8dp"
-                    android:src="@drawable/ic_arrow_right"
-                    app:tint="@color/text_sub" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:id="@+id/row_tag"
-                style="@style/MineRow">
-
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
-
-                    <TextView
-                        style="@style/MineRowTitle"
-                        android:text="标签管理" />
-
-                    <TextView
-                        style="@style/MineRowSubtitle"
-                        android:text="自定义标签，在书架中快速筛选" />
-                </LinearLayout>
-
-                <ImageView
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
-                    android:layout_marginStart="8dp"
-                    android:src="@drawable/ic_arrow_right"
-                    app:tint="@color/text_sub" />
-            </LinearLayout>
-
-            <!-- 分类管理（v4.9）：二级分类的选择与增删改统一入口 -->
-            <LinearLayout
-                android:id="@+id/row_category"
-                style="@style/MineRow">
-
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
-
-                    <TextView
-                        style="@style/MineRowTitle"
-                        android:text="分类管理" />
-
-                    <TextView
-                        style="@style/MineRowSubtitle"
-                        android:text="一级/二级分类的增删改与选择" />
-                </LinearLayout>
-
-                <ImageView
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
-                    android:layout_marginStart="8dp"
-                    android:src="@drawable/ic_arrow_right"
-                    app:tint="@color/text_sub" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:id="@+id/row_split"
-                style="@style/MineRow">
-
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
-
-                    <TextView
-                        style="@style/MineRowTitle"
-                        android:text="套装书籍购入价分摊" />
-
-                    <TextView
-                        style="@style/MineRowSubtitle"
-                        android:text="按册数把套装总价拆分到每一本书" />
-                </LinearLayout>
-
-                <ImageView
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
-                    android:layout_marginStart="8dp"
-                    android:src="@drawable/ic_arrow_right"
-                    app:tint="@color/text_sub" />
-            </LinearLayout>
-
-            <!-- ==================== 数据与备份 ==================== -->
-            <TextView
-                style="@style/MineSectionTitle"
-                android:text="数据与备份" />
-
-            <LinearLayout
-                android:id="@+id/row_export"
-                style="@style/MineRow">
-
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
-
-                    <TextView
-                        style="@style/MineRowTitle"
-                        android:text="导出 Excel" />
-
-                    <TextView
-                        style="@style/MineRowSubtitle"
-                        android:text="便于查看分享的清单；全量备份请用 zip" />
-                </LinearLayout>
-
-                <ImageView
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
-                    android:layout_marginStart="8dp"
-                    android:src="@drawable/ic_arrow_right"
-                    app:tint="@color/text_sub" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:id="@+id/row_import"
-                style="@style/MineRow">
-
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
-
-                    <TextView
-                        style="@style/MineRowTitle"
-                        android:text="导入备份" />
-
-                    <TextView
-                        style="@style/MineRowSubtitle"
-                        android:text="zip 整包全量恢复 / xlsx 合并导入" />
-                </LinearLayout>
-
-                <ImageView
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
-                    android:layout_marginStart="8dp"
-                    android:src="@drawable/ic_arrow_right"
-                    app:tint="@color/text_sub" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:id="@+id/row_auto_backup"
-                style="@style/MineRow">
-
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
-
-                    <TextView
-                        style="@style/MineRowTitle"
-                        android:text="自动备份" />
-
-                    <TextView
-                        android:id="@+id/tv_auto_backup_state"
-                        style="@style/MineRowSubtitle"
-                        android:text="已关闭" />
-                </LinearLayout>
-
-                <ImageView
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
-                    android:layout_marginStart="8dp"
-                    android:src="@drawable/ic_arrow_right"
-                    app:tint="@color/text_sub" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:id="@+id/row_backup_dir"
-                style="@style/MineRow">
-
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
-
-                    <TextView
-                        style="@style/MineRowTitle"
-                        android:text="备份文件夹" />
-
-                    <TextView
-                        android:id="@+id/tv_backup_dir_name"
-                        style="@style/MineRowSubtitle"
-                        android:text="未选择" />
-                </LinearLayout>
-
-                <ImageView
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
-                    android:layout_marginStart="8dp"
-                    android:src="@drawable/ic_arrow_right"
-                    app:tint="@color/text_sub" />
-            </LinearLayout>
-
-            <!-- v4.23：备份文件管理（审查 #3）——内部备份此前没有任何出口，
-                 用户拿不到文件、卸载即全灭；现在可查看/分享/删除 -->
-            <LinearLayout
-                android:id="@+id/row_backup_files"
-                style="@style/MineRow">
-
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
-
-                    <TextView
-                        style="@style/MineRowTitle"
-                        android:text="备份文件管理" />
-
-                    <TextView
-                        android:id="@+id/tv_backup_files_state"
-                        style="@style/MineRowSubtitle"
-                        android:text="暂无备份" />
-                </LinearLayout>
-
-                <ImageView
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
-                    android:layout_marginStart="8dp"
-                    android:src="@drawable/ic_arrow_right"
-                    app:tint="@color/text_sub" />
-            </LinearLayout>
-
-            <!-- ==================== 应用更新（v4.7） ==================== -->
-            <TextView
-                style="@style/MineSectionTitle"
-                android:text="应用更新" />
-
-            <LinearLayout
-                android:id="@+id/row_update_toggle"
-                style="@style/MineRow">
-
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
-
-                    <TextView
-                        style="@style/MineRowTitle"
-                        android:text="启动时检查应用更新" />
-
-                    <TextView
-                        android:id="@+id/tv_update_toggle_state"
-                        style="@style/MineRowSubtitle"
-                        android:text="已开启（发现新版本时提醒）" />
-                </LinearLayout>
-
-                <ImageView
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
-                    android:layout_marginStart="8dp"
-                    android:src="@drawable/ic_arrow_right"
-                    app:tint="@color/text_sub" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:id="@+id/row_check_update"
-                style="@style/MineRow">
-
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
-
-                    <TextView
-                        style="@style/MineRowTitle"
-                        android:text="检查应用更新" />
-
-                    <TextView
-                        style="@style/MineRowSubtitle"
-                        android:text="手动检查是否有新版本" />
-                </LinearLayout>
-
-                <ImageView
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
-                    android:layout_marginStart="8dp"
-                    android:src="@drawable/ic_arrow_right"
-                    app:tint="@color/text_sub" />
-            </LinearLayout>
-
-            <!-- ==================== 设置 ==================== -->
-            <TextView
-                style="@style/MineSectionTitle"
-                android:text="设置" />
-
-            <LinearLayout
-                android:id="@+id/row_api"
-                style="@style/MineRow">
-
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
-
-                    <TextView
-                        style="@style/MineRowTitle"
-                        android:text="API 设置" />
-
-                    <TextView
-                        style="@style/MineRowSubtitle"
-                        android:text="ISBN 数据源配置与用量查询" />
-                </LinearLayout>
-
-                <ImageView
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
-                    android:layout_marginStart="8dp"
-                    android:src="@drawable/ic_arrow_right"
-                    app:tint="@color/text_sub" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:id="@+id/row_theme"
-                style="@style/MineRow">
-
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
-
-                    <TextView
-                        style="@style/MineRowTitle"
-                        android:text="主题颜色" />
-
-                    <TextView
-                        android:id="@+id/tv_theme_state"
-                        style="@style/MineRowSubtitle"
-                        android:text="当前：墨绿" />
-                </LinearLayout>
-
-                <ImageView
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
-                    android:layout_marginStart="8dp"
-                    android:src="@drawable/ic_arrow_right"
-                    app:tint="@color/text_sub" />
-            </LinearLayout>
-
-            <!-- v4.19：崩溃日志入口（仅在真的发生过崩溃时显示） -->
-            <LinearLayout
-                android:id="@+id/row_crash_log"
-                style="@style/MineRow"
-                android:visibility="gone">
-
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
-
-                    <TextView
-                        style="@style/MineRowTitle"
-                        android:text="崩溃日志" />
-
-                    <TextView
-                        android:id="@+id/tv_crash_log_state"
-                        style="@style/MineRowSubtitle"
-                        android:text="上次异常记录（点击查看并复制）" />
-                </LinearLayout>
-
-                <ImageView
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
-                    android:layout_marginStart="8dp"
-                    android:src="@drawable/ic_arrow_right"
-                    app:tint="@color/text_sub" />
-            </LinearLayout>
-
-            <!-- 问题反馈（v4.6）：邮件 / GitHub Issues 两个直达入口 -->
-            <LinearLayout
-                android:id="@+id/row_feedback_email"
-                style="@style/MineRow">
-
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
-
-                    <TextView
-                        style="@style/MineRowTitle"
-                        android:text="邮件反馈" />
-
-                    <TextView
-                        style="@style/MineRowSubtitle"
-                        android:text="baiduren69@outlook.com（点击直接写信）" />
-                </LinearLayout>
-
-                <ImageView
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
-                    android:layout_marginStart="8dp"
-                    android:src="@drawable/ic_arrow_right"
-                    app:tint="@color/text_sub" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:id="@+id/row_feedback_github"
-                style="@style/MineRow">
-
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
-
-                    <TextView
-                        style="@style/MineRowTitle"
-                        android:text="GitHub Issues 反馈" />
-
-                    <TextView
-                        style="@style/MineRowSubtitle"
-                        android:text="浏览器打开 Issue 提交页" />
-                </LinearLayout>
-
-                <ImageView
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
-                    android:layout_marginStart="8dp"
-                    android:src="@drawable/ic_arrow_right"
-                    app:tint="@color/text_sub" />
-            </LinearLayout>
-
-            <!-- 我的 GitHub（v4.15）：项目主页直达入口 -->
-            <LinearLayout
-                android:id="@+id/row_github"
-                style="@style/MineRow">
-
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
-
-                    <TextView
-                        style="@style/MineRowTitle"
-                        android:text="我的 GitHub" />
-
-                    <TextView
-                        style="@style/MineRowSubtitle"
-                        android:text="github.com/BaiDuRen69/Bookshelf" />
-                </LinearLayout>
-
-                <ImageView
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
-                    android:layout_marginStart="8dp"
-                    android:src="@drawable/ic_arrow_right"
-                    app:tint="@color/text_sub" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:id="@+id/row_about"
-                style="@style/MineRow">
-
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
-
-                    <TextView
-                        style="@style/MineRowTitle"
-                        android:text="关于与免责声明" />
-
-                    <TextView
-                        android:id="@+id/tv_about_state"
-                        style="@style/MineRowSubtitle"
-                        android:text="版本与作者信息" />
-                </LinearLayout>
-
-                <ImageView
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
-                    android:layout_marginStart="8dp"
-                    android:src="@drawable/ic_arrow_right"
-                    app:tint="@color/text_sub" />
-            </LinearLayout>
-
-            <!-- 打赏功能上方分割线 -->
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="1dp"
-                android:layout_marginTop="14dp"
-                android:background="@color/divider_soft" />
-
-            <!-- 打赏作者入口（v2.5，图片1样式：图标 + 标题 + 副标题 + 箭头；v4.16 统一为描边卡片） -->
-            <LinearLayout
-                android:id="@+id/row_reward"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                android:background="@drawable/bg_card"
-                android:clickable="true"
-                android:focusable="true"
-                android:foreground="?attr/selectableItemBackground"
-                android:gravity="center_vertical"
-                android:padding="@dimen/space_md">
-
-                <ImageView
-                    android:layout_width="44dp"
-                    android:layout_height="44dp"
-                    android:background="@drawable/bg_icon_blue"
-                    android:padding="11dp"
-                    android:src="@drawable/ic_heart"
-                    app:tint="@color/white" />
-
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="12dp"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
-
-                    <TextView
-                        android:layout_width="wrap_content"
+                    android:layout_marginTop="@dimen/space_xl"
+                    android:stateListAnimator="@animator/press_scale">
+
+                    <LinearLayout
+                        android:id="@+id/row_reward"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="请我喝杯咖啡 ☕"
-                        android:textColor="@color/text_main"
-                        android:textSize="16sp"
-                        android:textStyle="bold" />
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:foreground="?attr/selectableItemBackground"
+                        android:gravity="center_vertical"
+                        android:padding="@dimen/space_lg">
 
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
-                        android:text="如果您觉得这个应用对您有帮助"
-                        android:textColor="@color/text_sub"
-                        android:textSize="12sp" />
-                </LinearLayout>
+                        <ImageView
+                            android:layout_width="@dimen/mine_icon_box"
+                            android:layout_height="@dimen/mine_icon_box"
+                            android:background="@drawable/bg_icon_container"
+                            android:backgroundTint="@color/brass_container"
+                            android:contentDescription="请我喝杯咖啡"
+                            android:padding="8dp"
+                            android:scaleType="centerInside"
+                            android:src="@drawable/ic_heart_line"
+                            app:tint="?attr/accent_text" />
 
-                <ImageView
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
-                    android:src="@drawable/ic_arrow_right"
-                    app:tint="@color/text_sub" />
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="@dimen/space_md"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                style="@style/MineRowTitle"
+                                android:text="请我喝杯咖啡" />
+
+                            <TextView
+                                style="@style/MineRowSubtitle"
+                                android:text="如果您觉得这个应用对您有帮助" />
+                        </LinearLayout>
+
+                        <ImageView style="@style/MineRowChevron" />
+                    </LinearLayout>
+                </androidx.cardview.widget.CardView>
             </LinearLayout>
-        </LinearLayout>
         </androidx.constraintlayout.widget.ConstraintLayout>
     </androidx.core.widget.NestedScrollView>
 </LinearLayout>

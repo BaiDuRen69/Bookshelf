@@ -10,8 +10,8 @@ android {
         applicationId "com.bai.bookshelf"
         minSdk 24
         targetSdk 36
-        versionCode 62
-        versionName "4.23"
+        versionCode 95
+        versionName "5.0"
 
         // v4.1：合并测试版与正式版——只交付一个 APK，豆瓣评分等功能对所有用户开放。
         // release 仍保留同签名配置，需要时可构建（行为与 debug 功能一致，仅无日志、强制 https）。
@@ -34,6 +34,8 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             // 与 debug 同签名：覆盖安装互不影响数据（applicationId 相同）
             signingConfig signingConfigs.debug
+            // v4.51：OCR 模型让 x86 库变成大头；交付包只带手机用得到的 ARM 两套 ABI
+            ndk { abiFilters 'arm64-v8a', 'armeabi-v7a' }
         }
     }
     compileOptions {
@@ -69,6 +71,8 @@ dependencies {
     implementation "androidx.camera:camera-lifecycle:$camerax_version"
     implementation "androidx.camera:camera-view:$camerax_version"
     implementation 'com.google.mlkit:barcode-scanning:17.3.0'
+    // v4.51：封面/扉页 OCR（中文模型同时识别拉丁字符）
+    implementation 'com.google.mlkit:text-recognition-chinese:16.0.1'
 
     // 网络：ISBN 图书信息查询
     implementation 'com.squareup.retrofit2:retrofit:2.11.0'
@@ -78,6 +82,41 @@ dependencies {
     // 云市场密钥加密存储（v4.0，评审 #4：EncryptedSharedPreferences）
     implementation 'androidx.security:security-crypto:1.1.0'
 
+    // v4.54：应用锁（指纹 / 面容 + 手机锁屏密码兜底）
+    implementation 'androidx.biometric:biometric:1.1.0'
+
     // 封面图片加载与缓存
     implementation 'com.github.bumptech.glide:glide:4.16.0'
+
+    // v4.55：纯逻辑单元测试（BookSeries / DateKeys / SmartShelf / 清洗与分摊）
+    testImplementation 'junit:junit:4.13.2'
+}
+
+// v4.55：本机工程路径含中文（与 android.overridePathCheck=true 同因）。
+// AGP 9 + Gradle 9 的单元测试 worker 直接从中文目录加载测试类会 ClassNotFound，
+// 这里把主类与测试类打成 ASCII 临时目录下的 jar，并放到 testDebugUnitTest 的
+// classpath 最前面。仅影响本机测试，不影响 APK。
+def asciiTestDir = new File(System.getProperty("java.io.tmpdir"), "xiaoshufang-unit-tests")
+def testClassesDir = file("$buildDir/intermediates/javac/debugUnitTest/compileDebugUnitTestJavaWithJavac/classes")
+def mainClassesJar = file("$buildDir/intermediates/runtime_app_classes_jar/debug/bundleDebugClassesToRuntimeJar/classes.jar")
+
+tasks.register("asciiUnitTestClasses", Jar) {
+    dependsOn "compileDebugUnitTestJavaWithJavac"
+    destinationDirectory.set(asciiTestDir)
+    archiveFileName.set("test-classes.jar")
+    from(testClassesDir)
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+tasks.register("asciiUnitTestMain", Copy) {
+    dependsOn "bundleDebugClassesToRuntimeJar"
+    from(mainClassesJar)
+    into(asciiTestDir)
+    rename { "main-classes.jar" }
+}
+tasks.matching { it.name == "testDebugUnitTest" }.configureEach {
+    dependsOn "asciiUnitTestClasses", "asciiUnitTestMain"
+    doFirst {
+        classpath = files(new File(asciiTestDir, "test-classes.jar"),
+                new File(asciiTestDir, "main-classes.jar")) + classpath
+    }
 }

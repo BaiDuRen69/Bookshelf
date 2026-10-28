@@ -23,13 +23,13 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="14dp">
+            android:padding="@dimen/space_lg">
 
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="第 1 本的信息在录入页上方填写，这里是第 2 本及以后"
-                android:textColor="@color/text_sub"
+                android:textColor="?attr/on_surface_variant"
                 android:textSize="12sp" />
 
             <LinearLayout
@@ -45,7 +45,7 @@
         android:id="@+id/btn_save"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginHorizontal="14dp"
-        android:layout_marginBottom="14dp"
+        android:layout_marginHorizontal="@dimen/page_padding"
+        android:layout_marginBottom="@dimen/page_padding"
         android:text="保存逐本信息" />
 </LinearLayout>

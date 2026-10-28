@@ -117,6 +117,50 @@ public final class AddBookHelper {
         });
     }
 
+    /** 批量录入用的查询回调（不打开编辑页） */
+    public interface LookupCallback {
+        void onDuplicate(Book existing);
+
+        void onBook(Book book);
+
+        void onFailed(String message);
+    }
+
+    /**
+     * 查一本书：本地查重 → ISBN 接口补全，结果通过回调返回，不打开编辑页。
+     * 批量模式专用（为了吞吐，不在这里顺带查豆瓣评分）。
+     */
+    public static void lookup(Activity activity, String isbn, LookupCallback callback) {
+        BookshelfApp app = BookshelfApp.get();
+        app.io(() -> {
+            Book exist = findDuplicate(app, isbn);
+            app.ui(() -> {
+                if (activity.isFinishing() || activity.isDestroyed()) {
+                    return;
+                }
+                if (exist != null) {
+                    callback.onDuplicate(exist);
+                    return;
+                }
+                IsbnQueryService service = new IsbnQueryService(activity);
+                if (!service.isConfigured()) {
+                    callback.onFailed("未配置 ISBN 数据源");
+                    return;
+                }
+                service.query(isbn, (book, errorMsg) -> {
+                    if (activity.isFinishing() || activity.isDestroyed()) {
+                        return;
+                    }
+                    if (book != null) {
+                        callback.onBook(book);
+                    } else {
+                        callback.onFailed(errorMsg);
+                    }
+                });
+            });
+        });
+    }
+
     /**
      * 本地查重：先精确匹配 isbn；再用「去掉连字符/空格」的规范化形式兜底，
      * 避免同一本书因 978-7-111-54493-7 与 9787111544937 两种写法被录成两条。

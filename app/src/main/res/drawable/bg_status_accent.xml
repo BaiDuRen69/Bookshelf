@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 书脊底部的状态色条（v4.30）：圆角 2dp，颜色由代码按状态着色 -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="#FF2E6E5C" />
+    <corners android:radius="2dp" />
+</shape>

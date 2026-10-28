@@ -28,7 +28,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:textSize="16sp"
-            android:textColor="@color/text_main" />
+            android:textColor="?attr/on_surface" />
 
         <TextView
             android:id="@+id/tv_meta"
@@ -36,7 +36,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="1dp"
             android:textSize="12sp"
-            android:textColor="@color/text_sub"
+            android:textColor="?attr/on_surface_variant"
             android:visibility="gone" />
     </LinearLayout>
 

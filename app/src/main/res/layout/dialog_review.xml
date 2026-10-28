@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 短评编辑弹窗（v4.50） -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    style="@style/DialogContent"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+
+    <com.google.android.material.textfield.TextInputLayout
+        style="@style/Widget.Bookshelf.TextField"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="写一句读完的感受…">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/et_review"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="top"
+            android:inputType="textMultiLine"
+            android:maxLength="500"
+            android:maxLines="6"
+            android:minLines="4" />
+    </com.google.android.material.textfield.TextInputLayout>
+</FrameLayout>

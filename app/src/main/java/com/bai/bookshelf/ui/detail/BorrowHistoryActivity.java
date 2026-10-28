@@ -471,6 +471,15 @@ public class BorrowHistoryActivity extends BaseActivity {
             sb.append(" · 归还：").append(r.returnDate.isEmpty() ? "未填" : r.returnDate);
         } else {
             sb.append(" · 借出中");
+            int due = com.bai.bookshelf.util.BorrowReminder.parseKey(r.dueDate);
+            if (due > 0) {
+                sb.append(" · 应还 ").append(r.dueDate);
+                if (due < com.bai.bookshelf.util.BorrowReminder.todayKey()) {
+                    sb.append("（逾期 ").append(com.bai.bookshelf.util.BorrowReminder
+                            .daysBetween(due, com.bai.bookshelf.util.BorrowReminder.todayKey()))
+                            .append(" 天）");
+                }
+            }
         }
         if (!r.note.isEmpty()) {
             // 备注折叠：最多展示前 20 字，超出以「…」收尾（点条目查看完整备注与图片）

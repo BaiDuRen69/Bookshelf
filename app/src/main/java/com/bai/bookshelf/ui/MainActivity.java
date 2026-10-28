@@ -76,9 +76,18 @@ public class MainActivity extends BaseActivity {
             mineFragment = new MineFragment();
         }
 
-        binding.tabShelf.setOnClickListener(v -> selectTab(0));
-        binding.tabStats.setOnClickListener(v -> selectTab(1));
-        binding.tabMine.setOnClickListener(v -> selectTab(2));
+        binding.tabShelf.setOnClickListener(v -> {
+            v.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP);
+            selectTab(0);
+        });
+        binding.tabStats.setOnClickListener(v -> {
+            v.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP);
+            selectTab(1);
+        });
+        binding.tabMine.setOnClickListener(v -> {
+            v.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP);
+            selectTab(2);
+        });
 
         // v4.23：恢复旋转屏/进程回收前的 Tab（savedInstanceState 为 null 时默认书架）
         int restoredTab = 0;
@@ -121,6 +130,7 @@ public class MainActivity extends BaseActivity {
 
     /** 切换 Tab：显示目标 Fragment、隐藏其余两个 + 更新三个 Tab 的选中配色 */
     private void selectTab(int index) {
+        int previousTab = currentTab;
         currentTab = index;
         Fragment target = index == 1 ? statsFragment : (index == 2 ? mineFragment : shelfFragment);
         if (!fragmentsAdded) {
@@ -161,14 +171,24 @@ public class MainActivity extends BaseActivity {
         }
 
         int active = ThemeManager.resolveColor(this, ThemeManager.ATTR_COLOR_PRIMARY);
-        int inactive = ContextCompat.getColor(this, R.color.text_sub);
-        tintTab(binding.ivTabShelf, binding.tvTabShelf, index == 0 ? active : inactive);
-        tintTab(binding.ivTabStats, binding.tvTabStats, index == 1 ? active : inactive);
-        tintTab(binding.ivTabMine, binding.tvTabMine, index == 2 ? active : inactive);
+        int inactive = ThemeManager.resolveColor(this, R.attr.on_surface_variant);
+        // v4.24：未选中用线性图标，只有选中的 Tab 换成填充图标
+        setTab(binding.ivTabShelf, binding.tvTabShelf, 0, index == 0, active, inactive);
+        setTab(binding.ivTabStats, binding.tvTabStats, 1, index == 1, active, inactive);
+        setTab(binding.ivTabMine, binding.tvTabMine, 2, index == 2, active, inactive);
         // v4.16：选中项加胶囊底，未选中透明
         setTabPill(binding.tabShelfPill, index == 0);
         setTabPill(binding.tabStatsPill, index == 1);
         setTabPill(binding.tabMinePill, index == 2);
+        // v4.30：真交叉淡入——旧页 110ms 淡出后再把新页 180ms 淡入，
+        // 避免「瞬间换页 + 新页淡入」看起来像硬切
+        if (previousTab != index) {
+            android.view.View targetView = target.getView();
+            if (targetView != null) {
+                targetView.setAlpha(0f);
+                targetView.animate().alpha(1f).setDuration(180).start();
+            }
+        }
     }
 
     /** 底部导航选中态：胶囊背景 or 透明 */
@@ -187,10 +207,20 @@ public class MainActivity extends BaseActivity {
         outState.putInt(KEY_TAB, currentTab);
     }
 
-    /** 单个 Tab 的图标与文字统一着色 */
-    private void tintTab(ImageView icon, TextView label, int color) {
-        icon.setImageTintList(ColorStateList.valueOf(color));
-        label.setTextColor(color);
+    /** 单个 Tab 的图标与文字统一着色（v4.24：选中填充 / 未选中线性） */
+    private void setTab(ImageView icon, TextView label, int tabIndex,
+                        boolean selected, int active, int inactive) {
+        int res;
+        if (tabIndex == 0) {
+            res = selected ? R.drawable.ic_book_filled : R.drawable.ic_book_line;
+        } else if (tabIndex == 1) {
+            res = selected ? R.drawable.ic_chart : R.drawable.ic_chart_line;
+        } else {
+            res = selected ? R.drawable.ic_person : R.drawable.ic_person_line;
+        }
+        icon.setImageResource(res);
+        icon.setImageTintList(ColorStateList.valueOf(selected ? active : inactive));
+        label.setTextColor(selected ? active : inactive);
     }
 
     /**

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 书籍详情页：封面 + 书目信息 + 管理信息 + 操作按钮 -->
+<!-- 书籍详情页（v4.25）：hero 封面 + 两列信息 + 备注引用块 + 固定底栏 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
@@ -19,252 +19,590 @@
         android:layout_height="0dp"
         android:layout_weight="1">
 
-                <androidx.constraintlayout.widget.ConstraintLayout
+        <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content">
 
-<LinearLayout
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:gravity="center_horizontal"
-            android:paddingHorizontal="@dimen/page_padding"
-            android:paddingTop="@dimen/space_lg"
-            android:paddingBottom="@dimen/space_xl"
-                    app:layout_constraintWidth_max="@dimen/content_max_width"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintHorizontal_bias="0.5"
-                    app:layout_constraintTop_toTopOf="parent"
-                    app:layout_constraintBottom_toBottomOf="parent"
-                >
-
-            <ImageView
-                android:id="@+id/iv_cover"
-                android:layout_width="96dp"
-                android:layout_height="128dp"
-                android:background="@drawable/bg_cover"
-                    android:clipToOutline="true"
-                android:scaleType="centerCrop"
-                android:src="@drawable/ic_cover_placeholder" />
-
-            <TextView
-                android:id="@+id/tv_title"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/space_md"
-                android:textSize="@dimen/text_title"
-                android:textStyle="bold"
-                android:textColor="?attr/on_surface"
-                android:gravity="center" />
-
-            <!-- 书目信息（代码里拼多行文本） -->
-            <TextView
-                android:id="@+id/tv_info"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/space_md"
-                android:background="@drawable/bg_card"
-                android:padding="@dimen/space_lg"
-                android:textSize="@dimen/text_body"
-                android:lineSpacingMultiplier="1.6"
-                android:textColor="?attr/on_surface" />
-
-            <!-- 藏书核心信息（存放地点/藏书状态/来源/录入时间，独立成块不重复展示；位于书目信息 ISBN 下方） -->
-            <TextView
-                android:id="@+id/tv_core"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/space_sm"
-                android:background="@drawable/bg_card"
-                android:padding="@dimen/space_lg"
-                android:textSize="@dimen/text_body"
-                android:lineSpacingMultiplier="1.6"
-                android:textColor="?attr/on_surface" />
-
-            <!-- 我的管理信息（不再包含「备注」，备注单独成块） -->
-            <TextView
-                android:id="@+id/tv_manage"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/space_sm"
-                android:background="@drawable/bg_card"
-                android:padding="@dimen/space_lg"
-                android:textSize="@dimen/text_body"
-                android:lineSpacingMultiplier="1.6"
-                android:textColor="?attr/on_surface" />
-
-            <!-- 单本借出备注（最多 20 字，点击展开；多本时由逐本信息展示，这里隐藏） -->
-            <TextView
-                android:id="@+id/tv_manage_lend_note"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/space_xs"
-                android:background="@drawable/bg_card"
-                android:foreground="?attr/selectableItemBackground"
-                android:clickable="true"
-                android:focusable="true"
-                android:padding="@dimen/space_lg"
-                android:textSize="@dimen/text_body"
-                android:lineSpacingMultiplier="1.6"
-                android:textColor="?attr/on_surface"
-                android:visibility="gone" />
-
-            <!-- 单本借出备注图片（默认折叠） -->
-            <TextView
-                android:id="@+id/row_manage_lend_note_images"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/space_xs"
-                android:background="@drawable/bg_card"
-                android:foreground="?attr/selectableItemBackground"
-                android:clickable="true"
-                android:focusable="true"
-                android:padding="@dimen/space_lg"
-                android:text="借出备注图片"
-                android:textSize="@dimen/text_body"
-                android:textColor="?attr/on_primary_container"
-                android:visibility="gone" />
-
             <LinearLayout
-                android:id="@+id/container_manage_lend_note_images"
-                android:layout_width="match_parent"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
                 android:orientation="vertical"
-                android:visibility="gone" />
+                android:paddingBottom="@dimen/space_xl"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintHorizontal_bias="0.5"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintWidth_max="@dimen/content_max_width">
 
-            <!-- 备注（最多 3 行，点击展开） -->
-            <TextView
-                android:id="@+id/tv_note"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/space_sm"
-                android:background="@drawable/bg_card"
-                android:padding="@dimen/space_lg"
-                android:textSize="@dimen/text_body"
-                android:lineSpacingMultiplier="1.6"
-                android:textColor="?attr/on_surface"
-                android:maxLines="3"
-                android:ellipsize="end"
-                android:visibility="gone" />
-
-            <!-- 备注图片（默认折叠，点击展开/收起） -->
-            <TextView
-                android:id="@+id/row_note_images"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/space_xs"
-                android:background="@drawable/bg_card"
-                android:foreground="?attr/selectableItemBackground"
-                android:clickable="true"
-                android:focusable="true"
-                android:padding="@dimen/space_lg"
-                android:text="备注图片"
-                android:textSize="@dimen/text_body"
-                android:textColor="?attr/on_primary_container"
-                android:visibility="gone" />
-
-            <LinearLayout
-                android:id="@+id/container_note_images"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:orientation="vertical"
-                android:visibility="gone" />
-
-            <!-- 逐本信息（拥有数量 > 1 时展示，> 3 本默认只显示前 3 本，点击展开剩余） -->
-            <LinearLayout
-                android:id="@+id/container_copies"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/space_xs"
-                android:background="@drawable/bg_card"
-                android:orientation="vertical"
-                android:padding="@dimen/space_lg"
-                android:visibility="gone" />
-
-            <!-- 借出记录入口（仅借出过才显示） -->
-            <TextView
-                android:id="@+id/row_borrow_history"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/space_sm"
-                android:background="@drawable/bg_card"
-                android:foreground="?attr/selectableItemBackground"
-                android:clickable="true"
-                android:focusable="true"
-                android:padding="@dimen/space_lg"
-                android:text="借出记录 ›"
-                android:textSize="@dimen/text_body"
-                android:textColor="?attr/on_primary_container"
-                android:visibility="gone" />
-
-            <!-- 标签独立展示区 -->
-            <TextView
-                android:id="@+id/tv_tags_label"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/space_md"
-                android:text="标签"
-                android:textStyle="bold"
-                android:textColor="?attr/on_primary_container"
-                android:visibility="gone" />
-
-            <com.google.android.material.chip.ChipGroup
-                android:id="@+id/chip_group_tags"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                app:chipSpacingHorizontal="8dp"
-                app:singleLine="false"
-                android:visibility="gone" />
-
-            <!-- 内容简介：v3.6 起不再使用（API 不导入、编辑页无入口），永久隐藏 -->
-            <TextView
-                android:id="@+id/tv_summary"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/space_sm"
-                android:textSize="@dimen/text_body_small"
-                android:lineSpacingMultiplier="1.4"
-                android:textColor="?attr/on_surface_variant"
-                android:visibility="gone" />
-
-            <!-- 操作按钮 -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:layout_marginBottom="@dimen/space_xl"
-                android:orientation="horizontal">
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btn_edit"
-                    android:layout_width="0dp"
+                <!-- ==================== Hero（v4.30：封面模糊做底，叠纸色遮罩） ==================== -->
+                <FrameLayout
+                    android:id="@+id/hero"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="@string/action_edit" />
+                    android:background="?attr/primary_container">
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btn_lend"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:layout_marginStart="8dp"
-                    android:text="借出"
-                    style="@style/Widget.Bookshelf.Button.Outlined" />
+                    <ImageView
+                        android:id="@+id/iv_hero_bg"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:importantForAccessibility="no"
+                        android:scaleType="centerCrop" />
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btn_delete"
-                    android:layout_width="0dp"
+                    <View
+                        android:id="@+id/v_hero_scrim"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent" />
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_gravity="bottom"
+                        android:alpha="0.5"
+                        android:background="?attr/colorSecondary" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="top"
+                        android:orientation="horizontal"
+                        android:padding="@dimen/space_lg">
+
+                    <androidx.cardview.widget.CardView
+                        android:layout_width="120dp"
+                        android:layout_height="160dp"
+                        android:clipToOutline="true"
+                        app:cardBackgroundColor="?attr/surface"
+                        app:cardCornerRadius="@dimen/radius_md"
+                        app:cardElevation="3dp">
+
+                        <ImageView
+                            android:id="@+id/iv_cover"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:contentDescription="书籍封面"
+                            android:scaleType="centerCrop" />
+                    </androidx.cardview.widget.CardView>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="@dimen/space_lg"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/tv_title"
+                            style="@style/Text.Bookshelf.SerifTitle"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:ellipsize="end"
+                            android:maxLines="3"
+                            android:textColor="?attr/on_surface" />
+
+                        <TextView
+                            android:id="@+id/tv_hero_author"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:ellipsize="end"
+                            android:lineSpacingMultiplier="1.3"
+                            android:maxLines="2"
+                            android:textColor="?attr/on_surface_variant"
+                            android:textSize="@dimen/text_body_small"
+                            android:visibility="gone" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="10dp"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                android:id="@+id/tv_hero_stock"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:background="@drawable/bg_status_chip"
+                                android:paddingHorizontal="8dp"
+                                android:paddingVertical="3dp"
+                                android:textColor="?attr/colorPrimary"
+                                android:textSize="@dimen/text_caption"
+                                android:visibility="gone" />
+
+                            <TextView
+                                android:id="@+id/tv_hero_read"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="6dp"
+                                android:background="@drawable/bg_status_chip"
+                                android:paddingHorizontal="8dp"
+                                android:paddingVertical="3dp"
+                                android:textColor="?attr/colorPrimary"
+                                android:textSize="@dimen/text_caption"
+                                android:visibility="gone" />
+
+                            <TextView
+                                android:id="@+id/tv_hero_own"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="6dp"
+                                android:background="@drawable/bg_status_chip"
+                                android:paddingHorizontal="8dp"
+                                android:paddingVertical="3dp"
+                                android:textColor="?attr/colorPrimary"
+                                android:textSize="@dimen/text_caption"
+                                android:visibility="gone" />
+                        </LinearLayout>
+                    </LinearLayout>
+                    </LinearLayout>
+                </FrameLayout>
+
+                <!-- ==================== 系列（v4.53） ==================== -->
+                <LinearLayout
+                    android:id="@+id/card_series"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:layout_marginStart="8dp"
-                    android:text="@string/action_delete"
-                    style="@style/Widget.Bookshelf.Button.Outlined" />
+                    android:layout_marginHorizontal="@dimen/page_padding"
+                    android:layout_marginTop="@dimen/space_lg"
+                    android:background="@drawable/bg_card"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingHorizontal="@dimen/space_lg"
+                    android:paddingVertical="@dimen/space_md"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:id="@+id/tv_series_info"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:ellipsize="end"
+                        android:maxLines="2"
+                        android:textColor="?attr/on_surface"
+                        android:textSize="14sp" />
+
+                    <TextView
+                        android:id="@+id/tv_series_link"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:text="查看系列 ›"
+                        android:textColor="?attr/colorPrimary"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+                <!-- ==================== 书目信息 ==================== -->
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/card_info"
+                    style="@style/Widget.Bookshelf.Card"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginHorizontal="@dimen/page_padding"
+                    android:layout_marginTop="@dimen/space_lg">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="@dimen/space_lg">
+
+                        <TextView
+                            style="@style/DetailSectionTitle"
+                            android:text="书目信息" />
+
+                        <LinearLayout
+                            android:id="@+id/ll_info_grid"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="@dimen/space_md"
+                            android:orientation="vertical" />
+                    </LinearLayout>
+                </androidx.cardview.widget.CardView>
+
+                <!-- ==================== 藏书信息 ==================== -->
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/card_core"
+                    style="@style/Widget.Bookshelf.Card"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginHorizontal="@dimen/page_padding"
+                    android:layout_marginTop="@dimen/space_md">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="@dimen/space_lg">
+
+                        <TextView
+                            style="@style/DetailSectionTitle"
+                            android:text="藏书信息" />
+
+                        <LinearLayout
+                            android:id="@+id/ll_core_grid"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="@dimen/space_md"
+                            android:orientation="vertical" />
+                    </LinearLayout>
+                </androidx.cardview.widget.CardView>
+
+                <!-- v4.42：借阅到期横幅（点按复制催还文案，长按改应还日期） -->
+                <TextView
+                    android:id="@+id/tv_borrow_due"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginHorizontal="@dimen/page_padding"
+                    android:layout_marginTop="@dimen/space_sm"
+                    android:background="@drawable/bg_card"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:foreground="?attr/selectableItemBackground"
+                    android:padding="@dimen/space_md"
+                    android:textColor="?attr/on_surface"
+                    android:textSize="@dimen/text_body_small"
+                    android:visibility="gone" />
+
+                <!-- ==================== 我的书房 ==================== -->
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/card_manage"
+                    style="@style/Widget.Bookshelf.Card"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginHorizontal="@dimen/page_padding"
+                    android:layout_marginTop="@dimen/space_md">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="@dimen/space_lg">
+
+                        <TextView
+                            style="@style/DetailSectionTitle"
+                            android:text="我的书房" />
+
+                        <LinearLayout
+                            android:id="@+id/ll_manage_grid"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="@dimen/space_md"
+                            android:orientation="vertical" />
+                    </LinearLayout>
+                </androidx.cardview.widget.CardView>
+
+                <!-- ==================== 借出备注 ==================== -->
+                <TextView
+                    android:id="@+id/tv_manage_lend_note"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginHorizontal="@dimen/page_padding"
+                    android:layout_marginTop="@dimen/space_md"
+                    android:background="@drawable/bg_quote_card"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:lineSpacingMultiplier="1.7"
+                    android:paddingStart="28dp"
+                    android:paddingTop="14dp"
+                    android:paddingEnd="@dimen/space_lg"
+                    android:paddingBottom="14dp"
+                    android:textColor="?attr/on_surface"
+                    android:textSize="@dimen/text_body"
+                    android:visibility="gone" />
+
+                <TextView
+                    android:id="@+id/row_manage_lend_note_images"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginHorizontal="@dimen/page_padding"
+                    android:layout_marginTop="@dimen/space_sm"
+                    android:background="@drawable/bg_card"
+                    android:clickable="true"
+                    android:drawableStart="@drawable/ic_image_line"
+                    android:drawableEnd="@drawable/ic_chevron_right_line"
+                    android:drawablePadding="@dimen/space_sm"
+                    android:drawableTint="?attr/colorPrimary"
+                    android:focusable="true"
+                    android:foreground="?attr/selectableItemBackground"
+                    android:gravity="center_vertical"
+                    android:padding="@dimen/space_md"
+                    android:text="借出备注图片"
+                    android:textColor="?attr/on_surface"
+                    android:textSize="@dimen/text_body_small"
+                    android:visibility="gone" />
+
+                <LinearLayout
+                    android:id="@+id/container_manage_lend_note_images"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginHorizontal="@dimen/page_padding"
+                    android:layout_marginTop="4dp"
+                    android:orientation="vertical"
+                    android:visibility="gone" />
+
+                <!-- ==================== 备注 ==================== -->
+                <TextView
+                    android:id="@+id/tv_note"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginHorizontal="@dimen/page_padding"
+                    android:layout_marginTop="@dimen/space_md"
+                    android:background="@drawable/bg_quote_card"
+                    android:clickable="true"
+                    android:ellipsize="end"
+                    android:focusable="true"
+                    android:lineSpacingMultiplier="1.7"
+                    android:maxLines="3"
+                    android:paddingStart="28dp"
+                    android:paddingTop="14dp"
+                    android:paddingEnd="@dimen/space_lg"
+                    android:paddingBottom="14dp"
+                    android:textColor="?attr/on_surface"
+                    android:textSize="@dimen/text_body"
+                    android:visibility="gone" />
+
+                <TextView
+                    android:id="@+id/row_note_images"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginHorizontal="@dimen/page_padding"
+                    android:layout_marginTop="@dimen/space_sm"
+                    android:background="@drawable/bg_card"
+                    android:clickable="true"
+                    android:drawableStart="@drawable/ic_image_line"
+                    android:drawableEnd="@drawable/ic_chevron_right_line"
+                    android:drawablePadding="@dimen/space_sm"
+                    android:drawableTint="?attr/colorPrimary"
+                    android:focusable="true"
+                    android:foreground="?attr/selectableItemBackground"
+                    android:gravity="center_vertical"
+                    android:padding="@dimen/space_md"
+                    android:text="备注图片"
+                    android:textColor="?attr/on_surface"
+                    android:textSize="@dimen/text_body_small"
+                    android:visibility="gone" />
+
+                <LinearLayout
+                    android:id="@+id/container_note_images"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginHorizontal="@dimen/page_padding"
+                    android:layout_marginTop="4dp"
+                    android:orientation="vertical"
+                    android:visibility="gone" />
+
+                <!-- ==================== 摘抄与书评（v4.50） ==================== -->
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/card_excerpts"
+                    style="@style/Widget.Bookshelf.Card"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginHorizontal="@dimen/page_padding"
+                    android:layout_marginTop="@dimen/space_md"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:foreground="?attr/selectableItemBackground">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="@dimen/space_lg">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                style="@style/DetailSectionTitle"
+                                android:layout_width="0dp"
+                                android:layout_weight="1"
+                                android:text="摘抄与书评" />
+
+                            <TextView
+                                android:id="@+id/tv_excerpt_count"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:textColor="?attr/on_surface_variant"
+                                android:textSize="@dimen/text_caption" />
+                        </LinearLayout>
+
+                        <TextView
+                            android:id="@+id/tv_detail_review"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="@dimen/space_sm"
+                            android:background="@drawable/bg_quote_card"
+                            android:lineSpacingMultiplier="1.5"
+                            android:maxLines="4"
+                            android:ellipsize="end"
+                            android:paddingStart="28dp"
+                            android:paddingTop="12dp"
+                            android:paddingEnd="@dimen/space_md"
+                            android:paddingBottom="12dp"
+                            android:textColor="?attr/on_surface"
+                            android:textSize="@dimen/text_body_small" />
+
+                        <LinearLayout
+                            android:id="@+id/ll_excerpt_preview"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:orientation="vertical" />
+
+                        <TextView
+                            android:id="@+id/row_all_excerpts"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="@dimen/space_sm"
+                            android:drawableEnd="@drawable/ic_chevron_right_line"
+                            android:drawablePadding="2dp"
+                            android:drawableTint="?attr/colorPrimary"
+                            android:gravity="center_vertical"
+                            android:paddingVertical="4dp"
+                            android:textColor="?attr/colorPrimary"
+                            android:textSize="@dimen/text_body_small" />
+                    </LinearLayout>
+                </androidx.cardview.widget.CardView>
+
+                <!-- ==================== 逐本信息 ==================== -->
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/card_copies"
+                    style="@style/Widget.Bookshelf.Card"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginHorizontal="@dimen/page_padding"
+                    android:layout_marginTop="@dimen/space_md"
+                    android:visibility="gone">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="@dimen/space_lg">
+
+                        <TextView
+                            style="@style/DetailSectionTitle"
+                            android:text="逐本信息" />
+
+                        <LinearLayout
+                            android:id="@+id/container_copies"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="@dimen/space_sm"
+                            android:orientation="vertical" />
+                    </LinearLayout>
+                </androidx.cardview.widget.CardView>
+
+                <!-- ==================== 借出记录入口 ==================== -->
+                <TextView
+                    android:id="@+id/row_borrow_history"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginHorizontal="@dimen/page_padding"
+                    android:layout_marginTop="@dimen/space_md"
+                    android:background="@drawable/bg_card"
+                    android:clickable="true"
+                    android:drawableStart="@drawable/ic_history_line"
+                    android:drawableEnd="@drawable/ic_chevron_right_line"
+                    android:drawablePadding="@dimen/space_sm"
+                    android:drawableTint="?attr/colorPrimary"
+                    android:focusable="true"
+                    android:foreground="?attr/selectableItemBackground"
+                    android:gravity="center_vertical"
+                    android:padding="@dimen/space_lg"
+                    android:text="借出记录"
+                    android:textColor="?attr/colorPrimary"
+                    android:textSize="@dimen/text_body"
+                    android:visibility="gone" />
+
+                <!-- ==================== 标签 ==================== -->
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/card_tags"
+                    style="@style/Widget.Bookshelf.Card"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginHorizontal="@dimen/page_padding"
+                    android:layout_marginTop="@dimen/space_md"
+                    android:visibility="gone">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="@dimen/space_lg">
+
+                        <TextView
+                            android:id="@+id/tv_tags_label"
+                            style="@style/DetailSectionTitle"
+                            android:text="标签" />
+
+                        <com.google.android.material.chip.ChipGroup
+                            android:id="@+id/chip_group_tags"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="@dimen/space_sm"
+                            app:chipSpacingHorizontal="8dp"
+                            app:singleLine="false" />
+                    </LinearLayout>
+                </androidx.cardview.widget.CardView>
             </LinearLayout>
-        </LinearLayout>
         </androidx.constraintlayout.widget.ConstraintLayout>
     </androidx.core.widget.NestedScrollView>
+
+    <!-- ==================== 固定底栏 ==================== -->
+    <LinearLayout
+        android:id="@+id/bottom_bar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="?attr/surface"
+        android:orientation="vertical">
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="?attr/outline" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingHorizontal="@dimen/page_padding"
+            android:paddingVertical="@dimen/space_sm">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_edit"
+                style="@style/Widget.Bookshelf.Button"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/action_edit" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_lend"
+                style="@style/Widget.Bookshelf.Button.Outlined"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="@dimen/space_sm"
+                android:layout_weight="1"
+                android:text="借出" />
+
+            <ImageButton
+                android:id="@+id/btn_more"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:layout_marginStart="@dimen/space_sm"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="更多操作"
+                android:padding="10dp"
+                android:scaleType="centerInside"
+                android:src="@drawable/ic_more"
+                app:tint="?attr/on_surface_variant" />
+        </LinearLayout>
+    </LinearLayout>
 </LinearLayout>

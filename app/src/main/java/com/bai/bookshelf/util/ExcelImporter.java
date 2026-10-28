@@ -48,7 +48,8 @@ public final class ExcelImporter {
             "ISBN", "书名", "副标题", "作者", "译者", "国家/地区", "出版社",
             "版次", "印次", "页数", "字数", "定价", "豆瓣评分", "分类", "标签",
             "封面", "存放地点", "藏书状态", "阅读状态", "来源", "来源渠道",
-            "购买日期", "购买价格", "评分", "备注", "录入时间", "拥有数量", "各本存放位置"
+            "购买日期", "购买价格", "评分", "备注", "录入时间", "拥有数量", "各本存放位置",
+            "系列", "卷号", "阅读顺序"
     };
 
     private ExcelImporter() {
@@ -149,6 +150,9 @@ public final class ExcelImporter {
             int qty = checkedInt(col(c, colOf, "拥有数量"), result);
             b.quantity = Math.max(1, qty);
             b.locationDetail = col(c, colOf, "各本存放位置");
+            b.seriesName = col(c, colOf, "系列");
+            b.seriesVolume = col(c, colOf, "卷号");
+            b.seriesOrder = checkedInt(col(c, colOf, "阅读顺序"), result);
 
             long now = System.currentTimeMillis();
             b.createdAt = now;

@@ -16,5 +16,7 @@ public class Borrower implements Serializable {
     public long id;
 
     public String name = "";    // 借阅人姓名/称呼
+    @androidx.room.ColumnInfo(defaultValue = "")
+    public String phone = "";   // v4.42：联系方式（电话/微信等，单一字段，催还时可直接复制）
     public int sort;            // 排序值
 }

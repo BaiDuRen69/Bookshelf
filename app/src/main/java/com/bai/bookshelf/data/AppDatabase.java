@@ -12,6 +12,7 @@ import com.bai.bookshelf.data.dao.BorrowRecordDao;
 import com.bai.bookshelf.data.dao.BorrowerDao;
 import com.bai.bookshelf.data.dao.CategoryDao;
 import com.bai.bookshelf.data.dao.CountryDao;
+import com.bai.bookshelf.data.dao.ExcerptDao;
 import com.bai.bookshelf.data.dao.LocationDao;
 import com.bai.bookshelf.data.dao.NoteImageDao;
 import com.bai.bookshelf.data.dao.PublisherDao;
@@ -23,9 +24,11 @@ import com.bai.bookshelf.data.entity.BorrowRecord;
 import com.bai.bookshelf.data.entity.Borrower;
 import com.bai.bookshelf.data.entity.Category;
 import com.bai.bookshelf.data.entity.Country;
+import com.bai.bookshelf.data.entity.Excerpt;
 import com.bai.bookshelf.data.entity.Location;
 import com.bai.bookshelf.data.entity.NoteImage;
 import com.bai.bookshelf.data.entity.Publisher;
+import com.bai.bookshelf.data.entity.WishBook;
 import com.bai.bookshelf.data.entity.SourceChannel;
 import com.bai.bookshelf.data.entity.Tag;
 
@@ -47,10 +50,16 @@ import com.bai.bookshelf.data.entity.Tag;
  * v12：新增出版社库表 publishers。
  * v13：categories 加 parentId 列实现二级分类（null=一级）；默认分类树由
  *      CategorySeeder.seedIfMissing 在每次启动时幂等补种（兼容旧备份恢复）。
+ * v14：borrowers 加 phone（借阅人联系方式）。
+ * v15：books 加阅读记录三列（开始/读完/进度）。
+ * v16：新增 wish_books 想读清单表。
+ * v17：books 加 review（个人短评），新增 excerpts 摘抄表。
+ * v18：books 加系列三列（系列名/卷号/阅读顺序），支撑系列与套装分组。
  */
 @Database(entities = {Book.class, Location.class, BorrowRecord.class, SourceChannel.class, Tag.class,
-        Category.class, Borrower.class, BookCopy.class, Country.class, NoteImage.class, Publisher.class},
-        version = 13, exportSchema = true) // v4.0：导出 schema JSON 供迁移比对与测试
+        Category.class, Borrower.class, BookCopy.class, Country.class, NoteImage.class, Publisher.class, WishBook.class,
+        Excerpt.class},
+        version = 18, exportSchema = true) // v4.0：导出 schema JSON 供迁移比对与测试
 public abstract class AppDatabase extends RoomDatabase {
 
     public abstract BookDao bookDao();
@@ -58,6 +67,10 @@ public abstract class AppDatabase extends RoomDatabase {
     public abstract LocationDao locationDao();
 
     public abstract BorrowRecordDao borrowRecordDao();
+
+    public abstract com.bai.bookshelf.data.dao.WishBookDao wishBookDao();
+
+    public abstract ExcerptDao excerptDao();
 
     public abstract SourceChannelDao sourceChannelDao();
 
@@ -277,6 +290,64 @@ public abstract class AppDatabase extends RoomDatabase {
         @Override
         public void migrate(@NonNull SupportSQLiteDatabase database) {
             database.execSQL("ALTER TABLE categories ADD COLUMN parentId INTEGER");
+        }
+    };
+
+    /** v4.48：想读清单 */
+    /** v16 → v17：个人短评列 + 摘抄表（字符串列可空 TEXT，与 Room 期望一致） */
+    public static final Migration MIGRATION_16_17 = new Migration(16, 17) {
+        @Override
+        public void migrate(@NonNull SupportSQLiteDatabase database) {
+            database.execSQL("ALTER TABLE books ADD COLUMN review TEXT DEFAULT ''");
+            database.execSQL("CREATE TABLE IF NOT EXISTS `excerpts` ("
+                    + "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, "
+                    + "`bookId` INTEGER NOT NULL, "
+                    + "`page` INTEGER NOT NULL DEFAULT 0, "
+                    + "`content` TEXT DEFAULT '', "
+                    + "`note` TEXT DEFAULT '', "
+                    + "`tags` TEXT DEFAULT '', "
+                    + "`imagePath` TEXT DEFAULT '', "
+                    + "`createdAt` INTEGER NOT NULL, "
+                    + "`updatedAt` INTEGER NOT NULL)");
+        }
+    };
+
+    public static final Migration MIGRATION_15_16 = new Migration(15, 16) {
+        @Override
+        public void migrate(@NonNull SupportSQLiteDatabase database) {
+            database.execSQL("CREATE TABLE IF NOT EXISTS `wish_books` ("
+                    + "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,"
+                    + "`title` TEXT, `author` TEXT, `isbn` TEXT,"
+                    + "`priority` INTEGER NOT NULL, `expectedPrice` REAL NOT NULL,"
+                    + "`note` TEXT, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL)");
+        }
+    };
+
+    /** v4.44：阅读记录（开始/读完日期 + 进度） */
+    public static final Migration MIGRATION_14_15 = new Migration(14, 15) {
+        @Override
+        public void migrate(@NonNull SupportSQLiteDatabase database) {
+            database.execSQL("ALTER TABLE books ADD COLUMN readingStartDate TEXT DEFAULT ''");
+            database.execSQL("ALTER TABLE books ADD COLUMN readingFinishDate TEXT DEFAULT ''");
+            database.execSQL("ALTER TABLE books ADD COLUMN readingProgress INTEGER NOT NULL DEFAULT 0");
+        }
+    };
+
+    /** v4.53：系列 / 套装分组（系列名 + 卷号 + 阅读顺序） */
+    public static final Migration MIGRATION_17_18 = new Migration(17, 18) {
+        @Override
+        public void migrate(@NonNull SupportSQLiteDatabase database) {
+            database.execSQL("ALTER TABLE books ADD COLUMN seriesName TEXT DEFAULT ''");
+            database.execSQL("ALTER TABLE books ADD COLUMN seriesVolume TEXT DEFAULT ''");
+            database.execSQL("ALTER TABLE books ADD COLUMN seriesOrder INTEGER NOT NULL DEFAULT 0");
+        }
+    };
+
+    /** v4.42：借阅人补联系方式（催还文案要用） */
+    public static final Migration MIGRATION_13_14 = new Migration(13, 14) {
+        @Override
+        public void migrate(@NonNull SupportSQLiteDatabase database) {
+            database.execSQL("ALTER TABLE borrowers ADD COLUMN phone TEXT DEFAULT ''");
         }
     };
 }

@@ -11,6 +11,8 @@
         <!-- 状态栏与工具栏同色，视觉连成一体 -->
         <item name="android:statusBarColor">?attr/colorPrimary</item>
         <item name="android:windowLightStatusBar">false</item>
+        <!-- v4.25：书架 → 详情封面共享元素过渡 -->
+        <item name="android:windowActivityTransitions">true</item>
         <!-- 语义色层（各主题只覆盖容器色，其余共用） -->
         <item name="surface">@color/surface</item>
         <item name="surface_dim">@color/surface_dim</item>
@@ -23,9 +25,14 @@
         <item name="on_primary_container">@color/green_on_container</item>
         <!-- v4.19：标签底色也给基线默认值（同上） -->
         <item name="chip_bg">@color/chip_bg</item>
+        <!-- v4.24：黄铜文字色（colorSecondary 只用于填充，白字对比度不足） -->
+        <item name="accent_text">@color/accent_text</item>
         <!-- v4.19：把 Material3 的「表面色系」对齐到应用的暖白语义色。
              M3 默认 colorSurfaceContainerHigh 是淡紫色 #ECE6F0，弹窗底色会与
              应用整体的米白/白卡片风格打架，这里统一到 surface / surface_dim。 -->
+        <item name="colorOnSurface">@color/text_main</item>
+        <item name="colorOnSurfaceVariant">@color/text_sub</item>
+        <item name="colorOnBackground">@color/text_main</item>
         <item name="colorSurface">@color/surface</item>
         <item name="colorSurfaceBright">@color/surface</item>
         <item name="colorSurfaceDim">@color/surface_dim</item>
@@ -119,6 +126,44 @@
         <item name="android:lineSpacingMultiplier">1.4</item>
     </style>
 
+    <!-- 启动主题（v4.28）：只用于 MainActivity 的首帧；v31 里补系统 SplashScreen 属性 -->
+    <style name="Theme.Bookshelf.Splash" parent="Theme.Bookshelf.Base">
+        <item name="android:windowBackground">@color/bg_page</item>
+    </style>
+
+    <style name="Theme.Bookshelf.Night" parent="Theme.Bookshelf.Base">
+        <!-- 主色直接用暗金：数字/链接在炭黑上足够亮；按钮/表头文字改深墨（colorOnPrimary） -->
+        <item name="colorPrimary">@color/night_accent</item>
+        <item name="colorPrimaryVariant">@color/night_primary_dark</item>
+        <item name="colorSecondary">@color/night_accent</item>
+        <item name="colorOnPrimary">@color/night_ink</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="chip_bg">@color/night_chip_bg</item>
+        <item name="accent_text">@color/night_accent_text</item>
+        <item name="primary_container">@color/night_container</item>
+        <item name="on_primary_container">@color/night_on_container</item>
+        <item name="android:colorBackground">@color/night_page</item>
+        <item name="surface">@color/night_surface</item>
+        <item name="surface_dim">@color/night_surface_dim</item>
+        <item name="outline">@color/night_outline</item>
+        <item name="outline_strong">@color/night_outline_strong</item>
+        <item name="on_surface">@color/night_text_main</item>
+        <item name="on_surface_variant">@color/night_text_sub</item>
+        <item name="colorOnSurface">@color/night_text_main</item>
+        <item name="colorOnSurfaceVariant">@color/night_text_sub</item>
+        <item name="colorOnBackground">@color/night_text_main</item>
+        <item name="colorSurface">@color/night_surface</item>
+        <item name="colorSurfaceBright">@color/night_surface</item>
+        <item name="colorSurfaceContainer">@color/night_surface</item>
+        <item name="colorSurfaceContainerLow">@color/night_surface</item>
+        <item name="colorSurfaceContainerLowest">@color/night_surface</item>
+        <item name="colorSurfaceContainerHigh">@color/night_surface</item>
+        <item name="colorSurfaceDim">@color/night_surface_dim</item>
+        <item name="colorSurfaceContainerHighest">@color/night_surface_dim</item>
+        <item name="colorOutline">@color/night_outline</item>
+        <item name="colorOutlineVariant">@color/night_outline</item>
+    </style>
+
     <style name="Theme.Bookshelf" parent="Theme.Bookshelf.Base">
         <item name="colorPrimary">@color/primary</item>
         <item name="colorPrimaryVariant">@color/primary_dark</item>
@@ -127,6 +172,21 @@
         <item name="chip_bg">@color/chip_bg</item>
         <item name="primary_container">@color/green_container</item>
         <item name="on_primary_container">@color/green_on_container</item>
+        <item name="android:colorBackground">@color/green_page</item>
+        <item name="surface">@color/green_surface</item>
+        <item name="surface_dim">@color/green_surface_dim</item>
+        <item name="outline">@color/green_outline</item>
+        <item name="outline_strong">@color/green_outline_strong</item>
+        <item name="colorSurface">@color/green_surface</item>
+        <item name="colorSurfaceBright">@color/green_surface</item>
+        <item name="colorSurfaceContainer">@color/green_surface</item>
+        <item name="colorSurfaceContainerLow">@color/green_surface</item>
+        <item name="colorSurfaceContainerLowest">@color/green_surface</item>
+        <item name="colorSurfaceContainerHigh">@color/green_surface</item>
+        <item name="colorSurfaceDim">@color/green_surface_dim</item>
+        <item name="colorSurfaceContainerHighest">@color/green_surface_dim</item>
+        <item name="colorOutline">@color/green_outline</item>
+        <item name="colorOutlineVariant">@color/green_outline</item>
     </style>
 
     <style name="Theme.Bookshelf.Blue" parent="Theme.Bookshelf.Base">
@@ -134,8 +194,24 @@
         <item name="colorPrimaryVariant">@color/blue_primary_dark</item>
         <item name="colorSecondary">@color/blue_accent</item>
         <item name="chip_bg">@color/blue_chip_bg</item>
+        <item name="accent_text">@color/accent_text_brass</item>
         <item name="primary_container">@color/blue_container</item>
         <item name="on_primary_container">@color/blue_on_container</item>
+        <item name="android:colorBackground">@color/blue_page</item>
+        <item name="surface">@color/blue_surface</item>
+        <item name="surface_dim">@color/blue_surface_dim</item>
+        <item name="outline">@color/blue_outline</item>
+        <item name="outline_strong">@color/blue_outline_strong</item>
+        <item name="colorSurface">@color/blue_surface</item>
+        <item name="colorSurfaceBright">@color/blue_surface</item>
+        <item name="colorSurfaceContainer">@color/blue_surface</item>
+        <item name="colorSurfaceContainerLow">@color/blue_surface</item>
+        <item name="colorSurfaceContainerLowest">@color/blue_surface</item>
+        <item name="colorSurfaceContainerHigh">@color/blue_surface</item>
+        <item name="colorSurfaceDim">@color/blue_surface_dim</item>
+        <item name="colorSurfaceContainerHighest">@color/blue_surface_dim</item>
+        <item name="colorOutline">@color/blue_outline</item>
+        <item name="colorOutlineVariant">@color/blue_outline</item>
     </style>
 
     <style name="Theme.Bookshelf.Red" parent="Theme.Bookshelf.Base">
@@ -143,8 +219,24 @@
         <item name="colorPrimaryVariant">@color/red_primary_dark</item>
         <item name="colorSecondary">@color/red_accent</item>
         <item name="chip_bg">@color/red_chip_bg</item>
+        <item name="accent_text">@color/accent_text_brass</item>
         <item name="primary_container">@color/red_container</item>
         <item name="on_primary_container">@color/red_on_container</item>
+        <item name="android:colorBackground">@color/red_page</item>
+        <item name="surface">@color/red_surface</item>
+        <item name="surface_dim">@color/red_surface_dim</item>
+        <item name="outline">@color/red_outline</item>
+        <item name="outline_strong">@color/red_outline_strong</item>
+        <item name="colorSurface">@color/red_surface</item>
+        <item name="colorSurfaceBright">@color/red_surface</item>
+        <item name="colorSurfaceContainer">@color/red_surface</item>
+        <item name="colorSurfaceContainerLow">@color/red_surface</item>
+        <item name="colorSurfaceContainerLowest">@color/red_surface</item>
+        <item name="colorSurfaceContainerHigh">@color/red_surface</item>
+        <item name="colorSurfaceDim">@color/red_surface_dim</item>
+        <item name="colorSurfaceContainerHighest">@color/red_surface_dim</item>
+        <item name="colorOutline">@color/red_outline</item>
+        <item name="colorOutlineVariant">@color/red_outline</item>
     </style>
 
     <style name="Theme.Bookshelf.Orange" parent="Theme.Bookshelf.Base">
@@ -152,8 +244,24 @@
         <item name="colorPrimaryVariant">@color/orange_primary_dark</item>
         <item name="colorSecondary">@color/orange_accent</item>
         <item name="chip_bg">@color/orange_chip_bg</item>
+        <item name="accent_text">@color/accent_text_olive</item>
         <item name="primary_container">@color/orange_container</item>
         <item name="on_primary_container">@color/orange_on_container</item>
+        <item name="android:colorBackground">@color/orange_page</item>
+        <item name="surface">@color/orange_surface</item>
+        <item name="surface_dim">@color/orange_surface_dim</item>
+        <item name="outline">@color/orange_outline</item>
+        <item name="outline_strong">@color/orange_outline_strong</item>
+        <item name="colorSurface">@color/orange_surface</item>
+        <item name="colorSurfaceBright">@color/orange_surface</item>
+        <item name="colorSurfaceContainer">@color/orange_surface</item>
+        <item name="colorSurfaceContainerLow">@color/orange_surface</item>
+        <item name="colorSurfaceContainerLowest">@color/orange_surface</item>
+        <item name="colorSurfaceContainerHigh">@color/orange_surface</item>
+        <item name="colorSurfaceDim">@color/orange_surface_dim</item>
+        <item name="colorSurfaceContainerHighest">@color/orange_surface_dim</item>
+        <item name="colorOutline">@color/orange_outline</item>
+        <item name="colorOutlineVariant">@color/orange_outline</item>
     </style>
 
     <style name="Theme.Bookshelf.Purple" parent="Theme.Bookshelf.Base">
@@ -161,8 +269,24 @@
         <item name="colorPrimaryVariant">@color/purple_primary_dark</item>
         <item name="colorSecondary">@color/purple_accent</item>
         <item name="chip_bg">@color/purple_chip_bg</item>
+        <item name="accent_text">@color/accent_text_brass</item>
         <item name="primary_container">@color/purple_container</item>
         <item name="on_primary_container">@color/purple_on_container</item>
+        <item name="android:colorBackground">@color/purple_page</item>
+        <item name="surface">@color/purple_surface</item>
+        <item name="surface_dim">@color/purple_surface_dim</item>
+        <item name="outline">@color/purple_outline</item>
+        <item name="outline_strong">@color/purple_outline_strong</item>
+        <item name="colorSurface">@color/purple_surface</item>
+        <item name="colorSurfaceBright">@color/purple_surface</item>
+        <item name="colorSurfaceContainer">@color/purple_surface</item>
+        <item name="colorSurfaceContainerLow">@color/purple_surface</item>
+        <item name="colorSurfaceContainerLowest">@color/purple_surface</item>
+        <item name="colorSurfaceContainerHigh">@color/purple_surface</item>
+        <item name="colorSurfaceDim">@color/purple_surface_dim</item>
+        <item name="colorSurfaceContainerHighest">@color/purple_surface_dim</item>
+        <item name="colorOutline">@color/purple_outline</item>
+        <item name="colorOutlineVariant">@color/purple_outline</item>
     </style>
 
     <style name="Theme.Bookshelf.Graphite" parent="Theme.Bookshelf.Base">
@@ -170,7 +294,23 @@
         <item name="colorPrimaryVariant">@color/graphite_primary_dark</item>
         <item name="colorSecondary">@color/graphite_accent</item>
         <item name="chip_bg">@color/graphite_chip_bg</item>
+        <item name="accent_text">@color/accent_text_graphite</item>
         <item name="primary_container">@color/graphite_container</item>
         <item name="on_primary_container">@color/graphite_on_container</item>
+        <item name="android:colorBackground">@color/graphite_page</item>
+        <item name="surface">@color/graphite_surface</item>
+        <item name="surface_dim">@color/graphite_surface_dim</item>
+        <item name="outline">@color/graphite_outline</item>
+        <item name="outline_strong">@color/graphite_outline_strong</item>
+        <item name="colorSurface">@color/graphite_surface</item>
+        <item name="colorSurfaceBright">@color/graphite_surface</item>
+        <item name="colorSurfaceContainer">@color/graphite_surface</item>
+        <item name="colorSurfaceContainerLow">@color/graphite_surface</item>
+        <item name="colorSurfaceContainerLowest">@color/graphite_surface</item>
+        <item name="colorSurfaceContainerHigh">@color/graphite_surface</item>
+        <item name="colorSurfaceDim">@color/graphite_surface_dim</item>
+        <item name="colorSurfaceContainerHighest">@color/graphite_surface_dim</item>
+        <item name="colorOutline">@color/graphite_outline</item>
+        <item name="colorOutlineVariant">@color/graphite_outline</item>
     </style>
 </resources>

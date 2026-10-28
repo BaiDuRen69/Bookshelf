@@ -24,6 +24,7 @@
             android:layout_height="wrap_content" />
 
         <TextView
+            android:id="@+id/tv_hint"
             style="@style/DialogHint"
             android:text="点按选中/取消；长按标签可重命名或删除；「＋ 新建标签」创建新标签" />
     </LinearLayout>

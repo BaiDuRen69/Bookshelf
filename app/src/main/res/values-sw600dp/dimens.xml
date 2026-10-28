@@ -2,10 +2,10 @@
 <!-- 大屏（平板 / 折叠屏展开态）尺寸覆盖：更宽的留白与受限的内容行宽 -->
 <resources>
     <dimen name="page_padding">24dp</dimen>
+    <dimen name="page_padding_list">16dp</dimen>
     <dimen name="content_max_width">720dp</dimen>
     <dimen name="space_lg">20dp</dimen>
     <dimen name="space_xl">24dp</dimen>
-    <dimen name="tab_icon_size">26dp</dimen>
     <dimen name="tab_label_size">12sp</dimen>
     <dimen name="toolbar_h">56dp</dimen>
 </resources>

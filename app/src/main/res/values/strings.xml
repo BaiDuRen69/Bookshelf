@@ -3,14 +3,11 @@
     <string name="app_name">小书房</string>
 
     <!-- 底部导航 -->
-    <string name="tab_shelf">书架</string>
-    <string name="tab_stats">统计</string>
-    <string name="tab_mine">我的</string>
 
     <!-- 书架页 -->
-    <string name="hint_search">搜索书名 / 作者 / 出版社 / 国家 / 标签</string>
+    <string name="hint_search">搜索书名 / 作者 / 出版社 / ISBN</string>
     <string name="add_book">录入</string>
-    <string name="empty_shelf">书架还是空的\n点右下角扫码录入第一本书吧</string>
+    <string name="empty_shelf">书架还是空的，点下方按钮扫码录入第一本书</string>
 
     <!-- 通用 -->
     <string name="action_save">保存</string>
@@ -19,14 +16,14 @@
     <string name="action_edit">编辑</string>
     <string name="action_ok">确定</string>
 
-    <!-- 我的阅读（v4.20） -->
+    <!-- 购书统计（v4.20） -->
     <string name="stats_click_day_hint">点击日历上的某一天，查看当天购买详情</string>
 
-    <!-- 我的阅读 · 「全部记录」入口按钮（v4.21） -->
+    <!-- 购书统计 · 「全部记录」入口按钮（v4.21） -->
     <string name="stats_all_records">全部记录</string>
     <string name="stats_sheet_close">关闭</string>
 
-    <!-- 我的阅读 · 「全部记录」日历面板（v4.22） -->
+    <!-- 购书统计 · 「全部记录」日历面板（v4.22） -->
     <!-- 日历区标题（后面会拼上当前聚焦周期，如「购买日历 · 2026/10」） -->
     <string name="stats_calendar_title">购买日历</string>
     <!-- 视图切换：按月 / 按年 -->

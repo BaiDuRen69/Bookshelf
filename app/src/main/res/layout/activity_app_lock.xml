@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 应用锁（v4.54）：全屏遮挡，验证通过才回到应用 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="?android:attr/colorBackground"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:padding="32dp">
+
+    <FrameLayout
+        android:layout_width="88dp"
+        android:layout_height="88dp"
+        android:background="@drawable/bg_lock_badge">
+
+        <ImageView
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_gravity="center"
+            android:contentDescription="应用锁"
+            android:src="@drawable/ic_lock_line"
+            app:tint="?attr/colorPrimary" />
+    </FrameLayout>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"
+        android:fontFamily="serif"
+        android:text="小书房已锁定"
+        android:textColor="?attr/on_surface"
+        android:textSize="24sp" />
+
+    <TextView
+        android:id="@+id/tv_lock_subtitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:gravity="center"
+        android:lineSpacingMultiplier="1.4"
+        android:text="解锁后继续整理你的书架"
+        android:textColor="?attr/on_surface_variant"
+        android:textSize="14sp" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btn_unlock"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="32dp"
+        android:text="解锁" />
+
+    <TextView
+        android:id="@+id/tv_lock_hint"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:gravity="center"
+        android:lineSpacingMultiplier="1.3"
+        android:text="使用指纹 / 面容或手机锁屏密码"
+        android:textColor="?attr/on_surface_variant"
+        android:textSize="12sp" />
+
+    <TextView
+        android:id="@+id/btn_disable_lock"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="28dp"
+        android:background="?attr/selectableItemBackground"
+        android:paddingHorizontal="12dp"
+        android:paddingVertical="8dp"
+        android:text="无法验证？关闭应用锁"
+        android:textColor="?attr/colorPrimary"
+        android:textSize="12sp"
+        android:visibility="gone" />
+</LinearLayout>

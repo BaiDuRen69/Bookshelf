@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 想读条目编辑弹窗（v4.48） -->
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:scrollbars="none">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingHorizontal="@dimen/space_xl"
+        android:paddingTop="@dimen/space_sm"
+        android:paddingBottom="@dimen/space_sm">
+
+        <com.google.android.material.textfield.TextInputLayout
+            style="@style/Widget.Bookshelf.TextField"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="书名（必填）">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/et_wish_title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="text"
+                android:singleLine="true" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <com.google.android.material.textfield.TextInputLayout
+            style="@style/Widget.Bookshelf.TextField"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/space_md"
+            android:hint="作者">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/et_wish_author"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="text"
+                android:singleLine="true" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <com.google.android.material.textfield.TextInputLayout
+            style="@style/Widget.Bookshelf.TextField"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/space_md"
+            android:hint="ISBN（可空）">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/et_wish_isbn"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="number"
+                android:singleLine="true" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <com.google.android.material.textfield.TextInputLayout
+            style="@style/Widget.Bookshelf.TextField"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/space_md"
+            android:hint="心理价（元）">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/et_wish_price"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="numberDecimal"
+                android:singleLine="true" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- v4.49：优先级从系统 Spinner 换成芯片组。Spinner 的文字取
+             ?android:textColorPrimary，在「夜读」主题（本质是 Light 主题套深色）
+             下是黑字，压在深色弹窗上几乎看不见；芯片走应用自己的语义色。 -->
+        <TextView
+            style="@style/DialogSectionTitle"
+            android:layout_marginTop="@dimen/space_md"
+            android:layout_marginBottom="6dp"
+            android:text="优先级" />
+
+        <com.google.android.material.chip.ChipGroup
+            android:id="@+id/cg_wish_priority"
+            style="@style/Widget.Bookshelf.ChipGroup"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:selectionRequired="true"
+            app:singleSelection="true">
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/chip_priority_low"
+                style="@style/Widget.Bookshelf.Chip"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:checkable="true"
+                android:text="低优先" />
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/chip_priority_mid"
+                style="@style/Widget.Bookshelf.Chip"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:checkable="true"
+                android:text="中优先" />
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/chip_priority_high"
+                style="@style/Widget.Bookshelf.Chip"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:checkable="true"
+                android:text="高优先" />
+        </com.google.android.material.chip.ChipGroup>
+
+        <com.google.android.material.textfield.TextInputLayout
+            style="@style/Widget.Bookshelf.TextField"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/space_md"
+            android:hint="备注（版本、在哪看到…）">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/et_wish_note"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="textMultiLine"
+                android:maxLines="3"
+                android:minLines="1" />
+        </com.google.android.material.textfield.TextInputLayout>
+    </LinearLayout>
+</ScrollView>

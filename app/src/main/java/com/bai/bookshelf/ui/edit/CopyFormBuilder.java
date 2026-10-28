@@ -144,7 +144,8 @@ public final class CopyFormBuilder {
         h.etDate.setOnClickListener(v -> {
             Calendar cal = Calendar.getInstance();
             new DatePickerDialog(act, (DatePicker dp, int year, int month, int day) ->
-                    h.etDate.setText(String.format("%04d-%02d-%02d", year, month + 1, day)),
+                    h.etDate.setText(String.format(java.util.Locale.ROOT,
+                            "%04d-%02d-%02d", year, month + 1, day)),
                     cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH))
                     .show();
         });

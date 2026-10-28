@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 书架页：搜索 + 筛选排序 + 藏书列表 + 扫码悬浮按钮（v4.16 视觉重构） -->
+<!-- 书架页：字标头部 + 搜索 + 一行筛选胶囊 + 藏书列表 + 扫码悬浮按钮
+     v4.24：三行下拉框收成一行横滑胶囊，排序/倒序/视图收成行尾图标，
+     首屏还给书籍（原筛选区占近 180dp） -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
@@ -10,333 +12,416 @@
         android:layout_height="match_parent"
         android:orientation="vertical">
 
-        <!-- v4.17：标题栏与搜索行合并为一条主色头部（省掉一整行 56dp，书籍列表区域更大） -->
         <LinearLayout
             android:id="@+id/header"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:background="?attr/colorPrimary"
             android:orientation="vertical"
-            android:paddingVertical="@dimen/space_sm">
+            android:paddingHorizontal="@dimen/page_padding"
+            android:paddingTop="6dp"
+            android:paddingBottom="10dp">
 
-            <androidx.constraintlayout.widget.ConstraintLayout
+            <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content">
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
 
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
+                    android:layout_weight="1"
                     android:gravity="center_vertical"
-                    android:orientation="horizontal"
-                    android:paddingHorizontal="@dimen/page_padding"
-                    app:layout_constraintWidth_max="@dimen/content_max_width"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintHorizontal_bias="0.5"
-                    app:layout_constraintTop_toTopOf="parent"
-                    app:layout_constraintBottom_toBottomOf="parent">
+                    android:orientation="horizontal">
 
+                    <!-- v4.30：与 splash 字标同一份资源（SimSun 字标 PNG），保证设备间一致 -->
                     <ImageView
-                        android:layout_width="20dp"
-                        android:layout_height="20dp"
-                        android:layout_marginEnd="@dimen/space_sm"
-                        android:contentDescription="书架"
-                        android:src="@drawable/ic_book"
-                        app:tint="@color/white" />
+                        android:layout_width="wrap_content"
+                        android:layout_height="36dp"
+                        android:adjustViewBounds="true"
+                        android:contentDescription="小书房"
+                        android:scaleType="fitCenter"
+                        android:src="@drawable/wordmark_white" />
 
-                    <FrameLayout
+                    <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:layout_weight="1">
+                        android:layout_marginStart="12dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
 
-                        <EditText
-                            android:id="@+id/et_search"
+                        <TextView
+                            android:id="@+id/tv_shelf_meta"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:autofillHints="none"
-                            android:background="@drawable/bg_search"
-                            android:drawableStart="@drawable/ic_search"
-                            android:drawablePadding="6dp"
-                            android:hint="@string/hint_search"
-                            android:inputType="text"
-                            android:paddingStart="36dp"
-                            android:paddingEnd="36dp"
-                            android:paddingVertical="7dp"
+                            android:ellipsize="end"
                             android:singleLine="true"
-                            android:textColor="?attr/on_surface"
-                            android:textColorHint="?attr/on_surface_variant"
-                            android:textSize="@dimen/text_body_small" />
+                            android:text="0 册 · 0 个地点"
+                            android:textColor="#CCFFFFFF"
+                            android:textSize="@dimen/text_caption" />
 
-                        <!-- 清除按钮：输入有内容时显示 -->
-                        <ImageView
-                            android:id="@+id/btn_clear_search"
-                            android:layout_width="20dp"
-                            android:layout_height="20dp"
-                            android:layout_gravity="end|center_vertical"
-                            android:layout_marginEnd="12dp"
-                            android:background="?attr/selectableItemBackgroundBorderless"
-                            android:clickable="true"
-                            android:contentDescription="清除搜索"
-                            android:focusable="true"
-                            android:src="@drawable/ic_close"
-                            android:visibility="gone" />
-                    </FrameLayout>
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="1dp"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
 
-                    <!-- 录入按钮：主色头部上的白底主色字按钮，视觉轻盈且与绿色头部强对比 -->
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btn_add"
-                        style="@style/Widget.Bookshelf.Button"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="@dimen/space_sm"
-                        android:backgroundTint="@color/white"
-                        android:minWidth="0dp"
-                        android:minHeight="0dp"
-                        android:paddingHorizontal="@dimen/space_md"
-                        android:paddingVertical="6dp"
-                        android:text="@string/add_book"
-                        android:textColor="?attr/colorPrimary"
-                        app:cornerRadius="@dimen/radius_md" />
+                            <TextView
+                                android:id="@+id/tv_shelf_result_count"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:ellipsize="end"
+                                android:singleLine="true"
+                                android:text="共 0 本"
+                                android:textColor="#CCFFFFFF"
+                                android:textSize="@dimen/text_caption"
+                                android:visibility="invisible" />
+
+                            <TextView
+                                android:id="@+id/btn_clear_filters"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="6dp"
+                                android:background="?attr/selectableItemBackground"
+                                android:paddingHorizontal="4dp"
+                                android:paddingVertical="2dp"
+                                android:text="清除"
+                                android:textColor="?attr/colorOnPrimary"
+                                android:textSize="@dimen/text_caption"
+                                android:textStyle="bold"
+                                android:visibility="gone" />
+                        </LinearLayout>
+                    </LinearLayout>
                 </LinearLayout>
-            </androidx.constraintlayout.widget.ConstraintLayout>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_add"
+                    style="@style/Widget.Bookshelf.Button"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:backgroundTint="@color/white"
+                    android:minWidth="0dp"
+                    android:minHeight="0dp"
+                    android:paddingHorizontal="14dp"
+                    android:paddingVertical="5dp"
+                    android:text="@string/add_book"
+                    android:textColor="?attr/colorPrimary"
+                    android:textSize="@dimen/text_body_small"
+                    app:cornerRadius="16dp" />
+            </LinearLayout>
+
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp">
+
+                <EditText
+                    android:id="@+id/et_search"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:autofillHints="none"
+                    android:background="@drawable/bg_search"
+                    android:drawableStart="@drawable/ic_search"
+                    android:drawableTint="?attr/on_surface_variant"
+                    android:drawablePadding="6dp"
+                    android:hint="@string/hint_search"
+                    android:inputType="text"
+                    android:paddingStart="36dp"
+                    android:paddingEnd="36dp"
+                    android:paddingVertical="7dp"
+                    android:singleLine="true"
+                    android:textColor="?attr/on_surface"
+                    android:textColorHint="?attr/on_surface_variant"
+                    android:textSize="@dimen/text_body_small" />
+
+                <ImageView
+                    android:id="@+id/btn_clear_search"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_gravity="end|center_vertical"
+                    android:layout_marginEnd="12dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:clickable="true"
+                    android:contentDescription="清除搜索"
+                    android:focusable="true"
+                    android:src="@drawable/ic_close"
+                    app:tint="?attr/on_surface_variant"
+                    android:visibility="gone" />
+            </FrameLayout>
         </LinearLayout>
 
-        <!-- 搜索与筛选面板（v4.16：大屏下限制最大宽度并居中，避免筛选器被拉得过宽） -->
-        <androidx.constraintlayout.widget.ConstraintLayout
+        <!-- 筛选条：一行横滑胶囊 + 行尾排序/倒序/视图图标 -->
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content">
+            android:layout_height="wrap_content"
+            android:background="?attr/surface"
+            android:orientation="vertical"
+            android:paddingTop="4dp"
+            android:paddingBottom="4dp">
 
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                app:layout_constraintWidth_max="@dimen/content_max_width"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintHorizontal_bias="0.5"
-                app:layout_constraintTop_toTopOf="parent"
-                app:layout_constraintBottom_toBottomOf="parent">
-
-            <!-- 筛选区（v4.16：整块卡片化，筛选控件统一描边圆角样式）
-                 第一行：分类/标签/状态/阅读（内容属性类筛选优先）
-                 第二行：地点/来源/国家（实体归属类筛选）
-                 第三行：排序 + 倒序 + 视图（排序与视图控制归到一行） -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:background="@drawable/bg_card"
-                android:layout_marginHorizontal="@dimen/page_padding"
-                android:layout_marginTop="@dimen/space_xs"
-                android:padding="6dp">
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingStart="@dimen/page_padding"
+                android:paddingEnd="2dp">
 
-                <LinearLayout
-                    android:layout_width="match_parent"
+                <FrameLayout
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal">
+                    android:layout_weight="1">
 
-                    <Spinner
-                        android:id="@+id/sp_category"
-                        android:layout_width="0dp"
+                    <HorizontalScrollView
+                        android:id="@+id/hsv_filters"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:background="@drawable/bg_filter_field"
-                        android:popupBackground="?attr/surface" />
-
-                    <Spinner
-                        android:id="@+id/sp_tag"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:layout_marginStart="@dimen/space_sm"
-                        android:background="@drawable/bg_filter_field"
-                        android:popupBackground="?attr/surface" />
-
-                    <Spinner
-                        android:id="@+id/sp_stock"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:layout_marginStart="@dimen/space_sm"
-                        android:background="@drawable/bg_filter_field"
-                        android:popupBackground="?attr/surface" />
-
-                    <Spinner
-                        android:id="@+id/sp_read_filter"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:layout_marginStart="@dimen/space_sm"
-                        android:background="@drawable/bg_filter_field"
-                        android:popupBackground="?attr/surface" />
-                </LinearLayout>
-
-                <!-- 分类二级行内展开（v4.10）：选一级后在此横滑选择二级，不用弹窗 -->
-                <HorizontalScrollView
-                    android:id="@+id/scroll_category_chips"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="@dimen/space_xs"
-                    android:scrollbars="none"
-                    android:visibility="gone">
+                        android:clipToPadding="false"
+                        android:scrollbars="none">
 
                     <LinearLayout
-                        android:id="@+id/ll_category_chips"
+                        android:id="@+id/ll_filter_pills"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
                         android:orientation="horizontal"
-                        android:paddingTop="2dp"
-                        android:paddingBottom="2dp" />
+                        android:paddingEnd="2dp">
+
+                        <Spinner
+                            android:id="@+id/sp_category"
+                            android:layout_width="wrap_content"
+                            android:layout_height="40dp"
+                            android:layout_marginEnd="2dp"
+                            android:background="@android:color/transparent"
+                            android:dropDownWidth="wrap_content"
+                            android:minWidth="44dp"
+                            android:popupBackground="?attr/surface"
+                            android:spinnerMode="dropdown" />
+
+                        <Spinner
+                            android:id="@+id/sp_tag"
+                            android:layout_width="wrap_content"
+                            android:layout_height="40dp"
+                            android:layout_marginEnd="2dp"
+                            android:background="@android:color/transparent"
+                            android:dropDownWidth="wrap_content"
+                            android:minWidth="44dp"
+                            android:popupBackground="?attr/surface"
+                            android:spinnerMode="dropdown" />
+
+                        <Spinner
+                            android:id="@+id/sp_stock"
+                            android:layout_width="wrap_content"
+                            android:layout_height="40dp"
+                            android:layout_marginEnd="2dp"
+                            android:background="@android:color/transparent"
+                            android:dropDownWidth="wrap_content"
+                            android:minWidth="44dp"
+                            android:popupBackground="?attr/surface"
+                            android:spinnerMode="dropdown" />
+
+                        <Spinner
+                            android:id="@+id/sp_read_filter"
+                            android:layout_width="wrap_content"
+                            android:layout_height="40dp"
+                            android:layout_marginEnd="2dp"
+                            android:background="@android:color/transparent"
+                            android:dropDownWidth="wrap_content"
+                            android:minWidth="44dp"
+                            android:popupBackground="?attr/surface"
+                            android:spinnerMode="dropdown" />
+
+                        <!-- 高频 4 项之外的筛选收进「更多」，角标显示已启用数量 -->
+                        <FrameLayout
+                            android:id="@+id/btn_more_filters"
+                            android:layout_width="wrap_content"
+                            android:layout_height="40dp"
+                            android:background="?attr/selectableItemBackgroundBorderless"
+                            android:clickable="true"
+                            android:focusable="true">
+
+                            <TextView
+                                android:id="@+id/tv_more_filters"
+                                android:layout_width="wrap_content"
+                                android:layout_height="40dp"
+                                android:layout_gravity="center"
+                                android:background="@drawable/bg_filter_pill"
+                                android:drawableEnd="@drawable/ic_chevron_down_line"
+                                android:drawablePadding="1dp"
+                                android:drawableTint="?attr/on_surface_variant"
+                                android:gravity="center"
+                                android:minWidth="40dp"
+                                android:paddingStart="6dp"
+                                android:paddingEnd="1dp"
+                                android:text="更多"
+                                android:textColor="?attr/on_surface"
+                                android:textSize="@dimen/text_body_small" />
+
+                            <!-- 已启用的额外筛选数量（v4.28 角标，避免胶囊变宽） -->
+                            <TextView
+                                android:id="@+id/tv_more_badge"
+                                android:layout_width="14dp"
+                                android:layout_height="14dp"
+                                android:layout_gravity="top|end"
+                                android:layout_marginTop="1dp"
+                                android:layout_marginEnd="1dp"
+                                android:background="@drawable/bg_badge"
+                                android:backgroundTint="?attr/colorPrimary"
+                                android:gravity="center"
+                                android:includeFontPadding="false"
+                                android:text="1"
+                                android:textColor="@color/white"
+                                android:textSize="9sp"
+                                android:visibility="gone" />
+                        </FrameLayout>
+                    </LinearLayout>
                 </HorizontalScrollView>
 
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="@dimen/space_xs"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical">
+                <View
+                    android:id="@+id/v_filter_fade"
+                    android:layout_width="20dp"
+                    android:layout_height="40dp"
+                    android:layout_gravity="end"
+                    android:background="@drawable/bg_filter_fade" />
+                </FrameLayout>
 
-                    <Spinner
-                        android:id="@+id/sp_location"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:background="@drawable/bg_filter_field"
-                        android:popupBackground="?attr/surface" />
+                <View
+                    android:layout_width="1dp"
+                    android:layout_height="20dp"
+                    android:layout_marginHorizontal="2dp"
+                    android:background="?attr/outline" />
 
-                    <Spinner
-                        android:id="@+id/sp_channel"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:layout_marginStart="@dimen/space_sm"
-                        android:background="@drawable/bg_filter_field"
-                        android:popupBackground="?attr/surface" />
+                <ImageButton
+                    android:id="@+id/btn_sort"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="排序"
+                    android:padding="10dp"
+                    android:scaleType="centerInside"
+                    android:src="@drawable/ic_sort"
+                    app:tint="?attr/on_surface_variant" />
 
-                    <Spinner
-                        android:id="@+id/sp_country"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:layout_marginStart="@dimen/space_sm"
-                        android:background="@drawable/bg_filter_field"
-                        android:popupBackground="?attr/surface" />
-                </LinearLayout>
+                <ImageButton
+                    android:id="@+id/btn_sort_reverse"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="倒序"
+                    android:padding="10dp"
+                    android:scaleType="centerInside"
+                    android:src="@drawable/ic_sort_reverse"
+                    app:tint="?attr/on_surface_variant" />
 
-                <!-- 来源二级行内展开（v4.10）：选来源大类后在此横滑选择二级渠道 -->
-                <HorizontalScrollView
-                    android:id="@+id/scroll_channel_chips"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="@dimen/space_xs"
-                    android:scrollbars="none"
-                    android:visibility="gone">
-
-                    <LinearLayout
-                        android:id="@+id/ll_channel_chips"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:paddingTop="2dp"
-                        android:paddingBottom="2dp" />
-                </HorizontalScrollView>
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="@dimen/space_xs"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical">
-
-                    <Spinner
-                        android:id="@+id/sp_sort"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="2"
-                        android:background="@drawable/bg_filter_field"
-                        android:popupBackground="?attr/surface" />
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btn_sort_reverse"
-                        style="@style/Widget.Bookshelf.Button.Outlined"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="@dimen/space_sm"
-                        android:minWidth="0dp"
-                        android:minHeight="0dp"
-                        android:paddingHorizontal="10dp"
-                        android:paddingVertical="7dp"
-                        android:text="倒序"
-                        android:textSize="@dimen/text_caption" />
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btn_view"
-                        style="@style/Widget.Bookshelf.Button.Outlined"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="@dimen/space_sm"
-                        android:minWidth="0dp"
-                        android:minHeight="0dp"
-                        android:paddingHorizontal="10dp"
-                        android:paddingVertical="7dp"
-                        android:text="封面"
-                        android:textSize="@dimen/text_caption" />
-                </LinearLayout>
+                <ImageButton
+                    android:id="@+id/btn_view"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="切换视图"
+                    android:padding="10dp"
+                    android:scaleType="centerInside"
+                    android:src="@drawable/ic_view_list"
+                    app:tint="?attr/on_surface_variant" />
             </LinearLayout>
+
+            <!-- 智能书架（v4.42）：在读 / 借出中 / 超期… 横滑一行，点一下套用筛选 -->
+            <HorizontalScrollView
+                android:id="@+id/hsv_smart"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:clipToPadding="false"
+                android:paddingStart="@dimen/page_padding"
+                android:paddingEnd="@dimen/page_padding"
+                android:scrollbars="none"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:id="@+id/ll_smart"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:paddingTop="6dp" />
+            </HorizontalScrollView>
+
+            <!-- 更多筛选：地点/来源/国家保留 Spinner 状态，但视觉上收进「更多」面板 -->
+            <LinearLayout
+                android:id="@+id/ll_extra_filters"
+                android:layout_width="1dp"
+                android:layout_height="1dp"
+                android:orientation="horizontal"
+                android:visibility="invisible">
+
+                <Spinner
+                    android:id="@+id/sp_location"
+                    android:layout_width="wrap_content"
+                    android:layout_height="40dp"
+                    android:background="@android:color/transparent"
+                    android:minWidth="52dp"
+                    android:popupBackground="?attr/surface"
+                    android:spinnerMode="dropdown" />
+
+                <Spinner
+                    android:id="@+id/sp_channel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="40dp"
+                    android:background="@android:color/transparent"
+                    android:minWidth="52dp"
+                    android:popupBackground="?attr/surface"
+                    android:spinnerMode="dropdown" />
+
+                <Spinner
+                    android:id="@+id/sp_country"
+                    android:layout_width="wrap_content"
+                    android:layout_height="40dp"
+                    android:background="@android:color/transparent"
+                    android:minWidth="52dp"
+                    android:popupBackground="?attr/surface"
+                    android:spinnerMode="dropdown" />
             </LinearLayout>
-        </androidx.constraintlayout.widget.ConstraintLayout>
 
-        <!-- 多选操作条（长按书籍进入多选后显示） -->
-        <LinearLayout
-            android:id="@+id/selection_bar"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:background="?attr/primary_container"
-            android:paddingHorizontal="@dimen/space_md"
-            android:paddingVertical="@dimen/space_sm"
-            android:visibility="gone">
-
-            <TextView
-                android:id="@+id/tv_sel_count"
-                android:layout_width="0dp"
+            <!-- 分类二级行内展开（v4.10）：选一级后在此横滑选择二级，不用弹窗 -->
+            <HorizontalScrollView
+                android:id="@+id/scroll_category_chips"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="已选 0 本"
-                android:textColor="?attr/on_primary_container"
-                android:textSize="@dimen/text_body_small" />
+                android:layout_marginTop="4dp"
+                android:paddingStart="@dimen/page_padding"
+                android:paddingEnd="@dimen/page_padding"
+                android:scrollbars="none"
+                android:visibility="gone">
 
-            <TextView
-                android:id="@+id/btn_sel_all"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:background="?attr/selectableItemBackground"
-                android:padding="8dp"
-                android:text="全选"
-                android:textColor="?attr/on_primary_container"
-                android:textSize="@dimen/text_body_small" />
+                <LinearLayout
+                    android:id="@+id/ll_category_chips"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:paddingTop="2dp"
+                    android:paddingBottom="2dp" />
+            </HorizontalScrollView>
 
-            <TextView
-                android:id="@+id/btn_sel_delete"
-                android:layout_width="wrap_content"
+            <!-- 来源二级行内展开（v4.10）：选来源大类后在此横滑选择二级渠道 -->
+            <HorizontalScrollView
+                android:id="@+id/scroll_channel_chips"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:background="?attr/selectableItemBackground"
-                android:padding="8dp"
-                android:text="删除"
-                android:textColor="@color/danger"
-                android:textSize="@dimen/text_body_small"
-                android:textStyle="bold" />
+                android:layout_marginTop="4dp"
+                android:paddingStart="@dimen/page_padding"
+                android:paddingEnd="@dimen/page_padding"
+                android:scrollbars="none"
+                android:visibility="gone">
 
-            <TextView
-                android:id="@+id/btn_sel_cancel"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:background="?attr/selectableItemBackground"
-                android:padding="8dp"
-                android:text="取消"
-                android:textColor="?attr/on_surface_variant"
-                android:textSize="@dimen/text_body_small" />
+                <LinearLayout
+                    android:id="@+id/ll_channel_chips"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:paddingTop="2dp"
+                    android:paddingBottom="2dp" />
+            </HorizontalScrollView>
         </LinearLayout>
 
         <!-- 列表 + 空态 -->
@@ -353,7 +438,7 @@
                 android:paddingTop="@dimen/space_sm"
                 android:paddingBottom="96dp" />
 
-            <!-- 空态（v4.16：图标 + 主文案 + 引导） -->
+            <!-- 空态：线稿插画 + 主文案 + 主按钮 -->
             <LinearLayout
                 android:id="@+id/ll_empty"
                 android:layout_width="match_parent"
@@ -365,47 +450,52 @@
                 android:visibility="gone">
 
                 <ImageView
-                    android:layout_width="72dp"
-                    android:layout_height="72dp"
-                    android:alpha="0.28"
+                    android:layout_width="104dp"
+                    android:layout_height="104dp"
+                    android:alpha="0.9"
                     android:contentDescription="@string/empty_shelf"
-                    android:src="@drawable/ic_book" />
+                    android:src="@drawable/il_empty_shelf" />
 
                 <TextView
-                    android:id="@+id/tv_empty"
+                    android:id="@+id/tv_empty_title"
+                    style="@style/Text.Bookshelf.SerifHeadline"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="@dimen/space_md"
-                    android:gravity="center"
-                    android:lineSpacingMultiplier="1.4"
-                    android:text="@string/empty_shelf"
-                    android:textColor="?attr/on_surface_variant"
-                    android:textSize="@dimen/text_body" />
-            </LinearLayout>
-
-            <!-- v3.2：首次加载指示，避免查库期间白屏让人以为卡死 -->
-            <LinearLayout
-                android:id="@+id/ll_loading"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center"
-                android:gravity="center"
-                android:orientation="vertical"
-                android:visibility="gone">
-
-                <ProgressBar
-                    android:layout_width="34dp"
-                    android:layout_height="34dp"
-                    android:indeterminateTint="?attr/colorPrimary" />
+                    android:textSize="@dimen/text_title"
+                    android:text="书架还是空的"
+                    android:textColor="?attr/on_surface" />
 
                 <TextView
+                    android:id="@+id/tv_empty_desc"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
-                    android:text="正在加载书架…"
+                    android:layout_marginTop="6dp"
+                    android:gravity="center"
+                    android:lineSpacingMultiplier="1.4"
                     android:textColor="?attr/on_surface_variant"
-                    android:textSize="@dimen/text_body_small" />
+                    android:textSize="@dimen/text_body_small"
+                    android:visibility="gone" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_empty_add"
+                    style="@style/Widget.Bookshelf.Button"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/space_lg"
+                    android:paddingHorizontal="@dimen/space_lg"
+                    android:text="扫码录入第一本书" />
             </LinearLayout>
+
+            <!-- 首屏骨架屏（按当前视图由代码填充） -->
+            <LinearLayout
+                android:id="@+id/ll_loading"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="top"
+                android:orientation="vertical"
+                android:padding="@dimen/page_padding"
+                android:visibility="gone" />
         </FrameLayout>
     </LinearLayout>
 
@@ -417,8 +507,85 @@
         android:layout_gravity="bottom|end"
         android:layout_margin="20dp"
         android:contentDescription="扫码录入"
-        android:src="@drawable/ic_scan"
-        app:backgroundTint="?attr/colorSecondary"
-        app:elevation="6dp"
-        app:tint="@color/white" />
+        android:src="@drawable/ic_scan_line"
+        app:backgroundTint="?attr/colorPrimary"
+        app:elevation="4dp"
+        app:tint="?attr/colorOnPrimary" />
+
+    <!-- 多选操作条：底部浮动胶囊（长按书籍进入多选后显示） -->
+    <LinearLayout
+        android:id="@+id/selection_bar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:layout_marginHorizontal="@dimen/space_lg"
+        android:layout_marginBottom="@dimen/space_lg"
+        android:background="@drawable/bg_selection_capsule"
+        android:elevation="6dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="@dimen/space_lg"
+        android:paddingEnd="@dimen/space_sm"
+        android:paddingVertical="6dp"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/tv_sel_count"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="已选 0 本"
+            android:textColor="?attr/on_primary_container"
+            android:textSize="@dimen/text_body_small" />
+
+        <TextView
+            android:id="@+id/btn_sel_all"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="?attr/selectableItemBackground"
+            android:padding="8dp"
+            android:text="全选"
+            android:textColor="?attr/on_primary_container"
+            android:textSize="@dimen/text_body_small" />
+
+        <TextView
+            android:id="@+id/btn_sel_share"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="?attr/selectableItemBackground"
+            android:padding="8dp"
+            android:text="分享"
+            android:textColor="?attr/on_primary_container"
+            android:textSize="@dimen/text_body_small" />
+
+        <TextView
+            android:id="@+id/btn_sel_edit"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="?attr/selectableItemBackground"
+            android:padding="8dp"
+            android:text="批量设置"
+            android:textColor="?attr/on_primary_container"
+            android:textSize="@dimen/text_body_small" />
+
+        <TextView
+            android:id="@+id/btn_sel_delete"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="?attr/selectableItemBackground"
+            android:padding="8dp"
+            android:text="删除"
+            android:textColor="@color/danger"
+            android:textSize="@dimen/text_body_small" />
+
+        <TextView
+            android:id="@+id/btn_sel_cancel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="?attr/selectableItemBackground"
+            android:padding="8dp"
+            android:text="取消"
+            android:textColor="?attr/on_surface_variant"
+            android:textSize="@dimen/text_body_small" />
+    </LinearLayout>
 </FrameLayout>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 底部面板淡入（v4.27）：不带位移，避免个别 ROM 弹窗动画造成的横向偏移 -->
+<alpha xmlns:android="http://schemas.android.com/apk/res/android"
+    android:duration="160"
+    android:fromAlpha="0"
+    android:interpolator="@android:interpolator/decelerate_quad"
+    android:toAlpha="1" />

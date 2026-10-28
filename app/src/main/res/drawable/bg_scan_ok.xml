@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 扫码识别成功浮层底（v4.31）：卡片色 + 16dp 圆角 -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="?attr/surface" />
+    <corners android:radius="@dimen/radius_md" />
+</shape>

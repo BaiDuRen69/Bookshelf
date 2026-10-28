@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Android 12+ 系统启动页（v4.28）：纸色底 + 自适应书本图标 + 字标品牌图 -->
+    <style name="Theme.Bookshelf.Splash" parent="Theme.Bookshelf.Base">
+        <item name="android:windowBackground">@color/bg_page</item>
+        <item name="android:windowSplashScreenBackground">@color/bg_page</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
+        <item name="android:windowSplashScreenBrandingImage">@drawable/splash_brand</item>
+    </style>
+</resources>

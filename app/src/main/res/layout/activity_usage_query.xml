@@ -98,7 +98,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
                 android:lineSpacingMultiplier="1.35"
-                android:textColor="@color/text_main"
+                android:textColor="?attr/on_surface"
                 android:textSize="13sp"
                 android:visibility="gone" />
 
@@ -109,7 +109,7 @@
                 android:lineSpacingMultiplier="1.4"
                 android:text="用量查询用的是「腾讯云账号密钥」：控制台右上角头像 → 访问管理 → 访问密钥 → API 密钥管理 中查看/新建；没有可新建子账号密钥并只授权云市场只读权限。\n\n实例 ID：云市场 → 已购资源 列表中的实例 ID。\n\n这套账号密钥与「API 配置」里扫码查书用的云市场网关密钥不是一套，互相不能混用。"
                 android:textSize="12sp"
-                android:textColor="@color/text_sub" />
+                android:textColor="?attr/on_surface_variant" />
         </LinearLayout>
         </androidx.constraintlayout.widget.ConstraintLayout>
     </ScrollView>

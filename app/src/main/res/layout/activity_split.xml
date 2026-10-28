@@ -79,6 +79,16 @@
                 android:layout_marginTop="6dp"
                 android:orientation="vertical" />
 
+            <!-- 从系列页进入时，分摊结果可一键写回各书购入价（v4.53） -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_apply"
+                style="@style/Widget.Bookshelf.Button.Tonal"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="应用到藏书（写入购入价）"
+                android:visibility="gone" />
+
             <!-- 历史记录（最近 10 次） -->
             <TextView
                 android:id="@+id/tv_history_label"

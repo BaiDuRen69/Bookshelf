@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 统计页：总览 + 藏书之最 + 作者/出版社分布 -->
+<!-- 统计页（v4.25）：hero 总数 + 三列状态 + 藏书之最 mini 卡 + 横向条形榜 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
@@ -16,283 +16,676 @@
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1">
+        android:layout_weight="1"
+        android:fillViewport="true">
 
-                <androidx.constraintlayout.widget.ConstraintLayout
+        <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content">
 
-<LinearLayout
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:paddingHorizontal="@dimen/page_padding"
-            android:paddingTop="@dimen/space_sm"
-            android:paddingBottom="@dimen/space_xl"
-                    app:layout_constraintWidth_max="@dimen/content_max_width"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintHorizontal_bias="0.5"
-                    app:layout_constraintTop_toTopOf="parent"
-                    app:layout_constraintBottom_toBottomOf="parent"
-                >
-
-            <!-- 我的阅读入口（v2.8，位于藏书总览上方） -->
-            <androidx.cardview.widget.CardView
-                android:id="@+id/card_reading"
-                android:layout_width="match_parent"
+            <LinearLayout
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="10dp"
-                android:clickable="true"
-                android:focusable="true"
-                android:foreground="?attr/selectableItemBackground"
-                style="@style/Widget.Bookshelf.Card">
+                android:orientation="vertical"
+                android:paddingHorizontal="@dimen/page_padding"
+                android:paddingTop="@dimen/space_sm"
+                android:paddingBottom="@dimen/space_xl"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintHorizontal_bias="0.5"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintWidth_max="@dimen/content_max_width">
 
-                <LinearLayout
+                <!-- ==================== Hero 总览 ==================== -->
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/card_stats_hero"
+                    style="@style/Widget.Bookshelf.Card"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal"
-                    android:padding="14dp">
+                    android:layout_height="wrap_content">
 
                     <LinearLayout
-                        android:layout_width="0dp"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical">
+                        android:orientation="vertical"
+                        android:padding="@dimen/space_lg">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="我的阅读"
-                            android:textColor="?attr/colorPrimary"
-                            android:textSize="@dimen/text_headline"
-                            android:textStyle="bold" />
+                            android:text="藏书"
+                            android:textColor="?attr/on_surface_variant"
+                            android:textSize="@dimen/text_caption" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="bottom"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                android:id="@+id/tv_stats_total"
+                                style="@style/Text.Bookshelf.SerifNumber"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="0"
+                                android:textColor="?attr/colorPrimary"
+                                android:textSize="@dimen/text_hero" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="4dp"
+                                android:layout_marginBottom="7dp"
+                                android:text="册"
+                                android:textColor="?attr/on_surface_variant"
+                                android:textSize="@dimen/text_body_small" />
+                        </LinearLayout>
+
+                            </LinearLayout>
+
+                            <!-- v4.31：最近 4 本书的封面扇形拼贴，让统计页像「书房」 -->
+                            <FrameLayout
+                                android:layout_width="132dp"
+                                android:layout_height="104dp"
+                                android:layout_marginStart="8dp">
+
+                                <ImageView
+                                    android:id="@+id/iv_fan_1"
+                                    android:layout_width="62dp"
+                                    android:layout_height="84dp"
+                                    android:background="@drawable/bg_cover"
+                                    android:clipToOutline="true"
+                                    android:layout_gravity="bottom|start"
+                                    android:contentDescription="最近藏书封面"
+                                    android:elevation="1dp"
+                                    android:rotation="-11"
+                                    android:scaleType="centerCrop"
+                                    android:src="@drawable/ic_cover_placeholder" />
+
+                                <ImageView
+                                    android:id="@+id/iv_fan_2"
+                                    android:layout_width="62dp"
+                                    android:layout_height="84dp"
+                                    android:background="@drawable/bg_cover"
+                                    android:clipToOutline="true"
+                                    android:layout_gravity="bottom|start"
+                                    android:layout_marginStart="26dp"
+                                    android:contentDescription="最近藏书封面"
+                                    android:elevation="2dp"
+                                    android:rotation="-4"
+                                    android:scaleType="centerCrop"
+                                    android:src="@drawable/ic_cover_placeholder" />
+
+                                <ImageView
+                                    android:id="@+id/iv_fan_3"
+                                    android:layout_width="62dp"
+                                    android:layout_height="84dp"
+                                    android:background="@drawable/bg_cover"
+                                    android:clipToOutline="true"
+                                    android:layout_gravity="bottom|start"
+                                    android:layout_marginStart="52dp"
+                                    android:contentDescription="最近藏书封面"
+                                    android:elevation="3dp"
+                                    android:rotation="4"
+                                    android:scaleType="centerCrop"
+                                    android:src="@drawable/ic_cover_placeholder" />
+
+                                <ImageView
+                                    android:id="@+id/iv_fan_4"
+                                    android:layout_width="62dp"
+                                    android:layout_height="84dp"
+                                    android:background="@drawable/bg_cover"
+                                    android:clipToOutline="true"
+                                    android:layout_gravity="bottom|start"
+                                    android:layout_marginStart="78dp"
+                                    android:contentDescription="最近藏书封面"
+                                    android:elevation="4dp"
+                                    android:rotation="11"
+                                    android:scaleType="centerCrop"
+                                    android:src="@drawable/ic_cover_placeholder" />
+                            </FrameLayout>
+                        </LinearLayout>
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:layout_marginTop="14dp"
+                            android:layout_marginBottom="12dp"
+                            android:background="?attr/outline" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal">
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:gravity="center_horizontal"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:id="@+id/tv_stats_read_done"
+                                    style="@style/Text.Bookshelf.SerifNumber"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="0"
+                                    android:textColor="?attr/on_surface"
+                                    android:textSize="@dimen/text_title" />
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="2dp"
+                                    android:text="已读"
+                                    android:textColor="?attr/on_surface_variant"
+                                    android:textSize="@dimen/text_caption" />
+                            </LinearLayout>
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:gravity="center_horizontal"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:id="@+id/tv_stats_reading"
+                                    style="@style/Text.Bookshelf.SerifNumber"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="0"
+                                    android:textColor="?attr/on_surface"
+                                    android:textSize="@dimen/text_title" />
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="2dp"
+                                    android:text="在读"
+                                    android:textColor="?attr/on_surface_variant"
+                                    android:textSize="@dimen/text_caption" />
+                            </LinearLayout>
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:gravity="center_horizontal"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:id="@+id/tv_stats_unread"
+                                    style="@style/Text.Bookshelf.SerifNumber"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="0"
+                                    android:textColor="?attr/on_surface"
+                                    android:textSize="@dimen/text_title" />
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="2dp"
+                                    android:text="未读"
+                                    android:textColor="?attr/on_surface_variant"
+                                    android:textSize="@dimen/text_caption" />
+                            </LinearLayout>
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="16dp"
+                            android:orientation="horizontal">
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:gravity="center_horizontal"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="总定价"
+                                    android:textColor="?attr/on_surface_variant"
+                                    android:textSize="@dimen/text_caption" />
+
+                                <TextView
+                                    android:id="@+id/tv_stats_price"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="2dp"
+                                    android:text="¥0.00"
+                                    android:textColor="?attr/on_surface"
+                                    android:textSize="@dimen/text_body_small" />
+                            </LinearLayout>
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:gravity="center_horizontal"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="总花费"
+                                    android:textColor="?attr/on_surface_variant"
+                                    android:textSize="@dimen/text_caption" />
+
+                                <TextView
+                                    android:id="@+id/tv_stats_spent"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="2dp"
+                                    android:text="¥0.00"
+                                    android:textColor="?attr/on_surface"
+                                    android:textSize="@dimen/text_body_small" />
+                            </LinearLayout>
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:gravity="center_horizontal"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="总字数"
+                                    android:textColor="?attr/on_surface_variant"
+                                    android:textSize="@dimen/text_caption" />
+
+                                <TextView
+                                    android:id="@+id/tv_stats_words"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="2dp"
+                                    android:text="0 万字"
+                                    android:textColor="?attr/on_surface"
+                                    android:textSize="@dimen/text_body_small" />
+                            </LinearLayout>
+                        </LinearLayout>
+                    </LinearLayout>
+                </androidx.cardview.widget.CardView>
+
+                <!-- ==================== 空态（0 本时只显示这一张卡） ==================== -->
+                <!-- v4.29：空态与书架一致，垂直居中占满剩余空间 -->
+                <FrameLayout
+                    android:id="@+id/empty_state_container"
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="1"
+                    android:visibility="gone">
+
+                    <include
+                        android:id="@+id/empty_state"
+                        layout="@layout/view_empty_state"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center" />
+                </FrameLayout>
+
+                <!-- ==================== 阅读目标（v4.44） ==================== -->
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/card_reading_goal"
+                    style="@style/Widget.Bookshelf.Card"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/space_md">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="@dimen/space_lg">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                style="@style/CardTitle"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="阅读目标"
+                                android:textColor="?attr/on_surface" />
+
+                            <TextView
+                                android:id="@+id/tv_goal_set"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:background="?attr/selectableItemBackground"
+                                android:padding="@dimen/space_sm"
+                                android:text="设置"
+                                android:textColor="?attr/colorPrimary"
+                                android:textSize="@dimen/text_body_small" />
+                        </LinearLayout>
 
                         <TextView
-                            android:layout_width="wrap_content"
+                            android:id="@+id/tv_goal_summary"
+                            android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="2dp"
-                            android:text="按月 / 年 / 总查看阅读数据"
-                            android:textColor="@color/text_sub"
+                            android:layout_marginTop="4dp"
+                            android:textColor="?attr/on_surface_variant"
+                            android:textSize="@dimen/text_body_small" />
+
+                        <ProgressBar
+                            android:id="@+id/pb_goal"
+                            style="?android:attr/progressBarStyleHorizontal"
+                            android:layout_width="match_parent"
+                            android:layout_height="6dp"
+                            android:layout_marginTop="10dp"
+                            android:max="100"
+                            android:progressBackgroundTint="?attr/outline"
+                            android:progressTint="?attr/colorPrimary" />
+
+                        <TextView
+                            android:id="@+id/tv_goal_streak"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:textColor="?attr/on_surface_variant"
                             android:textSize="@dimen/text_body_small" />
                     </LinearLayout>
+                </androidx.cardview.widget.CardView>
 
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="查看 ›"
-                        android:textColor="?attr/colorSecondary"
-                        android:textSize="13sp" />
-                </LinearLayout>
-            </androidx.cardview.widget.CardView>
-
-            <!-- 总览 -->
-            <androidx.cardview.widget.CardView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                style="@style/Widget.Bookshelf.Card">
-
-                <LinearLayout
+                <!-- ==================== 购书统计入口（v4.41 由「我的阅读」更名） ==================== -->
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/card_reading"
+                    style="@style/Widget.Bookshelf.Card"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="14dp">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="藏书总览"
-                        android:textStyle="bold"
-                        android:textSize="@dimen/text_headline"
-                        android:textColor="?attr/colorPrimary" />
-
-                    <TextView
-                        android:id="@+id/tv_overview"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:textSize="@dimen/text_body"
-                        android:lineSpacingMultiplier="1.6" />
-                </LinearLayout>
-            </androidx.cardview.widget.CardView>
-
-            <!-- 藏书之最 -->
-            <androidx.cardview.widget.CardView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                style="@style/Widget.Bookshelf.Card">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="14dp">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="藏书之最"
-                        android:textStyle="bold"
-                        android:textSize="@dimen/text_headline"
-                        android:textColor="?attr/colorPrimary" />
-
-                    <TextView
-                        android:id="@+id/tv_extremes"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:textSize="@dimen/text_body"
-                        android:lineSpacingMultiplier="1.6" />
-                </LinearLayout>
-            </androidx.cardview.widget.CardView>
-
-            <!-- 作者分布 -->
-            <androidx.cardview.widget.CardView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                style="@style/Widget.Bookshelf.Card">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="14dp">
+                    android:layout_marginTop="@dimen/space_md"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:foreground="?attr/selectableItemBackground">
 
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
                         android:orientation="horizontal"
-                        android:gravity="center_vertical">
+                        android:padding="@dimen/space_lg">
 
-                        <TextView
+                        <LinearLayout
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="作者分布 Top 8"
-                            android:textStyle="bold"
-                            android:textSize="@dimen/text_headline"
-                            android:textColor="?attr/colorPrimary" />
+                            android:orientation="vertical">
+
+                            <TextView
+                                style="@style/CardTitle"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="购书统计"
+                                android:textColor="?attr/on_surface" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:text="按月 / 年 / 总看购入、录入与花费"
+                                android:textColor="?attr/on_surface_variant"
+                                android:textSize="@dimen/text_body_small" />
+                        </LinearLayout>
 
                         <TextView
-                            android:id="@+id/tv_authors_more"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="全部 ›"
-                            android:textSize="@dimen/text_body"
-                            android:textColor="?attr/colorSecondary"
-                            android:background="?attr/selectableItemBackground"
-                            android:padding="4dp" />
+                            android:drawableEnd="@drawable/ic_chevron_right_line"
+                            android:drawablePadding="2dp"
+                            android:drawableTint="?attr/colorPrimary"
+                            android:text="查看"
+                            android:textColor="?attr/colorPrimary"
+                            android:textSize="@dimen/text_body_small" />
                     </LinearLayout>
+                </androidx.cardview.widget.CardView>
 
-                    <LinearLayout
-                        android:id="@+id/container_authors"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:orientation="vertical" />
-                </LinearLayout>
-            </androidx.cardview.widget.CardView>
-
-            <!-- 出版社分布 -->
-            <androidx.cardview.widget.CardView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                style="@style/Widget.Bookshelf.Card">
-
-                <LinearLayout
+                <!-- ==================== 书房年报入口（v4.32） ==================== -->
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/card_year_report"
+                    style="@style/Widget.Bookshelf.Card"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="14dp">
+                    android:layout_marginTop="@dimen/space_md">
 
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
                         android:orientation="horizontal"
-                        android:gravity="center_vertical">
+                        android:padding="@dimen/space_lg">
 
-                        <TextView
+                        <ImageView
+                            android:layout_width="@dimen/mine_icon_box"
+                            android:layout_height="@dimen/mine_icon_box"
+                            android:background="@drawable/bg_icon_container"
+                            android:contentDescription="书房年报"
+                            android:padding="8dp"
+                            android:src="@drawable/ic_export_line"
+                            app:tint="?attr/colorPrimary" />
+
+                        <LinearLayout
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
+                            android:layout_marginStart="@dimen/space_md"
                             android:layout_weight="1"
-                            android:text="出版社分布 Top 8"
-                            android:textStyle="bold"
-                            android:textSize="@dimen/text_headline"
-                            android:textColor="?attr/colorPrimary" />
+                            android:orientation="vertical">
 
-                        <TextView
-                            android:id="@+id/tv_publishers_more"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="全部 ›"
-                            android:textSize="@dimen/text_body"
-                            android:textColor="?attr/colorSecondary"
-                            android:background="?attr/selectableItemBackground"
-                            android:padding="4dp" />
+                            <TextView
+                                style="@style/MineRowTitle"
+                                android:text="书房年报" />
+
+                            <TextView
+                                style="@style/MineRowSubtitle"
+                                android:text="封面拼贴 + 藏书数据，生成一张可分享的卡片" />
+                        </LinearLayout>
+
+                        <ImageView style="@style/MineRowChevron" />
                     </LinearLayout>
+                </androidx.cardview.widget.CardView>
 
-                    <LinearLayout
-                        android:id="@+id/container_publishers"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:orientation="vertical" />
-                </LinearLayout>
-            </androidx.cardview.widget.CardView>
-
-            <!-- 国家分布（Top 8 + 全部国家二级页入口） -->
-            <androidx.cardview.widget.CardView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                android:layout_marginBottom="16dp"
-                style="@style/Widget.Bookshelf.Card">
+                <!-- ==================== 藏书之最 ==================== -->
+                <TextView
+                    android:id="@+id/tv_extremes_title"
+                    style="@style/CardTitle"
+                    android:layout_marginTop="@dimen/space_xl"
+                    android:layout_marginBottom="@dimen/space_sm"
+                    android:text="藏书之最" />
 
                 <LinearLayout
+                    android:id="@+id/ll_extremes"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="14dp">
+                    android:orientation="horizontal" />
+
+                <TextView
+                    android:id="@+id/tv_extremes_extra"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/space_sm"
+                    android:lineSpacingMultiplier="1.4"
+                    android:textColor="?attr/on_surface_variant"
+                    android:textSize="@dimen/text_caption"
+                    android:visibility="gone" />
+
+                <!-- ==================== 作者分布 ==================== -->
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/card_authors"
+                    style="@style/Widget.Bookshelf.Card"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/space_lg">
 
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:gravity="center_vertical">
+                        android:orientation="vertical"
+                        android:padding="@dimen/space_lg">
 
-                        <TextView
-                            android:layout_width="0dp"
+                        <LinearLayout
+                            android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:text="国家/地区 Top 8"
-                            android:textStyle="bold"
-                            android:textSize="@dimen/text_headline"
-                            android:textColor="?attr/colorPrimary" />
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
 
-                        <TextView
-                            android:id="@+id/tv_countries_more"
-                            android:layout_width="wrap_content"
+                            <TextView
+                                style="@style/CardTitle"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="作者分布 Top 8"
+                                android:textColor="?attr/on_surface" />
+
+                            <TextView
+                                android:id="@+id/tv_authors_more"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:background="?attr/selectableItemBackground"
+                                android:padding="4dp"
+                                android:drawableEnd="@drawable/ic_chevron_right_line"
+                                android:drawablePadding="2dp"
+                                android:drawableTint="?attr/colorPrimary"
+                                android:text="全部"
+                                android:textColor="?attr/colorPrimary"
+                                android:textSize="@dimen/text_body_small" />
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:id="@+id/container_authors"
+                            android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:text="全部 ›"
-                            android:textSize="@dimen/text_body"
-                            android:textColor="?attr/colorSecondary"
-                            android:background="?attr/selectableItemBackground"
-                            android:padding="4dp" />
+                            android:layout_marginTop="@dimen/space_sm"
+                            android:orientation="vertical" />
                     </LinearLayout>
+                </androidx.cardview.widget.CardView>
+
+                <!-- ==================== 出版社分布 ==================== -->
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/card_publishers"
+                    style="@style/Widget.Bookshelf.Card"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/space_md">
 
                     <LinearLayout
-                        android:id="@+id/container_countries"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:orientation="vertical" />
-                </LinearLayout>
-            </androidx.cardview.widget.CardView>
-        </LinearLayout>
+                        android:orientation="vertical"
+                        android:padding="@dimen/space_lg">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                style="@style/CardTitle"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="出版社分布 Top 8"
+                                android:textColor="?attr/on_surface" />
+
+                            <TextView
+                                android:id="@+id/tv_publishers_more"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:background="?attr/selectableItemBackground"
+                                android:padding="4dp"
+                                android:drawableEnd="@drawable/ic_chevron_right_line"
+                                android:drawablePadding="2dp"
+                                android:drawableTint="?attr/colorPrimary"
+                                android:text="全部"
+                                android:textColor="?attr/colorPrimary"
+                                android:textSize="@dimen/text_body_small" />
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:id="@+id/container_publishers"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="@dimen/space_sm"
+                            android:orientation="vertical" />
+                    </LinearLayout>
+                </androidx.cardview.widget.CardView>
+
+                <!-- ==================== 国家/地区分布 ==================== -->
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/card_countries"
+                    style="@style/Widget.Bookshelf.Card"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/space_md"
+                    android:layout_marginBottom="@dimen/space_md">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="@dimen/space_lg">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                style="@style/CardTitle"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="国家/地区 Top 8"
+                                android:textColor="?attr/on_surface" />
+
+                            <TextView
+                                android:id="@+id/tv_countries_more"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:background="?attr/selectableItemBackground"
+                                android:padding="4dp"
+                                android:drawableEnd="@drawable/ic_chevron_right_line"
+                                android:drawablePadding="2dp"
+                                android:drawableTint="?attr/colorPrimary"
+                                android:text="全部"
+                                android:textColor="?attr/colorPrimary"
+                                android:textSize="@dimen/text_body_small" />
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:id="@+id/container_countries"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="@dimen/space_sm"
+                            android:orientation="vertical" />
+                    </LinearLayout>
+                </androidx.cardview.widget.CardView>
+            </LinearLayout>
         </androidx.constraintlayout.widget.ConstraintLayout>
     </androidx.core.widget.NestedScrollView>
 </LinearLayout>

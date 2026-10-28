@@ -18,14 +18,14 @@
         android:id="@+id/tv_hint"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@color/divider_soft"
-        android:paddingStart="14dp"
-        android:paddingEnd="14dp"
+        android:background="?attr/outline"
+        android:paddingStart="@dimen/page_padding"
+        android:paddingEnd="@dimen/page_padding"
         android:paddingTop="8dp"
         android:paddingBottom="8dp"
         android:text="点一级展开二级栏目，点二级完成选择；长按一级可直接选用该一级分类"
         android:textSize="12sp"
-        android:textColor="@color/text_sub"
+        android:textColor="?attr/on_surface_variant"
         android:visibility="gone" />
 
     <androidx.recyclerview.widget.RecyclerView

@@ -1,7 +1,9 @@
 package com.bai.bookshelf.app;
 
+import android.app.Activity;
 import android.app.Application;
 import android.content.SharedPreferences;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 
@@ -55,6 +57,44 @@ public class BookshelfApp extends Application {
         // v4.19：装全局崩溃兜底，把未捕获异常的堆栈写进 files/crash.log，
         // 用户可在「我的 → 设置 → 崩溃日志」里看到并复制出来反馈
         com.bai.bookshelf.util.CrashHandler.install(this);
+        // v4.54：应用锁。新进程从锁定状态开始；所有 Activity 都停止时记录后台时间
+        com.bai.bookshelf.util.AppLock.onProcessStart();
+        registerActivityLifecycleCallbacks(new ActivityLifecycleCallbacks() {
+            private int started = 0;
+
+            @Override
+            public void onActivityStarted(Activity activity) {
+                started++;
+            }
+
+            @Override
+            public void onActivityStopped(Activity activity) {
+                started = Math.max(0, started - 1);
+                if (started == 0 && !activity.isChangingConfigurations()) {
+                    com.bai.bookshelf.util.AppLock.onAppBackgrounded(activity);
+                }
+            }
+
+            @Override
+            public void onActivityCreated(Activity activity, Bundle savedInstanceState) {
+            }
+
+            @Override
+            public void onActivityResumed(Activity activity) {
+            }
+
+            @Override
+            public void onActivityPaused(Activity activity) {
+            }
+
+            @Override
+            public void onActivitySaveInstanceState(Activity activity, Bundle outState) {
+            }
+
+            @Override
+            public void onActivityDestroyed(Activity activity) {
+            }
+        });
         // 记录首次打开 App 的时间（只写一次，老用户升级后记为近似值）
         SharedPreferences prefs = appPrefs();
         if (!prefs.contains(KEY_FIRST_LAUNCH_AT)) {
@@ -66,7 +106,9 @@ public class BookshelfApp extends Application {
                         AppDatabase.MIGRATION_5_6, AppDatabase.MIGRATION_6_7,
                         AppDatabase.MIGRATION_7_8, AppDatabase.MIGRATION_8_9,
                         AppDatabase.MIGRATION_9_10, AppDatabase.MIGRATION_10_11,
-                        AppDatabase.MIGRATION_11_12, AppDatabase.MIGRATION_12_13) // 保数据迁移
+                        AppDatabase.MIGRATION_11_12, AppDatabase.MIGRATION_12_13,
+                        AppDatabase.MIGRATION_13_14, AppDatabase.MIGRATION_14_15, AppDatabase.MIGRATION_15_16,
+                        AppDatabase.MIGRATION_16_17, AppDatabase.MIGRATION_17_18) // 保数据迁移
                 // v4.0（评审 #1）：兜底策略收紧。fallbackToDestructiveMigration 会在
                 // 迁移路径覆盖不到时（典型：用旧包覆盖安装新版造成降级）直接删表重建、
                 // 藏书数据静默全失——对个人藏书管理 App 不可接受。改为仅在「降级」时
@@ -74,6 +116,8 @@ public class BookshelfApp extends Application {
                 .fallbackToDestructiveMigrationOnDowngrade()
                 .build();
         ensureDefaultData();
+        // v4.42：每天 9:00 检查一次借阅到期（进程被杀也由闹钟拉起）
+        com.bai.bookshelf.util.BorrowReminder.schedule(this);
         // v4.4：自动备份延后 3 秒再跑——整库 JSON + 全部封面图打 zip 是启动期最重的
         // 任务，冷启动先让路给首屏渲染，避免磁盘 I/O 与 Glide 加载封面互相争抢
         mainHandler.postDelayed(() -> BackupManager.autoBackupIfEnabled(this), 3000);

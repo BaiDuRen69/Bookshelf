@@ -27,7 +27,8 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="14dp"
+            android:padding="@dimen/space_lg"
+            android:paddingBottom="24dp"
                     app:layout_constraintWidth_max="@dimen/content_max_width"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintEnd_toEndOf="parent"
@@ -35,6 +36,11 @@
                     app:layout_constraintTop_toTopOf="parent"
                     app:layout_constraintBottom_toBottomOf="parent"
                 >
+
+            <TextView
+                style="@style/DetailSectionTitle"
+                android:layout_marginBottom="@dimen/space_sm"
+                android:text="封面" />
 
             <!-- 封面：预览 + 链接 + 拍照/相册 -->
             <LinearLayout
@@ -59,9 +65,11 @@
                     android:orientation="vertical">
 
                     <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/til_cover_url"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:hint="封面链接（或拍照/相册上传）">
+                        android:hint="封面链接"
+                        android:visibility="gone">
 
                         <com.google.android.material.textfield.TextInputEditText
                             android:id="@+id/et_cover_url"
@@ -82,6 +90,11 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
+                            android:insetLeft="0dp"
+                            android:insetRight="0dp"
+                            android:minWidth="0dp"
+                            android:paddingLeft="4dp"
+                            android:paddingRight="4dp"
                             android:text="拍照"
                             android:textSize="13sp" />
 
@@ -91,6 +104,11 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
+                            android:insetLeft="0dp"
+                            android:insetRight="0dp"
+                            android:minWidth="0dp"
+                            android:paddingLeft="4dp"
+                            android:paddingRight="4dp"
                             android:layout_marginStart="6dp"
                             android:text="相册"
                             android:textSize="13sp" />
@@ -101,18 +119,42 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
+                            android:insetLeft="0dp"
+                            android:insetRight="0dp"
+                            android:minWidth="0dp"
+                            android:paddingLeft="4dp"
+                            android:paddingRight="4dp"
                             android:layout_marginStart="6dp"
                             android:text="预览"
+                            android:textSize="13sp" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btn_cover_link"
+                            style="@style/Widget.Bookshelf.Button.Outlined"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:insetLeft="0dp"
+                            android:insetRight="0dp"
+                            android:minWidth="0dp"
+                            android:paddingLeft="4dp"
+                            android:paddingRight="4dp"
+                            android:layout_marginStart="6dp"
+                            android:text="链接"
                             android:textSize="13sp" />
                     </LinearLayout>
                 </LinearLayout>
             </LinearLayout>
 
-            <!-- 书目信息 -->
+            <TextView
+                style="@style/DetailSectionTitle"
+                android:layout_marginTop="@dimen/space_xl"
+                android:layout_marginBottom="@dimen/space_sm"
+                android:text="书目信息" />
+
             <com.google.android.material.textfield.TextInputLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
                 android:hint="书名（必填）">
 
                 <com.google.android.material.textfield.TextInputEditText
@@ -194,6 +236,31 @@
                         android:clickable="true" />
                 </com.google.android.material.textfield.TextInputLayout>
             </LinearLayout>
+
+            <!-- v4.29：出版信息默认折叠，首屏只留书名/作者等基本信息 -->
+            <TextView
+                android:id="@+id/tv_publish_toggle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:background="@drawable/bg_chip"
+                android:clickable="true"
+                android:drawableEnd="@drawable/ic_chevron_down_line"
+                android:drawablePadding="4dp"
+                android:drawableTint="?attr/colorPrimary"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackground"
+                android:padding="11dp"
+                android:text="展开更多出版信息"
+                android:textColor="?attr/colorPrimary"
+                android:textSize="14sp" />
+
+            <LinearLayout
+                android:id="@+id/ll_publish_group"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
 
             <com.google.android.material.textfield.TextInputLayout
                 android:layout_width="match_parent"
@@ -392,6 +459,8 @@
                     android:visibility="gone" />
             </LinearLayout>
 
+            </LinearLayout>
+
             <!-- 标签（点击弹微信式选择器） -->
             <com.google.android.material.textfield.TextInputLayout
                 android:layout_width="match_parent"
@@ -407,14 +476,64 @@
                     android:clickable="true" />
             </com.google.android.material.textfield.TextInputLayout>
 
+            <!-- 系列 / 套装（v4.53）：系列名点击选择，卷号与阅读顺序可留空 -->
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:hint="系列（点击选择）">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/et_series_name"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:clickable="true"
+                    android:focusable="false"
+                    android:singleLine="true" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:orientation="horizontal">
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:hint="卷号">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/et_series_volume"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="text"
+                        android:singleLine="true" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:layout_weight="1"
+                    android:hint="阅读顺序">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/et_series_order"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="number"
+                        android:singleLine="true" />
+                </com.google.android.material.textfield.TextInputLayout>
+            </LinearLayout>
+
             <!-- 个人管理信息 -->
             <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
-                android:text="我的管理信息"
-                android:textStyle="bold"
-                android:textColor="?attr/colorPrimary" />
+                style="@style/DetailSectionTitle"
+                android:layout_marginTop="@dimen/space_xl"
+                android:layout_marginBottom="@dimen/space_sm"
+                android:text="我的信息" />
 
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                 android:layout_marginTop="8dp" android:text="存放地点" android:textSize="13sp" />
@@ -500,7 +619,7 @@
                 <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
+                    android:layout_weight="1.2"
                     android:hint="购买日期">
 
                     <com.google.android.material.textfield.TextInputEditText
@@ -508,13 +627,14 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:focusable="false"
+                        android:singleLine="true"
                         android:clickable="true" />
                 </com.google.android.material.textfield.TextInputLayout>
 
                 <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
+                    android:layout_weight="0.9"
                     android:layout_marginStart="8dp"
                     android:hint="实付价格">
 
@@ -528,7 +648,7 @@
                 <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
+                    android:layout_weight="0.9"
                     android:layout_marginStart="8dp"
                     android:hint="拥有数量">
 
@@ -590,7 +710,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="0 分"
-                    android:textColor="?attr/colorSecondary" />
+                    android:textColor="?attr/accent_text" />
             </LinearLayout>
 
             <!-- 备注 -->
@@ -649,9 +769,12 @@
                 android:background="@drawable/bg_chip"
                 android:foreground="?attr/selectableItemBackground"
                 android:clickable="true"
+                android:drawableEnd="@drawable/ic_chevron_down_line"
+                android:drawablePadding="4dp"
+                android:drawableTint="?attr/colorPrimary"
                 android:focusable="true"
                 android:padding="11dp"
-                android:text="逐本信息 › 展开"
+                android:text="逐本信息"
                 android:textColor="?attr/colorPrimary"
                 android:textSize="14sp"
                 android:visibility="gone" />
@@ -664,15 +787,31 @@
                 android:layout_marginTop="6dp"
                 android:orientation="vertical"
                 android:visibility="gone" />
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btn_save"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:layout_marginBottom="24dp"
-                android:text="@string/action_save" />
         </LinearLayout>
         </androidx.constraintlayout.widget.ConstraintLayout>
     </androidx.core.widget.NestedScrollView>
+
+    <!-- v4.25：固定保存底栏 -->
+    <LinearLayout
+        android:id="@+id/bottom_bar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="?attr/surface"
+        android:minHeight="64dp"
+        android:orientation="vertical">
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="?attr/outline" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_save"
+            style="@style/Widget.Bookshelf.Button"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginHorizontal="@dimen/page_padding"
+            android:layout_marginVertical="@dimen/space_sm"
+            android:text="@string/action_save" />
+    </LinearLayout>
 </LinearLayout>

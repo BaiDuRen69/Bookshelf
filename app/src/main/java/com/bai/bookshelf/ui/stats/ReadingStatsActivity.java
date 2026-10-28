@@ -1,6 +1,7 @@
 package com.bai.bookshelf.ui.stats;
 
 import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.text.SpannableString;
 import android.text.SpannableStringBuilder;
@@ -39,7 +40,7 @@ import java.util.Map;
 import java.util.TreeMap;
 
 /**
- * 我的阅读：从统计页进入的二级页，含 月 / 年 / 总 三个页签。
+ * 购书统计：从统计页进入的二级页，含 月 / 年 / 总 三个页签。
  * - 月：可切换月份，展示当月购买/录入本数 + 花费 + 每日购买本数条形图 + 购买日历热力图 + 当日购买排行；
  * - 年：可切换年份，展示当年购买/录入本数 + 花费 + 每月购买本数条形图 + 全年购买热力图 + 按月排行；
  * - 总：从第一本书购买日起至今的相伴时长 + 买/录入/已读/未读/在读总量 + 每年购买本数条形图。
@@ -86,6 +87,13 @@ public class ReadingStatsActivity extends BaseActivity {
         b = ActivityReadingStatsBinding.inflate(getLayoutInflater());
         setContentView(b.getRoot());
         b.toolbar.setNavigationOnClickListener(v -> finish());
+
+        // v4.28：空态与书架/统计页统一（插画 + 去录入）
+        b.emptyState.tvEmptyTitle.setText("还没有可统计的书");
+        b.emptyState.tvEmptyDesc.setText("录入第一本书后，这里会显示购买、阅读与收藏趋势");
+        b.emptyState.btnEmptyCta.setOnClickListener(v ->
+                startActivity(new android.content.Intent(this,
+                        com.bai.bookshelf.ui.edit.BookEditActivity.class)));
 
         b.tabMonth.setOnClickListener(v -> selectTab(0));
         b.tabYear.setOnClickListener(v -> selectTab(1));
@@ -196,13 +204,15 @@ public class ReadingStatsActivity extends BaseActivity {
         render();
     }
 
-    /** 选中态：白底胶囊 + 主题色加粗；未选中：普通文字 */
+    /** 选中态：白底胶囊 + 主题色 medium；未选中：次级文字色 */
     private void styleTab(TextView tv, boolean selected) {
-        tv.setBackgroundResource(selected ? R.drawable.bg_tab_pill : 0);
+        tv.setBackgroundResource(selected ? R.drawable.bg_seg_selected : 0);
         tv.setTextColor(selected
                 ? ThemeManager.resolveColor(this, ThemeManager.ATTR_COLOR_PRIMARY)
-                : getColor(R.color.text_main));
-        tv.setTypeface(selected ? Typeface.DEFAULT_BOLD : Typeface.DEFAULT);
+                : ThemeManager.resolveColor(this, R.attr.on_surface_variant));
+        tv.setTypeface(selected
+                ? Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                : Typeface.DEFAULT);
     }
 
     private void render() {
@@ -210,7 +220,8 @@ public class ReadingStatsActivity extends BaseActivity {
             return;
         }
         boolean empty = books.isEmpty();
-        b.tvEmpty.setVisibility(empty ? View.VISIBLE : View.GONE);
+        b.emptyStateContainer.setVisibility(empty ? View.VISIBLE : View.GONE);
+        b.llTabs.setVisibility(empty ? View.GONE : View.VISIBLE);
         if (empty) {
             b.llMonth.setVisibility(View.GONE);
             b.llYear.setVisibility(View.GONE);
@@ -248,7 +259,7 @@ public class ReadingStatsActivity extends BaseActivity {
         // 当前选中的年份（点年份 Chip 会改它，随后点月份即跳到该年该月）
         final int[] pickedYear = {currentYear};
         final int primary = ThemeManager.resolveColor(this, ThemeManager.ATTR_COLOR_PRIMARY);
-        final int textMain = ContextCompat.getColor(this, R.color.text_main);
+        final int textMain = ThemeManager.resolveColor(this, R.attr.on_surface);
 
         // 12 个月格子
         final TextView[] monthViews = new TextView[]{
@@ -336,7 +347,7 @@ public class ReadingStatsActivity extends BaseActivity {
                 tv.setGravity(Gravity.CENTER);
                 tv.setTextColor(y == currentYear
                         ? ThemeManager.resolveColor(this, ThemeManager.ATTR_COLOR_PRIMARY)
-                        : ContextCompat.getColor(this, R.color.text_main));
+                        : ThemeManager.resolveColor(this, R.attr.on_surface));
                 if (y == currentYear) {
                     tv.setTypeface(Typeface.DEFAULT_BOLD);
                 }
@@ -553,9 +564,9 @@ public class ReadingStatsActivity extends BaseActivity {
                 entered++;
             }
         }
-        b.tvMonthSummary.setText(String.format(Locale.getDefault(),
-                "本月购买 %d 本 · 录入 %d 本", bought, entered));
-        b.tvMonthCost.setText("本月花费 " + formatMoney(cost));
+        b.tvMonthBought.setText(String.valueOf(bought));
+        b.tvMonthEntered.setText(String.valueOf(entered));
+        b.tvMonthCostValue.setText(formatMoney(cost));
 
         // v2.9：每日图表拆两行——上半月 / 下半月，避免 31 根柱挤在一行
         int half = (days + 1) / 2;
@@ -586,6 +597,7 @@ public class ReadingStatsActivity extends BaseActivity {
         // v4.20：购买日历热力图（当月）
         b.heatmapMonth.setYearMode(false);
         b.heatmapMonth.setMonthData(year, month, daily);
+        renderHeatmapLegend(b.llMonthLegend);
         // 切换月份后重置上一次的「日详情」，避免残留上一个月的点击结果
         b.tvMonthDayDetail.setText(R.string.stats_click_day_hint);
         // v4.21：切换月份后清掉柱状图高亮
@@ -639,9 +651,9 @@ public class ReadingStatsActivity extends BaseActivity {
                 entered++;
             }
         }
-        b.tvYearSummary.setText(String.format(Locale.getDefault(),
-                "本年购买 %d 本 · 录入 %d 本", bought, entered));
-        b.tvYearCost.setText("本年花费 " + formatMoney(cost));
+        b.tvYearBought.setText(String.valueOf(bought));
+        b.tvYearEntered.setText(String.valueOf(entered));
+        b.tvYearCostValue.setText(formatMoney(cost));
 
         List<String> labels = new ArrayList<>();
         List<Integer> values = new ArrayList<>();
@@ -657,6 +669,7 @@ public class ReadingStatsActivity extends BaseActivity {
         int[] yearDays = buildYearDaily(year);
         b.heatmapYear.setYearMode(true);
         b.heatmapYear.setYearData(year, yearDays);
+        renderHeatmapLegend(b.llYearLegend);
         // 切换年份后重置上一次的「日详情」
         b.tvYearDayDetail.setText(R.string.stats_click_day_hint);
         // v4.21：切换年份后清掉柱状图高亮
@@ -880,15 +893,24 @@ public class ReadingStatsActivity extends BaseActivity {
                         firstCal.get(Calendar.DAY_OF_MONTH)), days));
     }
 
-    /** 「已阅读 X 小时 X 分钟」：单位 18sp、数字 32sp 加粗，突出显示 */
+    /** 「已阅读 X 小时 X 分钟」：单位 15sp、数字 28sp 衬线，突出但不笨重 */
     private static CharSequence buildDurationText(long hours, long minutes) {
         SpannableStringBuilder sb = new SpannableStringBuilder();
-        sb.append(span("已阅读 ", 18, false));
-        sb.append(span(String.valueOf(hours), 32, true));
-        sb.append(span(" 小时 ", 18, false));
-        sb.append(span(String.valueOf(minutes), 32, true));
-        sb.append(span(" 分钟", 18, false));
+        sb.append(span("已阅读 ", 15, false));
+        sb.append(serifNumber(String.valueOf(hours)));
+        sb.append(span(" 小时 ", 15, false));
+        sb.append(serifNumber(String.valueOf(minutes)));
+        sb.append(span(" 分钟", 15, false));
         return sb;
+    }
+
+    private static CharSequence serifNumber(String s) {
+        SpannableString ss = new SpannableString(s);
+        ss.setSpan(new AbsoluteSizeSpan(28, true),
+                0, s.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        ss.setSpan(new android.text.style.TypefaceSpan("serif"),
+                0, s.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        return ss;
     }
 
     private static CharSequence span(String s, int spSize, boolean bold) {
@@ -932,6 +954,38 @@ public class ReadingStatsActivity extends BaseActivity {
 
     private static String pad2(int v) {
         return v < 10 ? "0" + v : String.valueOf(v);
+    }
+
+    /** 热力图图例：少 → 5 级色块 → 多（v4.25） */
+    private void renderHeatmapLegend(LinearLayout container) {
+        if (container == null) {
+            return;
+        }
+        container.removeAllViews();
+        addLegendText(container, "少");
+        int[] alphas = {0, 70, 120, 175, 255};
+        int surfaceDim = ThemeManager.resolveColor(this, R.attr.surface_dim);
+        for (int alpha : alphas) {
+            View cell = new View(this);
+            GradientDrawable bg = new GradientDrawable();
+            bg.setShape(GradientDrawable.RECTANGLE);
+            bg.setColor(alpha == 0 ? surfaceDim : ThemeManager.primaryAlpha(this, alpha));
+            bg.setCornerRadius(dp(2));
+            cell.setBackground(bg);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(12), dp(12));
+            lp.setMarginStart(dp(4));
+            lp.setMarginEnd(dp(4));
+            container.addView(cell, lp);
+        }
+        addLegendText(container, "多");
+    }
+
+    private void addLegendText(LinearLayout container, String text) {
+        TextView tv = new TextView(this);
+        tv.setText(text);
+        tv.setTextSize(11);
+        tv.setTextColor(ThemeManager.resolveColor(this, R.attr.on_surface_variant));
+        container.addView(tv);
     }
 
     private int dp(int v) {

@@ -16,19 +16,24 @@
     <dimen name="radius_lg">16dp</dimen>
     <dimen name="radius_pill">22dp</dimen>
 
-    <!-- ===== 字阶 ===== -->
-    <dimen name="text_title">20sp</dimen>
+    <!-- ===== 字阶（v4.24 收敛为 28 / 22 / 17 / 15 / 13 / 11 六档；v4.25 统计 hero 40） ===== -->
+    <dimen name="text_hero">40sp</dimen>
+    <dimen name="text_display">28sp</dimen>
+    <dimen name="text_title">22sp</dimen>
     <dimen name="text_headline">17sp</dimen>
     <dimen name="text_body">15sp</dimen>
     <dimen name="text_body_small">13sp</dimen>
     <dimen name="text_caption">11sp</dimen>
 
     <!-- ===== 页面 ===== -->
-    <dimen name="page_padding">12dp</dimen>
+    <dimen name="page_padding">16dp</dimen>
+    <!-- 列表卡片可以比正文页更贴边，避免封面列被压得太窄 -->
+    <dimen name="page_padding_list">12dp</dimen>
+    <!-- 我的页：36dp 图标底座 -->
+    <dimen name="mine_icon_box">36dp</dimen>
     <!-- 内容最大宽度：手机端不限制（9999dp），sw600dp 起收窄，避免大屏行长过长 -->
     <dimen name="content_max_width">9999dp</dimen>
     <dimen name="card_corner">16dp</dimen>
-    <dimen name="tab_icon_size">22dp</dimen>
     <dimen name="tab_label_size">11sp</dimen>
     <!-- 工具栏：紧凑高度（v4.17 压缩上下留白） -->
     <dimen name="toolbar_h">48dp</dimen>

@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 书房年报（v4.32）：一张可分享的卡片 = 字标 + 藏书拼贴 + 关键数据 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="?android:attr/colorBackground"
+    android:orientation="vertical">
+
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/toolbar"
+        style="@style/Widget.Bookshelf.Toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/toolbar_h"
+        app:navigationIcon="@drawable/ic_back"
+        app:title="书房年报" />
+
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_horizontal"
+            android:orientation="vertical"
+            android:padding="@dimen/page_padding">
+
+            <LinearLayout
+                android:id="@+id/card_report"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_report_card"
+                android:gravity="center_horizontal"
+                android:orientation="vertical"
+                android:padding="24dp">
+
+                <TextView
+                    style="@style/Text.Bookshelf.SerifHeadline"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:letterSpacing="0.12"
+                    android:text="小书房"
+                    android:textColor="?attr/colorPrimary"
+                    android:textSize="@dimen/text_title" />
+
+                <TextView
+                    android:id="@+id/tv_report_title"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="我的书房 · 2026"
+                    android:textColor="?attr/on_surface_variant"
+                    android:textSize="@dimen/text_caption" />
+
+                <TextView
+                    android:id="@+id/tv_report_total"
+                    style="@style/Text.Bookshelf.SerifNumber"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:text="0 册"
+                    android:textColor="?attr/colorPrimary"
+                    android:textSize="@dimen/text_display" />
+
+                <FrameLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp">
+
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+
+                        <ImageView
+                            android:id="@+id/iv_report_1"
+                            android:layout_width="64dp"
+                            android:layout_height="86dp"
+                            android:background="@drawable/bg_cover"
+                            android:clipToOutline="true"
+                            android:elevation="2dp"
+                            android:rotation="-8"
+                            android:scaleType="centerCrop"
+                            android:src="@drawable/ic_cover_placeholder" />
+
+                        <ImageView
+                            android:id="@+id/iv_report_2"
+                            android:layout_width="64dp"
+                            android:layout_height="86dp"
+                            android:layout_marginStart="-10dp"
+                            android:background="@drawable/bg_cover"
+                            android:clipToOutline="true"
+                            android:elevation="3dp"
+                            android:rotation="-2"
+                            android:scaleType="centerCrop"
+                            android:src="@drawable/ic_cover_placeholder" />
+
+                        <ImageView
+                            android:id="@+id/iv_report_3"
+                            android:layout_width="64dp"
+                            android:layout_height="86dp"
+                            android:layout_marginStart="-10dp"
+                            android:background="@drawable/bg_cover"
+                            android:clipToOutline="true"
+                            android:elevation="4dp"
+                            android:rotation="3"
+                            android:scaleType="centerCrop"
+                            android:src="@drawable/ic_cover_placeholder" />
+
+                        <ImageView
+                            android:id="@+id/iv_report_4"
+                            android:layout_width="64dp"
+                            android:layout_height="86dp"
+                            android:layout_marginStart="-10dp"
+                            android:background="@drawable/bg_cover"
+                            android:clipToOutline="true"
+                            android:elevation="5dp"
+                            android:rotation="9"
+                            android:scaleType="centerCrop"
+                            android:src="@drawable/ic_cover_placeholder" />
+                    </LinearLayout>
+                </FrameLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginTop="18dp"
+                    android:layout_marginBottom="12dp"
+                    android:background="?attr/outline" />
+
+                <TextView
+                    android:id="@+id/tv_report_read"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:lineSpacingMultiplier="1.5"
+                    android:text="已读 0 本 · 在读 0 本"
+                    android:textColor="?attr/on_surface"
+                    android:textSize="@dimen/text_body_small" />
+
+                <TextView
+                    android:id="@+id/tv_report_author"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:lineSpacingMultiplier="1.5"
+                    android:text="最爱作者：—"
+                    android:textColor="?attr/on_surface"
+                    android:textSize="@dimen/text_body_small" />
+
+                <TextView
+                    android:id="@+id/tv_report_price"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:lineSpacingMultiplier="1.5"
+                    android:text="最贵的一本：—"
+                    android:textColor="?attr/on_surface"
+                    android:textSize="@dimen/text_body_small" />
+
+                <TextView
+                    android:id="@+id/tv_report_pages"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:lineSpacingMultiplier="1.5"
+                    android:text="最厚的一本：—"
+                    android:textColor="?attr/on_surface"
+                    android:textSize="@dimen/text_body_small" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="18dp"
+                    android:text="小书房 · 把读过的书留在纸上"
+                    android:textColor="?attr/on_surface_variant"
+                    android:textSize="@dimen/text_caption" />
+            </LinearLayout>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_share_report"
+                style="@style/Widget.Bookshelf.Button"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/space_xl"
+                android:paddingHorizontal="@dimen/space_xl"
+                android:text="分享这张卡片" />
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+</LinearLayout>

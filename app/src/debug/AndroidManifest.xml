@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 仅 debug 构建：分享卡渲染自检入口（不进入 release 包） -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <activity
+            android:name=".ui.debug.ShareCardPreviewActivity"
+            android:exported="true" />
+    </application>
+</manifest>

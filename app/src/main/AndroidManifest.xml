@@ -10,11 +10,15 @@
     <!-- 保存收款码到相册（仅 API 28 及以下需要运行时权限；Q+ 走 MediaStore 无需权限） -->
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="28" />
+    <!-- v4.42：借阅到期本地通知（Android 13+ 需运行时授权；拒绝时退化为应用内角标） -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <application
         android:name=".app.BookshelfApp"
         android:label="@string/app_name"
-        android:icon="@drawable/ic_launcher"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:theme="@style/Theme.Bookshelf"
         android:networkSecurityConfig="@xml/network_security_config"
         android:supportsRtl="true"
@@ -24,16 +28,41 @@
              上传 D2D 云迁移，与「数据只保存在你自己手机里」的产品承诺冲突）。
              备份/恢复一律走应用内「自动备份 + 导入备份」闭环。 -->
 
-        <activity android:name=".ui.MainActivity" android:exported="true">
+        <activity
+            android:name=".ui.MainActivity"
+            android:exported="true"
+            android:theme="@style/Theme.Bookshelf.Splash">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
+        <!-- 借阅到期：每日闹钟 + 开机后重新排期 -->
+        <receiver
+            android:name=".util.BorrowReminderReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
+        <activity
+            android:name=".ui.lock.AppLockActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTop" />
+
         <activity android:name=".ui.scan.ScanActivity" android:exported="false" />
-        <activity android:name=".ui.edit.BookEditActivity" android:exported="false" />
+        <activity
+            android:name=".ui.edit.BookEditActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
         <activity android:name=".ui.edit.CopyEditActivity" android:exported="false" />
+        <activity android:name=".ui.wish.WishListActivity" android:exported="false" />
+        <activity android:name=".ui.excerpt.ExcerptListActivity" android:exported="false" />
+        <activity android:name=".ui.series.SeriesListActivity" android:exported="false" />
+        <activity android:name=".ui.series.SeriesActivity" android:exported="false" />
         <activity android:name=".ui.detail.BookDetailActivity" android:exported="false" />
         <activity android:name=".ui.detail.BorrowHistoryActivity" android:exported="false" />
         <activity android:name=".ui.location.LocationActivity" android:exported="false" />
@@ -44,6 +73,7 @@
         <activity android:name=".ui.stats.PublisherActivity" android:exported="false" />
         <activity android:name=".ui.stats.AuthorActivity" android:exported="false" />
         <activity android:name=".ui.stats.ReadingStatsActivity" android:exported="false" />
+        <activity android:name=".ui.stats.StudyReportActivity" android:exported="false" />
         <activity android:name=".ui.mine.SplitActivity" android:exported="false" />
         <activity android:name=".ui.mine.AboutActivity" android:exported="false" />
         <activity android:name=".ui.mine.ApiSettingsActivity" android:exported="false" />

@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 扫码页：相机预览 + 取景框 + 顶部工具条 + 底部操作 -->
+<!-- 扫码页（v4.25）：相机预览 + 黄铜圆角取景框 + 扫光 + 底部半透明胶囊 -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@android:color/black">
@@ -10,93 +11,287 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
-    <!-- 取景框 -->
-    <View
-        android:layout_width="280dp"
-        android:layout_height="170dp"
-        android:layout_gravity="center"
-        android:background="@drawable/bg_viewfinder" />
+    <com.bai.bookshelf.ui.scan.ScannerOverlayView
+        android:id="@+id/overlay_scan"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:clickable="false"
+        android:focusable="false" />
 
-    <!-- 识别中进度圈 -->
     <ProgressBar
         android:id="@+id/progress"
-        android:layout_width="48dp"
-        android:layout_height="48dp"
+        android:layout_width="44dp"
+        android:layout_height="44dp"
         android:layout_gravity="center"
-        android:layout_marginTop="140dp"
+        android:indeterminateTint="?attr/colorSecondary"
         android:visibility="gone" />
 
-    <!-- 顶部：返回 + 标题（v4.19：加 id 以便应用状态栏 inset，避免标题被状态栏压住） -->
+    <!-- 相机不可用 / 无权限提示（v4.28） -->
+    <LinearLayout
+        android:id="@+id/ll_camera_error"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:paddingHorizontal="32dp"
+        android:visibility="gone">
+
+        <ImageView
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:alpha="0.75"
+            android:contentDescription="相机不可用"
+            android:src="@drawable/ic_camera"
+            app:tint="#B3FFFFFF" />
+
+        <TextView
+            android:id="@+id/tv_camera_error_title"
+            style="@style/Text.Bookshelf.SerifHeadline"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="相机不可用"
+            android:textColor="@color/white" />
+
+        <TextView
+            android:id="@+id/tv_camera_error_desc"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:gravity="center"
+            android:lineSpacingMultiplier="1.4"
+            android:text="请检查相机权限，或改用下方的手动输入 / 从图片识别"
+            android:textColor="#B3FFFFFF"
+            android:textSize="@dimen/text_body_small" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_camera_retry"
+            style="@style/Widget.Bookshelf.Button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:paddingHorizontal="@dimen/space_lg"
+            android:text="重试" />
+    </LinearLayout>
+
+    <!-- 顶部：渐变遮罩 + 返回 + 标题 -->
     <LinearLayout
         android:id="@+id/top_bar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="top"
-        android:orientation="horizontal"
+        android:background="@drawable/bg_scrim_top"
         android:gravity="center_vertical"
-        android:background="@color/scrim_dark"
-        android:padding="8dp">
+        android:orientation="horizontal"
+        android:paddingHorizontal="@dimen/space_lg"
+        android:paddingTop="@dimen/space_sm"
+        android:paddingBottom="@dimen/space_lg">
 
         <ImageButton
             android:id="@+id/btn_back"
             android:layout_width="40dp"
             android:layout_height="40dp"
             android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="返回"
+            android:padding="8dp"
+            android:scaleType="centerInside"
             android:src="@drawable/ic_back"
-            android:contentDescription="返回" />
+            app:tint="@color/white" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="@dimen/space_sm"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/tv_scan_title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="扫码录入"
+                android:textColor="@color/white"
+                android:textSize="@dimen/text_headline" />
+
+            <TextView
+                android:id="@+id/tv_scan_sub"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:ellipsize="end"
+                android:singleLine="true"
+                android:text="对准书脊 ISBN · 支持连续扫描"
+                android:textColor="#B3FFFFFF"
+                android:textSize="@dimen/text_caption" />
+        </LinearLayout>
+
+        <!-- v4.43：批量录入开关 -->
+        <TextView
+            android:id="@+id/btn_batch"
+            android:layout_width="wrap_content"
+            android:layout_height="32dp"
+            android:layout_marginStart="@dimen/space_sm"
+            android:background="@drawable/bg_scan_capsule"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:paddingHorizontal="12dp"
+            android:text="批量"
+            android:textColor="@color/white"
+            android:textSize="@dimen/text_body_small" />
+    </LinearLayout>
+
+    <!-- 识别成功反馈（v4.31）：200ms 对勾浮层，不增加操作步骤 -->
+    <LinearLayout
+        android:id="@+id/ll_scan_ok"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:background="@drawable/bg_scan_ok"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:paddingHorizontal="28dp"
+        android:paddingVertical="20dp"
+        android:visibility="gone">
+
+        <ImageView
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:contentDescription="已识别"
+            android:src="@drawable/ic_check_line"
+            app:tint="?attr/colorPrimary" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:text="扫码录入（支持连扫）"
-            android:textColor="@color/white"
-            android:textSize="17sp" />
+            android:layout_marginTop="6dp"
+            android:text="已识别"
+            android:textColor="?attr/on_surface"
+            android:textSize="@dimen/text_body_small" />
     </LinearLayout>
 
-    <!-- 底部：提示 + 手动输入 + 闪光灯（v4.19：加 id 以便应用导航栏 inset） -->
+    <!-- 底部：渐变遮罩 + 胶囊 + 圆形闪光灯 -->
     <LinearLayout
         android:id="@+id/bottom_bar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"
-        android:orientation="vertical"
+        android:background="@drawable/bg_scrim_bottom"
         android:gravity="center_horizontal"
-        android:background="@color/scrim_dark"
-        android:padding="16dp">
+        android:orientation="vertical"
+        android:paddingHorizontal="@dimen/space_lg"
+        android:paddingTop="32dp"
+        android:paddingBottom="@dimen/space_lg">
+
+        <!-- v4.46：盘点模式：已扫计数 + 结束盘点 -->
+        <TextView
+            android:id="@+id/btn_inventory_done"
+            android:layout_width="wrap_content"
+            android:layout_height="40dp"
+            android:layout_marginBottom="@dimen/space_md"
+            android:background="@drawable/bg_scan_capsule"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:paddingHorizontal="16dp"
+            android:text="已扫 0 本 · 结束盘点"
+            android:textColor="@color/white"
+            android:textSize="@dimen/text_body_small"
+            android:visibility="gone" />
+
+        <!-- v4.43：批量队列入口（有书才显示） -->
+        <TextView
+            android:id="@+id/btn_batch_queue"
+            android:layout_width="wrap_content"
+            android:layout_height="40dp"
+            android:layout_marginBottom="@dimen/space_md"
+            android:background="@drawable/bg_scan_capsule"
+            android:clickable="true"
+            android:drawableEnd="@drawable/ic_chevron_right_line"
+            android:drawablePadding="4dp"
+            android:drawableTint="@color/white"
+            android:focusable="true"
+            android:gravity="center"
+            android:paddingHorizontal="16dp"
+            android:text="已加入 0 本 · 查看"
+            android:textColor="@color/white"
+            android:textSize="@dimen/text_body_small"
+            android:visibility="gone" />
 
         <TextView
+            android:id="@+id/tv_scan_hint"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="对准书脊上的 ISBN 条形码"
-            android:textColor="@color/white"
-            android:textSize="14sp" />
+            android:text="将条形码放入框内，即可自动识别"
+            android:textColor="#CCFFFFFF"
+            android:textSize="@dimen/text_body_small" />
 
         <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="@dimen/space_md"
+            android:gravity="center_vertical"
             android:orientation="horizontal">
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btn_manual"
+            <LinearLayout
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="手动输入" />
+                android:layout_height="52dp"
+                android:background="@drawable/bg_scan_capsule"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingHorizontal="6dp">
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btn_image"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="10dp"
-                android:text="从图片识别" />
+                <TextView
+                    android:id="@+id/btn_manual"
+                    android:layout_width="wrap_content"
+                    android:layout_height="40dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:clickable="true"
+                    android:drawableStart="@drawable/ic_edit"
+                    android:drawablePadding="6dp"
+                    android:drawableTint="@color/white"
+                    android:focusable="true"
+                    android:gravity="center"
+                    android:paddingHorizontal="@dimen/space_md"
+                    android:text="手动输入"
+                    android:textColor="@color/white"
+                    android:textSize="@dimen/text_body_small" />
 
-            <com.google.android.material.button.MaterialButton
+                <View
+                    android:layout_width="1dp"
+                    android:layout_height="20dp"
+                    android:layout_marginHorizontal="2dp"
+                    android:background="#33FFFFFF" />
+
+                <TextView
+                    android:id="@+id/btn_image"
+                    android:layout_width="wrap_content"
+                    android:layout_height="40dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:clickable="true"
+                    android:drawableStart="@drawable/ic_camera"
+                    android:drawablePadding="6dp"
+                    android:drawableTint="@color/white"
+                    android:focusable="true"
+                    android:gravity="center"
+                    android:paddingHorizontal="@dimen/space_md"
+                    android:text="从图片识别"
+                    android:textColor="@color/white"
+                    android:textSize="@dimen/text_body_small" />
+            </LinearLayout>
+
+            <ImageButton
                 android:id="@+id/btn_torch"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="10dp"
-                android:text="闪光灯" />
+                android:layout_width="52dp"
+                android:layout_height="52dp"
+                android:layout_marginStart="@dimen/space_sm"
+                android:background="@drawable/bg_scan_torch"
+                android:contentDescription="闪光灯"
+                android:padding="14dp"
+                android:scaleType="centerInside"
+                android:src="@drawable/ic_flash_off"
+                app:tint="@color/white" />
         </LinearLayout>
     </LinearLayout>
 </FrameLayout>

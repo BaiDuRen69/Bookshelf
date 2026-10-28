@@ -1,5 +1,6 @@
 package com.bai.bookshelf.ui.stats;
 
+import android.animation.ValueAnimator;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.DashPathEffect;
@@ -10,6 +11,7 @@ import android.graphics.Shader;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.animation.DecelerateInterpolator;
 
 import androidx.annotation.Nullable;
 
@@ -20,7 +22,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 迷你条形图（「我的阅读」页用）：一行等宽槽位，每槽一根柱子 + 底部标签。
+ * 迷你条形图（「购书统计」页用）：一行等宽槽位，每槽一根柱子 + 底部标签。
  *
  * <p>v4.20 重写，解决三个问题：
  * <ol>
@@ -73,6 +75,9 @@ public class MiniBarChartView extends View {
     private float[] hitLeft = new float[16];
     private float[] hitRight = new float[16];
     private int hitCount = 0;
+    /** v4.25：柱状图 250ms 生长动画进度（0→1） */
+    private float animationProgress = 1f;
+    private ValueAnimator growAnimator;
 
     /** 柱子点击回调 */
     public interface OnBarClickListener {
@@ -116,7 +121,32 @@ public class MiniBarChartView extends View {
         this.values = values != null ? values : new ArrayList<>();
         this.sharedMax = sharedMax;
         requestLayout();
-        invalidate();
+        startGrowAnimation();
+    }
+
+    /** v4.25：250ms 生长动画；重复 setData 时重新从 0 长起 */
+    private void startGrowAnimation() {
+        if (growAnimator != null) {
+            growAnimator.cancel();
+        }
+        animationProgress = 0f;
+        growAnimator = ValueAnimator.ofFloat(0f, 1f);
+        growAnimator.setDuration(250);
+        growAnimator.setInterpolator(new DecelerateInterpolator());
+        growAnimator.addUpdateListener(a -> {
+            animationProgress = (float) a.getAnimatedValue();
+            invalidate();
+        });
+        growAnimator.start();
+    }
+
+    @Override
+    protected void onDetachedFromWindow() {
+        if (growAnimator != null) {
+            growAnimator.cancel();
+            growAnimator = null;
+        }
+        super.onDetachedFromWindow();
     }
 
     /** 刻度值单位（如「本」），为空则只显示数字 */
@@ -219,7 +249,7 @@ public class MiniBarChartView extends View {
         int gradientKey = primary * 31 + Math.round(padTop) * 7 + Math.round(baseline);
         if (barGradient == null || gradientKey != barGradientKey) {
             barGradient = new LinearGradient(0, padTop, 0, baseline,
-                    ThemeManager.primaryAlpha(getContext(), 190), primary, Shader.TileMode.CLAMP);
+                    ThemeManager.primaryAlpha(getContext(), 0x1A), primary, Shader.TileMode.CLAMP);
             barGradientKey = gradientKey;
         }
         barPaint.setShader(barGradient);
@@ -244,7 +274,7 @@ public class MiniBarChartView extends View {
             }
 
             if (v > 0) {
-                float barH = chartH * v / scaleMax;
+                float barH = chartH * v / scaleMax * animationProgress;
                 float top = baseline - barH;
                 float radius = Math.min(barW / 2f, dp(6));
                 barRect.set(cx - barW / 2f, top, cx + barW / 2f, baseline);

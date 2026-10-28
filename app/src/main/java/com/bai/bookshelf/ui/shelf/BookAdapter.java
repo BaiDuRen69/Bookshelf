@@ -1,9 +1,11 @@
 package com.bai.bookshelf.ui.shelf;
 
 import android.view.LayoutInflater;
+import android.view.View;
 import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
+import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.bai.bookshelf.R;
@@ -15,8 +17,11 @@ import com.bumptech.glide.Glide;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 
 /**
  * 书架列表适配器：封面 + 书名/作者 + 地点/状态标签 + 评分。
@@ -35,6 +40,10 @@ public class BookAdapter extends RecyclerView.Adapter<BookAdapter.VH> {
 
     private final List<Book> data = new ArrayList<>();
     private Map<Long, String> locNames = new HashMap<>();
+    /** v4.41：当前搜索词，用于书名/作者的命中高亮 */
+    private String keyword = "";
+    /** v4.55：上一次提交时的关键词，用于判断是否需要整体重绑高亮 */
+    private String lastDiffKeyword = "";
     private final OnBookClick onBookClick;
     private final boolean hideCover; // true=纯文字列表视图（不显示封面）
     private OnBookLongClick onBookLongClick;
@@ -56,21 +65,41 @@ public class BookAdapter extends RecyclerView.Adapter<BookAdapter.VH> {
     }
 
     /** 更新多选状态并刷新（ids 为外部维护的选中集合，这里只读） */
-    public void setSelectionState(boolean mode, java.util.Set<Long> ids) {
+    public void setSelectionState(boolean mode, Set<Long> ids) {
+        Set<Long> oldSelected = new HashSet<>(selectedIds);
+        boolean modeChanged = selectionMode != mode;
         selectionMode = mode;
         selectedIds.clear();
         if (ids != null) {
             selectedIds.addAll(ids);
         }
-        notifyDataSetChanged();
+        // v4.55：只刷新选中态变化的行，避免整表重绑（封面 Glide 重新 into）
+        for (int i = 0; i < data.size(); i++) {
+            long id = data.get(i).id;
+            boolean was = oldSelected.contains(id);
+            boolean now = selectedIds.contains(id);
+            if (modeChanged ? (was || now) : was != now) {
+                notifyItemChanged(i);
+            }
+        }
     }
 
-    /** 整体替换数据（数据量小，直接全量刷新） */
+    /** 设置搜索高亮词（空串 = 不高亮） */
+    public void setKeyword(String keyword) {
+        this.keyword = keyword == null ? "" : keyword.trim();
+    }
+
+    /** 整体替换数据（v4.55：DiffUtil 增量刷新，只重绑真正变化的行） */
     public void submit(List<Book> books, Map<Long, String> locationNames) {
+        boolean forceRebind = !keyword.equals(lastDiffKeyword)
+                || !Objects.equals(locNames, locationNames);
+        lastDiffKeyword = keyword;
+        DiffUtil.DiffResult diff = DiffUtil.calculateDiff(
+                new BookDiffCallback(new ArrayList<>(data), books, forceRebind), false);
         data.clear();
         data.addAll(books);
         locNames = locationNames;
-        notifyDataSetChanged();
+        diff.dispatchUpdatesTo(this);
     }
 
     /**
@@ -95,7 +124,10 @@ public class BookAdapter extends RecyclerView.Adapter<BookAdapter.VH> {
     @Override
     public void onBindViewHolder(@NonNull VH h, int position) {
         Book book = data.get(position);
-        h.b.tvTitle.setText(book.title);
+        int hlColor = ThemeManager.resolveColor(h.itemView.getContext(), ThemeManager.ATTR_COLOR_PRIMARY);
+        int hlBg = ThemeManager.primaryAlpha(h.itemView.getContext(), 0x33);
+        h.b.tvTitle.setText(com.bai.bookshelf.util.SearchText.highlight(
+                com.bai.bookshelf.util.BookText.displayTitle(book.title), keyword, hlColor, hlBg));
 
         // 作者 · 出版社（自动跳过空字段）
         StringBuilder sub = new StringBuilder();
@@ -108,7 +140,8 @@ public class BookAdapter extends RecyclerView.Adapter<BookAdapter.VH> {
             }
             sub.append(book.publisher);
         }
-        h.b.tvAuthor.setText(sub);
+        h.b.tvAuthor.setText(com.bai.bookshelf.util.SearchText.highlight(
+                sub, keyword, hlColor, hlBg));
 
         // 地点与藏书状态标签
         String locName = book.locationId == null ? "未设置地点"
@@ -138,18 +171,16 @@ public class BookAdapter extends RecyclerView.Adapter<BookAdapter.VH> {
             h.b.ivCover.setVisibility(android.view.View.GONE);
         } else {
             h.b.ivCover.setVisibility(android.view.View.VISIBLE);
-            Glide.with(h.b.ivCover)
-                    .load(book.coverUrl.isEmpty() ? null
-                            : (book.coverUrl.startsWith("http") ? book.coverUrl : new java.io.File(book.coverUrl)))
-                    .placeholder(R.drawable.ic_cover_placeholder)
-                    .error(R.drawable.ic_cover_placeholder)
-                    .into(h.b.ivCover);
+            bindCover(h, book);
         }
 
-        // 多选模式下的选中高亮
-        h.itemView.setBackgroundColor(selectionMode && selectedIds.contains(book.id)
-                ? ThemeManager.primaryAlpha(h.itemView.getContext(), 0x22)
-                : android.graphics.Color.TRANSPARENT);
+        // 多选模式：只改 CardView 的底色。
+        // 注意不能用 itemView.setBackgroundColor——那会把 CardView 自己的圆角卡片底覆盖成透明。
+        android.content.Context ctx = h.itemView.getContext();
+        ((androidx.cardview.widget.CardView) h.itemView).setCardBackgroundColor(
+                selectionMode && selectedIds.contains(book.id)
+                        ? ThemeManager.resolveColor(ctx, R.attr.primary_container)
+                        : ThemeManager.resolveColor(ctx, R.attr.surface));
 
         h.itemView.setOnClickListener(v -> onBookClick.onClick(book));
         h.itemView.setOnLongClickListener(v -> {
@@ -161,12 +192,17 @@ public class BookAdapter extends RecyclerView.Adapter<BookAdapter.VH> {
         });
     }
 
+    private void bindCover(VH h, Book book) {
+        com.bai.bookshelf.util.CoverLoader.load(h.b.ivCover, book);
+    }
+
     /** 列表项里的单个小标签视图（琥珀色文字，与地点/状态标签区分） */
     private android.widget.TextView buildTagView(VH h, String name) {
         android.widget.TextView tv = new android.widget.TextView(h.itemView.getContext());
         tv.setText("# " + name);
         tv.setTextSize(11);
-        tv.setTextColor(ThemeManager.resolveColor(h.itemView.getContext(), ThemeManager.ATTR_COLOR_SECONDARY));
+        tv.setTextColor(ThemeManager.resolveColor(h.itemView.getContext(),
+                ThemeManager.ATTR_ACCENT_TEXT));
         tv.setBackgroundResource(R.drawable.bg_chip);
         int dp4 = (int) (4 * h.itemView.getResources().getDisplayMetrics().density);
         int dp8 = (int) (8 * h.itemView.getResources().getDisplayMetrics().density);

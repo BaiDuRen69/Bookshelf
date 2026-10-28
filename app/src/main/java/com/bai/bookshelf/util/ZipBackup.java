@@ -5,6 +5,7 @@ import android.content.Context;
 import com.bai.bookshelf.app.BookshelfApp;
 import com.bai.bookshelf.data.AppDatabase;
 import com.bai.bookshelf.data.entity.Book;
+import com.bai.bookshelf.data.entity.Excerpt;
 import com.bai.bookshelf.data.entity.NoteImage;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
@@ -53,6 +54,7 @@ public final class ZipBackup {
         root.add("book_copies", new Gson().toJsonTree(db.bookCopyDao().getAll()));
         root.add("borrow_records", new Gson().toJsonTree(db.borrowRecordDao().getAll()));
         root.add("note_images", noteImagesToJson(db.noteImageDao().getAll(), filesDirPath));
+        root.add("excerpts", excerptsToJson(db.excerptDao().getAll(), filesDirPath));
         root.add("locations", new Gson().toJsonTree(db.locationDao().getAll()));
         root.add("source_channels", new Gson().toJsonTree(db.sourceChannelDao().getAll()));
         root.add("tags", new Gson().toJsonTree(db.tagDao().getAll()));
@@ -109,6 +111,19 @@ public final class ZipBackup {
     }
 
     /** 备注图片 → JSON 数组：path 同样降级为相对路径 */
+    private static JsonArray excerptsToJson(List<Excerpt> list, String filesDirPath) {
+        Gson gson = new Gson();
+        JsonArray arr = new JsonArray();
+        for (Excerpt e : list) {
+            JsonObject o = gson.toJsonTree(e).getAsJsonObject();
+            if (o.has("imagePath")) {
+                o.addProperty("imagePath", toRel(o.get("imagePath").getAsString(), filesDirPath));
+            }
+            arr.add(o);
+        }
+        return arr;
+    }
+
     private static JsonArray noteImagesToJson(List<NoteImage> imgs, String filesDirPath) {
         Gson gson = new Gson();
         JsonArray arr = new JsonArray();
@@ -161,7 +176,7 @@ public final class ZipBackup {
         if (name == null) {
             return false;
         }
-        String lower = name.toLowerCase();
+        String lower = name.toLowerCase(java.util.Locale.ROOT);
         for (String ext : IMAGE_EXTS) {
             if (lower.endsWith(ext)) {
                 return true;

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 年/月快速选择器（v4.20）：点击「我的阅读」页的年/月标题弹出。
+<!-- 年/月快速选择器（v4.20）：点击「购书统计」页的年/月标题弹出。
      月模式：上方年份快捷条（横滑）+ 下方 12 个月格子；
      年模式：仅年份格子。点年份即跳转，点月份即跳到该年该月。 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"

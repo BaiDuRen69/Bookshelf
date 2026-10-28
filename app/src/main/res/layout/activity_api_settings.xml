@@ -62,7 +62,7 @@
                     android:layout_height="20dp"
                     android:layout_marginStart="8dp"
                     android:src="@drawable/ic_arrow_right"
-                    app:tint="@color/text_sub" />
+                    app:tint="?attr/on_surface_variant" />
             </LinearLayout>
 
             <!-- 用量查询：云市场已购服务的调用量查询 -->
@@ -90,7 +90,7 @@
                     android:layout_height="20dp"
                     android:layout_marginStart="8dp"
                     android:src="@drawable/ic_arrow_right"
-                    app:tint="@color/text_sub" />
+                    app:tint="?attr/on_surface_variant" />
             </LinearLayout>
 
             <TextView
@@ -99,7 +99,7 @@
                 android:layout_marginTop="14dp"
                 android:lineSpacingMultiplier="1.4"
                 android:text="两处使用不同的密钥：扫码查书用的是「云市场网关密钥」，用量查询用的是「腾讯云账号密钥」（访问管理 → API 密钥管理），详细说明见各自页面。"
-                android:textColor="@color/text_sub"
+                android:textColor="?attr/on_surface_variant"
                 android:textSize="12sp" />
         </LinearLayout>
         </androidx.constraintlayout.widget.ConstraintLayout>

@@ -14,6 +14,8 @@ import com.bai.bookshelf.ui.BaseActivity;
 import androidx.core.content.ContextCompat;
 
 import com.bai.bookshelf.R;
+import com.bai.bookshelf.app.BookshelfApp;
+import com.bai.bookshelf.data.entity.Book;
 import com.bai.bookshelf.databinding.ActivitySplitBinding;
 import com.bai.bookshelf.util.PriceSplitter;
 
@@ -35,7 +37,16 @@ public class SplitActivity extends BaseActivity {
     private static final String KEY_HISTORY = "history";
     private static final int MAX_HISTORY = 10;
 
+    // v4.53：从系列页进入时带上书目与 ids，分摊结果可写回购入价
+    public static final String EXTRA_BOOK_IDS = "split_book_ids";
+    public static final String EXTRA_BOOK_NAMES = "split_book_names";
+    public static final String EXTRA_BOOK_PRICES = "split_book_prices";
+    public static final String EXTRA_SERIES_NAME = "split_series_name";
+
     private ActivitySplitBinding b;
+    private long[] targetIds;
+    private String[] targetNames;
+    private List<PriceSplitter.AllocResult> lastResults;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -44,13 +55,32 @@ public class SplitActivity extends BaseActivity {
         setContentView(b.getRoot());
         b.toolbar.setNavigationOnClickListener(v -> finish());
 
-        // 默认两行（套装至少两本）
-        addBookRow("A 书", "10");
-        addBookRow("B 书", "90");
-        b.etTotalPaid.setText("10"); // 示例默认值，方便直接体验：A 分摊 1 元、B 分摊 9 元
+        targetIds = getIntent().getLongArrayExtra(EXTRA_BOOK_IDS);
+        targetNames = getIntent().getStringArrayExtra(EXTRA_BOOK_NAMES);
+        double[] targetPrices = getIntent().getDoubleArrayExtra(EXTRA_BOOK_PRICES);
+        String seriesName = getIntent().getStringExtra(EXTRA_SERIES_NAME);
+        if (targetIds != null && targetNames != null && targetIds.length != targetNames.length) {
+            targetIds = null; // 数据不齐时宁可不写回，也不猜对应关系
+        }
+
+        if (targetNames != null && targetNames.length > 0) {
+            for (int i = 0; i < targetNames.length; i++) {
+                double price = targetPrices != null && i < targetPrices.length ? targetPrices[i] : 0;
+                addBookRow(targetNames[i], price > 0 ? fmt(price) : "");
+            }
+            if (seriesName != null && !seriesName.trim().isEmpty()) {
+                b.toolbar.setTitle(seriesName.trim() + " · 套装分摊");
+            }
+        } else {
+            // 默认两行（套装至少两本）
+            addBookRow("A 书", "10");
+            addBookRow("B 书", "90");
+            b.etTotalPaid.setText("10"); // 示例默认值，方便直接体验：A 分摊 1 元、B 分摊 9 元
+        }
 
         b.btnAddBook.setOnClickListener(v -> addBookRow("", ""));
         b.btnCompute.setOnClickListener(v -> compute());
+        b.btnApply.setOnClickListener(v -> applyToBooks());
         renderHistory();
     }
 
@@ -65,11 +95,13 @@ public class SplitActivity extends BaseActivity {
             // 至少保留一行
             if (b.containerBooks.getChildCount() > 1) {
                 b.containerBooks.removeView(row);
+                updateApplyButton();
             } else {
                 Toast.makeText(this, "至少保留一本书", Toast.LENGTH_SHORT).show();
             }
         });
         b.containerBooks.addView(row);
+        updateApplyButton();
     }
 
     /** 执行分摊计算并渲染结果 + 写入历史 */
@@ -112,6 +144,79 @@ public class SplitActivity extends BaseActivity {
 
         saveHistory(totalPaid, results);
         renderHistory();
+        lastResults = results;
+        updateApplyButton();
+    }
+
+    // ======================= 写回系列藏书（v4.53） =======================
+
+    /** 只有从系列页进入、且书目行未被增删改名时，才允许写回 */
+    private boolean rowsUnchanged() {
+        if (targetIds == null || targetNames == null
+                || b.containerBooks.getChildCount() != targetIds.length) {
+            return false;
+        }
+        for (int i = 0; i < targetNames.length; i++) {
+            View row = b.containerBooks.getChildAt(i);
+            String name = ((EditText) row.findViewById(R.id.et_book_name))
+                    .getText().toString().trim();
+            if (!name.equals(targetNames[i])) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private void updateApplyButton() {
+        boolean canApply = targetIds != null && lastResults != null && rowsUnchanged();
+        b.btnApply.setVisibility(canApply ? View.VISIBLE : View.GONE);
+    }
+
+    private void applyToBooks() {
+        if (targetIds == null || lastResults == null) {
+            return;
+        }
+        if (!rowsUnchanged()) {
+            updateApplyButton();
+            Toast.makeText(this, "书目行已调整，无法写回；请返回系列页重新分摊",
+                    Toast.LENGTH_LONG).show();
+            return;
+        }
+        final int count = targetIds.length;
+        new MaterialAlertDialogBuilder(this)
+                .setTitle("写入购入价")
+                .setMessage("把分摊结果写入这 " + count + " 本书的实付价？原有购入价会被覆盖。")
+                .setPositiveButton("写入", (d, w) -> doApplyToBooks())
+                .setNegativeButton(R.string.action_cancel, null)
+                .show();
+    }
+
+    private void doApplyToBooks() {
+        final List<PriceSplitter.AllocResult> results = new ArrayList<>(lastResults);
+        final long[] ids = targetIds.clone();
+        Toast.makeText(this, "正在写入…", Toast.LENGTH_SHORT).show();
+        BookshelfApp app = BookshelfApp.get();
+        app.io(() -> {
+            long now = System.currentTimeMillis();
+            int changed = 0;
+            for (int i = 0; i < ids.length && i < results.size(); i++) {
+                Book book = app.db().bookDao().getById(ids[i]);
+                if (book == null) {
+                    continue;
+                }
+                book.purchasePrice = results.get(i).allocatedPrice;
+                book.updatedAt = now;
+                book.dirty = true;
+                app.db().bookDao().update(book);
+                changed++;
+            }
+            final int fChanged = changed;
+            app.ui(() -> {
+                Toast.makeText(this, "已写入 " + fChanged + " 本书的购入价",
+                        Toast.LENGTH_SHORT).show();
+                finish();
+            });
+        });
     }
 
     /** 写入历史（头部插入，只保留最近 10 次） */
@@ -178,7 +283,7 @@ public class SplitActivity extends BaseActivity {
                 TextView tv = new TextView(this);
                 tv.setText(sb.toString());
                 tv.setTextSize(13);
-                tv.setTextColor(ContextCompat.getColor(this, R.color.text_main));
+                tv.setTextColor(com.bai.bookshelf.util.ThemeManager.resolveColor(this, R.attr.on_surface));
                 tv.setBackgroundResource(R.drawable.bg_chip);
                 tv.setPadding(dp(10), dp(8), dp(10), dp(8));
                 LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(

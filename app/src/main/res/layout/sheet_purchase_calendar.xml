@@ -42,7 +42,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/stats_calendar_title"
-                android:textColor="@color/text_main"
+                android:textColor="?attr/on_surface"
                 android:textSize="@dimen/text_headline"
                 android:textStyle="bold" />
 
@@ -51,7 +51,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"
-                android:textColor="@color/text_sub"
+                android:textColor="?attr/on_surface_variant"
                 android:textSize="@dimen/text_body_small" />
         </LinearLayout>
 
@@ -73,7 +73,7 @@
                 android:paddingEnd="14dp"
                 android:paddingBottom="5dp"
                 android:text="@string/stats_calendar_by_month"
-                android:textColor="@color/text_sub"
+                android:textColor="?attr/on_surface_variant"
                 android:textSize="@dimen/text_body_small" />
 
             <TextView
@@ -85,7 +85,7 @@
                 android:paddingEnd="14dp"
                 android:paddingBottom="5dp"
                 android:text="@string/stats_calendar_by_year"
-                android:textColor="@color/text_sub"
+                android:textColor="?attr/on_surface_variant"
                 android:textSize="@dimen/text_body_small" />
         </LinearLayout>
 
@@ -98,7 +98,7 @@
             android:contentDescription="@string/stats_sheet_close"
             android:padding="10dp"
             android:src="@drawable/ic_close"
-            app:tint="@color/text_sub" />
+            app:tint="?attr/on_surface_variant" />
     </LinearLayout>
 
     <!-- 固定星期表头（只在按月模式显示；与下方月历网格同宽，列严格对齐） -->
@@ -119,7 +119,7 @@
         android:layout_width="match_parent"
         android:layout_height="1dp"
         android:layout_marginTop="@dimen/space_xs"
-        android:background="@color/divider_gray" />
+        android:background="?attr/outline" />
 
     <!-- 滚动区：全部年份的日历块（按月=每月一块，按年=每年一块） -->
     <androidx.core.widget.NestedScrollView
@@ -147,7 +147,7 @@
         android:paddingTop="@dimen/space_lg"
         android:paddingBottom="@dimen/space_lg"
         android:text="@string/stats_calendar_empty"
-        android:textColor="@color/text_sub"
+        android:textColor="?attr/on_surface_variant"
         android:textSize="@dimen/text_body_small"
         android:visibility="gone" />
 
@@ -155,7 +155,7 @@
     <View
         android:layout_width="match_parent"
         android:layout_height="1dp"
-        android:background="@color/divider_gray" />
+        android:background="?attr/outline" />
 
     <LinearLayout
         android:id="@+id/ll_day_detail"
@@ -188,7 +188,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/stats_click_day_hint"
-                android:textColor="@color/text_main"
+                android:textColor="?attr/on_surface"
                 android:textSize="@dimen/text_body" />
 
             <TextView
@@ -196,7 +196,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"
-                android:textColor="@color/text_sub"
+                android:textColor="?attr/on_surface_variant"
                 android:textSize="@dimen/text_caption"
                 android:visibility="gone" />
         </LinearLayout>
