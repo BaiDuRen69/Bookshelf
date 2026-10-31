@@ -23,12 +23,15 @@ public final class BookShareCard {
 
     public static final int WIDTH = 1080;
     public static final int HEIGHT = 1440;
+    /** 借阅条是横条，比书卡矮一截 */
+    public static final int SLIP_HEIGHT = 560;
 
     private static final int BG = 0xFFF6F0E4;
     private static final int INK = 0xFF2B2A26;
     private static final int MUTED = 0xFF7B7365;
     private static final int BRASS = 0xFFB08A3E;
     private static final int LINE = 0xFFE3D8C3;
+    private static final int DANGER = 0xFFB3261E;
 
     private BookShareCard() {
     }
@@ -174,6 +177,103 @@ public final class BookShareCard {
         String brand = "小书房";
         c.drawText(brand, WIDTH - left - paint.measureText(brand), 1320f, paint);
 
+        return bitmap;
+    }
+
+    /**
+     * 借阅条（v5.8.18）：1080×560 的横条，发出去就是一张催还单。
+     * 与书卡同一套纸色/墨色/主色语言，逾期时把应还日换成红字并标出逾期天数。
+     *
+     * @param overdueDays 已逾期天数，0 表示未逾期
+     */
+    public static Bitmap renderLendSlip(Book book, Bitmap cover, String borrower,
+                                        String dueDate, int overdueDays) {
+        Bitmap bitmap = Bitmap.createBitmap(WIDTH, SLIP_HEIGHT, Bitmap.Config.ARGB_8888);
+        Canvas c = new Canvas(bitmap);
+        c.drawColor(BG);
+        final int accent = CoverColor.readableOnPaper(CoverColor.fromBitmap(cover, book.title));
+        Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        float left = 72f;
+        boolean overdue = overdueDays > 0;
+
+        // 顶部：抬头 + 日期
+        paint.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        paint.setTextSize(26f);
+        paint.setLetterSpacing(0.1f);
+        paint.setColor(accent);
+        c.drawText("小书房 · 借阅条", left, 74f, paint);
+        paint.setLetterSpacing(0f);
+        paint.setTextSize(24f);
+        paint.setColor(MUTED);
+        String date = new SimpleDateFormat("yyyy.MM.dd", Locale.getDefault()).format(new Date());
+        c.drawText(date, WIDTH - left - paint.measureText(date), 74f, paint);
+
+        paint.setColor(LINE);
+        paint.setStrokeWidth(2f);
+        c.drawLine(left, 106f, WIDTH - left, 106f, paint);
+
+        // 左：封面缩略
+        float coverX = left;
+        float coverY = 146f;
+        drawCover(c, paint, book, cover, accent, coverX, coverY, 150f, 208f);
+
+        // 右：书名 / 作者
+        float textX = 258f;
+        float maxW = WIDTH - left - textX;
+        paint.setTypeface(Typeface.create("serif", Typeface.NORMAL));
+        paint.setTextSize(52f);
+        paint.setColor(INK);
+        float titleBottom = drawWrapped(c, book.title, paint, textX, 206f, maxW, 2, 66f);
+
+        paint.setTypeface(Typeface.create("sans-serif", Typeface.NORMAL));
+        paint.setTextSize(26f);
+        paint.setColor(MUTED);
+        String author = book.author == null || book.author.isEmpty() ? "佚名" : book.author;
+        c.drawText(clip(author, paint, maxW), textX, titleBottom + 12f, paint);
+
+        // 借给谁
+        float rowY = Math.max(titleBottom + 92f, coverY + 150f);
+        paint.setTextSize(24f);
+        paint.setColor(MUTED);
+        paint.setLetterSpacing(0.16f);
+        c.drawText("借给", textX, rowY, paint);
+        paint.setLetterSpacing(0f);
+        paint.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        paint.setTextSize(40f);
+        paint.setColor(INK);
+        c.drawText(clip(borrower == null || borrower.isEmpty() ? "未记借阅人" : borrower,
+                paint, maxW - 120f), textX + 86f, rowY, paint);
+
+        // 应还日（逾期换成红字 + 天数）
+        float dueY = rowY + 68f;
+        paint.setTypeface(Typeface.create("sans-serif", Typeface.NORMAL));
+        paint.setTextSize(24f);
+        paint.setColor(MUTED);
+        paint.setLetterSpacing(0.16f);
+        c.drawText("应还", textX, dueY, paint);
+        paint.setLetterSpacing(0f);
+        paint.setTextSize(40f);
+        paint.setColor(overdue ? DANGER : INK);
+        String due = dueDate == null || dueDate.isEmpty() ? "未约定" : dueDate;
+        float dueW = paint.measureText(due);
+        c.drawText(due, textX + 86f, dueY, paint);
+        if (overdue) {
+            paint.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+            paint.setTextSize(28f);
+            c.drawText("已逾期 " + overdueDays + " 天", textX + 86f + dueW + 24f, dueY, paint);
+        }
+
+        // 底部：一句话 + 品牌
+        paint.setTypeface(Typeface.create("sans-serif", Typeface.NORMAL));
+        paint.setTextSize(22f);
+        paint.setColor(MUTED);
+        c.drawText(overdue ? "方便的时候把书带回来，谢谢" : "到期了记得说一声，谢谢",
+                left, SLIP_HEIGHT - 40f, paint);
+        paint.setTypeface(Typeface.create("serif", Typeface.NORMAL));
+        paint.setTextSize(34f);
+        paint.setColor(accent);
+        String brand = "小书房";
+        c.drawText(brand, WIDTH - left - paint.measureText(brand), SLIP_HEIGHT - 38f, paint);
         return bitmap;
     }
 

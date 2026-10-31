@@ -48,6 +48,68 @@ public final class ShelfBatchActions {
         this.exitSelection = exitSelection;
     }
 
+    /** 多选分享菜单（v5.8.18）：文字书单，或把在外的书发成借阅条 */
+    public void showShareMenu() {
+        int count = selectedIds.get().size();
+        if (count == 0) {
+            return;
+        }
+        String[] options = {"文字书单", "借阅条（只发在外的书，逾期排前面）"};
+        new MaterialAlertDialogBuilder(activity)
+                .setTitle("分享已选的 " + count + " 种")
+                .setItems(options, (d, which) -> {
+                    if (which == 0) {
+                        shareSelected();
+                    } else {
+                        shareLendSlips();
+                    }
+                })
+                .setNegativeButton(R.string.action_cancel, null)
+                .show();
+    }
+
+    /** 把选中且当前在外借的书逐本画成借阅条，一次发出去 */
+    private void shareLendSlips() {
+        Set<Long> ids = new HashSet<>(selectedIds.get());
+        if (ids.isEmpty()) {
+            return;
+        }
+        List<Book> chosen = new ArrayList<>();
+        for (Book book : allBooks.get()) {
+            if (ids.contains(book.id)) {
+                chosen.add(book);
+            }
+        }
+        if (chosen.isEmpty()) {
+            return;
+        }
+        BookshelfApp app = BookshelfApp.get();
+        app.io(() -> {
+            int today = com.bai.bookshelf.util.BorrowReminder.todayKey();
+            final List<com.bai.bookshelf.ui.detail.DetailShare.Slip> slips = new ArrayList<>();
+            for (Book book : chosen) {
+                for (com.bai.bookshelf.data.entity.BorrowRecord record
+                        : app.db().borrowRecordDao().findOpenListByBook(book.id)) {
+                    int due = com.bai.bookshelf.util.BorrowReminder.parseKey(record.dueDate);
+                    int overdue = due > 0 && due < today
+                            ? com.bai.bookshelf.util.BorrowReminder.daysBetween(due, today) : 0;
+                    slips.add(new com.bai.bookshelf.ui.detail.DetailShare.Slip(book, record, overdue));
+                }
+            }
+            // 逾期的排前面，越久越靠前
+            slips.sort((a, b) -> b.overdueDays - a.overdueDays);
+            app.ui(() -> {
+                if (slips.isEmpty()) {
+                    android.widget.Toast.makeText(activity, "选中的书没有在外的",
+                            android.widget.Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                com.bai.bookshelf.ui.detail.DetailShare.shareLendSlips(
+                        activity, slips, anchorView());
+            });
+        });
+    }
+
     /** 把多选的书分享成文字书单 */
     public void shareSelected() {
         Set<Long> ids = selectedIds.get();

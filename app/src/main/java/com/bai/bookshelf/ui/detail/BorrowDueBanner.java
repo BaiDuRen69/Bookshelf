@@ -56,9 +56,29 @@ public final class BorrowDueBanner {
             }
         });
         view.setOnLongClickListener(v -> {
-            showDuePicker(activity, open, reload);
+            showActions(activity, view, book, open,
+                    overdue ? BorrowReminder.daysBetween(due, today) : 0, reload);
             return true;
         });
+    }
+
+    /** 长按：发一张借阅条，或改应还日期（v5.8.18 加借阅条入口） */
+    private static void showActions(Activity activity, android.view.View anchor,
+                                    Book book, BorrowRecord open, int overdueDays,
+                                    Runnable reload) {
+        String[] options = {"生成借阅条（发图催还）", "修改应还日期"};
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(activity)
+                .setTitle(book.title)
+                .setItems(options, (d, which) -> {
+                    if (which == 0) {
+                        DetailShare.shareLendSlip(activity,
+                                new DetailShare.Slip(book, open, overdueDays), anchor);
+                    } else {
+                        showDuePicker(activity, open, reload);
+                    }
+                })
+                .setNegativeButton(com.bai.bookshelf.R.string.action_cancel, null)
+                .show();
     }
 
     private static void copyReminder(Activity activity, Book book, BorrowRecord open) {
