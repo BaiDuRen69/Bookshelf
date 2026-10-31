@@ -127,8 +127,11 @@
     </style>
 
     <!-- 启动主题（v4.28）：只用于 MainActivity 的首帧；v31 里补系统 SplashScreen 属性 -->
-    <style name="Theme.Bookshelf.Splash" parent="Theme.Bookshelf.Base">
-        <item name="android:windowBackground">@color/bg_page</item>
+    <!-- v5.8.7：冷启动用 compat SplashScreen，才能在退场时做字标淡出 + 内容淡入 -->
+    <style name="Theme.Bookshelf.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/bg_page</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_brand</item>
+        <item name="postSplashScreenTheme">@style/Theme.Bookshelf.Base</item>
     </style>
 
     <style name="Theme.Bookshelf.Night" parent="Theme.Bookshelf.Base">

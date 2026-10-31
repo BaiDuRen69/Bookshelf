@@ -41,6 +41,9 @@ public class BookAdapter extends RecyclerView.Adapter<BookAdapter.VH> {
     }
 
     private final List<Book> data = new ArrayList<>();
+
+    /** v5.8.7：首屏前 12 项 20ms stagger 淡入（每本书只跑一次） */
+    private final java.util.Set<Long> entranceAnimated = new java.util.HashSet<>();
     private Map<Long, String> locNames = new HashMap<>();
     /** v4.41：当前搜索词，用于书名/作者的命中高亮 */
     private String keyword = "";
@@ -111,6 +114,34 @@ public class BookAdapter extends RecyclerView.Adapter<BookAdapter.VH> {
      * 会被丢弃重建，封面随之重新走一遍 Glide 的 into()（含解码与圆角处理）。
      * 书籍 id 主键天然稳定，是启用此优化最合适的场景。
      */
+    @Override
+    public void onViewAttachedToWindow(@NonNull VH holder) {
+        super.onViewAttachedToWindow(holder);
+        int pos = holder.getBindingAdapterPosition();
+        if (pos < 0 || pos >= data.size()) {
+            return;
+        }
+        Book book = data.get(pos);
+        android.view.View itemView = holder.itemView;
+        if (entranceAnimated.contains(book.id)) {
+            itemView.setAlpha(1f);
+            itemView.setTranslationY(0f);
+            return;
+        }
+        entranceAnimated.add(book.id);
+        if (pos >= 12) {
+            return;
+        }
+        float dp = itemView.getResources().getDisplayMetrics().density;
+        itemView.setAlpha(0f);
+        itemView.setTranslationY(12 * dp);
+        itemView.animate().alpha(1f).translationY(0f)
+                .setStartDelay(pos * 20L)
+                .setDuration(220)
+                .setInterpolator(new android.view.animation.DecelerateInterpolator())
+                .start();
+    }
+
     @Override
     public long getItemId(int position) {
         return data.get(position).id;

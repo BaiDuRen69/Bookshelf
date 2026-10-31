@@ -86,12 +86,24 @@
                 android:paddingHorizontal="14dp"
                 android:paddingVertical="3dp">
 
-                <ImageView
-                    android:id="@+id/iv_tab_stats"
-                    android:layout_width="22dp"
-                    android:layout_height="22dp"
-                    android:contentDescription="统计"
-                    android:src="@drawable/ic_chart_line" />
+                <FrameLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content">
+
+                    <ImageView
+                        android:id="@+id/iv_tab_stats"
+                        android:layout_width="22dp"
+                        android:layout_height="22dp"
+                        android:contentDescription="统计"
+                        android:src="@drawable/ic_chart_line" />
+
+                    <TextView
+                        android:id="@+id/tv_badge_stats"
+                        style="@style/BottomNavBadge"
+                        android:layout_gravity="top|end"
+                        android:layout_marginStart="14dp"
+                        android:visibility="gone" />
+                </FrameLayout>
 
                 <TextView
                     android:id="@+id/tv_tab_stats"
@@ -125,12 +137,24 @@
                 android:paddingHorizontal="14dp"
                 android:paddingVertical="3dp">
 
-                <ImageView
-                    android:id="@+id/iv_tab_mine"
-                    android:layout_width="22dp"
-                    android:layout_height="22dp"
-                    android:contentDescription="我的"
-                    android:src="@drawable/ic_person_line" />
+                <FrameLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content">
+
+                    <ImageView
+                        android:id="@+id/iv_tab_mine"
+                        android:layout_width="22dp"
+                        android:layout_height="22dp"
+                        android:contentDescription="我的"
+                        android:src="@drawable/ic_person_line" />
+
+                    <TextView
+                        android:id="@+id/tv_badge_mine"
+                        style="@style/BottomNavBadge"
+                        android:layout_gravity="top|end"
+                        android:layout_marginStart="14dp"
+                        android:visibility="gone" />
+                </FrameLayout>
 
                 <TextView
                     android:id="@+id/tv_tab_mine"

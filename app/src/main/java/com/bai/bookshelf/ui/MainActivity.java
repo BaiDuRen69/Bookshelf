@@ -1,5 +1,6 @@
 package com.bai.bookshelf.ui;
 
+import com.bai.bookshelf.app.BookshelfApp;
 import android.content.res.ColorStateList;
 import android.os.Bundle;
 import android.widget.ImageView;
@@ -52,6 +53,8 @@ public class MainActivity extends BaseActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        // v5.8.7：冷启动一镜到底 —— 字标淡出、内容淡入（compat 库，24+ 统一行为）
+        installSplashExit();
         super.onCreate(savedInstanceState);
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
@@ -95,6 +98,7 @@ public class MainActivity extends BaseActivity {
             restoredTab = savedInstanceState.getInt(KEY_TAB, 0);
         }
         selectTab(restoredTab);
+        refreshTabBadges();
 
         // v2.9：被二级页以 REORDER_TO_FRONT 重新拉起时，走 onNewIntent；
         // 全新实例启动时（冷启动带 extra），在 onCreate 里应用
@@ -129,6 +133,14 @@ public class MainActivity extends BaseActivity {
     }
 
     /** 切换 Tab：显示目标 Fragment、隐藏其余两个 + 更新三个 Tab 的选中配色 */
+    @Override
+    protected void onResume() {
+        super.onResume();
+        refreshTabBadges();
+    }
+
+    private int lastPillIndex = -1;
+
     private void selectTab(int index) {
         int previousTab = currentTab;
         currentTab = index;
@@ -180,6 +192,7 @@ public class MainActivity extends BaseActivity {
         setTabPill(binding.tabShelfPill, index == 0);
         setTabPill(binding.tabStatsPill, index == 1);
         setTabPill(binding.tabMinePill, index == 2);
+        lastPillIndex = index;
         // v4.30：真交叉淡入——旧页 110ms 淡出后再把新页 180ms 淡入，
         // 避免「瞬间换页 + 新页淡入」看起来像硬切
         if (previousTab != index) {
@@ -194,9 +207,20 @@ public class MainActivity extends BaseActivity {
     /** 底部导航选中态：胶囊背景 or 透明 */
     private void setTabPill(android.view.View pill, boolean selected) {
         if (selected) {
+            // v5.8.7：胶囊 120ms 位移 + 淡入（从上一个 Tab 的方向滑 14dp 进来）
             pill.setBackgroundResource(R.drawable.bg_nav_selected);
+            pill.setAlpha(0f);
+            pill.setScaleX(0.94f);
+            pill.setScaleY(0.94f);
+            float from = lastPillIndex >= 0 && lastPillIndex > currentTab ? 14f : -14f;
+            pill.setTranslationX(from * getResources().getDisplayMetrics().density);
+            pill.animate().alpha(1f).scaleX(1f).scaleY(1f).translationX(0f)
+                    .setDuration(120).start();
         } else {
-            pill.setBackgroundColor(android.graphics.Color.TRANSPARENT);
+            pill.animate().alpha(0f).setDuration(90)
+                    .withEndAction(() -> pill.setBackgroundColor(
+                            android.graphics.Color.TRANSPARENT))
+                    .start();
         }
     }
 
@@ -221,6 +245,67 @@ public class MainActivity extends BaseActivity {
         icon.setImageResource(res);
         icon.setImageTintList(ColorStateList.valueOf(selected ? active : inactive));
         label.setTextColor(selected ? active : inactive);
+        // v5.8.7：选中图标 0.9 → 1，未选中回落
+        icon.animate().scaleX(selected ? 1f : 0.92f).scaleY(selected ? 1f : 0.92f)
+                .setDuration(120).start();
+    }
+
+    /** 底部角标（v5.8.7）：统计 = 逾期笔数，我的 = 想读本数 */
+    private void refreshTabBadges() {
+        BookshelfApp app = BookshelfApp.get();
+        app.io(() -> {
+            int overdue = 0;
+            int wish = 0;
+            try {
+                int today = com.bai.bookshelf.util.DateKeys.todayKey();
+                for (com.bai.bookshelf.data.entity.BorrowRecord r
+                        : app.db().borrowRecordDao().getAllOpen()) {
+                    int due = com.bai.bookshelf.util.DateKeys.parseKey(r.dueDate);
+                    if (due > 0 && due < today) {
+                        overdue++;
+                    }
+                }
+                wish = app.db().wishBookDao().getAll().size();
+            } catch (Exception ignored) {
+                // 库还没就绪时先不显示角标
+            }
+            final int fOverdue = overdue;
+            final int fWish = wish;
+            app.ui(() -> {
+                bindBadge(binding.tvBadgeStats, fOverdue);
+                bindBadge(binding.tvBadgeMine, fWish);
+            });
+        });
+    }
+
+    private void bindBadge(android.widget.TextView badge, int count) {
+        if (badge == null) {
+            return;
+        }
+        if (count <= 0) {
+            badge.setVisibility(android.view.View.GONE);
+            return;
+        }
+        badge.setText(count > 99 ? "99+" : String.valueOf(count));
+        badge.setContentDescription(count + " 条待处理");
+        badge.setVisibility(android.view.View.VISIBLE);
+    }
+
+    /** Splash 退场：字标淡出放大，主内容随后淡入 */
+    private void installSplashExit() {
+        androidx.core.splashscreen.SplashScreen splash =
+                androidx.core.splashscreen.SplashScreen.installSplashScreen(this);
+        splash.setOnExitAnimationListener(provider -> {
+            android.view.View icon = provider.getIconView();
+            if (icon != null) {
+                icon.animate().alpha(0f).scaleX(1.08f).scaleY(1.08f)
+                        .setDuration(180)
+                        .withEndAction(provider::remove)
+                        .start();
+            } else {
+                provider.remove();
+            }
+        });
     }
 
     /**

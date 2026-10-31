@@ -138,6 +138,19 @@
     </style>
 
     <!-- v5.8.6：主数字统一版式 —— serif + tnum，数字 28/40、单位 13、overline 11 -->
+    <!-- v5.8.7：底部导航角标 -->
+    <style name="BottomNavBadge">
+        <item name="android:layout_width">16dp</item>
+        <item name="android:layout_height">16dp</item>
+        <item name="android:background">@drawable/bg_nav_badge</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:gravity">center</item>
+        <item name="android:includeFontPadding">false</item>
+        <item name="android:maxLines">1</item>
+        <item name="android:textColor">#FFFFFF</item>
+        <item name="android:textSize">9sp</item>
+    </style>
+
     <style name="Text.Bookshelf.Metric" parent="Text.Bookshelf.SerifNumber">
         <item name="android:textSize">@dimen/text_metric_value</item>
     </style>

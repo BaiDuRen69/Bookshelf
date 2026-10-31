@@ -10,8 +10,8 @@ android {
         applicationId "com.bai.bookshelf"
         minSdk 24
         targetSdk 36
-        versionCode 108
-        versionName "5.8.6"
+        versionCode 109
+        versionName "5.8.7"
 
         // v5.8.4：真机（androidTest）跑数据库修复流程
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
@@ -89,6 +89,8 @@ dependencies {
 
     // v4.54：应用锁（指纹 / 面容 + 手机锁屏密码兜底）
     implementation 'androidx.biometric:biometric:1.1.0'
+    // v5.8.7：冷启动 Splash 退场动画（Android 12+ 与低版本统一）
+    implementation 'androidx.core:core-splashscreen:1.0.1'
 
     // 封面图片加载与缓存
     implementation 'com.github.bumptech.glide:glide:4.16.0'

@@ -38,6 +38,9 @@ public class BookGridAdapter extends RecyclerView.Adapter<BookGridAdapter.VH> {
     }
 
     private final List<Book> data = new ArrayList<>();
+
+    /** v5.8.7：首屏前 12 项 20ms stagger 淡入（每本书只跑一次） */
+    private final java.util.Set<Long> entranceAnimated = new java.util.HashSet<>();
     /** v4.41：当前搜索词，用于书名命中高亮 */
     private String keyword = "";
     /** v4.55：上一次提交时的关键词，用于判断是否需要整体重绑高亮 */
@@ -93,6 +96,34 @@ public class BookGridAdapter extends RecyclerView.Adapter<BookGridAdapter.VH> {
     }
 
     /** v3.2：稳定 ID（书籍主键），让 ViewHolder 能被 RecycledViewPool 复用 */
+    @Override
+    public void onViewAttachedToWindow(@NonNull VH holder) {
+        super.onViewAttachedToWindow(holder);
+        int pos = holder.getBindingAdapterPosition();
+        if (pos < 0 || pos >= data.size()) {
+            return;
+        }
+        Book book = data.get(pos);
+        android.view.View itemView = holder.itemView;
+        if (entranceAnimated.contains(book.id)) {
+            itemView.setAlpha(1f);
+            itemView.setTranslationY(0f);
+            return;
+        }
+        entranceAnimated.add(book.id);
+        if (pos >= 12) {
+            return;
+        }
+        float dp = itemView.getResources().getDisplayMetrics().density;
+        itemView.setAlpha(0f);
+        itemView.setTranslationY(12 * dp);
+        itemView.animate().alpha(1f).translationY(0f)
+                .setStartDelay(pos * 20L)
+                .setDuration(220)
+                .setInterpolator(new android.view.animation.DecelerateInterpolator())
+                .start();
+    }
+
     @Override
     public long getItemId(int position) {
         return data.get(position).id;
