@@ -195,7 +195,7 @@
             android:focusable="true"
             android:gravity="center"
             android:paddingHorizontal="16dp"
-            android:text="已扫 0 本 · 结束盘点"
+            android:text="已扫 0 种 · 结束盘点"
             android:textColor="@color/white"
             android:textSize="@dimen/text_body_small"
             android:visibility="gone" />
@@ -214,7 +214,7 @@
             android:focusable="true"
             android:gravity="center"
             android:paddingHorizontal="16dp"
-            android:text="已加入 0 本 · 查看"
+            android:text="已加入 0 种 · 查看"
             android:textColor="@color/white"
             android:textSize="@dimen/text_body_small"
             android:visibility="gone" />

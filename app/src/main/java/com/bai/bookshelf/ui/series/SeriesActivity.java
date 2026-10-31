@@ -117,7 +117,7 @@ public class SeriesActivity extends BaseActivity {
 
         b.tvSeriesName.setText(seriesName);
         StringBuilder meta = new StringBuilder();
-        meta.append("共 ").append(list.size()).append(" 本");
+        meta.append("共 ").append(list.size()).append(" 种");
         if (!list.isEmpty()) {
             meta.append(" · 已读 ").append(readDone);
             if (reading > 0) {
@@ -262,7 +262,7 @@ public class SeriesActivity extends BaseActivity {
                         final int fChanged = changed;
                         app.ui(() -> {
                             seriesName = newName;
-                            Toast.makeText(this, "已重命名 " + fChanged + " 本",
+                            Toast.makeText(this, "已重命名 " + fChanged + " 种",
                                     Toast.LENGTH_SHORT).show();
                             load();
                         });

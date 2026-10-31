@@ -72,7 +72,7 @@ public class CopyEditActivity extends BaseActivity {
                 }
             }
         }
-        b.toolbar.setTitle("逐本信息（共 " + quantity + " 本）");
+        b.toolbar.setTitle("逐册信息（共 " + quantity + " 册）");
 
         BookshelfApp app = BookshelfApp.get();
         app.io(() -> {
@@ -88,7 +88,7 @@ public class CopyEditActivity extends BaseActivity {
             data.putExtra(RESULT_COPIES, new ArrayList<>(collect()));
             data.putExtra(RESULT_COPY_IMAGES, collectImages());
             setResult(Activity.RESULT_OK, data);
-            Toast.makeText(this, "已保存逐本信息，回到录入页后记得保存书籍", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "已保存逐册信息，回到录入页后记得保存书籍", Toast.LENGTH_SHORT).show();
             finish();
         });
     }

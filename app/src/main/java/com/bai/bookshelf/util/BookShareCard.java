@@ -253,7 +253,7 @@ public final class BookShareCard {
         if (book.summary != null && !book.summary.trim().isEmpty()) {
             return book.summary.trim();
         }
-        return "「这本书还没有留下短评。」";
+        return "「还没有留下短评。」";
     }
 
     private static String tagLine(String tags) {

@@ -306,7 +306,7 @@ public final class BackupManager {
         if (meta == null) {
             return null;
         }
-        return meta.books + " 本 · " + meta.versionText();
+        return Units.titles(meta.books) + " · " + meta.versionText();
     }
 
     /** 内容是否与最近一份备份一致（v5.7：比校验和；旧包无比对基准时退回比字节） */

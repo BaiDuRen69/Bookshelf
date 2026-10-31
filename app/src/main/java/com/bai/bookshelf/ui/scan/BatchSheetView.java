@@ -116,7 +116,7 @@ final class BatchSheetView {
         content.addView(listScroll, listLp);
 
         CheckBox copyCheck = new CheckBox(activity);
-        copyCheck.setText("重复的书也各加一本副本");
+        copyCheck.setText("重复的书也各加 1 册副本");
         copyCheck.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
         copyCheck.setTextColor(ThemeManager.resolveColor(activity, R.attr.on_surface_variant));
         LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(

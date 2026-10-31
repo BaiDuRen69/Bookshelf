@@ -89,7 +89,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="@dimen/space_xl"
                 android:layout_marginBottom="@dimen/space_sm"
-                android:text="本系列藏书"
+                android:text="该系列藏书"
                 android:textColor="?attr/on_surface_variant"
                 android:textSize="13sp" />
 
@@ -127,7 +127,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="＋ 添加下一本" />
+            android:text="＋ 添加下一卷" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_series_split"

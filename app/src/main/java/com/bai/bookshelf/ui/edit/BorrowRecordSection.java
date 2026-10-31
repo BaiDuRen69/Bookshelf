@@ -186,7 +186,7 @@ public class BorrowRecordSection {
         if (!r.source.isEmpty()) {
             sb.append(" · ").append(r.source);
         }
-        sb.append(" · ").append(Math.max(1, r.quantity)).append(" 本");
+        sb.append(" · ").append(Math.max(1, r.quantity)).append(" 册");
         if (!r.startDate.isEmpty()) {
             sb.append(" · ").append(r.startDate);
         }

@@ -93,7 +93,7 @@ public class ReadingStatsActivity extends BaseActivity {
 
         // v4.28：空态与书架/统计页统一（插画 + 去录入）
         b.emptyState.tvEmptyTitle.setText("还没有可统计的书");
-        b.emptyState.tvEmptyDesc.setText("录入第一本书后，这里会显示购买、阅读与收藏趋势");
+        b.emptyState.tvEmptyDesc.setText("录入第一种书后，这里会显示购买、阅读与收藏趋势");
         b.emptyState.btnEmptyCta.setOnClickListener(v ->
                 startActivity(new android.content.Intent(this,
                         com.bai.bookshelf.ui.edit.BookEditActivity.class)));
@@ -321,7 +321,7 @@ public class ReadingStatsActivity extends BaseActivity {
         int[] monthly = StatsAggregator.monthlyCounts(books, year);
         b.chartYear.setHighlightedIndex(index);
         b.tvYearDayDetail.setText(String.format(Locale.getDefault(),
-                "%d年%d月 · 购买 %d 本", year, index + 1, monthly[index]));
+                "%d年%d月 · 购买 %d 种", year, index + 1, monthly[index]));
     }
 
     /** 某年某月每天的购买数量（下标 0 = 1 日） */
@@ -355,7 +355,7 @@ public class ReadingStatsActivity extends BaseActivity {
             values1.add(daily[d - 1]);
         }
         // v4.20：两行共用全局刻度，柱子高度才有可比性
-        b.chartMonth.setUnit("本");
+        b.chartMonth.setUnit("种");
         b.chartMonth.setData(labels1, values1, globalMaxPerDay);
 
         if (half < days) {
@@ -366,7 +366,7 @@ public class ReadingStatsActivity extends BaseActivity {
                 values2.add(daily[d - 1]);
             }
             b.chartMonth2.setVisibility(View.VISIBLE);
-            b.chartMonth2.setUnit("本");
+            b.chartMonth2.setUnit("种");
             b.chartMonth2.setData(labels2, values2, globalMaxPerDay);
         } else {
             b.chartMonth2.setVisibility(View.GONE);
@@ -409,7 +409,7 @@ public class ReadingStatsActivity extends BaseActivity {
             labels.add(String.valueOf(m + 1));
             values.add(monthly[m]);
         }
-        b.chartYear.setUnit("本");
+        b.chartYear.setUnit("种");
         // v4.20：年图用「每月最多买几本」的全局刻度，跨年份也能比
         b.chartYear.setData(labels, values, globalMaxPerMonth);
 

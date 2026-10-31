@@ -67,7 +67,7 @@ public final class ShelfBatchActions {
         }
         String nl = System.lineSeparator();
         StringBuilder sb = new StringBuilder();
-        sb.append("我的书单 · 共 ").append(chosen.size()).append(" 本").append(nl).append(nl);
+        sb.append("我的书单 · 共 ").append(chosen.size()).append(" 种").append(nl).append(nl);
         int i = 1;
         for (Book book : chosen) {
             sb.append(i++).append(". 《").append(BookText.bareTitle(book.title)).append("》");
@@ -96,7 +96,7 @@ public final class ShelfBatchActions {
         }
         new MaterialAlertDialogBuilder(activity)
                 .setTitle("批量删除")
-                .setMessage("确定删除已选的 " + count + " 本书吗？此操作不可恢复。")
+                .setMessage("确定删除已选的 " + count + " 种书吗？此操作不可恢复。")
                 .setPositiveButton("删除", (d, w) -> {
                     BookshelfApp app = BookshelfApp.get();
                     Set<Long> ids = new HashSet<>(selectedIds.get());
@@ -107,7 +107,7 @@ public final class ShelfBatchActions {
                         }
                         app.ui(() -> {
                             exitSelection.run();
-                            toast.accept("已删除 " + count + " 本书");
+                            toast.accept("已删除 " + count + " 种书");
                         });
                     });
                 })
@@ -122,7 +122,7 @@ public final class ShelfBatchActions {
         }
         String[] options = {"设置存放地点", "添加标签", "设置阅读状态"};
         new MaterialAlertDialogBuilder(activity)
-                .setTitle("批量设置（已选 " + selectedIds.get().size() + " 本）")
+                .setTitle("批量设置（已选 " + selectedIds.get().size() + " 种）")
                 .setItems(options, (d, which) -> {
                     if (which == 0) {
                         showBatchLocation();
@@ -148,7 +148,7 @@ public final class ShelfBatchActions {
                 .setItems(names, (d, which) -> {
                     Long locationId = which == 0 ? null : locs.get(which - 1).id;
                     applyBatch(book -> book.locationId = locationId,
-                            "已更新 " + selectedIds.get().size() + " 本的存放地点");
+                            "已更新 " + selectedIds.get().size() + " 种的存放地点");
                 })
                 .setNegativeButton(R.string.action_cancel, null)
                 .show();
@@ -168,7 +168,7 @@ public final class ShelfBatchActions {
                     }
                     ensureTagInLibrary(tag);
                     applyBatch(book -> appendTag(book, tag),
-                            "已给 " + selectedIds.get().size() + " 本加上「" + tag + "」");
+                            "已给 " + selectedIds.get().size() + " 种加上「" + tag + "」");
                 })
                 .setNegativeButton(R.string.action_cancel, null)
                 .show();
@@ -183,7 +183,7 @@ public final class ShelfBatchActions {
                                         book, which, com.bai.bookshelf.util.DateKeys
                                                 .formatKey(com.bai.bookshelf.util.DateKeys
                                                         .todayKey())),
-                                "已把 " + selectedIds.get().size() + " 本设为「" + names[which] + "」"))
+                                "已把 " + selectedIds.get().size() + " 种设为「" + names[which] + "」"))
                 .setNegativeButton(R.string.action_cancel, null)
                 .show();
     }

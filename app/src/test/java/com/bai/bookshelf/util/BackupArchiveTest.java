@@ -79,7 +79,7 @@ public class BackupArchiveTest {
         assertEquals("校验通过", info.verifyText());
         assertEquals(meta.media, info.mediaCount);
         assertTrue(info.preview().contains("v5.6.1（DB 23）"));
-        assertTrue(info.preview().contains("3 本"));
+        assertTrue(info.preview().contains("3 种"));
         // 读包算出的数据字节与 meta.bytes 同口径（都不含 meta 自己）
         assertEquals(meta.bytes, info.totalBytes);
         assertEquals(DATA.length() + "jpeg-bytes-one".length() + "png-bytes-two".length(),

@@ -113,7 +113,7 @@ public class DetailLending {
                 }
             }
             app.ui(() -> {
-                Toast.makeText(activity, "第 " + index + " 本已收回", Toast.LENGTH_SHORT).show();
+                Toast.makeText(activity, "第 " + index + " 册已收回", Toast.LENGTH_SHORT).show();
                 host.reload();
                 host.refreshReminders();
             });
@@ -219,7 +219,7 @@ public class DetailLending {
                 }));
 
         new MaterialAlertDialogBuilder(activity)
-                .setTitle("借出登记（第 " + lendCopyIndex + " 本）")
+                .setTitle("借出登记（第 " + lendCopyIndex + " 册）")
                 .setView(db.getRoot())
                 .setPositiveButton("借出", (d, w) ->
                         doLend(lendCopyIndex, selected[0], db.etNote.getText().toString().trim(),
@@ -491,7 +491,7 @@ public class DetailLending {
             return;
         }
         if (DetailCopyInfo.openRecordForCopy(host.openRecords(), copyIndex) != null) {
-            Toast.makeText(activity, "第 " + copyIndex + " 本已借出，收回后才能再次借出",
+            Toast.makeText(activity, "第 " + copyIndex + " 册已借出，收回后才能再次借出",
                     Toast.LENGTH_SHORT).show();
             return;
         }
@@ -541,7 +541,7 @@ public class DetailLending {
                 }
             }
             app.ui(() -> {
-                Toast.makeText(activity, "第 " + copyIndex + " 本已借出给 " + borrower,
+                Toast.makeText(activity, "第 " + copyIndex + " 册已借出给 " + borrower,
                         Toast.LENGTH_SHORT).show();
                 host.reload();
                 // v4.42：有应还日期就确保通知权限并重排提醒

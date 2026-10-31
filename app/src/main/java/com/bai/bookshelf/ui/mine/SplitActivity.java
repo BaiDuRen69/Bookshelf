@@ -97,7 +97,7 @@ public class SplitActivity extends BaseActivity {
                 b.containerBooks.removeView(row);
                 updateApplyButton();
             } else {
-                Toast.makeText(this, "至少保留一本书", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "至少保留一种书", Toast.LENGTH_SHORT).show();
             }
         });
         b.containerBooks.addView(row);
@@ -113,7 +113,7 @@ public class SplitActivity extends BaseActivity {
             String name = ((EditText) row.findViewById(R.id.et_book_name)).getText().toString().trim();
             double price = parseDouble(((EditText) row.findViewById(R.id.et_price)).getText().toString(), -1);
             if (name.isEmpty()) {
-                name = "第 " + (i + 1) + " 本";
+                name = "第 " + (i + 1) + " 种";
             }
             inputs.add(new PriceSplitter.BookInput(i + 1, name, price));
         }
@@ -185,7 +185,7 @@ public class SplitActivity extends BaseActivity {
         final int count = targetIds.length;
         new MaterialAlertDialogBuilder(this)
                 .setTitle("写入购入价")
-                .setMessage("把分摊结果写入这 " + count + " 本书的实付价？原有购入价会被覆盖。")
+                .setMessage("把分摊结果写入这 " + count + " 种书的实付价？原有购入价会被覆盖。")
                 .setPositiveButton("写入", (d, w) -> doApplyToBooks())
                 .setNegativeButton(R.string.action_cancel, null)
                 .show();
@@ -212,7 +212,7 @@ public class SplitActivity extends BaseActivity {
             }
             final int fChanged = changed;
             app.ui(() -> {
-                Toast.makeText(this, "已写入 " + fChanged + " 本书的购入价",
+                Toast.makeText(this, "已写入 " + fChanged + " 种书的购入价",
                         Toast.LENGTH_SHORT).show();
                 finish();
             });

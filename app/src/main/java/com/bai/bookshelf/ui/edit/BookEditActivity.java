@@ -216,7 +216,7 @@ public class BookEditActivity extends BaseActivity {
                 cleanupRemovedNoteImageFiles();
                 Toast.makeText(BookEditActivity.this, "已增加到《"
                                 + com.bai.bookshelf.util.BookText.bareTitle(existing.title)
-                                + "》，共 " + (existing.quantity + 1) + " 本",
+                                + "》，共 " + (existing.quantity + 1) + " 册",
                         Toast.LENGTH_SHORT).show();
                 finish();
             }

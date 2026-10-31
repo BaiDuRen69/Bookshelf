@@ -39,7 +39,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
-            android:text="选择一种方式，把这本书记进书房"
+            android:text="选择一种方式，把这书记进书房"
             android:textColor="?attr/on_surface_variant"
             android:textSize="@dimen/text_body_small" />
 

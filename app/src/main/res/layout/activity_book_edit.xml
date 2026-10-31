@@ -888,7 +888,7 @@
                 android:drawableTint="?attr/colorPrimary"
                 android:focusable="true"
                 android:padding="11dp"
-                android:text="逐本信息"
+                android:text="逐册信息"
                 android:textColor="?attr/colorPrimary"
                 android:textSize="14sp"
                 android:visibility="gone" />

@@ -236,7 +236,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="每日购买本数"
+                        android:text="每日购买（种）"
                         android:textColor="?attr/on_surface_variant"
                         android:textSize="@dimen/text_body_small" />
 
@@ -505,7 +505,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="每月购买本数"
+                        android:text="每月购买（种）"
                         android:textColor="?attr/on_surface_variant"
                         android:textSize="@dimen/text_body_small" />
 
@@ -642,7 +642,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="8dp"
                             android:gravity="center"
-                            android:text="从购买第一本书起计算"
+                            android:text="从购买第一册起计算"
                             android:textColor="?attr/on_surface_variant"
                             android:textSize="@dimen/text_body_small" />
 
@@ -864,7 +864,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="每年购买本数"
+                            android:text="每年购买（种）"
                             android:textColor="?attr/on_surface_variant"
                             android:textSize="@dimen/text_body_small" />
 

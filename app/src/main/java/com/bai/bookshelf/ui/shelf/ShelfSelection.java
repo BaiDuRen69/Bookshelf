@@ -108,7 +108,7 @@ public class ShelfSelection {
             return;
         }
         b.selectionBar.setVisibility(active ? View.VISIBLE : View.GONE);
-        b.tvSelCount.setText("已选 " + ids.size() + " 本");
+        b.tvSelCount.setText("已选 " + ids.size() + " 种");
         adapter.setSelectionState(active, ids);
         textAdapter.setSelectionState(active, ids);
         gridAdapter.setSelectionState(active, ids);

@@ -79,7 +79,7 @@
                                 android:alpha="0.8"
                                 android:ellipsize="end"
                                 android:singleLine="true"
-                                android:text="共 0 本"
+                                android:text="共 0 种"
                                 android:textColor="?attr/colorOnPrimary"
                                 android:textSize="@dimen/text_caption"
                                 android:visibility="invisible" />
@@ -596,7 +596,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="@dimen/space_lg"
                     android:paddingHorizontal="@dimen/space_lg"
-                    android:text="扫码录入第一本书" />
+                    android:text="扫码录入第一种书" />
             </LinearLayout>
 
             <!-- 首屏骨架屏（按当前视图由代码填充） -->
@@ -646,7 +646,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="已选 0 本"
+            android:text="已选 0 种"
             android:textColor="?attr/on_primary_container"
             android:textSize="@dimen/text_body_small" />
 

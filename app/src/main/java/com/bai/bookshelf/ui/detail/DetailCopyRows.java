@@ -156,9 +156,9 @@ public class DetailCopyRows {
             expandRow.setTextColor(ThemeManager.resolveColor(activity, ThemeManager.ATTR_COLOR_PRIMARY));
             expandRow.setTextSize(13);
             if (expanded) {
-                expandRow.setText("收起逐本信息");
+                expandRow.setText("收起逐册信息");
             } else {
-                expandRow.setText("展开剩余 " + (book.quantity - COPY_COLLAPSE_LIMIT) + " 本");
+                expandRow.setText("展开剩余 " + (book.quantity - COPY_COLLAPSE_LIMIT) + " 册");
             }
             expandRow.setOnClickListener(v -> {
                 expanded = !expanded;

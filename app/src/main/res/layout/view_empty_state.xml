@@ -45,5 +45,5 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="@dimen/space_lg"
         android:paddingHorizontal="@dimen/space_lg"
-        android:text="去录入第一本书" />
+        android:text="去录入第一种书" />
 </LinearLayout>

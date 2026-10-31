@@ -123,7 +123,7 @@ public class StatsRankView {
         row.addView(barArea, barLp);
 
         TextView tvCount = new TextView(activity);
-        tvCount.setText(e.count + " 本");
+        tvCount.setText(e.count + " 种");
         tvCount.setTextSize(13);
         tvCount.setTypeface(Typeface.DEFAULT_BOLD);
         tvCount.setGravity(Gravity.END);

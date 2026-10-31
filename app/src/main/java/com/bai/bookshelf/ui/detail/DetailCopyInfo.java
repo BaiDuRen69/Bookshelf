@@ -71,7 +71,7 @@ public final class DetailCopyInfo {
                                   String locationName,
                                   int index, BorrowRecord open) {
         BookCopy copy = copyByIndex(book, copies, index);
-        StringBuilder line = new StringBuilder("第 " + index + " 本：");
+        StringBuilder line = new StringBuilder("第 " + index + " 册：");
         boolean sourceReturned = com.bai.bookshelf.util.BookFlags.isReturnedBorrow(book);
         if (sourceReturned) {
             // v5.7：已归还给借阅来源 → 状态归入电子书签，不再显示地点 / 来源 / 价格
@@ -139,7 +139,7 @@ public final class DetailCopyInfo {
                 in++;
             }
         }
-        StringBuilder sb = new StringBuilder("共 " + book.quantity + " 本（");
+        StringBuilder sb = new StringBuilder("共 " + book.quantity + " 册（");
         sb.append("在库 ").append(in);
         if (lent > 0) {
             sb.append("、借出 ").append(lent);

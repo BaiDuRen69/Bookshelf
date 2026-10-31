@@ -199,7 +199,7 @@ public class EditCopiesSection {
             return;
         }
         b.tvCopiesEntry.setVisibility(View.VISIBLE);
-        b.tvCopiesEntry.setText("逐本信息（共 " + quantity + " 本）");
+        b.tvCopiesEntry.setText("逐册信息（共 " + quantity + " 册）");
         if (quantity <= INLINE_COPY_LIMIT) {
             // ≤3 本：默认折叠，点入口展开/收起
             b.containerCopies.setVisibility(expanded ? View.VISIBLE : View.GONE);
@@ -248,7 +248,7 @@ public class EditCopiesSection {
             }
             if (!pendingCopies.isEmpty()) {
                 dirty = true;
-                Toast.makeText(activity, "已更新 " + pendingCopies.size() + " 本的信息",
+                Toast.makeText(activity, "已更新 " + pendingCopies.size() + " 册的信息",
                         Toast.LENGTH_SHORT).show();
             }
         }

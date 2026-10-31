@@ -136,7 +136,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:lineSpacingMultiplier="1.5"
-                    android:text="已读 0 本 · 在读 0 本"
+                    android:text="已读 0 种 · 在读 0 种"
                     android:textColor="?attr/on_surface"
                     android:textSize="@dimen/text_body_small" />
 
@@ -156,7 +156,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="6dp"
                     android:lineSpacingMultiplier="1.5"
-                    android:text="最贵的一本：—"
+                    android:text="最贵的一种：—"
                     android:textColor="?attr/on_surface"
                     android:textSize="@dimen/text_body_small" />
 
@@ -166,7 +166,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="6dp"
                     android:lineSpacingMultiplier="1.5"
-                    android:text="最厚的一本：—"
+                    android:text="最厚的一种：—"
                     android:textColor="?attr/on_surface"
                     android:textSize="@dimen/text_body_small" />
 

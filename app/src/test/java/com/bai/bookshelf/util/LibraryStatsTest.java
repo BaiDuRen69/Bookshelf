@@ -81,7 +81,7 @@ public class LibraryStatsTest {
         List<Book> books = Arrays.asList(a, gift, bookmark, lent, two);
         Map<Long, List<BookCopy>> copies = LibraryStats.groupCopies(
                 Arrays.asList(copy(5, 2, Book.STOCK_LOST, 20)));
-        LibraryStats.Holdings h = LibraryStats.holdings(books, copies);
+        StatsHoldings.Holdings h = StatsHoldings.holdings(books, copies);
 
         assertEquals(5, h.rows);
         assertEquals("已归还的借阅不算在架种数", 4, h.titles);
@@ -135,8 +135,8 @@ public class LibraryStatsTest {
             b.pages = 200;
             books.add(b);
         }
-        LibraryStats.Holdings h = LibraryStats.holdings(books, null);
-        LibraryStats.Spend s = LibraryStats.spend(h);
+        StatsHoldings.Holdings h = StatsHoldings.holdings(books, null);
+        StatsSpend.Spend s = StatsSpend.spend(h);
         assertEquals(-1, s.discount, 1e-9);
         assertEquals(-1, s.perPage, 1e-9);
         assertEquals("数据不足", s.discountText());
@@ -146,7 +146,7 @@ public class LibraryStatsTest {
         extra.purchasePrice = 20;
         extra.pages = 200;
         books.add(extra);
-        LibraryStats.Spend ok = LibraryStats.spend(LibraryStats.holdings(books, null));
+        StatsSpend.Spend ok = StatsSpend.spend(StatsHoldings.holdings(books, null));
         assertEquals(0.5, ok.discount, 1e-9);
         assertEquals("5.0 折", ok.discountText());
         assertEquals(0.1, ok.perPage, 1e-9);
@@ -183,8 +183,8 @@ public class LibraryStatsTest {
         onlyFinish.readingFinishDate = "2026-04-01"; // 没有开始日期 ⇒ 不参与速度
 
         List<Book> books = Arrays.asList(p, q, r, noDates, onlyFinish);
-        LibraryStats.Holdings h = LibraryStats.holdings(books, null);
-        LibraryStats.Pace pace = LibraryStats.pace(books, null, h, 24);
+        StatsHoldings.Holdings h = StatsHoldings.holdings(books, null);
+        StatsPace.Pace pace = StatsPace.pace(books, null, h, 24);
 
         assertEquals(3, pace.daySample);
         assertEquals(3, pace.speedSample);
@@ -209,8 +209,8 @@ public class LibraryStatsTest {
         Book waiting = book(2, "还没读");
         waiting.pages = 300;
         List<Book> books = Arrays.asList(p, waiting);
-        LibraryStats.Pace pace = LibraryStats.pace(
-                books, null, LibraryStats.holdings(books, null), 0);
+        StatsPace.Pace pace = StatsPace.pace(
+                books, null, StatsHoldings.holdings(books, null), 0);
         assertEquals(-1.0, pace.monthsToClear, 1e-9);
         assertTrue(pace.unknownReason.contains("阅读日历"));
     }
@@ -245,7 +245,7 @@ public class LibraryStatsTest {
         list.add(loan(40, 400, "2026-09-01", "2026-10-01", "", BorrowRecord.STATUS_OUT));
         list.add(loan(41, 401, "2026-06-01", "2026-08-01", "", BorrowRecord.STATUS_OUT));
 
-        LibraryStats.Lend l = LibraryStats.lend(list, 20261030);
+        StatsLend.Lend l = StatsLend.lend(list, 20261030);
         assertEquals(11, l.returned);
         assertEquals("没填应还日期的那笔不进样本", 10, l.onTimeSample);
         assertEquals(0.8, l.onTimeRate, 1e-9);
@@ -261,7 +261,7 @@ public class LibraryStatsTest {
             list.add(loan(i + 1, i, "2026-01-01", "2026-03-01",
                     "2026-02-01", BorrowRecord.STATUS_RETURNED));
         }
-        LibraryStats.Lend l = LibraryStats.lend(list, 20261030);
+        StatsLend.Lend l = StatsLend.lend(list, 20261030);
         assertEquals(3, l.onTimeSample);
         assertEquals(-1.0, l.onTimeRate, 1e-9);
     }
@@ -281,7 +281,7 @@ public class LibraryStatsTest {
             }
             books.add(b);
         }
-        LibraryStats.Health h = LibraryStats.health(books);
+        StatsHealth.Health h = StatsHealth.health(books);
         assertEquals(10, h.total);
         assertEquals("20+20+15+10+10+10 + 评分 10×0.5 + 标签 5×0.8", 94, h.score);
         assertEquals("评分", h.weakest);
@@ -290,7 +290,7 @@ public class LibraryStatsTest {
 
     @Test
     public void 空书架健康分为负而不是零() {
-        LibraryStats.Health h = LibraryStats.health(new ArrayList<>());
+        StatsHealth.Health h = StatsHealth.health(new ArrayList<>());
         assertEquals(-1, h.score);
         assertEquals(0, h.total);
     }
@@ -305,8 +305,8 @@ public class LibraryStatsTest {
         return c;
     }
 
-    private static LibraryStats.Group find(List<LibraryStats.Group> list, String name) {
-        for (LibraryStats.Group g : list) {
+    private static StatsHoldings.Group find(List<StatsHoldings.Group> list, String name) {
+        for (StatsHoldings.Group g : list) {
             if (g.name.equals(name)) {
                 return g;
             }
@@ -328,12 +328,12 @@ public class LibraryStatsTest {
         Book stale = book(5, "分类被删了");
         stale.category = "已删掉的分类";
 
-        List<LibraryStats.Group> tree = LibraryStats.byCategory(
+        List<StatsHoldings.Group> tree = StatsHoldings.byCategory(
                 Arrays.asList(cn1, foreign, top, none, stale), null,
                 Arrays.asList(cat(1, "文学", null), cat(2, "中国文学", 1L), cat(3, "外国文学", 1L)),
                 "未分类");
 
-        LibraryStats.Group wen = find(tree, "文学");
+        StatsHoldings.Group wen = find(tree, "文学");
         assertEquals(3, wen.titles);
         assertEquals("中国文学那一本的 2 册要带上来", 4, wen.copies);
         assertEquals(2, wen.children.size());
@@ -361,12 +361,12 @@ public class LibraryStatsTest {
         borrow.listPrice = 50;
 
         List<Book> books = Arrays.asList(bought, gift, borrow);
-        List<LibraryStats.Group> structure = LibraryStats.groupBy(books, null,
+        List<StatsHoldings.Group> structure = StatsHoldings.groupBy(books, null,
                 b -> b.publisher, "未填出版社", true);
         assertEquals(2, structure.size());
         assertEquals("结构口径下借阅也算一本", 2, find(structure, "花城出版社").titles);
 
-        List<LibraryStats.Group> money = LibraryStats.groupBy(books, null,
+        List<StatsHoldings.Group> money = StatsHoldings.groupBy(books, null,
                 b -> b.publisher, "未填出版社", false);
         assertEquals(1, money.size());
         assertEquals("花费口径只算自购", 15.0, money.get(0).paid, 1e-9);
@@ -399,12 +399,12 @@ public class LibraryStatsTest {
         borrowed.purchaseDate = "2023-06-01";
         borrowed.ownType = Book.OWN_BORROW;
 
-        List<LibraryStats.Cohort> cohorts = LibraryStats.cohort(
+        List<StatsHoldings.Cohort> cohorts = StatsHoldings.cohort(
                 Arrays.asList(fast, slow, unread, thisYear, borrowed), 20261030);
 
         assertEquals(2, cohorts.size());
         assertEquals("近 → 远", 2026, cohorts.get(0).year);
-        LibraryStats.Cohort c23 = cohorts.get(1);
+        StatsHoldings.Cohort c23 = cohorts.get(1);
         assertEquals(2023, c23.year);
         assertEquals(3, c23.bought);
         assertEquals(2, c23.finished);
@@ -417,7 +417,7 @@ public class LibraryStatsTest {
 
     @Test
     public void cohort行文案不硬算未关闭窗口与不足样本() {
-        LibraryStats.Cohort c = new LibraryStats.Cohort();
+        StatsHoldings.Cohort c = new StatsHoldings.Cohort();
         c.year = 2023;
         c.bought = 12;
         c.readIn1y = 6;
@@ -446,15 +446,15 @@ public class LibraryStatsTest {
 
     @Test
     public void 目标预测按当前速度并给出每月需读() {
-        LibraryStats.Goal g = LibraryStats.Goal.of(6, 24, 10);
+        StatsPace.Goal g = StatsPace.Goal.of(6, 24, 10);
         assertEquals(7.2, g.projected, 1e-9);
         assertEquals(9.0, g.needPerMonth, 1e-9);
         assertFalse(g.reachable);
-        assertEquals("今年已读 6 本，目标 24 本；按当前速度全年约 7 本，完不成；"
-                + "剩下 2 个月每月要读 9 本", g.line());
+        assertEquals("今年已读完 6 种，目标 24 种；按当前速度全年约 7 种，完不成；"
+                + "剩下 2 个月每月要读 9 种", g.line());
 
-        assertTrue("已经达标就不该说明天来不及", LibraryStats.Goal.of(30, 24, 10).reachable);
-        assertEquals("目标 24 本已完成（已读 30 本）", LibraryStats.Goal.of(30, 24, 10).line());
+        assertTrue("已经达标就不该说明天来不及", StatsPace.Goal.of(30, 24, 10).reachable);
+        assertEquals("今年已读完 30 种，目标已完成", StatsPace.Goal.of(30, 24, 10).line());
     }
 
     // ==================== 阅读习惯 ====================
@@ -463,7 +463,7 @@ public class LibraryStatsTest {
     public void 阅读习惯算连续天数与最佳月份() {
         java.util.List<Integer> days = Arrays.asList(20260101, 20260102, 20260103,
                 20260315, 20260316);
-        LibraryStats.Habit h = LibraryStats.Habit.of(days, 2026, 20260316);
+        StatsPace.Habit h = StatsPace.Habit.of(days, 2026, 20260316);
         assertEquals(5, h.daysReadThisYear);
         assertEquals(3, h.longestStreak);
         assertEquals("从今天往回数", 2, h.currentStreak);
@@ -471,14 +471,14 @@ public class LibraryStatsTest {
         assertEquals(3, h.bestMonthDays);
         assertNotNull(h.bestWeekdayName);
 
-        LibraryStats.Habit empty = LibraryStats.Habit.of(new ArrayList<>(), 2026, 20260316);
+        StatsPace.Habit empty = StatsPace.Habit.of(new ArrayList<>(), 2026, 20260316);
         assertEquals(0, empty.daysReadThisYear);
         assertEquals(0, empty.longestStreak);
     }
 
     @Test
     public void 今天没读但昨天读了仍算连着() {
-        LibraryStats.Habit h = LibraryStats.Habit.of(
+        StatsPace.Habit h = StatsPace.Habit.of(
                 Arrays.asList(20260314, 20260315), 2026, 20260316);
         assertEquals("今天还没读不算断，否则每天都得先读一本才不断", 2, h.currentStreak);
         assertEquals(2, h.longestStreak);
@@ -494,7 +494,7 @@ public class LibraryStatsTest {
                 days.add(y * 10000 + 700 + d); // 每年 7 月 1 日到 31 日
             }
         }
-        LibraryStats.Habit h = LibraryStats.Habit.of(days, 2026, 20260731);
+        StatsPace.Habit h = StatsPace.Habit.of(days, 2026, 20260731);
         assertEquals("当年七月最多 31 天", 31, h.daysReadThisYear);
         assertEquals(7, h.bestMonth);
         assertTrue(h.bestMonthDays <= 31);
@@ -505,14 +505,14 @@ public class LibraryStatsTest {
 
     @Test
     public void 买读比与囤书指数() {
-        LibraryStats.BuyRead b = LibraryStats.BuyRead.of(18, 9, 6, 19);
+        StatsPace.BuyRead b = StatsPace.BuyRead.of(18, 9, 6, 19);
         assertEquals(2.0, b.ratio, 1e-9);
         assertEquals("2.0 : 1", b.ratioText());
         assertEquals(0.3158, b.hoardIndex, 1e-4);
 
-        LibraryStats.BuyRead none = LibraryStats.BuyRead.of(5, 0, 5, 5);
+        StatsPace.BuyRead none = StatsPace.BuyRead.of(5, 0, 5, 5);
         assertEquals(-1.0, none.ratio, 1e-9);
-        assertEquals("今年还没读完一本", none.ratioText());
+        assertEquals("今年还没读完一种", none.ratioText());
     }
 
     // ==================== 该处理的书 ====================
@@ -531,7 +531,7 @@ public class LibraryStatsTest {
         dusty.readStatus = Book.READ_NONE;
         dusty.purchaseDate = "2024-05-01";
 
-        LibraryStats.Stale s = LibraryStats.stale(
+        StatsPace.Stale s = StatsPace.stale(
                 Arrays.asList(stuck, fresh, dusty), 20261030, 5);
         assertEquals(1, s.readingOver30);
         assertEquals(1, s.readingOver90);
@@ -560,7 +560,7 @@ public class LibraryStatsTest {
         Book thin = book(6, "页数录错");
         thin.pages = 2;
 
-        LibraryStats.Anomalies a = LibraryStats.anomalies(
+        StatsHealth.Anomalies a = StatsHealth.anomalies(
                 Arrays.asList(x1, x2, sameTitle, bad, future, thin), 20261030);
         assertEquals(1, a.duplicateIsbn.size());
         assertEquals("9787506369", a.duplicateIsbn.get(0));
@@ -590,7 +590,7 @@ public class LibraryStatsTest {
         unrated.ratingAvg = 0;
         books.add(unrated);
 
-        LibraryStats.Rating r = LibraryStats.ratings(books);
+        StatsHealth.Rating r = StatsHealth.ratings(books);
         assertEquals(10, r.total);
         assertEquals(9, r.rated);
         assertEquals(38.0 / 9.0, r.average, 1e-9);
@@ -615,7 +615,7 @@ public class LibraryStatsTest {
         a3.borrower = "张三";
         b1.borrower = "李四";
 
-        List<LibraryStats.Lender> lenders = LibraryStats.lenders(
+        List<StatsLend.Lender> lenders = StatsLend.lenders(
                 Arrays.asList(a1, a2, a3, b1), 20261030);
         assertEquals(2, lenders.size());
         assertEquals("借得多的排前面", "张三", lenders.get(0).name);
@@ -635,7 +635,7 @@ public class LibraryStatsTest {
         lost.listPrice = 40;
         Map<Long, List<BookCopy>> copies = LibraryStats.groupCopies(
                 Arrays.asList(copy(1, 2, Book.STOCK_LOST, 18)));
-        LibraryStats.Holdings h = LibraryStats.holdings(Arrays.asList(lost), copies);
+        StatsHoldings.Holdings h = StatsHoldings.holdings(Arrays.asList(lost), copies);
         assertEquals(2, h.copiesLost);
         assertEquals("两册各自的实付都要算进损耗", 43.0, h.lostValue, 1e-9);
     }
@@ -660,9 +660,9 @@ public class LibraryStatsTest {
         lastDecember.purchaseDate = "2025-12-01";
         lastDecember.purchasePrice = 99;
 
-        List<LibraryStats.PeriodDelta> ps = LibraryStats.periods(
+        List<StatsSpend.PeriodDelta> ps = StatsSpend.periods(
                 Arrays.asList(thisYear, lastYear, lastDecember), 20261031);
-        LibraryStats.PeriodDelta y = ps.get(0);
+        StatsSpend.PeriodDelta y = ps.get(0);
         assertEquals(1, y.nowBought);
         assertEquals("去年 12 月不在同期范围内", 1, y.prevBought);
         assertEquals(1, y.nowRead);
@@ -680,9 +680,9 @@ public class LibraryStatsTest {
         Book oct = book(2, "十月买的");
         oct.purchaseDate = "2026-10-15";
         oct.purchasePrice = 20;
-        List<LibraryStats.PeriodDelta> ps = LibraryStats.periods(
+        List<StatsSpend.PeriodDelta> ps = StatsSpend.periods(
                 Arrays.asList(sep, oct), 20261031);
-        LibraryStats.PeriodDelta m = ps.get(1);
+        StatsSpend.PeriodDelta m = ps.get(1);
         assertEquals(1, m.nowBought);
         assertEquals(1, m.prevBought);
     }
@@ -707,16 +707,16 @@ public class LibraryStatsTest {
         crossYear.borrower = "小张";
         crossYear.lendDate = "2025-09-01";
         crossYear.returnDate = "2026-02-01";
-        List<LibraryStats.PeriodDelta> ps = LibraryStats.periods(
+        List<StatsSpend.PeriodDelta> ps = StatsSpend.periods(
                 Arrays.asList(a, b), Arrays.asList(thisYear, old, crossYear), 20261031);
-        LibraryStats.PeriodDelta y = ps.get(0);
+        StatsSpend.PeriodDelta y = ps.get(0);
         assertEquals(1, y.nowLent);
         assertEquals(2, y.prevLent);
         assertEquals("去年借今年还的那笔算今年归还", 2, y.nowReturned);
         assertEquals(1, y.prevReturned);
         assertTrue(y.line().endsWith("· 借出 1 / 2 · 归还 2 / 1"));
         // 没有借出记录时不该冒出「借出 0 / 0」这半句
-        assertFalse(LibraryStats.periods(Arrays.asList(a, b), 20261031)
+        assertFalse(StatsSpend.periods(Arrays.asList(a, b), 20261031)
                 .get(0).line().contains("借出"));
     }
 
@@ -731,11 +731,11 @@ public class LibraryStatsTest {
         b.category = "文学";
         Book c = book(3, "资治通鉴");
         c.category = "历史";
-        List<LibraryStats.Share> shares = LibraryStats.structureCompare(
+        List<StatsHoldings.Share> shares = StatsHoldings.structureCompare(
                 Arrays.asList(a, b, c), null,
                 Arrays.asList(cat(1, "文学", null), cat(2, "历史", null)));
         assertEquals(2, shares.size());
-        LibraryStats.Share wen = shares.get(0);
+        StatsHoldings.Share wen = shares.get(0);
         assertEquals("文学", wen.name);
         assertEquals(67, Math.round(wen.shelfShare * 100));
         assertEquals(100, Math.round(wen.readShare * 100));
@@ -758,7 +758,7 @@ public class LibraryStatsTest {
                 bought(1, "一月买的", "2026-01-05", 100),
                 bought(2, "二月买的", "2026-02-05", 50),
                 bought(3, "三月买的", "2026-03-05", 150));
-        LibraryStats.Trend t = LibraryStats.trend(books, 2026, 20260331);
+        StatsSpend.Trend t = StatsSpend.trend(books, 2026, 20260331);
         assertEquals(3, t.months.size());
         assertEquals(3, t.monthsElapsed);
         assertEquals(300.0, t.yearSpent, 1e-9);
@@ -778,7 +778,7 @@ public class LibraryStatsTest {
         gift.listPrice = 80;
         gift.purchasePrice = 80;
         gift.ownType = Book.OWN_GIFT;
-        LibraryStats.Trend t = LibraryStats.trend(Arrays.asList(gift), 2026, 20260331);
+        StatsSpend.Trend t = StatsSpend.trend(Arrays.asList(gift), 2026, 20260331);
         assertEquals(0.0, t.yearSpent, 1e-9);
         assertEquals(0, t.yearBought);
     }
@@ -802,7 +802,7 @@ public class LibraryStatsTest {
             b.ratingAvg = 5 - i * 0.2;
             books.add(b);
         }
-        LibraryStats.Relation r = LibraryStats.relations(books);
+        StatsSpend.Relation r = StatsSpend.relations(books);
         assertEquals(12, r.pagesSample);
         assertEquals(12, r.ratingSample);
         assertTrue("页数越多越贵", r.priceVsPages > 0.99);
@@ -816,8 +816,8 @@ public class LibraryStatsTest {
         Book multi = bought(1, "套装三册", "2026-03-05", 20);
         multi.quantity = 3;
         List<Book> books = Arrays.asList(multi);
-        LibraryStats.Trend t = LibraryStats.trend(books, 2026, 20261031);
-        LibraryStats.PeriodDelta y = LibraryStats.periods(books, 20261031).get(0);
+        StatsSpend.Trend t = StatsSpend.trend(books, 2026, 20261031);
+        StatsSpend.PeriodDelta y = StatsSpend.periods(books, 20261031).get(0);
         assertEquals(60.0, t.yearSpent, 1e-9);
         assertEquals(t.yearSpent, y.nowSpent, 1e-9);
         assertEquals(1, y.nowBought);
@@ -839,7 +839,7 @@ public class LibraryStatsTest {
             e.content = "句子" + i;
             excerpts.add(e);
         }
-        LibraryStats.NoteStat n = LibraryStats.notes(Arrays.asList(a, b, c), excerpts);
+        StatsHealth.NoteStat n = StatsHealth.notes(Arrays.asList(a, b, c), excerpts);
         assertEquals(3, n.total);
         assertEquals(2, n.withExcerpt);
         assertEquals(1, n.withReview);
@@ -878,14 +878,14 @@ public class LibraryStatsTest {
         b2.isbn = "";
         b2.createdAt = t0 + 20 * day;
 
-        LibraryStats.WishStat s = LibraryStats.wishes(Arrays.asList(w1, w2, w3),
+        StatsHealth.WishStat s = StatsHealth.wishes(Arrays.asList(w1, w2, w3),
                 Arrays.asList(b1, b2));
         assertEquals(3, s.wanted);
         assertEquals(60.0, s.mindPrice, 1e-9);
         assertEquals(3, s.highPriority);
         assertEquals(2, s.converted);
         assertEquals(15.0, s.medianDaysToBuy, 1e-9);
-        assertEquals("想读 3 本 · 心理价合计 ¥60 · 高优先 3 本 · 已转藏书 2 本 · 中位 15 天后买",
+        assertEquals("想读 3 种 · 心理价合计 ¥60 · 高优先 3 种 · 已转藏书 2 种 · 中位 15 天后买",
                 s.line());
     }
 
@@ -904,14 +904,14 @@ public class LibraryStatsTest {
                 loan(1, 1, "2026-01-01", "2026-03-01", "", BorrowRecord.STATUS_OUT),
                 loan(2, 2, "2026-01-01", "2026-03-01", "", BorrowRecord.STATUS_OUT),
                 loan(3, 3, "2026-01-01", "2026-03-01", "", BorrowRecord.STATUS_OUT));
-        List<LibraryStats.Group> byCat = LibraryStats.lendStructure(
+        List<StatsHoldings.Group> byCat = StatsLend.lendStructure(
                 Arrays.asList(wen1, wen2, his), records, b -> b.category, "未分类");
         assertEquals(2, byCat.size());
         assertEquals("文学", byCat.get(0).name);
         assertEquals(2, byCat.get(0).titles);
         assertEquals(1, byCat.get(0).readDone);
 
-        LibraryStats.Holdings h = LibraryStats.holdings(
+        StatsHoldings.Holdings h = StatsHoldings.holdings(
                 Arrays.asList(wen1, wen2, his), null);
         assertEquals(3, h.copies);
         assertEquals(0, h.copiesLent);
@@ -927,7 +927,7 @@ public class LibraryStatsTest {
         Book b = book(2, "第二部");
         b.seriesName = "三体";
         Book c = book(3, "单本");
-        List<LibraryStats.Group> groups = LibraryStats.groupBy(
+        List<StatsHoldings.Group> groups = StatsHoldings.groupBy(
                 Arrays.asList(a, b, c), null, book -> book.seriesName, "未成系列", true);
 
         assertEquals(2, groups.size());
@@ -950,13 +950,13 @@ public class LibraryStatsTest {
         bonus.seriesVolume = "外传";
         List<Book> books = Arrays.asList(v1, v3, bonus);
 
-        assertEquals("1 与 3 之间缺第 2 卷", 1, LibraryStats.missingVolumes(books, "三体"));
-        assertEquals("别的系列不算", 0, LibraryStats.missingVolumes(books, "基地"));
+        assertEquals("1 与 3 之间缺第 2 卷", 1, StatsHoldings.missingVolumes(books, "三体"));
+        assertEquals("别的系列不算", 0, StatsHoldings.missingVolumes(books, "基地"));
         Book onlyText = book(4, "卷号都是文字");
         onlyText.seriesName = "古典";
         onlyText.seriesVolume = "上册";
         assertEquals("卷号解析不出整数就不猜缺卷", 0,
-                LibraryStats.missingVolumes(Arrays.asList(onlyText), "古典"));
+                StatsHoldings.missingVolumes(Arrays.asList(onlyText), "古典"));
     }
 
     // ==================== 同期口径 ====================

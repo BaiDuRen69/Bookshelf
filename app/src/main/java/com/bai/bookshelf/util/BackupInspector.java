@@ -76,7 +76,7 @@ public final class BackupInspector {
             if (!legacy() && !meta.timeText().isEmpty()) {
                 sb.append("\n备份时间：").append(meta.timeText());
             }
-            sb.append("\n藏书：").append(books < 0 ? "未知" : books + " 本");
+            sb.append("\n藏书：").append(books < 0 ? "未知" : books + " 种");
             if (mediaCount > 0) {
                 sb.append(" · 图片 ").append(mediaCount).append(" 个");
             }

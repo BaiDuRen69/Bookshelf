@@ -115,7 +115,7 @@ public class DatabaseRepairActivity extends BaseActivity {
             try {
                 int books = DbRepair.restoreFromZip(this, uri);
                 app.ui(() -> {
-                    Toast.makeText(this, "已从备份恢复 " + books + " 本", Toast.LENGTH_LONG).show();
+                    Toast.makeText(this, "已从备份恢复 " + books + " 种", Toast.LENGTH_LONG).show();
                     goMain();
                 });
             } catch (Throwable t) {

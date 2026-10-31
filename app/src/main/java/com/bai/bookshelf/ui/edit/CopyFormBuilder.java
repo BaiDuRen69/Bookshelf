@@ -103,7 +103,7 @@ public final class CopyFormBuilder {
         h.scrollNoteThumbs = h.root.findViewById(R.id.scroll_copy_note_thumbs);
         h.containerNoteThumbs = h.root.findViewById(R.id.container_copy_note_thumbs);
         h.purchaseRow = h.root.findViewById(R.id.ll_copy_purchase);
-        ((TextView) h.root.findViewById(R.id.tv_copy_title)).setText("第 " + copyIndex + " 本");
+        ((TextView) h.root.findViewById(R.id.tv_copy_title)).setText("第 " + copyIndex + " 册");
 
         // 统一的「用户改动」包装：构建/回填期间不触发
         Runnable userChanged = () -> {

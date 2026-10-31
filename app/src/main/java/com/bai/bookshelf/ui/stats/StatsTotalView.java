@@ -115,7 +115,7 @@ public class StatsTotalView {
             labels.add(String.valueOf(e.getKey()));
             values.add(e.getValue());
         }
-        b.chartTotal.setUnit("本");
+        b.chartTotal.setUnit("种");
         b.chartTotal.setData(labels, values);
         // v4.21：切换页签时清掉高亮
         b.chartTotal.setHighlightedIndex(-1);

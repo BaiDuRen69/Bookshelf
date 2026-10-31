@@ -73,7 +73,7 @@ public class WishEditDialog {
                     }
                     if (continuous && existing == null) {
                         clearForm();
-                        Toast.makeText(activity, "已添加，可继续添加下一本",
+                        Toast.makeText(activity, "已添加，可继续添加下一条",
                                 Toast.LENGTH_SHORT).show();
                     } else {
                         alert.dismiss();

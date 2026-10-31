@@ -86,7 +86,7 @@ public class ScanBatchController {
         int total = queue.size();
         if (total > 0) {
             b.btnBatchQueue.setVisibility(View.VISIBLE);
-            b.btnBatchQueue.setText("已加入 " + total + " 本 · 查看");
+            b.btnBatchQueue.setText("已加入 " + total + " 种 · 查看");
         } else {
             b.btnBatchQueue.setVisibility(View.GONE);
         }
@@ -96,7 +96,7 @@ public class ScanBatchController {
     public void add(String isbn) {
         for (BatchItem item : queue) {
             if (item.isbn.equals(isbn)) {
-                Toast.makeText(activity, "这本已在待录入列表", Toast.LENGTH_SHORT).show();
+                Toast.makeText(activity, "这条已在待录入列表", Toast.LENGTH_SHORT).show();
                 new Handler(Looper.getMainLooper()).postDelayed(onScanConsumed, 800);
                 return;
             }
@@ -350,9 +350,9 @@ public class ScanBatchController {
             }
         }
         sheet.copyCheck.setVisibility(dup > 0 ? View.VISIBLE : View.GONE);
-        sheet.copyCheck.setText("重复的 " + dup + " 本也各加一本副本");
+        sheet.copyCheck.setText("重复的 " + dup + " 种也各加 1 册副本");
         int saveCount = ready + (sheet.copyCheck.isChecked() ? dup : 0);
-        sheet.saveBtn.setText("保存 " + saveCount + " 本");
+        sheet.saveBtn.setText("保存 " + saveCount + " 种");
         sheet.saveBtn.setEnabled(saveCount > 0);
         sheet.saveBtn.setAlpha(saveCount > 0 ? 1f : 0.4f);
     }
@@ -409,8 +409,8 @@ public class ScanBatchController {
                 dialogToDismiss.dismiss();
                 queue.clear();
                 updateUi();
-                Toast.makeText(activity, "已录入 " + fSaved + " 本"
-                        + (fCopied > 0 ? "，另加 " + fCopied + " 本副本" : ""),
+                Toast.makeText(activity, "已录入 " + fSaved + " 种"
+                        + (fCopied > 0 ? "，另加 " + fCopied + " 册副本" : ""),
                         Toast.LENGTH_LONG).show();
                 activity.finish();
             });

@@ -465,7 +465,7 @@ public class BookDetailActivity extends BaseActivity {
     /** 底栏「更多」：删除收在这里，红字，不与编辑同权重 */
     private void showMoreActions() {
         PopupMenu popup = new PopupMenu(this, b.btnMore);
-        SpannableString delete = new SpannableString("删除这本书");
+        SpannableString delete = new SpannableString("删除此藏书");
         delete.setSpan(new ForegroundColorSpan(ContextCompat.getColor(this, R.color.danger)),
                 0, delete.length(), 0);
         popup.getMenu().add(0, 2, 0, "分享书卡");

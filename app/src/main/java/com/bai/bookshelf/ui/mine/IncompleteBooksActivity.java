@@ -132,7 +132,7 @@ public class IncompleteBooksActivity extends BaseActivity {
             }
         }
         adapter.notifyDataSetChanged();
-        b.tvIncompleteCount.setText("共 " + shown.size() + " 本待补全");
+        b.tvIncompleteCount.setText("共 " + shown.size() + " 种待补全");
         b.tvIncompleteEmpty.setVisibility(shown.isEmpty() ? View.VISIBLE : View.GONE);
         b.recyclerIncomplete.setVisibility(shown.isEmpty() ? View.GONE : View.VISIBLE);
         if (shown.isEmpty()) {

@@ -179,7 +179,7 @@ public class MineDataActions {
                 refreshRows();
                 String msg;
                 if (o.meta != null) {
-                    msg = "备份完成：" + o.meta.books + " 本 · " + humanSize(o.bytes);
+                    msg = "备份完成：" + o.meta.books + " 种 · " + humanSize(o.bytes);
                     if (o.safFailed) {
                         msg += "\n外部副本没写进去（" + o.safError + "），点备份文件夹行重新授权";
                     }
@@ -237,7 +237,7 @@ public class MineDataActions {
             } else {
                 sb.append(v.info.verifyText());
                 if (v.info.books >= 0) {
-                    sb.append(" · ").append(v.info.books).append(" 本");
+                    sb.append(" · ").append(v.info.books).append(" 种");
                 }
             }
             sb.append('\n');
@@ -468,7 +468,7 @@ public class MineDataActions {
         app.io(() -> {
             try {
                 ZipRestore.Result result = ZipRestore.restore(appCtx, uri, app.db());
-                String msg = "已恢复 " + result.books + " 本书\n恢复媒体文件 " + result.media + " 个"
+                String msg = "已恢复 " + result.books + " 种藏书\n恢复媒体文件 " + result.media + " 个"
                         + (result.legacy ? "\n\n（旧版备份，未能校验完整性）" : "");
                 app.ui(() -> {
                     if (!fragment.isAdded()) {
@@ -498,7 +498,7 @@ public class MineDataActions {
         app.io(() -> {
             try {
                 ExcelImporter.Result result = ExcelImporter.importBooks(appCtx, uri, app.db());
-                String msg = "新增 " + result.added + " 本\n跳过 " + result.skipped
+                String msg = "新增 " + result.added + " 种\n跳过 " + result.skipped
                         + " 条（ISBN 已存在或书名为空）";
                 if (result.fixed > 0) {
                     msg += "\n修正 " + result.fixed + " 处（无法识别的数字/状态已按默认值导入）";

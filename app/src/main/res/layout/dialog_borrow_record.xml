@@ -58,7 +58,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/space_md"
-            android:hint="借阅数量（本）">
+            android:hint="借阅数量（册）">
 
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/et_borrow_quantity"

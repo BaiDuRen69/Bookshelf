@@ -37,7 +37,7 @@ public final class DetailInfoBlocks {
         }
         if (multi) {
             add(info, book.ownType == Book.OWN_BORROW ? "借阅数量" : "拥有数量",
-                    book.quantity + " 本");
+                    book.quantity + " 册");
         }
         add(info, "豆瓣评分", book.doubanRating);
         add(info, "分类", categoryDisplay);

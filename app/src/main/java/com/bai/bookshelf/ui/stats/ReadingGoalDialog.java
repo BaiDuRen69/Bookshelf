@@ -23,7 +23,7 @@ public final class ReadingGoalDialog {
 
     public static void show(Context context, @Nullable Runnable onSaved) {
         DialogInputBinding input = DialogInputBinding.inflate(LayoutInflater.from(context));
-        input.inputLayout.setHint("今年想读完几本？");
+        input.inputLayout.setHint("今年想读完几种？");
         input.edit.setInputType(InputType.TYPE_CLASS_NUMBER);
         int year = Calendar.getInstance().get(Calendar.YEAR);
         int goal = context.getSharedPreferences("ui_prefs", 0)
@@ -46,7 +46,7 @@ public final class ReadingGoalDialog {
                     context.getSharedPreferences("ui_prefs", 0).edit()
                             .putInt("reading_goal_year", year)
                             .putInt("reading_goal", value).apply();
-                    Toast.makeText(context, "今年目标 " + value + " 本", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(context, "今年目标 " + value + " 种", Toast.LENGTH_SHORT).show();
                     if (onSaved != null) {
                         onSaved.run();
                     }

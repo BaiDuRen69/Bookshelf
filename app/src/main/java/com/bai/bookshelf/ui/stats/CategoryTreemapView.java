@@ -11,7 +11,7 @@ import android.view.View;
 
 import androidx.annotation.Nullable;
 
-import com.bai.bookshelf.util.LibraryStats;
+import com.bai.bookshelf.util.StatsHoldings;
 import com.bai.bookshelf.util.ThemeManager;
 
 import java.util.ArrayList;
@@ -42,7 +42,7 @@ public class CategoryTreemapView extends View {
     /** 标签缩到原字号的一半还放不下就留白，不写认不出的一两个字 */
     private static final float MIN_LABEL_SCALE = 0.5f;
 
-    private final List<LibraryStats.Group> data = new ArrayList<>();
+    private final List<StatsHoldings.Group> data = new ArrayList<>();
     private final List<Integer> fillColors = new ArrayList<>();
     private final Paint fillPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint titlePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -93,7 +93,7 @@ public class CategoryTreemapView extends View {
     }
 
     /** 换数据：重算布局与配色，并刷新无障碍摘要 */
-    public void setData(List<LibraryStats.Group> groups) {
+    public void setData(List<StatsHoldings.Group> groups) {
         data.clear();
         if (groups != null) {
             data.addAll(groups);
@@ -166,7 +166,7 @@ public class CategoryTreemapView extends View {
                 continue;
             }
             float pad = 8;
-            LibraryStats.Group g = data.get(i);
+            StatsHoldings.Group g = data.get(i);
             String sub = g.titles + " 种 · " + g.copies + " 册";
             titlePaint.setColor(textColor);
             titlePaint.setAlpha(255);

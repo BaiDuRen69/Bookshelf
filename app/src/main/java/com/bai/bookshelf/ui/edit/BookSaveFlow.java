@@ -158,19 +158,19 @@ public class BookSaveFlow {
                     app.ui(() -> new MaterialAlertDialogBuilder(activity)
                             .setTitle("书籍已录入")
                             .setMessage("《" + existing.title + "》已在书架中（共 "
-                                    + existing.quantity + " 本），要怎么处理？")
+                                    + existing.quantity + " 册），要怎么处理？")
                             .setPositiveButton("修改已有书籍", (d, w) -> {
                                 Intent intent = new Intent(activity, BookEditActivity.class);
                                 intent.putExtra(BookEditActivity.EXTRA_BOOK, existing);
                                 activity.startActivity(intent);
                                 activity.finish();
                             })
-                            .setNeutralButton("增加一本副本", (d, w) ->
+                            .setNeutralButton("增加副本", (d, w) ->
                                     app.io(() -> {
                                         BookEditSaver.addCopyToExisting(app, existing, book, now);
                                         app.ui(() -> host.onCopyAdded(existing));
                                     }))
-                            .setNegativeButton("仍然新建一本", (d, w) ->
+                            .setNegativeButton("仍然新建", (d, w) ->
                                     app.io(() -> {
                                         BookEditSaver.insertNew(app, activity, book, copiesToSave,
                                                 copyImagesToSave, imagesToSave, now);

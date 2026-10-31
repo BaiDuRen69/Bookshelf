@@ -215,7 +215,7 @@ public class BorrowHistoryActivity extends BaseActivity {
         StringBuilder sb = new StringBuilder();
         sb.append("借给 ").append(r.borrower);
         if (r.copyIndex > 1) {
-            sb.append("（第 ").append(r.copyIndex).append(" 本）");
+            sb.append("（第 ").append(r.copyIndex).append(" 册）");
         }
         sb.append("\n借出：").append(r.lendDate.isEmpty() ? "未填" : r.lendDate);
         if (r.status == BorrowRecord.STATUS_RETURNED) {

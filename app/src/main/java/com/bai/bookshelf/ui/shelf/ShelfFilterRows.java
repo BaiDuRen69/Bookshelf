@@ -132,7 +132,7 @@ public final class ShelfFilterRows {
         for (int i = 0; i < names.size(); i++) {
             String name = names.get(i);
             Integer count = counts.get(name);
-            items[i + 1] = name + (count == null ? "" : "（" + count + " 本）");
+            items[i + 1] = name + (count == null ? "" : "（" + count + " 种）");
             if (name.equalsIgnoreCase(state.series)) {
                 checked = i + 1;
             }

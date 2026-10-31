@@ -63,7 +63,7 @@ public class DetailCopyInfoTest {
         Book book = book();
         book.quantity = 3;
         List<BookCopy> copies = Arrays.asList(copy(2, Book.STOCK_LENT), copy(3, Book.STOCK_LOST));
-        assertEquals("共 3 本（在库 1、借出 1、遗失 1）",
+        assertEquals("共 3 册（在库 1、借出 1、遗失 1）",
                 DetailCopyInfo.multiCopyStockSummary(book, copies));
     }
 
@@ -84,7 +84,7 @@ public class DetailCopyInfoTest {
         String line = DetailCopyInfo.copyLine(book,
                 Collections.singletonList(copy), Collections.singletonList(record),
                 locNames, "书房", 2, record);
-        assertTrue(line.contains("第 2 本：借出"));
+        assertTrue(line.contains("第 2 册：借出"));
         assertTrue(line.contains("客厅"));
         assertTrue(line.contains("借给 小明"));
         assertTrue(line.contains("应还 2099-01-01"));

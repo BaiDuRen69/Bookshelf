@@ -64,7 +64,7 @@ public class ShelfStatusView {
             return;
         }
         b.btnClearFilters.setVisibility(View.VISIBLE);
-        StringBuilder text = new StringBuilder("共 ").append(count).append(" 本");
+        StringBuilder text = new StringBuilder("共 ").append(count).append(" 种");
         if (!smartName.isEmpty()) {
             text.append(" · ").append(smartName);
         }
@@ -116,9 +116,9 @@ public class ShelfStatusView {
             b.btnEmptyAdd.setOnClickListener(v -> clearAllFilters.run());
         } else {
             b.tvEmptyTitle.setText("书架还是空的");
-            b.tvEmptyDesc.setText("扫码录入第一本书，开始整理你的书房");
+            b.tvEmptyDesc.setText("扫码录入第一种书，开始整理你的书房");
             b.btnEmptyAdd.setVisibility(View.VISIBLE);
-            b.btnEmptyAdd.setText("扫码录入第一本书");
+            b.btnEmptyAdd.setText("扫码录入第一种书");
             b.btnEmptyAdd.setOnClickListener(v -> startScan.run());
         }
     }

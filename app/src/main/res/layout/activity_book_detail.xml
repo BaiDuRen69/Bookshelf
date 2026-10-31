@@ -708,7 +708,7 @@
 
                         <TextView
                             style="@style/DetailSectionTitle"
-                            android:text="逐本信息" />
+                            android:text="逐册信息" />
 
                         <LinearLayout
                             android:id="@+id/container_copies"

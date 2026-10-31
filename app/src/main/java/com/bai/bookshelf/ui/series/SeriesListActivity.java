@@ -76,7 +76,7 @@ public class SeriesListActivity extends BaseActivity {
         ItemSeriesGroupBinding card = ItemSeriesGroupBinding.inflate(getLayoutInflater(),
                 b.llSeriesList, false);
         card.tvGroupName.setText(name);
-        card.tvGroupCount.setText(books.size() + " 本");
+        card.tvGroupCount.setText(books.size() + " 种");
 
         int readDone = 0;
         for (Book book : books) {

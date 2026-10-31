@@ -84,7 +84,7 @@ public class ScanInventoryMode {
                     if (scanned.add(key)) {
                         Toast.makeText(activity, "✓ " + fTitle, Toast.LENGTH_SHORT).show();
                     } else {
-                        Toast.makeText(activity, "这本已扫过", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(activity, "这条已扫过", Toast.LENGTH_SHORT).show();
                     }
                 } else {
                     unknown++;
@@ -100,7 +100,7 @@ public class ScanInventoryMode {
         if (b == null) {
             return;
         }
-        b.btnInventoryDone.setText("已扫 " + scanned.size() + " 本 · 结束盘点");
+        b.btnInventoryDone.setText("已扫 " + scanned.size() + " 种 · 结束盘点");
     }
 
     /** 结束盘点：算出缺失（在库且有 ISBN 但没扫到）与不在书房的扫描，可选标记遗失 */
@@ -136,12 +136,12 @@ public class ScanInventoryMode {
                 }
                 int found = fScannable - fMissing.size();
                 StringBuilder msg = new StringBuilder();
-                msg.append("可盘点 ").append(fScannable).append(" 本（在库且有 ISBN）");
+                msg.append("可盘点 ").append(fScannable).append(" 种（在库且有 ISBN）");
                 if (fNoIsbn > 0) {
-                    msg.append("，另有 ").append(fNoIsbn).append(" 本没有 ISBN 无法扫码");
+                    msg.append("，另有 ").append(fNoIsbn).append(" 种没有 ISBN 无法扫码");
                 }
-                msg.append("。\n\n找到 ").append(found).append(" 本 · 缺失 ")
-                        .append(fMissing.size()).append(" 本");
+                msg.append("。\n\n找到 ").append(found).append(" 种 · 缺失 ")
+                        .append(fMissing.size()).append(" 种");
                 if (unknownCount > 0) {
                     msg.append("\n另有 ").append(unknownCount).append(" 次扫描不在书房");
                 }
@@ -181,7 +181,7 @@ public class ScanInventoryMode {
                 app.db().bookDao().update(book);
             }
             app.ui(() -> {
-                Toast.makeText(activity, "已把 " + missing.size() + " 本标记为遗失",
+                Toast.makeText(activity, "已把 " + missing.size() + " 种标记为遗失",
                         Toast.LENGTH_LONG).show();
                 activity.finish();
             });

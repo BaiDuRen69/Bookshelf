@@ -119,15 +119,15 @@ public class StudyReportActivity extends BaseActivity {
         b.tvReportTotal.setText(total + " 种");
         b.tvReportRead.setText("已读 " + readDone + " · 在读 " + reading);
         b.tvReportAuthor.setText(authorCount > 0
-                ? "最爱作者：" + author + "（" + authorCount + " 本）"
+                ? "最爱作者：" + author + "（" + authorCount + " 种）"
                 : "最爱作者：—");
         b.tvReportPrice.setText(mostExpensive == null || mostExpensive.listPrice <= 0
-                ? "最贵的一本：—"
-                : String.format(Locale.getDefault(), "最贵的一本：《%s》 ¥%.2f",
+                ? "最贵的一种：—"
+                : String.format(Locale.getDefault(), "最贵的一种：《%s》 ¥%.2f",
                         safeTitle(mostExpensive), mostExpensive.listPrice));
         b.tvReportPages.setText(thickest == null || thickest.pages <= 0
-                ? "最厚的一本：—"
-                : "最厚的一本：《" + safeTitle(thickest) + "》 " + thickest.pages + " 页");
+                ? "最厚的一种：—"
+                : "最厚的一种：《" + safeTitle(thickest) + "》 " + thickest.pages + " 页");
 
         ImageView[] views = {b.ivReport1, b.ivReport2, b.ivReport3, b.ivReport4};
         for (int i = 0; i < views.length; i++) {

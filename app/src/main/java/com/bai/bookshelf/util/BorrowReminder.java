@@ -156,25 +156,25 @@ public final class BorrowReminder {
         }
         StringBuilder text = new StringBuilder();
         if (overdue > 0) {
-            text.append(overdue).append(" 本已逾期");
+            text.append(overdue).append(" 册已逾期");
         }
         if (dueToday > 0) {
             if (text.length() > 0) {
                 text.append("，");
             }
-            text.append(dueToday).append(" 本今天到期");
+            text.append(dueToday).append(" 册今天到期");
         }
         if (borrowedInOverdue > 0) {
             if (text.length() > 0) {
                 text.append("；");
             }
-            text.append(borrowedInOverdue).append(" 本借阅的书已逾期未还");
+            text.append(borrowedInOverdue).append(" 册借阅的书已逾期未还");
         }
         if (borrowedInToday > 0) {
             if (text.length() > 0) {
                 text.append("；");
             }
-            text.append(borrowedInToday).append(" 本借阅的书今天要归还");
+            text.append(borrowedInToday).append(" 册借阅的书今天要归还");
         }
         Intent open = new Intent(ctx, MainActivity.class)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);

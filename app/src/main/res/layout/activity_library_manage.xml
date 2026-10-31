@@ -179,7 +179,7 @@
 
                             <TextView
                                 style="@style/MineRowSubtitle"
-                                android:text="按册数把套装总价拆分到每一本书" />
+                                android:text="按册数把套装总价拆分到每一册" />
                         </LinearLayout>
 
                         <ImageView style="@style/MineRowChevron" />
