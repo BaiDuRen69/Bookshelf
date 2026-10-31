@@ -25,14 +25,19 @@ public final class XlsxParts {
     private XlsxParts() {
     }
 
-    /** 封面图片（已压缩的 JPEG 字节 + 原始宽高，用于按比例计算展示尺寸） */
-    public static final class CoverImage {
-        public final byte[] bytes;
+    /**
+     * 一张待嵌入的封面：已压好的 JPEG 落在临时文件里，加上它的宽高。
+     *
+     * <p>v5.8.21 起不再带 byte[]：以前整本图书馆的封面字节要同时驻留在内存里，
+     * 写包时才逐张读盘。尺寸仍然留在内存——drawing1.xml 一次就要用到全部。
+     */
+    public static final class CoverRef {
+        public final java.io.File file;
         public final int pxW;
         public final int pxH;
 
-        public CoverImage(byte[] bytes, int pxW, int pxH) {
-            this.bytes = bytes;
+        public CoverRef(java.io.File file, int pxW, int pxH) {
+            this.file = file;
             this.pxW = pxW;
             this.pxH = pxH;
         }
@@ -124,7 +129,7 @@ public final class XlsxParts {
      * drawing1.xml：每张封面一个 oneCellAnchor，钉在「封面」列（第 14 列 = O）对应数据行。
      * 展示尺寸按原图宽高比缩放到 48x64 框内（EMU = px * 9525）。
      */
-    public static String drawingXml(List<CoverImage> covers) {
+    public static String drawingXml(List<CoverRef> covers) {
         StringBuilder sb = new StringBuilder();
         sb.append("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>");
         sb.append("<xdr:wsDr xmlns:xdr=\"http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing\" "
@@ -132,7 +137,7 @@ public final class XlsxParts {
                 + "xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">");
         int picId = 1;
         for (int i = 0; i < covers.size(); i++) {
-            CoverImage img = covers.get(i);
+            CoverRef img = covers.get(i);
             if (img == null) {
                 continue;
             }
