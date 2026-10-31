@@ -250,6 +250,14 @@ public class StatsFragment extends Fragment {
         if (b == null) {
             return;
         }
+        // v5.8.14：样本不足时补一张小图和一句「再添几本」，而不是只有「数据不足」
+        boolean lowSample = !statsEmpty && fTotal > 0
+                && fTotal < com.bai.bookshelf.util.LibraryStats.MIN_SAMPLE;
+        b.rowInsightLowSample.setVisibility(lowSample ? View.VISIBLE : View.GONE);
+        if (lowSample) {
+            int need = com.bai.bookshelf.util.LibraryStats.MIN_SAMPLE - fTotal;
+            b.tvInsightLowSample.setText("再添 " + need + " 本，样本够了就能给出趋势");
+        }
         switch (statsTab) {
             case TAB_READING:
                 b.tvInsight.setText(insightReading);

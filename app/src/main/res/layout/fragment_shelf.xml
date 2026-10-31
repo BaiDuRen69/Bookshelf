@@ -135,6 +135,25 @@
                     app:cornerRadius="16dp" />
             </LinearLayout>
 
+            <!-- v5.8.14：页头折叠后留一行筛选摘要，提醒列表正在被筛过 -->
+            <HorizontalScrollView
+                android:id="@+id/hsv_filter_summary"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:clipToPadding="false"
+                android:scrollbars="none"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:id="@+id/ll_filter_summary"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingTop="5dp"
+                    android:paddingBottom="1dp" />
+            </HorizontalScrollView>
+
             <FrameLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"

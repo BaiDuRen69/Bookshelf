@@ -482,6 +482,7 @@ public class ShelfFragment extends Fragment {
         final int full = heroFullHeight > 0 ? heroFullHeight
                 : (int) (64 * getResources().getDisplayMetrics().density);
         headerCollapsed = collapse;
+        updateFilterSummary();
         android.animation.ValueAnimator anim = android.animation.ValueAnimator.ofInt(
                 collapse ? full : 0, collapse ? 0 : full);
         anim.setDuration(160);
@@ -493,6 +494,97 @@ public class ShelfFragment extends Fragment {
             hero.setAlpha(full == 0 ? 1f : Math.max(0f, h / (float) full));
         });
         anim.start();
+    }
+
+    /** v5.8.14：页头收起后留一行「关键词 · 已读 · 分类」摘要，提醒列表正在被筛过 */
+    private void updateFilterSummary() {
+        if (b == null) {
+            return;
+        }
+        b.llFilterSummary.removeAllViews();
+        if (!headerCollapsed) {
+            b.hsvFilterSummary.setVisibility(View.GONE);
+            return;
+        }
+        List<String> labels = activeFilterLabels();
+        if (labels.isEmpty()) {
+            b.hsvFilterSummary.setVisibility(View.GONE);
+            return;
+        }
+        for (String label : labels) {
+            b.llFilterSummary.addView(buildSummaryChip(label, null));
+        }
+        b.llFilterSummary.addView(buildSummaryChip("清除筛选", this::clearAllFilters));
+        b.hsvFilterSummary.setVisibility(View.VISIBLE);
+    }
+
+    private List<String> activeFilterLabels() {
+        List<String> labels = new ArrayList<>();
+        if (searchBar != null) {
+            String keyword = searchBar.text().trim();
+            if (!keyword.isEmpty()) {
+                if (keyword.length() > 12) {
+                    keyword = keyword.substring(0, 12) + "…";
+                }
+                labels.add("“" + keyword + "”");
+            }
+        }
+        if (smartShelf >= 0 && smartShelf < SMART_NAMES.length) {
+            labels.add(SMART_NAMES[smartShelf]);
+        }
+        addSpinnerLabel(labels, b.spStock);
+        addSpinnerLabel(labels, b.spReadFilter);
+        addSpinnerLabel(labels, b.spCategory);
+        addSpinnerLabel(labels, b.spTag);
+        addSpinnerLabel(labels, b.spLocation);
+        addSpinnerLabel(labels, b.spCountry);
+        addSpinnerLabel(labels, b.spChannel);
+        if (filterState.hasSeries()) {
+            labels.add("系列：" + filterState.series);
+        }
+        if (filterState.hasPrice()) {
+            labels.add("价格区间");
+        }
+        if (filterState.hasPurchaseRange()) {
+            labels.add("购入日期");
+        }
+        if (filterState.hasEntryRange()) {
+            labels.add("录入日期");
+        }
+        return labels;
+    }
+
+    private void addSpinnerLabel(List<String> labels, android.widget.Spinner spinner) {
+        if (spinner.getSelectedItemPosition() <= 0) {
+            return;
+        }
+        Object item = spinner.getSelectedItem();
+        if (item != null) {
+            labels.add(item.toString());
+        }
+    }
+
+    private TextView buildSummaryChip(String text, Runnable onClick) {
+        TextView chip = new TextView(requireContext());
+        chip.setText(text);
+        com.bai.bookshelf.util.Typo.text(chip, R.dimen.text_caption);
+        chip.setTextColor(com.bai.bookshelf.util.ThemeManager.resolveColor(requireContext(),
+                com.google.android.material.R.attr.colorOnPrimary));
+        chip.setBackgroundResource(R.drawable.bg_summary_chip);
+        float density = getResources().getDisplayMetrics().density;
+        chip.setPadding((int) (8 * density), (int) (3 * density),
+                (int) (8 * density), (int) (3 * density));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT);
+        lp.setMarginEnd((int) (6 * density));
+        chip.setLayoutParams(lp);
+        if (onClick != null) {
+            chip.setClickable(true);
+            chip.setFocusable(true);
+            chip.setOnClickListener(v -> onClick.run());
+        }
+        return chip;
     }
 
     /** 库就绪后注册 books 响应式观察（冷启动时本页比开库早，必须排队等一次） */    /** 库就绪后注册 books 响应式观察（冷启动时本页比开库早，必须排队等一次） */
@@ -646,6 +738,7 @@ public class ShelfFragment extends Fragment {
         if (b == null) {
             return;
         }
+        updateFilterSummary();
         if (filterPanel != null) {
             filterPanel.updateMoreFilterPill();
         }

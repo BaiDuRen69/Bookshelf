@@ -205,10 +205,12 @@ public class BookAdapter extends RecyclerView.Adapter<BookAdapter.VH> {
 
         // 封面：支持网络链接与本地文件路径（拍照/相册封面）；纯文字视图直接隐藏
         if (hideCover) {
-            h.b.ivCover.setVisibility(android.view.View.GONE);
+            h.b.coverBox.setVisibility(android.view.View.GONE);
         } else {
-            h.b.ivCover.setVisibility(android.view.View.VISIBLE);
+            h.b.coverBox.setVisibility(android.view.View.VISIBLE);
             bindCover(h, book);
+            bindSpine(h, book);
+            bindProgressOverlay(h, book);
         }
 
         // 多选模式：只改 CardView 的底色。
@@ -233,6 +235,36 @@ public class BookAdapter extends RecyclerView.Adapter<BookAdapter.VH> {
 
     private void bindCover(VH h, Book book) {
         com.bai.bookshelf.util.CoverLoader.load(h.b.ivCover, book);
+    }
+
+    /** v5.8.14：书脊宽度 6/8/10dp（1 册 / 2–3 册 / 套装或 4 册以上） */
+    private void bindSpine(VH h, Book book) {
+        android.view.ViewGroup.LayoutParams lp = h.b.vSpine.getLayoutParams();
+        int width = Math.round(com.bai.bookshelf.util.BookSpine.widthDp(book)
+                * h.itemView.getResources().getDisplayMetrics().density);
+        if (lp.width != width) {
+            lp.width = width;
+            h.b.vSpine.setLayoutParams(lp);
+        }
+        h.b.vSpine.setAlpha(com.bai.bookshelf.util.BookSpine.alpha(book));
+    }
+
+    /** v5.8.14：列表封面底部 2dp 进度线 + 右下角百分比 */
+    private void bindProgressOverlay(VH h, Book book) {
+        int progress = book.readingProgress;
+        boolean show = book.readStatus == Book.READING && progress > 0 && progress < 100;
+        h.b.pbCoverProgress.setVisibility(show ? View.VISIBLE : View.GONE);
+        h.b.tvProgressPercent.setVisibility(show ? View.VISIBLE : View.GONE);
+        if (!show) {
+            return;
+        }
+        android.content.Context ctx = h.itemView.getContext();
+        h.b.pbCoverProgress.setProgress(Math.min(100, progress));
+        h.b.pbCoverProgress.setProgressTintList(android.content.res.ColorStateList.valueOf(
+                com.bai.bookshelf.util.ShelfAccent.statusColor(ctx, book)));
+        h.b.tvProgressPercent.setText(progress + "%");
+        h.b.tvProgressPercent.setBackgroundTintList(android.content.res.ColorStateList.valueOf(
+                com.bai.bookshelf.util.ShelfAccent.percentBackground(ctx, book)));
     }
 
     /** 列表项里的单个小标签视图（琥珀色文字，与地点/状态标签区分） */

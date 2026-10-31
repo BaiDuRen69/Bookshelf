@@ -6,11 +6,9 @@ import android.view.View;
 import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
-import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.bai.bookshelf.R;
 import com.bai.bookshelf.data.entity.Book;
 import com.bai.bookshelf.databinding.ItemBookGridBinding;
 import com.bai.bookshelf.util.ThemeManager;
@@ -144,19 +142,10 @@ public class BookGridAdapter extends RecyclerView.Adapter<BookGridAdapter.VH> {
                 com.bai.bookshelf.util.BookText.displayTitle(book.title), keyword,
                 ThemeManager.resolveColor(h.itemView.getContext(), ThemeManager.ATTR_COLOR_PRIMARY),
                 ThemeManager.primaryAlpha(h.itemView.getContext(), 0x33)));
-        // 生成封面配 6dp 布面书脊；真实封面只留 2dp 内边缘，避免叠成双书脊
-        boolean generatedCover = book.coverUrl.isEmpty();
-        h.b.vSpine.setVisibility(generatedCover ? View.VISIBLE : View.GONE);
-        h.b.vEdge.setVisibility(generatedCover ? View.GONE : View.VISIBLE);
+        // v5.8.14：书脊厚度按册数 / 套装（网格与列表同一套规则）
+        bindSpine(h, book);
         bindStatusBadge(h, book);
-        // v5.8.9：在读进度角标（0 与 100 不显示，读完由状态角标表达）
-        int progress = book.readingProgress;
-        if (progress > 0 && progress < 100 && book.readStatus == Book.READING) {
-            h.b.tvProgressBadge.setText(progress + "%");
-            h.b.tvProgressBadge.setVisibility(View.VISIBLE);
-        } else {
-            h.b.tvProgressBadge.setVisibility(View.GONE);
-        }
+        bindProgressOverlay(h, book);
         bindCover(h, book);
 
         // v4.19：封面高度交给 RatioImageView 按实测宽度自行换算（3:4），
@@ -178,21 +167,54 @@ public class BookGridAdapter extends RecyclerView.Adapter<BookGridAdapter.VH> {
         });
     }
 
-    /** 状态只保留「借出」「在读」，收成书脊底部的色条（v4.30） */
+    /** 状态只保留「借出 / 遗失 / 在读 / 弃读」，收成书脊底部的色条（v4.30） */
     private void bindStatusBadge(VH h, Book book) {
-        boolean borrowed = book.stockStatus == 1;
-        boolean reading = book.readStatus == 1;
-        if (!borrowed && !reading) {
+        boolean borrowed = book.stockStatus == Book.STOCK_LENT;
+        boolean lost = book.stockStatus == Book.STOCK_LOST;
+        boolean reading = book.readStatus == Book.READING;
+        boolean dropped = book.readStatus == Book.READ_DROPPED;
+        if (!borrowed && !lost && !reading && !dropped) {
             h.b.vStatusAccent.setVisibility(View.GONE);
             h.b.vStatusAccent.setContentDescription(null);
             return;
         }
         android.content.Context ctx = h.itemView.getContext();
         h.b.vStatusAccent.setVisibility(View.VISIBLE);
-        h.b.vStatusAccent.setContentDescription(borrowed ? "借出" : "在读");
-        h.b.vStatusAccent.setBackgroundTintList(ColorStateList.valueOf(borrowed
-                ? ContextCompat.getColor(ctx, R.color.badge_borrowed)
-                : ThemeManager.resolveColor(ctx, ThemeManager.ATTR_COLOR_PRIMARY)));
+        h.b.vStatusAccent.setContentDescription(
+                lost ? "遗失" : borrowed ? "借出" : dropped ? "弃读" : "在读");
+        h.b.vStatusAccent.setBackgroundTintList(ColorStateList.valueOf(
+                com.bai.bookshelf.util.ShelfAccent.statusColor(ctx, book)));
+    }
+
+    /** v5.8.14：书脊宽度 6/8/10dp；真实封面用半透明书脊，避免压住封面原画 */
+    private void bindSpine(VH h, Book book) {
+        android.view.ViewGroup.LayoutParams lp = h.b.vSpine.getLayoutParams();
+        int width = Math.round(com.bai.bookshelf.util.BookSpine.widthDp(book)
+                * h.itemView.getResources().getDisplayMetrics().density);
+        if (lp.width != width) {
+            lp.width = width;
+            h.b.vSpine.setLayoutParams(lp);
+        }
+        h.b.vSpine.setAlpha(com.bai.bookshelf.util.BookSpine.alpha(book));
+        h.b.vSpine.setVisibility(View.VISIBLE);
+    }
+
+    /** v5.8.14：底部 2dp 进度线 + 右下角百分比（0 与 100 不显示） */
+    private void bindProgressOverlay(VH h, Book book) {
+        int progress = book.readingProgress;
+        boolean show = book.readStatus == Book.READING && progress > 0 && progress < 100;
+        h.b.pbCoverProgress.setVisibility(show ? View.VISIBLE : View.GONE);
+        h.b.tvProgressPercent.setVisibility(show ? View.VISIBLE : View.GONE);
+        if (!show) {
+            return;
+        }
+        android.content.Context ctx = h.itemView.getContext();
+        h.b.pbCoverProgress.setProgress(Math.min(100, progress));
+        h.b.pbCoverProgress.setProgressTintList(ColorStateList.valueOf(
+                com.bai.bookshelf.util.ShelfAccent.statusColor(ctx, book)));
+        h.b.tvProgressPercent.setText(progress + "%");
+        h.b.tvProgressPercent.setBackgroundTintList(ColorStateList.valueOf(
+                com.bai.bookshelf.util.ShelfAccent.percentBackground(ctx, book)));
     }
 
     private void bindCover(VH h, Book book) {

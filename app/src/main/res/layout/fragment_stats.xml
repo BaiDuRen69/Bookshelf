@@ -1040,6 +1040,34 @@
                             android:lineSpacingMultiplier="1.35"
                             android:textColor="?attr/on_surface_variant"
                             android:textSize="@dimen/text_body_small" />
+
+                        <!-- v5.8.14：样本不足时的小图 + 一句「再添几本」，别只留冷冰冰的「数据不足」 -->
+                        <LinearLayout
+                            android:id="@+id/row_insight_low_sample"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="@dimen/space_sm"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal"
+                            android:visibility="gone">
+
+                            <ImageView
+                                android:layout_width="40dp"
+                                android:layout_height="40dp"
+                                android:importantForAccessibility="no"
+                                android:scaleType="fitCenter"
+                                android:src="@drawable/ic_stats_low_sample"
+                                app:tint="?attr/colorPrimary" />
+
+                            <TextView
+                                android:id="@+id/tv_insight_low_sample"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="@dimen/space_sm"
+                                android:layout_weight="1"
+                                android:textColor="?attr/on_surface"
+                                android:textSize="@dimen/text_body_small" />
+                        </LinearLayout>
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
 

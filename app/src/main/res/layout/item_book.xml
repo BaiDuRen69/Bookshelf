@@ -18,16 +18,58 @@
         android:gravity="center_vertical"
         android:padding="10dp">
 
-        <ImageView
-            android:id="@+id/iv_cover"
+        <FrameLayout
+            android:id="@+id/cover_box"
             android:layout_width="54dp"
             android:layout_height="72dp"
             android:background="@drawable/bg_cover"
             android:clipToOutline="true"
-            android:foreground="@drawable/bg_cover_stroke"
-            android:importantForAccessibility="no"
-            android:scaleType="centerCrop"
-            android:src="@drawable/ic_cover_placeholder" />
+            android:foreground="@drawable/bg_cover_stroke">
+
+            <ImageView
+                android:id="@+id/iv_cover"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:importantForAccessibility="no"
+                android:scaleType="centerCrop"
+                android:src="@drawable/ic_cover_placeholder" />
+
+            <!-- v5.8.14：与网格同一条书脊（宽度按册数） -->
+            <View
+                android:id="@+id/v_spine"
+                android:layout_width="6dp"
+                android:layout_height="match_parent"
+                android:layout_gravity="start"
+                android:background="@drawable/bg_book_spine" />
+
+            <!-- v5.8.14：底部 2dp 阅读进度线 -->
+            <ProgressBar
+                android:id="@+id/pb_cover_progress"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="match_parent"
+                android:layout_height="2dp"
+                android:layout_gravity="bottom"
+                android:max="100"
+                android:progressBackgroundTint="@android:color/transparent"
+                android:progressDrawable="@drawable/progress_cover"
+                android:progressTint="?attr/colorPrimary"
+                android:visibility="gone" />
+
+            <!-- v5.8.14：右下角百分比 -->
+            <TextView
+                android:id="@+id/tv_progress_percent"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="bottom|end"
+                android:layout_marginEnd="3dp"
+                android:layout_marginBottom="5dp"
+                android:background="@drawable/bg_progress_badge"
+                android:paddingHorizontal="4dp"
+                android:paddingVertical="0dp"
+                android:textColor="#FFFFFF"
+                android:textSize="9sp"
+                android:visibility="gone" />
+        </FrameLayout>
 
         <LinearLayout
             android:layout_width="0dp"

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 统计「样本不足」小图（v5.8.14）：三根渐高的柱 + 一颗星，暗示「再多记几本」 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="40dp"
+    android:height="40dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M4.5,15h3v6h-3z" />
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M10.5,10h3v11h-3z" />
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M16.5,6h3v15h-3z" />
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M19.2,1.6h1.2v2.2h2.2v1.2h-2.2v2.2h-1.2V5h-2.2V3.8h2.2z" />
+</vector>
