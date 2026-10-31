@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 桌面小组件兜底色（v5.8.14）：系统深色模式下、小组件还没收到首次更新时的首帧。
+     运行时 build() 仍按 App 主题重新解析颜色，两者互不冲突。 -->
+<resources>
+    <color name="widget_bg">#1E1B18</color>
+    <color name="widget_outline">#3A342E</color>
+    <color name="widget_title">#D8B77E</color>
+    <color name="widget_text">#EDE7DE</color>
+    <color name="widget_sub">#B5AEA3</color>
+    <color name="widget_track">#3A342E</color>
+    <color name="widget_error">#F2B8B5</color>
+</resources>

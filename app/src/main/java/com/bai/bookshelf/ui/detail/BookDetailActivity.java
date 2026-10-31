@@ -54,6 +54,10 @@ public class BookDetailActivity extends BaseActivity {
     private String locationName = "未设置地点";
     /** 已加载的封面标识（url|书名）：reload 重绘时封面没变就不重复请求 Glide */
     private String loadedCoverKey = "";
+    /** v5.8.14：封面主色（0 = 还在后台取），按 地址|书名|主题 失效 */
+    private int coverAccent;
+    private String accentKey = "";
+    private boolean accentLoading;
 
     /** 分类展示串「一级-二级」（v4.9，reload 时解析好再给 bind 用） */
     private String categoryDisplay = "";
@@ -271,6 +275,7 @@ public class BookDetailActivity extends BaseActivity {
         boolean reading = book != null && book.readStatus == Book.READING;
         b.tvReadingProgress.setVisibility(reading ? View.VISIBLE : View.GONE);
         if (!reading) {
+            b.pbReadingProgress.setVisibility(View.GONE);
             return;
         }
         final int p = Math.max(0, Math.min(100, book.readingProgress));
@@ -278,6 +283,62 @@ public class BookDetailActivity extends BaseActivity {
                 ? "阅读进度 " + p + "% · 点按修改"
                 : "记录阅读进度（点按设置）");
         b.tvReadingProgress.setOnClickListener(v -> showProgressDialog(p));
+        // v5.8.14：进度条跟着封面主色走（未取到色时先用主题主色）
+        b.pbReadingProgress.setVisibility(p > 0 ? View.VISIBLE : View.GONE);
+        b.pbReadingProgress.setProgress(p);
+        b.pbReadingProgress.setProgressTintList(ColorStateList.valueOf(
+                coverAccent != 0 ? coverAccent
+                        : ThemeManager.resolveColor(this, ThemeManager.ATTR_COLOR_PRIMARY)));
+    }
+
+    /** 封面主色 → hero 晕染 + 底部细线 + 阅读进度条；取色在后台，失败按主题色 */
+    private void bindCoverAccent() {
+        final String key = book.coverUrl + "|" + book.title + "|"
+                + ThemeManager.current(this);
+        int cached = com.bai.bookshelf.util.CoverColor.cached(this, book);
+        if (cached != 0) {
+            coverAccent = cached;
+            accentKey = key;
+        } else if (!key.equals(accentKey)) {
+            coverAccent = 0;
+            accentKey = key;
+        }
+        applyCoverAccent();
+        if (coverAccent != 0 || accentLoading) {
+            return;
+        }
+        accentLoading = true;
+        final Book target = book;
+        final String wanted = key;
+        BookshelfApp.get().io(() -> {
+            int color = com.bai.bookshelf.util.CoverColor.of(this, target);
+            runOnUiThread(() -> {
+                accentLoading = false;
+                if (book != null && wanted.equals(book.coverUrl + "|" + book.title + "|"
+                        + ThemeManager.current(this))) {
+                    coverAccent = color;
+                    applyCoverAccent();
+                }
+            });
+        });
+    }
+
+    private void applyCoverAccent() {
+        boolean night = ThemeManager.current(this) == ThemeManager.THEME_NIGHT;
+        int base = ThemeManager.resolveColor(this, R.attr.primary_container);
+        int scrim = coverAccent == 0 ? base
+                : androidx.core.graphics.ColorUtils.blendARGB(
+                        base, coverAccent, night ? 0.30f : 0.22f);
+        b.vHeroScrim.setBackgroundColor(
+                androidx.core.graphics.ColorUtils.setAlphaComponent(scrim, 217));
+        b.vHeroLine.setBackgroundColor(coverAccent == 0
+                ? ThemeManager.resolveColor(this, ThemeManager.ATTR_COLOR_SECONDARY)
+                : androidx.core.graphics.ColorUtils.setAlphaComponent(coverAccent, 180));
+        if (b.pbReadingProgress.getVisibility() == View.VISIBLE) {
+            b.pbReadingProgress.setProgressTintList(ColorStateList.valueOf(
+                    coverAccent != 0 ? coverAccent
+                            : ThemeManager.resolveColor(this, ThemeManager.ATTR_COLOR_PRIMARY)));
+        }
     }
 
     private void showProgressDialog(int current) {
@@ -391,13 +452,10 @@ public class BookDetailActivity extends BaseActivity {
             com.bai.bookshelf.util.CoverLoader.load(b.ivCover, book);
             // v5.7 无障碍：TalkBack 聚焦封面时能报出是哪本书，而不是笼统的「书籍封面」
             b.ivCover.setContentDescription("《" + book.title + "》封面");
-            // v4.30：hero 用封面做模糊底，叠 85% 纸色遮罩（每本书有自己的颜色情绪）
-            int scrimColor = ThemeManager.resolveColor(
-                    this, R.attr.primary_container);
-            b.vHeroScrim.setBackgroundColor(androidx.core.graphics.ColorUtils.setAlphaComponent(
-                    scrimColor, 217));
+            // v4.30：hero 用封面做模糊底；v5.8.14 遮罩再叠一点封面主色
             com.bai.bookshelf.util.CoverLoader.loadBlurred(b.ivHeroBg, book);
         }
+        bindCoverAccent();
         boolean multi = book.quantity > 1;
         boolean hasLent = !openRecords.isEmpty();
 

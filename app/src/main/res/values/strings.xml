@@ -68,4 +68,7 @@
     <string name="shortcut_scan_long">扫码快速录入藏书</string>
     <string name="shortcut_split">购入价分摊</string>
     <string name="shortcut_split_long">套装书籍购入价分摊</string>
+
+    <!-- 桌面小组件（v5.8.14） -->
+    <string name="widget_reading_description">在读一本、年度目标进度与到期提醒，随主题换色</string>
 </resources>

@@ -1,11 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 桌面小组件元数据（v5.8.8）：2×2，半小时刷新一次 -->
+<!-- 桌面小组件元数据（v5.8.14）：2×2，半小时刷新一次；
+     previewLayout 让选择器直接看到真实版面（API 31+，旧系统忽略） -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/widget_reading_description"
     android:initialLayout="@layout/widget_reading"
     android:minWidth="110dp"
     android:minHeight="110dp"
+    android:previewLayout="@layout/widget_reading"
+    android:resizeMode="none"
     android:targetCellWidth="2"
     android:targetCellHeight="2"
-    android:resizeMode="none"
     android:updatePeriodMillis="1800000"
     android:widgetCategory="home_screen" />

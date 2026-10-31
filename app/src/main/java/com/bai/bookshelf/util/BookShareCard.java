@@ -16,7 +16,8 @@ import java.util.Locale;
 
 /**
  * 单本书的分享卡（v4.52）：1080×1440 PNG。
- * 固定暖纸 + 墨绿 + 黄铜配色，不随 App 主题变化，发出去更像一张藏书票。
+ * 固定暖纸 + 黄铜配色，不随 App 主题变化，发出去更像一张藏书票。
+ * v5.8.14：品牌/状态/标签/引文竖线改用封面主色，一本书一张卡。
  */
 public final class BookShareCard {
 
@@ -27,7 +28,6 @@ public final class BookShareCard {
     private static final int INK = 0xFF2B2A26;
     private static final int MUTED = 0xFF7B7365;
     private static final int BRASS = 0xFFB08A3E;
-    private static final int GREEN = 0xFF2F5D4A;
     private static final int LINE = 0xFFE3D8C3;
 
     private BookShareCard() {
@@ -38,6 +38,8 @@ public final class BookShareCard {
         Bitmap bitmap = Bitmap.createBitmap(WIDTH, HEIGHT, Bitmap.Config.ARGB_8888);
         Canvas c = new Canvas(bitmap);
         c.drawColor(BG);
+        // 封面主色：图没有彩色（白底扫描件）时按书名布色兜底
+        final int accent = CoverColor.readableOnPaper(CoverColor.fromBitmap(cover, book.title));
 
         Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
         float left = 80f;
@@ -46,7 +48,7 @@ public final class BookShareCard {
         paint.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         paint.setTextSize(28f);
         paint.setLetterSpacing(0.08f);
-        paint.setColor(GREEN);
+        paint.setColor(accent);
         c.drawText("小书房 · 藏书", left, 110f, paint);
         paint.setLetterSpacing(0f);
         paint.setTextSize(24f);
@@ -65,7 +67,7 @@ public final class BookShareCard {
         float coverY = 190f;
         float coverW = 320f;
         float coverH = 440f;
-        drawCover(c, paint, book, cover, coverX, coverY, coverW, coverH);
+        drawCover(c, paint, book, cover, accent, coverX, coverY, coverW, coverH);
 
         // 右列文字
         float textX = 448f;
@@ -84,7 +86,7 @@ public final class BookShareCard {
 
         // 阅读状态（在读 / 已读 / 未读）
         paint.setTextSize(28f);
-        paint.setColor(GREEN);
+        paint.setColor(accent);
         c.drawText(statusText(book), textX, titleBottom + 92f, paint);
 
         float metaY = titleBottom + 168f;
@@ -108,7 +110,7 @@ public final class BookShareCard {
         String tags = tagLine(book.tags);
         if (!tags.isEmpty()) {
             paint.setTextSize(27f);
-            paint.setColor(GREEN);
+            paint.setColor(accent);
             c.drawText(clip(tags, paint, maxW), textX, metaY + 56f, paint);
         }
 
@@ -152,8 +154,8 @@ public final class BookShareCard {
         paint.setColor(INK);
         drawWrapped(c, quote, paint, left + 34f, quoteY, quoteMaxW, 5, 58f);
 
-        // 左侧黄铜竖线
-        paint.setColor(BRASS);
+        // 左侧封面色竖线
+        paint.setColor(accent);
         paint.setStrokeWidth(6f);
         c.drawLine(left, quoteY - 40f, left, quoteY - 40f + quoteHeight, paint);
 
@@ -168,7 +170,7 @@ public final class BookShareCard {
 
         paint.setTypeface(Typeface.create("serif", Typeface.NORMAL));
         paint.setTextSize(44f);
-        paint.setColor(GREEN);
+        paint.setColor(accent);
         String brand = "小书房";
         c.drawText(brand, WIDTH - left - paint.measureText(brand), 1320f, paint);
 
@@ -176,7 +178,7 @@ public final class BookShareCard {
     }
 
     private static void drawCover(Canvas c, Paint paint, Book book, Bitmap cover,
-                                  float x, float y, float w, float h) {
+                                  int accent, float x, float y, float w, float h) {
         RectF rect = new RectF(x, y, x + w, y + h);
         Path clip = new Path();
         clip.addRoundRect(rect, 14f, 14f, Path.Direction.CW);
@@ -196,14 +198,14 @@ public final class BookShareCard {
             float dy = y + (h - dh) / 2f;
             c.drawBitmap(cover, null, new RectF(dx, dy, dx + dw, dy + dh), paint);
         } else {
-            paint.setColor(GREEN);
+            paint.setColor(accent);
             c.drawRect(rect, paint);
             paint.setColor(0x66FFFFFF);
             paint.setStyle(Paint.Style.STROKE);
             paint.setStrokeWidth(2f);
             c.drawRect(new RectF(x + 20f, y + 20f, x + w - 20f, y + h - 20f), paint);
             paint.setStyle(Paint.Style.FILL);
-            paint.setColor(0xFFF6F0E4);
+            paint.setColor(BG);
             paint.setTypeface(Typeface.create("serif", Typeface.NORMAL));
             paint.setTextSize(150f);
             String ch = book.title == null || book.title.isEmpty()

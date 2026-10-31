@@ -88,6 +88,7 @@
                         android:layout_height="match_parent" />
 
                     <View
+                        android:id="@+id/v_hero_line"
                         android:layout_width="match_parent"
                         android:layout_height="1dp"
                         android:layout_gravity="bottom"
@@ -562,6 +563,19 @@
                             android:paddingVertical="4dp"
                             android:textColor="?attr/on_surface_variant"
                             android:textSize="@dimen/text_body_small"
+                            android:visibility="gone" />
+
+                        <!-- v5.8.14：阅读进度条，颜色取封面主色 -->
+                        <ProgressBar
+                            android:id="@+id/pb_reading_progress"
+                            style="?android:attr/progressBarStyleHorizontal"
+                            android:layout_width="match_parent"
+                            android:layout_height="4dp"
+                            android:layout_marginTop="4dp"
+                            android:max="100"
+                            android:progressBackgroundTint="?attr/outline"
+                            android:progressDrawable="@drawable/progress_reading"
+                            android:progressTint="?attr/colorPrimary"
                             android:visibility="gone" />
 
                         <LinearLayout

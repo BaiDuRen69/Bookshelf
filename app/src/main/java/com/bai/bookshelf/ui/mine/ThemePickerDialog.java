@@ -79,6 +79,8 @@ public class ThemePickerDialog {
 
             cell.getRoot().setOnClickListener(v -> {
                 ThemeManager.set(ctx, idx);
+                // v5.8.14：桌面小组件也跟着换底色 / 字色
+                com.bai.bookshelf.ui.widget.ReadingWidgetProvider.refresh(ctx);
                 if (holder[0] != null) {
                     holder[0].dismiss();
                 }

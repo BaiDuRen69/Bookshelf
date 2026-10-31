@@ -143,4 +143,17 @@
     <color name="purple_on_container">#4E3876</color>
     <color name="graphite_container">#E8EEEE</color>
     <color name="graphite_on_container">#334C51</color>
+
+    <!-- ===== 桌面小组件（v5.8.14）：初始布局 / 选择器预览的兜底色 =====
+         运行时由 ThemeManager 解析当前主题后通过 RemoteViews 覆盖；
+         values-night 里再给一套，系统深色下未刷新前也不会闪白。 -->
+    <color name="widget_bg">#F7F2E7</color>
+    <color name="widget_outline">#E3DCCB</color>
+    <color name="widget_title">#2E6E5C</color>
+    <color name="widget_text">#3A3228</color>
+    <color name="widget_sub">#6B6660</color>
+    <color name="widget_track">#EDE7DC</color>
+    <color name="widget_error">#B3261E</color>
+    <!-- 夜读主题在亮色系统下也要用的浅红（不能走 values-night，否则跟 App 主题脱节） -->
+    <color name="widget_error_night">#F2B8B5</color>
 </resources>

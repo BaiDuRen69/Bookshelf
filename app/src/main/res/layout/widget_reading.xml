@@ -1,53 +1,81 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 桌面小组件 2×2（v5.8.8）：在读一本 + 年度目标 + 今日到期 -->
+<!-- 桌面小组件 2×2（v5.8.14）：在读一本 + 年度目标 + 到期提醒。
+     颜色只是首帧/预览兜底，运行时 build() 按当前主题 setTextColor 并用 Bitmap 画进度条。 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/bg_widget"
     android:orientation="vertical"
-    android:padding="14dp">
+    android:paddingStart="14dp"
+    android:paddingTop="12dp"
+    android:paddingEnd="14dp"
+    android:paddingBottom="12dp">
 
     <TextView
+        android:id="@+id/widget_brand"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:letterSpacing="0.08"
         android:text="小书房"
-        android:textColor="#2E6B57"
-        android:textSize="12sp"
+        android:textColor="@color/widget_title"
+        android:textSize="11sp"
         android:textStyle="bold" />
 
     <TextView
         android:id="@+id/widget_reading"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_marginTop="6dp"
+        android:layout_marginTop="5dp"
         android:layout_weight="1"
         android:ellipsize="end"
-        android:maxLines="3"
+        android:fontFamily="serif"
+        android:gravity="center_vertical"
+        android:maxLines="2"
         android:text="书架空着"
-        android:textColor="#3A3228"
+        android:textColor="@color/widget_text"
         android:textSize="15sp" />
 
-    <ProgressBar
+    <ImageView
         android:id="@+id/widget_progress"
-        style="?android:attr/progressBarStyleHorizontal"
         android:layout_width="match_parent"
         android:layout_height="4dp"
         android:layout_marginTop="6dp"
-        android:max="100"
-        android:progress="0" />
+        android:importantForAccessibility="no"
+        android:scaleType="fitXY"
+        android:src="@drawable/progress_widget" />
 
-    <TextView
-        android:id="@+id/widget_goal"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:ellipsize="end"
-        android:singleLine="true"
-        android:text="今年 0 / 24 种"
-        android:textColor="#6B6660"
-        android:textSize="11sp" />
+        android:layout_marginTop="5dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
 
+        <TextView
+            android:id="@+id/widget_goal"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:singleLine="true"
+            android:text="今年 0 / 24 种"
+            android:textColor="@color/widget_sub"
+            android:textSize="11sp" />
+
+        <TextView
+            android:id="@+id/widget_percent"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="6dp"
+            android:singleLine="true"
+            android:text="0%"
+            android:textColor="@color/widget_title"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <!-- 逾期单独一行、错误色；今日到期另起一行，避免两种情况挤在同一句里 -->
     <TextView
         android:id="@+id/widget_due"
         android:layout_width="match_parent"
@@ -55,7 +83,18 @@
         android:layout_marginTop="2dp"
         android:ellipsize="end"
         android:singleLine="true"
-        android:textColor="#B3261E"
+        android:textColor="@color/widget_error"
+        android:textSize="11sp"
+        android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/widget_due_today"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="1dp"
+        android:ellipsize="end"
+        android:singleLine="true"
+        android:textColor="@color/widget_sub"
         android:textSize="11sp"
         android:visibility="gone" />
 </LinearLayout>
