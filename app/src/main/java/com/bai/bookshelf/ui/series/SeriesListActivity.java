@@ -1,5 +1,6 @@
 package com.bai.bookshelf.ui.series;
 
+import com.bai.bookshelf.util.Typo;
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
@@ -106,7 +107,7 @@ public class SeriesListActivity extends BaseActivity {
         if (books.size() > preview) {
             TextView more = new TextView(this);
             more.setText("+" + (books.size() - preview));
-            more.setTextSize(11);
+            Typo.text(more, R.dimen.text_caption);
             more.setTextColor(ThemeManager.resolveColor(this, R.attr.on_surface_variant));
             more.setBackgroundResource(R.drawable.bg_filter_pill);
             more.setPadding(dp(8), dp(3), dp(8), dp(3));

@@ -52,6 +52,8 @@ public class StatsFragment extends Fragment {
     private boolean statsComputed;
     private boolean statsVisible;
     private boolean heroAnimated;
+    /** 本年「还按 N 种吗」弹窗是否已弹过（进程内 + 持久化各一道） */
+    private boolean goalPrompted;
     private com.bai.bookshelf.util.StatsHoldings.Holdings hold;
     private com.bai.bookshelf.util.StatsSpend.Spend spend;
     private com.bai.bookshelf.util.StatsPace.Pace pace;
@@ -256,24 +258,13 @@ public class StatsFragment extends Fragment {
         tv.setSelected(selected);
     }
 
-    /** 阅读目标卡（v4.44）：年度目标存 SharedPreferences，按年重置 */
+    /** 阅读目标卡（v4.44，v5.8.4 改为跨年继承 + 1 月问一次） */
     private void bindReadingGoal(int finished, int avgDays) {
         if (b == null) {
             return;
         }
-        int year = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR);
-        android.content.SharedPreferences prefs =
-                requireContext().getSharedPreferences("ui_prefs", 0);
-        int goalYear = prefs.getInt("reading_goal_year", 0);
-        int goal = prefs.getInt("reading_goal", 24);
-        if (goalYear != year) {
-            goal = 24;
-            prefs.edit().putInt("reading_goal_year", year)
-                    .putInt("reading_goal", goal).apply();
-        }
-        if (goal < 1) {
-            goal = 1;
-        }
+        // 跨年不再重置成 24，而是沿用去年的目标（ReadingGoal.current 内部做滚动）
+        int goal = com.bai.bookshelf.util.ReadingGoal.current(requireContext());
         b.tvGoalSummary.setText("今年读完 " + finished + " 种 / 目标 " + goal + " 种");
         b.pbGoal.setProgress(Math.min(100, finished * 100 / goal));
         // v5.8：按当前速度给预测，落后就说清剩下几个月每月要读几本
@@ -283,6 +274,28 @@ public class StatsFragment extends Fragment {
         b.tvGoalStreak.setText(g.line() + (avgDays > 0
                 ? " · 平均 " + avgDays + " 天读完一种"
                 : " · 把状态改成「在读 / 已读」，这里会自动记录开始与读完日期"));
+        maybePromptGoalForNewYear(goal);
+    }
+
+    /** 1 月第一次打开统计页时问一句「今年还按 N 种吗」，一年只问一次 */
+    private void maybePromptGoalForNewYear(int goal) {
+        if (!isAdded() || goalPrompted) {
+            return;
+        }
+        if (!com.bai.bookshelf.util.ReadingGoal.needsJanuaryPrompt(requireContext())) {
+            return;
+        }
+        goalPrompted = true;
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+                .setTitle("新的一年")
+                .setMessage("去年定了 " + goal + " 种，今年还按这个来吗？")
+                .setNegativeButton("改一下", (d, w) -> {
+                    com.bai.bookshelf.util.ReadingGoal.markPrompted(requireContext());
+                    showReadingGoalDialog();
+                })
+                .setPositiveButton("就按 " + goal + " 种", (d, w) ->
+                        com.bai.bookshelf.util.ReadingGoal.markPrompted(requireContext()))
+                .show();
     }
 
     private void showReadingGoalDialog() {

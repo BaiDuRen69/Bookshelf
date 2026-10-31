@@ -1,5 +1,6 @@
 package com.bai.bookshelf.ui.shelf;
 
+import com.bai.bookshelf.util.Typo;
 import android.app.Activity;
 import android.view.View;
 import android.widget.LinearLayout;
@@ -78,7 +79,7 @@ public final class ShelfFilterRows {
 
     private TextView buildRow(String text) {
         TextView row = new TextView(activity);
-        row.setTextSize(15);
+        Typo.text(row, R.dimen.text_body);
         row.setTextColor(ThemeManager.resolveColor(activity, R.attr.on_surface));
         int dp14 = dp(14);
         row.setPadding(dp14, dp(12), dp14, dp(12));

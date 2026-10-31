@@ -1,5 +1,6 @@
 package com.bai.bookshelf.ui.stats;
 
+import com.bai.bookshelf.util.Typo;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
@@ -456,7 +457,7 @@ public class ReadingStatsActivity extends BaseActivity {
     private void addLegendText(LinearLayout container, String text) {
         TextView tv = new TextView(this);
         tv.setText(text);
-        tv.setTextSize(11);
+        Typo.text(tv, R.dimen.text_caption);
         tv.setTextColor(ThemeManager.resolveColor(this, R.attr.on_surface_variant));
         container.addView(tv);
     }

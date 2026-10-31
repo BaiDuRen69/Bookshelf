@@ -1,5 +1,6 @@
 package com.bai.bookshelf.ui.scan;
 
+import com.bai.bookshelf.util.Typo;
 import android.content.Context;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
@@ -262,7 +263,7 @@ public class ScanBatchController {
             TextView tvTitle = new TextView(activity);
             tvTitle.setText(titleOf(item));
             tvTitle.setTextColor(onSurface);
-            tvTitle.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+            Typo.text(tvTitle, R.dimen.text_body);
             tvTitle.setMaxLines(2);
             tvTitle.setEllipsize(android.text.TextUtils.TruncateAt.END);
             texts.addView(tvTitle);
@@ -270,7 +271,7 @@ public class ScanBatchController {
             TextView tvStatus = new TextView(activity);
             tvStatus.setText(statusOf(item));
             tvStatus.setTextColor(item.status == BATCH_FAILED ? danger : onVariant);
-            tvStatus.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+            Typo.text(tvStatus, R.dimen.text_body_small);
             LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.WRAP_CONTENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT);
@@ -280,7 +281,7 @@ public class ScanBatchController {
             TextView remove = new TextView(activity);
             remove.setText("移除");
             remove.setTextColor(primary);
-            remove.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+            Typo.text(remove, R.dimen.text_caption_large);
             remove.setPadding(dp(8), dp(8), 0, dp(8));
             remove.setClickable(true);
             remove.setOnClickListener(v -> {

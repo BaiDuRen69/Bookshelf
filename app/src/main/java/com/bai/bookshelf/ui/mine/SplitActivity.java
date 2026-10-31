@@ -1,5 +1,6 @@
 package com.bai.bookshelf.ui.mine;
 
+import com.bai.bookshelf.util.Typo;
 import androidx.appcompat.app.AlertDialog;
 import android.os.Bundle;
 import android.view.LayoutInflater;
@@ -137,7 +138,7 @@ public class SplitActivity extends BaseActivity {
             TextView tv = new TextView(this);
             tv.setText(String.format(Locale.getDefault(), "《%s》 定价 %.2f → 分摊 %.2f 元（%.1f%%）",
                     r.bookName, r.price, r.allocatedPrice, r.ratio * 100));
-            tv.setTextSize(14);
+            Typo.text(tv, R.dimen.text_body_medium);
             tv.setPadding(0, dp(6), 0, dp(6));
             b.containerResult.addView(tv);
         }
@@ -282,7 +283,7 @@ public class SplitActivity extends BaseActivity {
                 }
                 TextView tv = new TextView(this);
                 tv.setText(sb.toString());
-                tv.setTextSize(13);
+                Typo.text(tv, R.dimen.text_body_small);
                 tv.setTextColor(com.bai.bookshelf.util.ThemeManager.resolveColor(this, R.attr.on_surface));
                 tv.setBackgroundResource(R.drawable.bg_chip);
                 tv.setPadding(dp(10), dp(8), dp(10), dp(8));

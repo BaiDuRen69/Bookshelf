@@ -1,5 +1,6 @@
 package com.bai.bookshelf.ui.edit;
 
+import com.bai.bookshelf.util.Typo;
 import android.widget.ArrayAdapter;
 import android.widget.Toast;
 
@@ -163,7 +164,7 @@ public class BorrowRecordSection {
         for (BorrowSourceRecords.Record r : records) {
             android.widget.TextView row = new android.widget.TextView(activity);
             row.setText(line(r));
-            row.setTextSize(13);
+            Typo.text(row, R.dimen.text_body_small);
             row.setTextColor(com.bai.bookshelf.util.ThemeManager.resolveColor(
                     activity, R.attr.on_surface));
             row.setBackgroundResource(R.drawable.bg_dialog_row);

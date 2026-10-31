@@ -1,5 +1,6 @@
 package com.bai.bookshelf.ui.shelf;
 
+import com.bai.bookshelf.util.Typo;
 import android.content.Context;
 import android.content.res.ColorStateList;
 import android.view.View;
@@ -64,7 +65,7 @@ final class HighlightAdapter<T> extends ArrayAdapter<T> {
         TextView tv = (TextView) super.getDropDownView(position, convertView, parent);
         int pad = (int) (12 * getContext().getResources().getDisplayMetrics().density);
         tv.setPadding(pad, pad, pad, pad);
-        tv.setTextSize(14);
+        Typo.text(tv, R.dimen.text_body_medium);
         if (position == highlight) {
             // 选中项：加粗 + 主题色文字 + 浅主题底色
             tv.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);

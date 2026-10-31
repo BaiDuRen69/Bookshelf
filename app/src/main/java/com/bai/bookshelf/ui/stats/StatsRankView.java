@@ -1,5 +1,6 @@
 package com.bai.bookshelf.ui.stats;
 
+import com.bai.bookshelf.util.Typo;
 import android.app.Activity;
 import android.graphics.Typeface;
 import android.view.Gravity;
@@ -94,14 +95,14 @@ public class StatsRankView {
 
         TextView tvRank = new TextView(activity);
         tvRank.setText(String.valueOf(rank));
-        tvRank.setTextSize(12);
+        Typo.text(tvRank, R.dimen.text_caption_large);
         tvRank.setGravity(Gravity.CENTER);
         tvRank.setTextColor(primary);
         row.addView(tvRank, new LinearLayout.LayoutParams(dp(22), ViewGroup.LayoutParams.WRAP_CONTENT));
 
         TextView tvName = new TextView(activity);
         tvName.setText(e.label);
-        tvName.setTextSize(13);
+        Typo.text(tvName, R.dimen.text_body_small);
         tvName.setSingleLine(true);
         row.addView(tvName, new LinearLayout.LayoutParams(dp(72), ViewGroup.LayoutParams.WRAP_CONTENT));
 
@@ -124,7 +125,7 @@ public class StatsRankView {
 
         TextView tvCount = new TextView(activity);
         tvCount.setText(e.count + " 种");
-        tvCount.setTextSize(13);
+        Typo.text(tvCount, R.dimen.text_body_small);
         tvCount.setTypeface(Typeface.DEFAULT_BOLD);
         tvCount.setGravity(Gravity.END);
         row.addView(tvCount, new LinearLayout.LayoutParams(dp(48), ViewGroup.LayoutParams.WRAP_CONTENT));

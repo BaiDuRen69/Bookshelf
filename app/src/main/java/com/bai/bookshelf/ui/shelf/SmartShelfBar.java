@@ -1,5 +1,6 @@
 package com.bai.bookshelf.ui.shelf;
 
+import com.bai.bookshelf.util.Typo;
 import android.app.Activity;
 import android.view.Gravity;
 import android.view.View;
@@ -62,7 +63,7 @@ public final class SmartShelfBar {
         int textColor = ThemeManager.resolveColor(activity, R.attr.on_surface);
         for (int index : VISIBLE) {
             TextView chip = new TextView(activity);
-            chip.setTextSize(12);
+            Typo.text(chip, R.dimen.text_caption_large);
             chip.setGravity(Gravity.CENTER);
             chip.setPadding(dp(12), 0, dp(12), 0);
             chip.setTextColor(textColor);

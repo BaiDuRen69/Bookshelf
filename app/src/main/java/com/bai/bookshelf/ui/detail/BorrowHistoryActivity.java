@@ -1,5 +1,6 @@
 package com.bai.bookshelf.ui.detail;
 
+import com.bai.bookshelf.util.Typo;
 import android.os.Bundle;
 import android.text.util.Linkify;
 import android.view.LayoutInflater;
@@ -261,14 +262,14 @@ public class BorrowHistoryActivity extends BaseActivity {
         root.setPadding(pad, pad / 2, pad, pad / 2);
 
         android.widget.TextView tvNote = new android.widget.TextView(this);
-        tvNote.setTextSize(15);
+        Typo.text(tvNote, R.dimen.text_body);
         tvNote.setAutoLinkMask(Linkify.WEB_URLS);
         tvNote.setText(r.note.isEmpty() ? "（无备注）" : r.note);
         root.addView(tvNote);
 
         if (!imgs.isEmpty()) {
             android.widget.TextView tvHint = new android.widget.TextView(this);
-            tvHint.setTextSize(13);
+            Typo.text(tvHint, R.dimen.text_body_small);
             tvHint.setText("备注图片（点击查看大图）：");
             root.addView(tvHint);
 
@@ -330,7 +331,7 @@ public class BorrowHistoryActivity extends BaseActivity {
         public void onBindViewHolder(@NonNull VH h, int position) {
             BorrowRecord record = data.get(position);
             h.b.tvName.setText(describe(record));
-            h.b.tvName.setTextSize(14);
+            Typo.text(h.b.tvName, R.dimen.text_body_medium);
             // 用不到的控件：默认徽标、星标
             h.b.tvDefaultBadge.setVisibility(View.GONE);
             h.b.btnStar.setVisibility(View.GONE);

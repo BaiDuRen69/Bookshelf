@@ -1,5 +1,6 @@
 package com.bai.bookshelf.ui.scan;
 
+import com.bai.bookshelf.util.Typo;
 import android.app.Dialog;
 import android.graphics.Color;
 import android.graphics.Typeface;
@@ -93,7 +94,7 @@ final class BatchSheetView {
         locationRow.setPadding(dp(activity, 14), dp(activity, 12),
                 dp(activity, 14), dp(activity, 12));
         locationRow.setTextColor(ThemeManager.resolveColor(activity, R.attr.on_surface));
-        locationRow.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+        Typo.text(locationRow, R.dimen.text_body);
         locationRow.setText("存放地点：" + locationName + "（点按更换）");
         locationRow.setClickable(true);
         locationRow.setFocusable(true);
@@ -117,7 +118,7 @@ final class BatchSheetView {
 
         CheckBox copyCheck = new CheckBox(activity);
         copyCheck.setText("重复的书也各加 1 册副本");
-        copyCheck.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        Typo.text(copyCheck, R.dimen.text_body_small);
         copyCheck.setTextColor(ThemeManager.resolveColor(activity, R.attr.on_surface_variant));
         LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -136,7 +137,7 @@ final class BatchSheetView {
         TextView keepScanning = new TextView(activity);
         keepScanning.setText("继续扫描");
         keepScanning.setTextColor(ThemeManager.resolveColor(activity, R.attr.on_surface_variant));
-        keepScanning.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+        Typo.text(keepScanning, R.dimen.text_body);
         keepScanning.setGravity(Gravity.CENTER);
         keepScanning.setPadding(dp(activity, 12), 0, dp(activity, 12), 0);
         keepScanning.setClickable(true);
@@ -151,7 +152,7 @@ final class BatchSheetView {
         TextView saveBtn = new TextView(activity);
         saveBtn.setText("保存");
         saveBtn.setTextColor(ThemeManager.resolveColor(activity, ThemeManager.ATTR_COLOR_PRIMARY));
-        saveBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+        Typo.text(saveBtn, R.dimen.text_body);
         saveBtn.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
         saveBtn.setGravity(Gravity.CENTER);
         saveBtn.setPadding(dp(activity, 12), 0, dp(activity, 12), 0);

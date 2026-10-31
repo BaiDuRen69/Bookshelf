@@ -1,5 +1,6 @@
 package com.bai.bookshelf.ui.shelf;
 
+import com.bai.bookshelf.util.Typo;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -204,7 +205,7 @@ public class BookAdapter extends RecyclerView.Adapter<BookAdapter.VH> {
     private android.widget.TextView buildTagView(VH h, String name) {
         android.widget.TextView tv = new android.widget.TextView(h.itemView.getContext());
         tv.setText("# " + name);
-        tv.setTextSize(11);
+        Typo.text(tv, R.dimen.text_caption);
         tv.setTextColor(ThemeManager.resolveColor(h.itemView.getContext(),
                 ThemeManager.ATTR_ACCENT_TEXT));
         tv.setBackgroundResource(R.drawable.bg_chip);

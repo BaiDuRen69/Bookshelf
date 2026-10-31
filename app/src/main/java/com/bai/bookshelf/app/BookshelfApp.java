@@ -247,49 +247,25 @@ public class BookshelfApp extends Application {
         return () -> {
             try {
                 r.run();
-            } catch (android.database.sqlite.SQLiteFullException e) {
-                // 磁盘满：不是库坏了，别拉修复页吓人
-                ui(() -> android.widget.Toast.makeText(this,
-                        "存储空间不足，请清理后再试", android.widget.Toast.LENGTH_LONG).show());
-            } catch (android.database.sqlite.SQLiteDatabaseLockedException e) {
-                ui(() -> android.widget.Toast.makeText(this,
-                        "数据库正忙，请稍后重试", android.widget.Toast.LENGTH_SHORT).show());
             } catch (RuntimeException e) {
+                String hint = com.bai.bookshelf.util.DbFailure.userMessage(e);
+                if (hint != null) {
+                    ui(() -> android.widget.Toast.makeText(this, hint,
+                            android.widget.Toast.LENGTH_LONG).show());
+                    return;
+                }
                 // 修复期间所有后台异常都是预期的：库还没换回来，查询必然失败
                 if (com.bai.bookshelf.util.DbRepair.isRepairing()
                         || com.bai.bookshelf.util.DbRepair.isBroken()) {
                     return;
                 }
-                if (!looksLikeDatabaseFailure(e)) {
+                if (!com.bai.bookshelf.util.DbFailure.isDatabaseBroken(e)) {
                     throw e;
                 }
                 com.bai.bookshelf.util.DbRepair.markBroken(e);
                 ui(this::openDatabaseRepair);
             }
         };
-    }
-
-    /**
-     * 只认「库结构/文件本身坏了」这几种：迁移校验失败、库文件损坏、表或列不存在。
-     *
-     * <p>以前把所有 SQLiteException 都当成库坏了，磁盘满、锁冲突、约束冲突都会
-     * 把用户拉到修复页——那是误导。后两类现在分别在 guard 里单独提示。
-     */
-    private static boolean looksLikeDatabaseFailure(Throwable t) {
-        for (Throwable c = t; c != null && c != c.getCause(); c = c.getCause()) {
-            String msg = c.getMessage();
-            if (msg == null) {
-                continue;
-            }
-            String m = msg.toLowerCase(java.util.Locale.ROOT);
-            if (m.contains("migration didn't properly handle")
-                    || m.contains("malformed")
-                    || m.contains("file is not a database")
-                    || m.contains("no such table") || m.contains("no such column")) {
-                return true;
-            }
-        }
-        return false;
     }
 
     /** 切回主线程执行 */

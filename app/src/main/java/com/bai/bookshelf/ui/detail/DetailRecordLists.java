@@ -1,5 +1,6 @@
 package com.bai.bookshelf.ui.detail;
 
+import com.bai.bookshelf.util.Typo;
 import android.app.Activity;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -86,7 +87,7 @@ public final class DetailRecordLists {
         int pad = (int) (10 * activity.getResources().getDisplayMetrics().density);
         TextView tv = new TextView(activity);
         tv.setText(text);
-        tv.setTextSize(13);
+        Typo.text(tv, R.dimen.text_body_small);
         tv.setTextColor(ThemeManager.resolveColor(activity, R.attr.on_surface));
         tv.setBackgroundResource(R.drawable.bg_dialog_row);
         tv.setPadding(pad, pad, pad, pad);

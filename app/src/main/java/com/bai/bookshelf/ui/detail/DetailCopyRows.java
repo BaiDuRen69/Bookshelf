@@ -1,5 +1,6 @@
 package com.bai.bookshelf.ui.detail;
 
+import com.bai.bookshelf.util.Typo;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -154,7 +155,7 @@ public class DetailCopyRows {
                     LinearLayout.LayoutParams.WRAP_CONTENT));
             expandRow.setPadding(dp(8), dp(10), dp(8), dp(6));
             expandRow.setTextColor(ThemeManager.resolveColor(activity, ThemeManager.ATTR_COLOR_PRIMARY));
-            expandRow.setTextSize(13);
+            Typo.text(expandRow, R.dimen.text_body_small);
             if (expanded) {
                 expandRow.setText("收起逐册信息");
             } else {

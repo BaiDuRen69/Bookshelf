@@ -1,5 +1,6 @@
 package com.bai.bookshelf.ui.stats;
 
+import com.bai.bookshelf.util.Typo;
 import android.content.Context;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
@@ -51,7 +52,7 @@ public final class DistRowBuilder {
         if (entries == null || entries.isEmpty()) {
             TextView empty = new TextView(ctx);
             empty.setText(emptyText);
-            empty.setTextSize(13);
+            Typo.text(empty, R.dimen.text_body_small);
             empty.setTextColor(ThemeManager.resolveColor(ctx, R.attr.on_surface_variant));
             empty.setPadding(dp(4), dp(12), dp(4), dp(12));
             empty.setLineSpacing(dp(2), 1f);
@@ -89,7 +90,7 @@ public final class DistRowBuilder {
 
         TextView tvRank = new TextView(ctx);
         tvRank.setText(String.valueOf(rank));
-        tvRank.setTextSize(11);
+        Typo.text(tvRank, R.dimen.text_caption);
         tvRank.setGravity(Gravity.CENTER);
         tvRank.setTypeface(android.graphics.Typeface.create("sans-serif-medium",
                 android.graphics.Typeface.NORMAL));
@@ -99,7 +100,7 @@ public final class DistRowBuilder {
 
         TextView tvName = new TextView(ctx);
         tvName.setText(name);
-        tvName.setTextSize(13);
+        Typo.text(tvName, R.dimen.text_body_small);
         tvName.setSingleLine(true);
         tvName.setEllipsize(android.text.TextUtils.TruncateAt.END);
         tvName.setTextColor(ThemeManager.resolveColor(ctx, R.attr.on_surface));
@@ -128,7 +129,7 @@ public final class DistRowBuilder {
 
         TextView tvCount = new TextView(ctx);
         tvCount.setText(String.valueOf(count));
-        tvCount.setTextSize(13);
+        Typo.text(tvCount, R.dimen.text_body_small);
         tvCount.setGravity(Gravity.END);
         tvCount.setTypeface(android.graphics.Typeface.create("sans-serif-medium",
                 android.graphics.Typeface.NORMAL));

@@ -10,8 +10,11 @@ android {
         applicationId "com.bai.bookshelf"
         minSdk 24
         targetSdk 36
-        versionCode 105
-        versionName "5.8.3"
+        versionCode 106
+        versionName "5.8.4"
+
+        // v5.8.4：真机（androidTest）跑数据库修复流程
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
 
         // v4.1：合并测试版与正式版——只交付一个 APK，豆瓣评分等功能对所有用户开放。
         // release 仍保留同签名配置，需要时可构建（行为与 debug 功能一致，仅无日志、强制 https）。
@@ -28,6 +31,8 @@ android {
     buildTypes {
         debug {
             // 测试版构建：放行明文流量（抓包调试 / 个别 http 封面源）
+            // v5.8.4：androidTest 会故意弄坏数据库，用独立包名与正式版隔离
+            applicationIdSuffix ".devtest"
         }
         release {
             minifyEnabled false
@@ -93,6 +98,10 @@ dependencies {
     // v5.8：迁移冒烟测试要在 JVM 上跑真 SQLite（Room 的 Migration 只用到 execSQL，
     // 用一个 SupportSQLiteDatabase 薄壳把语句转给 JDBC 即可），不引入 Android 运行时
     testImplementation 'org.xerial:sqlite-jdbc:3.41.2.2'
+    // v5.8.4：真机跑数据库修复流程（会故意破坏 devtest 包的库，不影响正式版）
+    androidTestImplementation 'androidx.test.ext:junit:1.2.1'
+    androidTestImplementation 'androidx.test:runner:1.6.2'
+    androidTestImplementation 'androidx.test:core:1.6.1'
 }
 
 // v4.55：本机工程路径含中文（与 android.overridePathCheck=true 同因）。

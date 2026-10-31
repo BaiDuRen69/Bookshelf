@@ -1,5 +1,6 @@
 package com.bai.bookshelf.ui.shelf;
 
+import com.bai.bookshelf.util.Typo;
 import android.content.Context;
 import android.content.res.ColorStateList;
 import android.view.MotionEvent;
@@ -95,7 +96,7 @@ public class ShelfFilterPanel {
         Context ctx = b.getRoot().getContext();
         TextView row = new TextView(ctx);
         row.setText(rowText(label, spinner));
-        row.setTextSize(15);
+        Typo.text(row, R.dimen.text_body);
         row.setTextColor(ThemeManager.resolveColor(ctx, R.attr.on_surface));
         row.setPadding(dp(14), dp(12), dp(14), dp(12));
         row.setBackgroundResource(R.drawable.bg_dialog_row);

@@ -1,5 +1,6 @@
 package com.bai.bookshelf.ui.stats;
 
+import com.bai.bookshelf.util.Typo;
 import android.app.Activity;
 import android.graphics.Typeface;
 import android.view.Gravity;
@@ -140,7 +141,7 @@ public class StatsPeriodPicker {
                 final int y = years.get(i + j);
                 TextView tv = new TextView(activity);
                 tv.setText(String.valueOf(y));
-                tv.setTextSize(15);
+                Typo.text(tv, R.dimen.text_body);
                 tv.setGravity(Gravity.CENTER);
                 tv.setTextColor(y == selectedYear
                         ? ThemeManager.resolveColor(activity, ThemeManager.ATTR_COLOR_PRIMARY)

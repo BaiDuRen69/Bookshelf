@@ -1,5 +1,6 @@
 package com.bai.bookshelf.ui.widget;
 
+import com.bai.bookshelf.util.Typo;
 import android.app.Activity;
 import android.app.Dialog;
 import android.content.Context;
@@ -243,7 +244,7 @@ public final class CalendarPicker {
         private void buildStatus(LinearLayout content) {
             statusView = new TextView(activity);
             statusView.setTextColor(onVariant);
-            statusView.setTextSize(13);
+            Typo.text(statusView, R.dimen.text_body_small);
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
             lp.topMargin = dp(3);
@@ -267,7 +268,7 @@ public final class CalendarPicker {
             headerTitle = new TextView(activity);
             headerTitle.setGravity(Gravity.CENTER);
             headerTitle.setTextColor(onSurface);
-            headerTitle.setTextSize(17);
+            Typo.text(headerTitle, R.dimen.text_headline);
             headerTitle.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
             header.addView(headerTitle, new LinearLayout.LayoutParams(
                     0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
@@ -301,7 +302,7 @@ public final class CalendarPicker {
                 tv.setText(n);
                 tv.setGravity(Gravity.CENTER);
                 tv.setTextColor(onVariant);
-                tv.setTextSize(12);
+                Typo.text(tv, R.dimen.text_caption_large);
                 weekRow.addView(tv, new LinearLayout.LayoutParams(0,
                         ViewGroup.LayoutParams.MATCH_PARENT, 1f));
             }
@@ -320,7 +321,7 @@ public final class CalendarPicker {
                 TextView chip = new TextView(activity);
                 chip.setText(names[i]);
                 chip.setGravity(Gravity.CENTER);
-                chip.setTextSize(13);
+                Typo.text(chip, R.dimen.text_body_small);
                 chip.setTextColor(primary);
                 chip.setBackgroundResource(R.drawable.bg_filter_pill);
                 chip.setClickable(true);
@@ -375,7 +376,7 @@ public final class CalendarPicker {
             TextView tv = new TextView(activity);
             tv.setText(text);
             tv.setTextColor(color);
-            tv.setTextSize(15);
+            Typo.text(tv, R.dimen.text_body);
             tv.setGravity(Gravity.CENTER);
             tv.setPadding(dp(12), 0, dp(12), 0);
             tv.setTypeface(Typeface.create("sans-serif-medium",
@@ -543,7 +544,7 @@ public final class CalendarPicker {
             TextView cell = new TextView(activity);
             cell.setText(text);
             cell.setGravity(Gravity.CENTER);
-            cell.setTextSize(15);
+            Typo.text(cell, R.dimen.text_body);
             cell.setTextColor(onSurface);
             cell.setClickable(true);
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(

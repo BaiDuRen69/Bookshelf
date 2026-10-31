@@ -1,5 +1,6 @@
 package com.bai.bookshelf.ui.stats;
 
+import com.bai.bookshelf.util.Typo;
 import android.content.Context;
 import android.graphics.Typeface;
 import android.view.LayoutInflater;
@@ -366,7 +367,7 @@ public class PurchaseCalendarSheet {
                         block.year, block.month0 + 1, total));
             }
             title.setTextColor(textMain);
-            title.setTextSize(15);
+            Typo.text(title, R.dimen.text_body);
             title.setTypeface(Typeface.DEFAULT_BOLD);
             box.addView(title);
 
@@ -374,7 +375,7 @@ public class PurchaseCalendarSheet {
             TextView sub = new TextView(context);
             sub.setText(context.getString(labels.activeDaysRes, block.activeDays));
             sub.setTextColor(textSub);
-            sub.setTextSize(12);
+            Typo.text(sub, R.dimen.text_caption_large);
             LinearLayout.LayoutParams subLp = new LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.WRAP_CONTENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT);

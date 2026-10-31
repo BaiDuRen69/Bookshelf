@@ -1,5 +1,6 @@
 package com.bai.bookshelf.ui.shelf;
 
+import com.bai.bookshelf.util.Typo;
 import android.content.Context;
 import android.view.View;
 import android.widget.LinearLayout;
@@ -129,7 +130,7 @@ public class ShelfSecondaryChips {
         Context ctx = b.getRoot().getContext();
         TextView tv = new TextView(ctx);
         tv.setText(text);
-        tv.setTextSize(12);
+        Typo.text(tv, R.dimen.text_caption_large);
         tv.setGravity(android.view.Gravity.CENTER);
         tv.setPadding(dp(10), dp(5), dp(10), dp(5));
         tv.setBackgroundResource(selected

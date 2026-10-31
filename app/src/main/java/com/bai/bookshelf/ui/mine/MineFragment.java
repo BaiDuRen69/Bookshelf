@@ -1,5 +1,6 @@
 package com.bai.bookshelf.ui.mine;
 
+import com.bai.bookshelf.util.Typo;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
@@ -239,7 +240,7 @@ public class MineFragment extends Fragment {
         android.widget.ScrollView sv = new android.widget.ScrollView(requireContext());
         TextView tv = new TextView(requireContext());
         tv.setText(log);
-        tv.setTextSize(11);
+        Typo.text(tv, R.dimen.text_caption);
         tv.setTextColor(ThemeManager.resolveColor(requireContext(), R.attr.on_surface));
         tv.setPadding(dp(20), dp(16), dp(20), dp(16));
         tv.setTextIsSelectable(true);

@@ -1,5 +1,6 @@
 package com.bai.bookshelf.ui.excerpt;
 
+import com.bai.bookshelf.util.Typo;
 import android.content.Intent;
 import android.os.Bundle;
 import android.text.TextUtils;
@@ -169,7 +170,7 @@ public class ExcerptListActivity extends BaseActivity {
         if (e.page > 0) {
             TextView page = new TextView(this);
             page.setText("P." + e.page);
-            page.setTextSize(11);
+            Typo.text(page, R.dimen.text_caption);
             page.setTextColor(ThemeManager.resolveColor(this, ThemeManager.ATTR_COLOR_PRIMARY));
             page.setBackgroundResource(R.drawable.bg_filter_pill);
             page.setPadding(dp(8), dp(2), dp(8), dp(2));
@@ -178,7 +179,7 @@ public class ExcerptListActivity extends BaseActivity {
 
         TextView date = new TextView(this);
         date.setText(formatDate(e.createdAt));
-        date.setTextSize(12);
+        Typo.text(date, R.dimen.text_caption_large);
         date.setTextColor(ThemeManager.resolveColor(this, R.attr.on_surface_variant));
         LinearLayout.LayoutParams dlp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
@@ -200,7 +201,7 @@ public class ExcerptListActivity extends BaseActivity {
 
         TextView content = new TextView(this);
         content.setText(e.content);
-        content.setTextSize(16);
+        Typo.text(content, R.dimen.text_body_large);
         content.setTypeface(android.graphics.Typeface.create("serif",
                 android.graphics.Typeface.NORMAL));
         content.setTextColor(ThemeManager.resolveColor(this, R.attr.on_surface));
@@ -217,7 +218,7 @@ public class ExcerptListActivity extends BaseActivity {
         if (e.hasNote()) {
             TextView note = new TextView(this);
             note.setText("批注：" + e.note.trim());
-            note.setTextSize(13);
+            Typo.text(note, R.dimen.text_body_small);
             note.setTextColor(ThemeManager.resolveColor(this, R.attr.on_surface_variant));
             note.setLineSpacing(dp(2), 1f);
             LinearLayout.LayoutParams nlp = new LinearLayout.LayoutParams(
@@ -242,7 +243,7 @@ public class ExcerptListActivity extends BaseActivity {
                 sb.append('#').append(t);
             }
             tags.setText(sb);
-            tags.setTextSize(12);
+            Typo.text(tags, R.dimen.text_caption_large);
             tags.setTextColor(ThemeManager.resolveColor(this, ThemeManager.ATTR_COLOR_PRIMARY));
             LinearLayout.LayoutParams tlp = new LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
