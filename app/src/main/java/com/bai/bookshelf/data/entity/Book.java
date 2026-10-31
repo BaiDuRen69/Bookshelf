@@ -2,6 +2,7 @@ package com.bai.bookshelf.data.entity;
 
 import androidx.room.ColumnInfo;
 import androidx.room.Entity;
+import androidx.room.Index;
 import androidx.room.PrimaryKey;
 
 import java.io.Serializable;
@@ -10,7 +11,7 @@ import java.io.Serializable;
  * 藏书实体：对应 Room 表 books。
  * 实现 Serializable 是为了在 Activity 之间用 Intent 直接传递整本书。
  */
-@Entity(tableName = "books")
+@Entity(tableName = "books", indices = {@Index("isbn")})
 public class Book implements Serializable {
     private static final long serialVersionUID = 1L;
 

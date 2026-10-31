@@ -2,6 +2,7 @@ package com.bai.bookshelf.data.entity;
 
 import androidx.room.ColumnInfo;
 import androidx.room.Entity;
+import androidx.room.Index;
 import androidx.room.PrimaryKey;
 
 import java.io.Serializable;
@@ -15,7 +16,7 @@ import java.io.Serializable;
  *
  * 图片文件统一复制到应用私有目录 note_images/ 下，表里只存绝对路径快照。
  */
-@Entity(tableName = "note_images")
+@Entity(tableName = "note_images", indices = {@Index("ownerKey"), @Index("bookId")})
 public class NoteImage implements Serializable {
     private static final long serialVersionUID = 1L;
 

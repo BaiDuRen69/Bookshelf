@@ -1,12 +1,14 @@
 package com.bai.bookshelf.data.entity;
 
 import androidx.room.Entity;
+import androidx.room.Index;
 import androidx.room.PrimaryKey;
 
 /**
  * 借出记录：一本书可有多条历史记录，status 标记是否已归还。
  */
-@Entity(tableName = "borrow_records")
+@Entity(tableName = "borrow_records", indices = {
+        @Index({"bookId", "status"}), @Index({"status", "dueDate"})})
 public class BorrowRecord {
 
     public static final int STATUS_OUT = 0;      // 借出中

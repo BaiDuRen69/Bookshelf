@@ -2,6 +2,7 @@ package com.bai.bookshelf.data.entity;
 
 import androidx.room.ColumnInfo;
 import androidx.room.Entity;
+import androidx.room.Index;
 import androidx.room.PrimaryKey;
 
 import java.io.Serializable;
@@ -11,7 +12,7 @@ import java.io.Serializable;
  * page=0 表示没标页码；tags 与书籍标签一样用英文逗号分隔。
  * 图片统一落在 filesDir/excerpt_images/，表里只存绝对路径。
  */
-@Entity(tableName = "excerpts")
+@Entity(tableName = "excerpts", indices = {@Index("bookId")})
 public class Excerpt implements Serializable {
     private static final long serialVersionUID = 1L;
 

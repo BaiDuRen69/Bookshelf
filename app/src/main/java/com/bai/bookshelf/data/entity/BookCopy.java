@@ -2,6 +2,7 @@ package com.bai.bookshelf.data.entity;
 
 import androidx.room.ColumnInfo;
 import androidx.room.Entity;
+import androidx.room.Index;
 import androidx.room.PrimaryKey;
 
 import java.io.Serializable;
@@ -11,7 +12,7 @@ import java.io.Serializable;
  * 第 1 本的信息仍放在 books 表主记录上，本表只存第 2 本及以后的副本，
  * copyIndex 从 2 开始，与展示文案「第 N 本」一致。
  */
-@Entity(tableName = "book_copies")
+@Entity(tableName = "book_copies", indices = {@Index({"bookId", "copyIndex"})})
 public class BookCopy implements Serializable {
     private static final long serialVersionUID = 1L;
 

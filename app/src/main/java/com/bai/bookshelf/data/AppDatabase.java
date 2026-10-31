@@ -66,7 +66,7 @@ import com.bai.bookshelf.data.entity.Tag;
 public abstract class AppDatabase extends RoomDatabase {
 
     /** Room schema 版本（v5.7：备份 meta 与升级前副本都要读到它，故提为常量） */
-    public static final int VERSION = 23;
+    public static final int VERSION = 24;
 
     /** 数据库文件名（建库与升级前副本共用） */
     public static final String DB_NAME = "bookshelf.db";
@@ -369,6 +369,29 @@ public abstract class AppDatabase extends RoomDatabase {
         }
     };
 
+    /**
+     * v5.8.20：给热查列补索引（此前全项目 0 个 @Index，1000 本时详情页要全表扫）。
+     * 索引名必须与 Room 按 @Index 生成的名字一致（index_表_列[_列]），否则升级后
+     * 校验 schema 会报「Missing index」。
+     */
+    public static final Migration MIGRATION_23_24 = new Migration(23, 24) {
+        @Override
+        public void migrate(@NonNull SupportSQLiteDatabase database) {
+            database.execSQL("CREATE INDEX IF NOT EXISTS index_books_isbn ON books(isbn)");
+            database.execSQL("CREATE INDEX IF NOT EXISTS index_book_copies_bookId_copyIndex "
+                    + "ON book_copies(bookId, copyIndex)");
+            database.execSQL("CREATE INDEX IF NOT EXISTS index_excerpts_bookId ON excerpts(bookId)");
+            database.execSQL("CREATE INDEX IF NOT EXISTS index_borrow_records_bookId_status "
+                    + "ON borrow_records(bookId, status)");
+            database.execSQL("CREATE INDEX IF NOT EXISTS index_borrow_records_status_dueDate "
+                    + "ON borrow_records(status, dueDate)");
+            database.execSQL("CREATE INDEX IF NOT EXISTS index_note_images_ownerKey "
+                    + "ON note_images(ownerKey)");
+            database.execSQL("CREATE INDEX IF NOT EXISTS index_note_images_bookId "
+                    + "ON note_images(bookId)");
+        }
+    };
+
     /** v5.7：多次借书记录；已归还的借阅书统一落成「电子书签」藏书状态 */
     public static final Migration MIGRATION_22_23 = new Migration(22, 23) {
         @Override
@@ -414,7 +437,7 @@ public abstract class AppDatabase extends RoomDatabase {
                 MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13,
                 MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17,
                 MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21,
-                MIGRATION_21_22, MIGRATION_22_23};
+                MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24};
     }
 
     /** 某一个旧版本对应的迁移；没有则 null（供测试逐级串起来） */
