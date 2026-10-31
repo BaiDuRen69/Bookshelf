@@ -304,12 +304,7 @@ public class ShelfFragment extends Fragment {
                 () -> allBooks,
                 () -> locations,
                 () -> tagList,
-                () -> selection.exit(),
-                message -> {
-                    if (b != null) {
-                        Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show();
-                    }
-                });
+                () -> selection.exit());
 
         // 录入方式选择
         b.btnAdd.setOnClickListener(v ->
@@ -926,6 +921,10 @@ public class ShelfFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
+        // v5.8.16：详情页删书时本页还没有锚点，回到书架补弹撤销条
+        if (b != null) {
+            com.bai.bookshelf.util.UndoBar.attach(b.getRoot());
+        }
         // 逐本借出/归还不改 books 表，Room 不会推送——回到书架时单独刷新借出中记录
         if (b != null && booksReceived) {
             loans.refreshAsync(BookshelfApp.get(), this::applyFilters);

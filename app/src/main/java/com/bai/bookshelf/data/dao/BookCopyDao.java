@@ -36,6 +36,10 @@ public interface BookCopyDao {
     @Insert
     long insert(BookCopy copy);
 
+    /** 撤销借出时回收「本次新建的那一行副本」（v5.8.16） */
+    @Query("DELETE FROM book_copies WHERE id = :id")
+    void deleteById(long id);
+
     /** 更新单个副本（逐本借出/归还改状态） */
     @Update
     void update(BookCopy copy);

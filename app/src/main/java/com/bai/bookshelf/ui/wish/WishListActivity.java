@@ -329,6 +329,13 @@ public class WishListActivity extends BaseActivity {
     private void applyBatchPriority(int priority, String label) {
         final int count = selectedIds.size();
         final Set<Long> ids = new HashSet<>(selectedIds);
+        // v5.8.16：撤销需要改动前的优先级
+        final java.util.Map<Long, Integer> before = new java.util.HashMap<>();
+        for (WishBook wish : items) {
+            if (ids.contains(wish.id)) {
+                before.put(wish.id, wish.priority);
+            }
+        }
         BookshelfApp app = BookshelfApp.get();
         app.io(() -> {
             long now = System.currentTimeMillis();
@@ -340,10 +347,22 @@ public class WishListActivity extends BaseActivity {
                 }
             }
             app.ui(() -> {
-                Toast.makeText(this, "已把 " + count + " 条设为「" + label + "」",
-                        Toast.LENGTH_SHORT).show();
                 exitSelection();
                 load();
+                com.bai.bookshelf.util.UndoBar.offer(
+                        findViewById(android.R.id.content),
+                        "已把 " + count + " 条设为「" + label + "」",
+                        before.isEmpty() ? null : () -> app.io(() -> {
+                            for (WishBook wish : app.db().wishBookDao().getAllManual()) {
+                                Integer old = before.get(wish.id);
+                                if (old != null) {
+                                    wish.priority = old;
+                                    wish.updatedAt = System.currentTimeMillis();
+                                    app.db().wishBookDao().update(wish);
+                                }
+                            }
+                            app.ui(this::load);
+                        }), null);
             });
         });
     }
@@ -355,19 +374,33 @@ public class WishListActivity extends BaseActivity {
         }
         new MaterialAlertDialogBuilder(this)
                 .setTitle("批量删除")
-                .setMessage("删除已选的 " + count + " 条想读？此操作不可恢复。")
+                .setMessage("删除已选的 " + count + " 条想读？删除后 8 秒内可在提示条上撤销。")
                 .setPositiveButton("删除", (d, w) -> {
                     final Set<Long> ids = new HashSet<>(selectedIds);
                     BookshelfApp app = BookshelfApp.get();
                     app.io(() -> {
+                        final List<WishBook> deleted = new ArrayList<>();
+                        for (WishBook wish : items) {
+                            if (ids.contains(wish.id)) {
+                                deleted.add(wish);
+                            }
+                        }
                         for (Long id : ids) {
                             app.db().wishBookDao().deleteById(id);
                         }
                         app.ui(() -> {
-                            Toast.makeText(this, "已删除 " + count + " 条",
-                                    Toast.LENGTH_SHORT).show();
                             exitSelection();
                             load();
+                            // v5.8.16：按原主键写回即可整批恢复
+                            com.bai.bookshelf.util.UndoBar.offer(
+                                    findViewById(android.R.id.content),
+                                    "已删除 " + count + " 条想读",
+                                    () -> app.io(() -> {
+                                        for (WishBook wish : deleted) {
+                                            app.db().wishBookDao().insert(wish);
+                                        }
+                                        app.ui(this::load);
+                                    }), null);
                         });
                     });
                 })

@@ -772,6 +772,8 @@ public class BookDetailActivity extends BaseActivity {
                         + "之后再添加新的借书记录即可重新借阅。")
                 .setPositiveButton("确认归还", (d, w) -> {
                     BookshelfApp app = BookshelfApp.get();
+                    // v5.8.16：归还只改一行 JSON + 状态，撤销就是把改动前的整行写回
+                    final Book before = com.bai.bookshelf.util.BookSnapshot.copy(book);
                     app.io(() -> {
                         String time = StatusText.today() + " "
                                 + new java.text.SimpleDateFormat("HH:mm",
@@ -787,10 +789,19 @@ public class BookDetailActivity extends BaseActivity {
                         book.dirty = true;
                         app.db().bookDao().update(book);
                         app.ui(() -> {
-                            Toast.makeText(this, "已归还，记录归还时间 " + returned,
-                                    Toast.LENGTH_SHORT).show();
                             com.bai.bookshelf.util.BorrowReminder.refresh(this);
                             reload();
+                            com.bai.bookshelf.util.UndoBar.offer(
+                                    findViewById(android.R.id.content),
+                                    "已归还，记录归还时间 " + returned,
+                                    before == null ? null : () -> app.io(() -> {
+                                        app.db().bookDao().update(before);
+                                        app.ui(() -> {
+                                            com.bai.bookshelf.util.BorrowReminder
+                                                    .refresh(this);
+                                            reload();
+                                        });
+                                    }), null);
                         });
                     });
                 })
@@ -802,14 +813,27 @@ public class BookDetailActivity extends BaseActivity {
         new MaterialAlertDialogBuilder(this)
                 .setTitle("删除书籍")
                 .setMessage("确定把" + com.bai.bookshelf.util.BookText.quotedTitle(book.title)
-                        + "从书架删除吗？此操作不可恢复。")
+                        + "从书架删除吗？删除后 8 秒内可在提示条上撤销。")
                 .setPositiveButton("删除", (d, w) -> {
                     BookshelfApp app = BookshelfApp.get();
+                    final String title = com.bai.bookshelf.util.BookText.bareTitle(book.title);
                     app.io(() -> {
                         // v4.23：级联清理收敛到 BookCascade（备注图+副本+借出记录+封面文件）
-                        com.bai.bookshelf.util.BookCascade.deleteBook(app, book.id, book.coverUrl);
+                        // v5.8.16：先落库、8 秒内可撤销；文件延后到窗口结束再删
+                        final com.bai.bookshelf.util.BookCascade.Deleted deleted =
+                                com.bai.bookshelf.util.BookCascade.deleteRecoverable(app, book.id);
                         app.ui(() -> {
-                            Toast.makeText(this, "已删除", Toast.LENGTH_SHORT).show();
+                            com.bai.bookshelf.util.UndoBar.offer(
+                                    null,  // 本页正在关闭，回到书架由 UndoBar.attach 补弹
+                                    "已删除《" + title + "》",
+                                    () -> app.io(() -> {
+                                        com.bai.bookshelf.util.BookCascade.restore(app, deleted);
+                                        app.ui(() -> Toast.makeText(app,
+                                                "已恢复《" + title + "》",
+                                                Toast.LENGTH_SHORT).show());
+                                    }),
+                                    () -> app.io(() -> com.bai.bookshelf.util.BookCascade
+                                            .deleteFiles(app, deleted.files)));
                             finish();
                         });
                     });

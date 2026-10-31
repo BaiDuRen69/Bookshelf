@@ -17,6 +17,7 @@ import com.bai.bookshelf.databinding.DialogInputBinding;
 import com.bai.bookshelf.databinding.DialogLendBinding;
 import com.bai.bookshelf.ui.BaseActivity;
 import com.bai.bookshelf.util.StatusText;
+import com.bai.bookshelf.util.UndoBar;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import java.io.File;
@@ -84,10 +85,17 @@ public class DetailLending {
         }
     }
 
-    /** 收回第 index 本：关闭该本的借出记录 + 状态改回在库 */
+    /** 收回第 index 本：关闭该本的借出记录 + 状态改回在库（v5.8.16：8 秒内可撤销） */
     public void returnCopy(int index, BorrowRecord record) {
         BookshelfApp app = BookshelfApp.get();
         Book book = host.book();
+        final long bookId = book.id;
+        final long recordId = record == null ? 0 : record.id;
+        final int oldRecordStatus = record == null ? -1 : record.status;
+        final String oldReturnDate = record == null ? "" : record.returnDate;
+        final int oldBookStock = book.stockStatus;
+        final BookCopy savedCopy = index == 1 ? null : findSavedCopy(index);
+        final int oldCopyStock = savedCopy == null ? -1 : savedCopy.stockStatus;
         app.io(() -> {
             if (record != null) {
                 record.status = BorrowRecord.STATUS_RETURNED;
@@ -113,11 +121,52 @@ public class DetailLending {
                 }
             }
             app.ui(() -> {
-                Toast.makeText(activity, "第 " + index + " 册已收回", Toast.LENGTH_SHORT).show();
                 host.reload();
                 host.refreshReminders();
+                UndoBar.offer(activity.findViewById(android.R.id.content),
+                        "第 " + index + " 册已收回",
+                        () -> app.io(() -> {
+                            undoReturn(recordId, oldRecordStatus, oldReturnDate,
+                                    bookId, index, oldBookStock, savedCopy, oldCopyStock);
+                            app.ui(() -> {
+                                host.reload();
+                                host.refreshReminders();
+                            });
+                        }), null);
             });
         });
+    }
+
+    /** 撤销收回：把借出记录与藏书状态写回原值（重新查行，避免用 reload 前的旧对象） */
+    private void undoReturn(long recordId, int recordStatus, String returnDate, long bookId,
+                            int index, int bookStock, BookCopy savedCopy, int copyStock) {
+        BookshelfApp app = BookshelfApp.get();
+        if (recordId > 0) {
+            for (BorrowRecord r : app.db().borrowRecordDao().getByBook(bookId)) {
+                if (r.id == recordId) {
+                    r.status = recordStatus;
+                    r.returnDate = returnDate;
+                    app.db().borrowRecordDao().update(r);
+                    break;
+                }
+            }
+        }
+        if (index == 1) {
+            Book fresh = app.db().bookDao().getById(bookId);
+            if (fresh != null) {
+                fresh.stockStatus = bookStock;
+                fresh.updatedAt = System.currentTimeMillis();
+                app.db().bookDao().update(fresh);
+            }
+        } else if (savedCopy != null) {
+            for (BookCopy c : app.db().bookCopyDao().getByBook(bookId)) {
+                if (c.id == savedCopy.id) {
+                    c.stockStatus = copyStock;
+                    app.db().bookCopyDao().update(c);
+                    break;
+                }
+            }
+        }
     }
 
     /** 借出登记对话框：常用借阅人 Chip 单选（可新建/长按管理）+ 借出备注 + 备注图片 */
@@ -497,6 +546,10 @@ public class DetailLending {
         }
         BookshelfApp app = BookshelfApp.get();
         Book book = host.book();
+        final long bookId = book.id;
+        final int oldBookStock = book.stockStatus;
+        final BookCopy oldCopy = copyIndex == 1 ? null : findSavedCopy(copyIndex);
+        final int oldCopyStock = oldCopy == null ? -1 : oldCopy.stockStatus;
         app.io(() -> {
             BorrowRecord record = new BorrowRecord();
             record.bookId = book.id;
@@ -519,6 +572,7 @@ public class DetailLending {
             } else {
                 cleanupRemovedImageFiles();
             }
+            long createdCopyId = 0;
             if (copyIndex == 1) {
                 // 第 1 本的状态写在主记录上
                 book.stockStatus = Book.STOCK_LENT;
@@ -535,22 +589,70 @@ public class DetailLending {
                     c.ownType = Book.OWN_BUY;
                     long id = app.db().bookCopyDao().insert(c);
                     c.id = id;
+                    createdCopyId = id;
                 } else {
                     c.stockStatus = Book.STOCK_LENT;
                     app.db().bookCopyDao().update(c);
                 }
             }
+            final long newCopyId = createdCopyId;
             app.ui(() -> {
-                Toast.makeText(activity, "第 " + copyIndex + " 册已借出给 " + borrower,
-                        Toast.LENGTH_SHORT).show();
                 host.reload();
                 // v4.42：有应还日期就确保通知权限并重排提醒
                 if (dueDate != null && !dueDate.isEmpty()) {
                     host.ensureNotifyPermission();
                     host.refreshReminders();
                 }
+                // v5.8.16：借出登记 8 秒内可撤销（删记录 + 收回状态 + 回收本次新建的行）
+                UndoBar.offer(activity.findViewById(android.R.id.content),
+                        "第 " + copyIndex + " 册已借出给 " + borrower,
+                        () -> app.io(() -> {
+                            undoLend(recordId, copyIndex, bookId, oldBookStock,
+                                    oldCopy, oldCopyStock, newCopyId);
+                            app.ui(() -> {
+                                host.reload();
+                                host.refreshReminders();
+                            });
+                        }), null);
             });
         });
+    }
+
+    /** 撤销借出：删掉这条借出记录与它的备注图，状态写回原值，本次新建的副本行也回收 */
+    private void undoLend(long recordId, int copyIndex, long bookId, int bookStock,
+                          BookCopy oldCopy, int copyStock, long createdCopyId) {
+        BookshelfApp app = BookshelfApp.get();
+        if (recordId > 0) {
+            List<NoteImage> imgs = app.db().noteImageDao()
+                    .getByOwnerKey("borrow:" + recordId);
+            List<String> files = new ArrayList<>();
+            for (NoteImage img : imgs) {
+                if (img.path != null && !img.path.isEmpty()) {
+                    files.add(img.path);
+                }
+            }
+            app.db().noteImageDao().deleteByOwnerKey("borrow:" + recordId);
+            app.db().borrowRecordDao().deleteById(recordId);
+            com.bai.bookshelf.util.BookCascade.deleteFiles(app, files);
+        }
+        if (copyIndex == 1) {
+            Book fresh = app.db().bookDao().getById(bookId);
+            if (fresh != null) {
+                fresh.stockStatus = bookStock;
+                fresh.updatedAt = System.currentTimeMillis();
+                app.db().bookDao().update(fresh);
+            }
+        } else if (createdCopyId > 0) {
+            app.db().bookCopyDao().deleteById(createdCopyId);
+        } else if (oldCopy != null) {
+            for (BookCopy c : app.db().bookCopyDao().getByBook(bookId)) {
+                if (c.id == oldCopy.id) {
+                    c.stockStatus = copyStock;
+                    app.db().bookCopyDao().update(c);
+                    break;
+                }
+            }
+        }
     }
 
     /** 借出登记保存后：清掉本次新加却未保留的临时文件 */

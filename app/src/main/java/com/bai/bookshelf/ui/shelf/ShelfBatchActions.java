@@ -11,6 +11,7 @@ import com.bai.bookshelf.data.entity.Tag;
 import com.bai.bookshelf.databinding.DialogInputBinding;
 import com.bai.bookshelf.util.BookCascade;
 import com.bai.bookshelf.util.BookText;
+import com.bai.bookshelf.util.UndoBar;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import java.util.ArrayList;
@@ -32,22 +33,19 @@ public final class ShelfBatchActions {
     private final java.util.function.Supplier<List<Location>> locations;
     private final java.util.function.Supplier<List<Tag>> tagList;
     private final Runnable exitSelection;
-    private final Consumer<String> toast;
 
     public ShelfBatchActions(Activity activity,
                              java.util.function.Supplier<Set<Long>> selectedIds,
                              java.util.function.Supplier<List<Book>> allBooks,
                              java.util.function.Supplier<List<Location>> locations,
                              java.util.function.Supplier<List<Tag>> tagList,
-                             Runnable exitSelection,
-                             Consumer<String> toast) {
+                             Runnable exitSelection) {
         this.activity = activity;
         this.selectedIds = selectedIds;
         this.allBooks = allBooks;
         this.locations = locations;
         this.tagList = tagList;
         this.exitSelection = exitSelection;
-        this.toast = toast;
     }
 
     /** 把多选的书分享成文字书单 */
@@ -96,23 +94,39 @@ public final class ShelfBatchActions {
         }
         new MaterialAlertDialogBuilder(activity)
                 .setTitle("批量删除")
-                .setMessage("确定删除已选的 " + count + " 种书吗？此操作不可恢复。")
+                .setMessage("确定删除已选的 " + count + " 种书吗？删除后 8 秒内可在提示条上撤销。")
                 .setPositiveButton("删除", (d, w) -> {
                     BookshelfApp app = BookshelfApp.get();
                     Set<Long> ids = new HashSet<>(selectedIds.get());
                     app.io(() -> {
+                        // v5.8.16：整批删完留快照，8 秒内一次撤销全部恢复
+                        List<BookCascade.Deleted> deleted = new ArrayList<>();
                         for (Long id : ids) {
-                            Book book = app.db().bookDao().getById(id);
-                            BookCascade.deleteBook(app, id, book == null ? null : book.coverUrl);
+                            deleted.add(BookCascade.deleteRecoverable(app, id));
                         }
                         app.ui(() -> {
                             exitSelection.run();
-                            toast.accept("已删除 " + count + " 种书");
+                            UndoBar.offer(anchorView(), "已删除 " + count + " 种书",
+                                    () -> app.io(() -> {
+                                        for (BookCascade.Deleted one : deleted) {
+                                            BookCascade.restore(app, one);
+                                        }
+                                    }),
+                                    () -> app.io(() -> {
+                                        for (BookCascade.Deleted one : deleted) {
+                                            BookCascade.deleteFiles(app, one.files);
+                                        }
+                                    }));
                         });
                     });
                 })
                 .setNegativeButton(R.string.action_cancel, null)
                 .show();
+    }
+
+    /** Snackbar 的锚点：整个页面根视图 */
+    private android.view.View anchorView() {
+        return activity.findViewById(android.R.id.content);
     }
 
     /** 批量设置：地点 / 标签 / 阅读状态 */
@@ -223,6 +237,15 @@ public final class ShelfBatchActions {
         if (targets.isEmpty()) {
             return;
         }
+        // v5.8.16：批量改动可能落在不同字段上，直接留「改动前的整行」做撤销
+        List<Book> before = new ArrayList<>();
+        for (Book book : targets) {
+            Book snapshot = com.bai.bookshelf.util.BookSnapshot.copy(book);
+            if (snapshot != null) {
+                before.add(snapshot);
+            }
+        }
+        final boolean undoable = before.size() == targets.size();
         BookshelfApp app = BookshelfApp.get();
         app.io(() -> {
             long now = System.currentTimeMillis();
@@ -233,8 +256,15 @@ public final class ShelfBatchActions {
                 app.db().bookDao().update(book);
             }
             app.ui(() -> {
-                toast.accept(message);
                 exitSelection.run();
+                UndoBar.offer(anchorView(), message, undoable ? () -> app.io(() -> {
+                    long revertAt = System.currentTimeMillis();
+                    for (Book old : before) {
+                        old.updatedAt = revertAt;
+                        old.dirty = true;
+                        app.db().bookDao().update(old);
+                    }
+                }) : null, null);
             });
         });
     }
