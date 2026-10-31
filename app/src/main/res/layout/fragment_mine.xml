@@ -607,6 +607,36 @@
                         <View style="@style/MineRowDivider" />
 
                         <LinearLayout
+                            android:id="@+id/row_export_md"
+                            style="@style/MineRow">
+
+                            <ImageView
+                                style="@style/MineRowIcon"
+                                android:contentDescription="导出书摘 Markdown"
+                                android:src="@drawable/ic_export_line" />
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="@dimen/space_md"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    style="@style/MineRowTitle"
+                                    android:text="导出书摘 Markdown" />
+
+                                <TextView
+                                    style="@style/MineRowSubtitle"
+                                    android:text="按书与按标签各成文件，含图片，可导入 Obsidian / Notion" />
+                            </LinearLayout>
+
+                            <ImageView style="@style/MineRowChevron" />
+                        </LinearLayout>
+
+                        <View style="@style/MineRowDivider" />
+
+                        <LinearLayout
                             android:id="@+id/row_import"
                             style="@style/MineRow">
 

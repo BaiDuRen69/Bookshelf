@@ -89,6 +89,8 @@ public class MineFragment extends Fragment {
         b.rowManage.setOnClickListener(v ->
                 startActivity(new Intent(requireContext(), LibraryManageActivity.class)));
         b.rowExport.setOnClickListener(v -> exportExcel());
+        // v5.8.19：书摘导出 Markdown（zip 里按书 + 按标签 + 图片）
+        b.rowExportMd.setOnClickListener(v -> exportMarkdown());
         b.rowImport.setOnClickListener(v -> dataActions.confirmImport());
         b.rowWish.setOnClickListener(v ->
                 startActivity(new android.content.Intent(requireContext(),
@@ -409,6 +411,56 @@ public class MineFragment extends Fragment {
             Toast.makeText(requireContext(),
                     "无法打开文件夹选择器：" + e.getMessage(), Toast.LENGTH_LONG).show();
         }
+    }
+
+    /** 导出书摘 Markdown（v5.8.19）：生成 zip 后交给系统分享，用户自己决定存哪 / 发到哪 */
+    private void exportMarkdown() {
+        final android.content.Context appCtx = requireContext().getApplicationContext();
+        Toast.makeText(appCtx, "正在生成书摘…", Toast.LENGTH_SHORT).show();
+        BookshelfApp app = BookshelfApp.get();
+        app.io(() -> {
+            try {
+                java.util.List<com.bai.bookshelf.data.entity.Excerpt> excerpts =
+                        app.db().excerptDao().getAll();
+                if (excerpts.isEmpty()) {
+                    app.ui(() -> Toast.makeText(appCtx, "还没有摘抄可导出",
+                            Toast.LENGTH_SHORT).show());
+                    return;
+                }
+                java.util.List<Book> books = app.db().bookDao().getAll();
+                java.io.File dir = new java.io.File(appCtx.getFilesDir(), "share");
+                if (!dir.exists() && !dir.mkdirs()) {
+                    app.ui(() -> Toast.makeText(appCtx, "导出目录创建失败",
+                            Toast.LENGTH_SHORT).show());
+                    return;
+                }
+                String stamp = new java.text.SimpleDateFormat("yyyyMMdd_HHmm",
+                        java.util.Locale.US).format(new java.util.Date());
+                java.io.File zip = new java.io.File(dir, "bookshelf_excerpts_" + stamp + ".zip");
+                final com.bai.bookshelf.util.MarkdownExport.Result result =
+                        com.bai.bookshelf.util.MarkdownExport.export(books, excerpts, zip);
+                final android.net.Uri uri = androidx.core.content.FileProvider.getUriForFile(
+                        appCtx, appCtx.getPackageName() + ".fileprovider", zip);
+                app.ui(() -> {
+                    Intent send = new Intent(Intent.ACTION_SEND);
+                    send.setType("application/zip");
+                    send.putExtra(Intent.EXTRA_STREAM, uri);
+                    send.putExtra(Intent.EXTRA_TEXT,
+                            "小书房书摘：" + result.bookFiles + " 本 / " + result.excerptCount
+                                    + " 条 / " + result.images + " 张图");
+                    send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    startActivity(Intent.createChooser(send, "导出书摘 Markdown"));
+                    if (result.missingImages > 0) {
+                        Toast.makeText(appCtx, result.missingImages
+                                + " 张摘抄图片已不在本机，未打包", Toast.LENGTH_LONG).show();
+                    }
+                });
+            } catch (Exception e) {
+                final String message = e.getMessage() == null ? e.toString() : e.getMessage();
+                app.ui(() -> Toast.makeText(appCtx, "导出失败：" + message,
+                        Toast.LENGTH_LONG).show());
+            }
+        });
     }
 
     /** 在用户选好的文件夹里生成 xlsx（一次性授权，写入即完成） */
