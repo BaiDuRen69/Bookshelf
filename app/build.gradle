@@ -10,8 +10,8 @@ android {
         applicationId "com.bai.bookshelf"
         minSdk 24
         targetSdk 36
-        versionCode 119
-        versionName "5.8.17"
+        versionCode 120
+        versionName "5.8.18"
 
         // v5.8.4：真机（androidTest）跑数据库修复流程
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
@@ -94,6 +94,9 @@ dependencies {
 
     // 封面图片加载与缓存
     implementation 'com.github.bumptech.glide:glide:4.16.0'
+
+    // v5.8.18：地点二维码（纯 Java 编码，离线生成，ML Kit 只解不编）
+    implementation 'com.google.zxing:core:3.5.3'
 
     // v4.55：纯逻辑单元测试（BookSeries / DateKeys / SmartShelf / 清洗与分摊）
     testImplementation 'junit:junit:4.13.2'

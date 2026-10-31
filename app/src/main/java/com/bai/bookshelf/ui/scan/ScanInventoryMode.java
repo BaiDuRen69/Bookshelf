@@ -29,6 +29,8 @@ public class ScanInventoryMode {
     private boolean active = false;
     private final Set<String> scanned = new HashSet<>();
     private int unknown = 0;
+    /** v5.8.18：从书架二维码进来时只盘这一个地点（-1 = 全盘） */
+    private long locationId = -1;
 
     public ScanInventoryMode(ScanActivity activity, ActivityScanBinding b,
                              Runnable onScanConsumed) {
@@ -49,8 +51,33 @@ public class ScanInventoryMode {
         b.tvScanSub.setText("扫描书房里的书 · 扫完点「结束盘点」");
         b.tvScanHint.setText("借出中 / 遗失的书不计入盘点");
         b.btnInventoryDone.setOnClickListener(v -> showResult());
+        locationId = activity.getIntent().getLongExtra(ScanActivity.EXTRA_LOCATION_ID, -1);
+        if (locationId > 0) {
+            showScopedHint();
+        }
         updateCounter();
         return true;
+    }
+
+    /** 只盘一个地点：把地点名显示出来，逐架扫的时候知道自己数到哪一排 */
+    private void showScopedHint() {
+        BookshelfApp app = BookshelfApp.get();
+        app.io(() -> {
+            String name = null;
+            try {
+                com.bai.bookshelf.data.entity.Location loc =
+                        app.db().locationDao().getById(locationId);
+                if (loc != null) {
+                    name = loc.name;
+                }
+            } catch (Exception ignored) {
+            }
+            final String fName = name;
+            app.ui(() -> {
+                b.tvScanTitle.setText("盘点 · " + (fName == null ? "该地点" : fName));
+                b.tvScanSub.setText("只数这一处的书 · 扫完点「结束盘点」");
+            });
+        });
     }
 
     public boolean isActive() {
@@ -115,6 +142,11 @@ public class ScanInventoryMode {
                 for (Book book : BookSanitizer.normalizeAll(app.db().bookDao().getAll())) {
                     if (book.stockStatus != Book.STOCK_IN) {
                         continue; // 借出中 / 遗失不参与盘点
+                    }
+                    // v5.8.18：从某架的二维码进来时，只数这一架的书
+                    if (locationId > 0
+                            && (book.locationId == null || book.locationId != locationId)) {
+                        continue;
                     }
                     if (ScanActivity.normalizeIsbn(book.isbn).isEmpty()) {
                         noIsbn++;

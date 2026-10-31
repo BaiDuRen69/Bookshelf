@@ -30,6 +30,8 @@ public class MainActivity extends BaseActivity {
 
     /** 直接打开某个 Tab（v5.8.16：全局搜索里「自动备份 / 应用锁」这类入口用） */
     public static final String EXTRA_TAB = "tab_index";
+    /** 扫书架二维码：切到书架并按该地点筛选（v5.8.18） */
+    public static final String EXTRA_LOCATION_ID = "shelf_location_id";
 
     // v4.5：三个 Tab 挂载到 FragmentManager 时的 tag，用于 Activity 重建后找回还原实例
     private static final String TAG_SHELF = "tab_shelf";
@@ -130,6 +132,18 @@ public class MainActivity extends BaseActivity {
         if (tab >= 0 && tab <= 2) {
             intent.removeExtra(EXTRA_TAB);
             selectTab(tab);
+        }
+        long locationId = intent.getLongExtra(EXTRA_LOCATION_ID, -1);
+        if (locationId <= 0) {
+            // 第三方扫码器 / 系统相机走深链进来时，地点在 data 里
+            android.net.Uri data = intent.getData();
+            if (data != null) {
+                locationId = com.bai.bookshelf.util.LocationQr.parse(data.toString());
+            }
+        }
+        if (locationId > 0) {
+            intent.removeExtra(EXTRA_LOCATION_ID);
+            filterShelfByLocation(locationId);
         }
         String q = intent.getStringExtra(EXTRA_SEARCH_QUERY);
         if (q == null || q.trim().isEmpty()) {
@@ -318,5 +332,14 @@ public class MainActivity extends BaseActivity {
         selectTab(0);
         getSupportFragmentManager().executePendingTransactions();
         shelfFragment.requestSearch(keyword);
+    }
+
+    /** 扫书架二维码：切到书架并只看这个地点（v5.8.18） */
+    public void filterShelfByLocation(long locationId) {
+        selectTab(0);
+        getSupportFragmentManager().executePendingTransactions();
+        if (shelfFragment != null) {
+            shelfFragment.requestLocationFilter(locationId);
+        }
     }
 }

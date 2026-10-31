@@ -65,6 +65,8 @@ public class ShelfFragment extends Fragment {
     private List<String> channelList = new ArrayList<>(); // 藏书里出现过的来源渠道（去重）
     private List<String> countryList = new ArrayList<>(); // 藏书里出现过的国家（去重，v3.5：留实例快照供视图重建后重放）
     private String pendingSearchQuery;                   // 外部带入的搜索词（视图未就绪时缓存）
+    /** 扫书架二维码带进来的地点筛选（v5.8.18，等地字典表到位后才能落到 Spinner 上） */
+    private long pendingLocationId = -1;
     private boolean spinnerReady = false; // 防止初始化 spinner 时触发筛选
     // v4.4：是否已收到本实例的第一次 books 推送。onViewCreated 里 applyViewMode()
     // 会同步调一次 applyFilters，此时首推未到、allBooks 为空，不挡住会在
@@ -381,6 +383,30 @@ public class ShelfFragment extends Fragment {
         }
     }
 
+    /** 扫书架二维码进来：只筛这个地点的书（v5.8.18） */
+    public void requestLocationFilter(long locationId) {
+        pendingLocationId = locationId;
+        if (b != null && spinnerReady) {
+            applyPendingLocationFilter();
+        }
+    }
+
+    /** 字典表到位后把待应用的地点筛选落到 Spinner 上；地点不存在就放弃 */
+    private void applyPendingLocationFilter() {
+        if (pendingLocationId <= 0 || b == null) {
+            return;
+        }
+        for (int i = 0; i < locations.size(); i++) {
+            if (locations.get(i).id == pendingLocationId) {
+                b.spLocation.setSelection(i + 1); // 首项「地点」= 不限
+                pendingLocationId = -1;
+                applyFilters();
+                return;
+            }
+        }
+        pendingLocationId = -1;
+    }
+
     // v4.2：原先的 onResume/onHiddenChanged/onVisible 按需刷新已整体删除——
     // 书架改由 Room 响应式观察驱动（见 onViewCreated 的 getAllLive().observe），
     // books 表任何增删改都会自动推送刷新，纯文本编辑也不再依赖 RESULT_OK 标脏。
@@ -659,6 +685,7 @@ public class ShelfFragment extends Fragment {
             filterSpinners.fillCategory(b, categoryList);
             filterSpinners.markFilled(); // 本视图的 Spinner 都已有数据
             spinnerReady = true;
+            applyPendingLocationFilter();
             applyFilters();
         });
     }

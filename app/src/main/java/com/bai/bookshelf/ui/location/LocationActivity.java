@@ -225,6 +225,13 @@ public class LocationActivity extends BaseActivity {
                     h.b.cbSelect.setChecked(!h.b.cbSelect.isChecked());
                 }
             });
+            // v5.8.18：长按出该地点的二维码（贴书架 / 按这个地点盘点）
+            h.itemView.setOnLongClickListener(v -> {
+                if (!batchMode) {
+                    LocationQrDialog.show(LocationActivity.this, loc);
+                }
+                return true;
+            });
             // 默认徽标与星标透明度区分当前默认项
             h.b.tvDefaultBadge.setVisibility(loc.isDefault ? View.VISIBLE : View.GONE);
             h.b.btnStar.setAlpha(loc.isDefault ? 1.0f : 0.3f);

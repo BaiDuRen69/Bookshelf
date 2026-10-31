@@ -3,6 +3,7 @@ package com.bai.bookshelf.ui.scan;
 import android.Manifest;
 import androidx.appcompat.app.AlertDialog;
 import android.content.pm.PackageManager;
+import android.content.Intent;
 import android.os.Bundle;
 import android.text.InputType;
 import android.widget.EditText;
@@ -56,6 +57,8 @@ public class ScanActivity extends BaseActivity {
 
     // ==================== v4.46 盘点模式 ====================
     public static final String EXTRA_INVENTORY = "inventory";
+    /** v5.8.18：盘点只数这个地点的书（从书架二维码进来） */
+    public static final String EXTRA_LOCATION_ID = "inventory_location_id";
     /** 盘点模式（v5.6 抽到 ScanInventoryMode） */
     private ScanInventoryMode inventory;
     /** 批量录入（v5.6 抽到 ScanBatchController） */
@@ -110,7 +113,9 @@ public class ScanActivity extends BaseActivity {
                 .setBarcodeFormats(
                         Barcode.FORMAT_EAN_13,
                         Barcode.FORMAT_EAN_8,
-                        Barcode.FORMAT_UPC_A)
+                        Barcode.FORMAT_UPC_A,
+                        // v5.8.18：地点二维码（bookshelf://shelf?location=…）
+                        Barcode.FORMAT_QR_CODE)
                 .build());
 
         inventory = new ScanInventoryMode(this, b, this::resetHandling);
@@ -206,6 +211,17 @@ public class ScanActivity extends BaseActivity {
      * @return true 表示已消费（跳出本帧剩余条码）
      */
     private boolean onBarcode(String raw) {
+        // v5.8.18：扫到书架二维码 → 跳书架并按该地点筛选
+        long locationId = com.bai.bookshelf.util.LocationQr.parse(raw);
+        if (locationId > 0) {
+            flashScanOk();
+            Intent open = new Intent(this, com.bai.bookshelf.ui.MainActivity.class);
+            open.putExtra(com.bai.bookshelf.ui.MainActivity.EXTRA_LOCATION_ID, locationId);
+            open.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            startActivity(open);
+            finish();
+            return true;
+        }
         String isbn = normalizeIsbn(raw);
         if (isbn.length() != 10 && isbn.length() != 13) {
             return false;
