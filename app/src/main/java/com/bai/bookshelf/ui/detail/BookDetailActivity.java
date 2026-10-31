@@ -58,6 +58,9 @@ public class BookDetailActivity extends BaseActivity {
     private int coverAccent;
     private String accentKey = "";
     private boolean accentLoading;
+    /** v5.8.15：共享元素转场期间不做视差，否则封面会被拽离转场路径 */
+    private boolean transitionRunning;
+    private int heroFadeRange = -1;
 
     /** 分类展示串「一级-二级」（v4.9，reload 时解析好再给 bind 用） */
     private String categoryDisplay = "";
@@ -87,6 +90,9 @@ public class BookDetailActivity extends BaseActivity {
         b = ActivityBookDetailBinding.inflate(getLayoutInflater());
         setContentView(b.getRoot());
         setupSharedElementTransition();
+        b.scrollDetail.setOnScrollChangeListener(
+                (androidx.core.widget.NestedScrollView.OnScrollChangeListener)
+                        (v, sx, sy, osx, osy) -> applyScrollEffects(sy));
         b.toolbar.setNavigationOnClickListener(v -> finishAfterTransition());
         // 系统返回键也走反向共享元素（默认 finish() 会跳过返回动画）
         getOnBackPressedDispatcher().addCallback(this,
@@ -221,12 +227,14 @@ public class BookDetailActivity extends BaseActivity {
             return;
         }
         androidx.core.view.ViewCompat.setTransitionName(b.ivCover, name);
+        transitionRunning = true;
         androidx.core.app.ActivityCompat.postponeEnterTransition(this);
         setEnterSharedElementCallback(new android.app.SharedElementCallback() {
             @Override
             public void onSharedElementEnd(java.util.List<String> names,
                                            java.util.List<android.view.View> views,
                                            java.util.List<android.view.View> snapshots) {
+                transitionRunning = false;
                 animateCoverRadius();
             }
         });
@@ -341,6 +349,34 @@ public class BookDetailActivity extends BaseActivity {
         }
     }
 
+    /**
+     * 滚动效果（v5.8.15）：hero 封面与模糊底按 0.9 倍速跟手（内容走 1、封面走 0.9），
+     * 工具栏标题从「书籍详情」交叉淡入成书名。共享元素转场期间跳过，避免把封面拽离转场路径。
+     */
+    private void applyScrollEffects(int scrollY) {
+        if (transitionRunning) {
+            return;
+        }
+        int heroH = b.hero.getHeight();
+        if (heroH <= 0) {
+            return;
+        }
+        float offset = Math.min(scrollY, heroH) * 0.1f;
+        b.ivHeroBg.setTranslationY(offset);
+        b.heroCoverCard.setTranslationY(offset);
+        if (heroFadeRange < 0) {
+            heroFadeRange = Math.max(1, heroH - Math.round(
+                    56 * getResources().getDisplayMetrics().density));
+        }
+        float fade = Math.max(0f, Math.min(1f, scrollY / (float) heroFadeRange));
+        b.tvToolbarTitle.setAlpha(fade);
+        b.tvToolbarTitle.setVisibility(fade > 0.02f ? View.VISIBLE : View.INVISIBLE);
+        b.toolbar.setTitleTextColor(androidx.core.graphics.ColorUtils.setAlphaComponent(
+                ThemeManager.resolveColor(this,
+                        com.google.android.material.R.attr.colorOnPrimary),
+                Math.round(255 * (1 - fade))));
+    }
+
     private void showProgressDialog(int current) {
         android.widget.LinearLayout wrap = new android.widget.LinearLayout(this);
         wrap.setOrientation(android.widget.LinearLayout.VERTICAL);
@@ -416,6 +452,9 @@ public class BookDetailActivity extends BaseActivity {
     /** 把书籍信息渲染到界面 */
     private void bind() {
         b.tvTitle.setText(com.bai.bookshelf.util.BookText.displayTitle(book.title));
+        // v5.8.15：工具栏标题随滚动淡入书名（reload 后也要按当前滚动位置补一次状态）
+        b.tvToolbarTitle.setText(com.bai.bookshelf.util.BookText.displayTitle(book.title));
+        b.scrollDetail.post(() -> applyScrollEffects(b.scrollDetail.getScrollY()));
 
         // hero：作者/译者/国家 + 状态 chips（书名与大信息量交给下面的两列信息块）
         List<String> authors = new ArrayList<>();

@@ -12,7 +12,20 @@
         android:layout_width="match_parent"
         android:layout_height="@dimen/toolbar_h"
         app:navigationIcon="@drawable/ic_back"
-        app:title="书籍详情" />
+        app:title="书籍详情">
+
+        <!-- v5.8.15：往下滚时书名交叉淡入（工具栏标题同时淡出） -->
+        <TextView
+            android:id="@+id/tv_toolbar_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:alpha="0"
+            android:ellipsize="end"
+            android:singleLine="true"
+            android:textAppearance="@style/TextAppearance.Bookshelf.ToolbarTitle"
+            android:textColor="?attr/colorOnPrimary"
+            android:visibility="invisible" />
+    </com.google.android.material.appbar.MaterialToolbar>
 
     <!-- 详情分区导航（v5.7）：概览 / 阅读 / 借阅 / 笔记，吸顶不随内容滚动 -->
     <LinearLayout
@@ -103,6 +116,7 @@
                         android:padding="@dimen/space_lg">
 
                     <androidx.cardview.widget.CardView
+                        android:id="@+id/hero_cover_card"
                         android:layout_width="120dp"
                         android:layout_height="160dp"
                         android:clipToOutline="true"
