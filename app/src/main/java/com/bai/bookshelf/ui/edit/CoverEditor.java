@@ -101,6 +101,10 @@ public final class CoverEditor {
                         fos.write(buf, 0, len);
                     }
                 }
+                // v5.8.20：入库即压缩到长边 1080 / JPEG 85。相机原图 3–5MB 一张，
+                // 不压的话备份包、Glide 解码、Excel 导出都要跟着变重。
+                // 压不动（解码失败或反而更大）就原样留着，绝不因为压缩丢封面。
+                com.bai.bookshelf.util.ImageCodec.shrinkInPlace(out);
                 app.ui(() -> {
                     b.etCoverUrl.setText(out.getAbsolutePath());
                     load();

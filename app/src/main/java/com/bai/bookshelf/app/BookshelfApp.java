@@ -151,6 +151,12 @@ public class BookshelfApp extends Application {
             // v4.4：自动备份延后 3 秒再跑——整库 JSON + 全部封面图打 zip 是启动期最重的
             // 任务，冷启动先让路给首屏渲染，避免磁盘 I/O 与 Glide 加载封面互相争抢
             mainHandler.postDelayed(() -> BackupManager.autoBackupIfEnabled(this), 3000);
+            // v5.8.20：存量图片一次性压缩（老版本是原样复制相机图的）。排在首屏与
+            // 自动备份之后，跑一次就记下来；压不动的图会原样保留，不会丢封面。
+            if (!com.bai.bookshelf.util.ImageMigration.alreadyDone(this)) {
+                mainHandler.postDelayed(() -> bg(() -> com.bai.bookshelf.util.ImageMigration
+                        .runIfNeeded(getApplicationContext())), 12000);
+            }
         });
     }
 
