@@ -53,43 +53,130 @@ public final class ZipRestore {
     private ZipRestore() {
     }
 
+    /** 恢复期间图片的暂存目录名（在 filesDir 下，校验通过后才挪进正式目录） */
+    private static final String STAGING_DIR = ".restore_staging";
+
+    /** 把暂存目录里的文件逐个挪到 filesDir 对应位置，返回成功数 */
+    private static int moveInto(File root, File dir, File filesDir, String filesDirCanonical) {
+        int moved = 0;
+        File[] children = dir.listFiles();
+        if (children == null) {
+            return 0;
+        }
+        for (File child : children) {
+            if (child.isDirectory()) {
+                moved += moveInto(root, child, filesDir, filesDirCanonical);
+                continue;
+            }
+            String relative = child.getAbsolutePath().substring(root.getAbsolutePath().length() + 1)
+                    .replace(java.io.File.separatorChar, '/');
+            File out = new File(filesDir, relative);
+            try {
+                String canonical = out.getCanonicalPath();
+                if (!canonical.startsWith(filesDirCanonical + java.io.File.separator)) {
+                    continue; // 双保险：落点必须在 filesDir 内
+                }
+                File parent = out.getParentFile();
+                if (parent != null && !parent.exists() && !parent.mkdirs()) {
+                    continue;
+                }
+                if (!child.renameTo(out) && !copyThen(child, out)) {
+                    continue;
+                }
+                moved++;
+            } catch (IOException e) {
+                // 单个文件挪不动就跳过，不因此放弃整次恢复
+            }
+        }
+        return moved;
+    }
+
+    private static boolean copyThen(File from, File to) {
+        try (java.io.InputStream in = new java.io.FileInputStream(from);
+             java.io.OutputStream out = new java.io.FileOutputStream(to)) {
+            byte[] buf = new byte[8192];
+            int len;
+            while ((len = in.read(buf)) > 0) {
+                out.write(buf, 0, len);
+            }
+            return from.delete();
+        } catch (IOException e) {
+            return false;
+        }
+    }
+
+    private static void deleteRecursively(File dir) {
+        if (dir == null || !dir.exists()) {
+            return;
+        }
+        File[] children = dir.listFiles();
+        if (children != null) {
+            for (File child : children) {
+                if (child.isDirectory()) {
+                    deleteRecursively(child);
+                } else {
+                    child.delete();
+                }
+            }
+        }
+        dir.delete();
+    }
+
     /** 从 zip 备份恢复（需在后台线程调用；内部按 id 原样重写，恢复后藏书 id 与备份时一致） */
     public static Result restore(Context ctx, Uri uri, AppDatabase db) throws Exception {
-        // ---- 1. 读包 + 校验：不通过就抛，filesDir 与数据库都不动 ----
+        File filesDir = ctx.getFilesDir();
+        String filesDirCanonical = filesDir.getCanonicalPath();
+        // ---- 1. 流式读包（v5.8.20）：图片边解边写进暂存目录，校验和边读边算 ----
+        // 校验没过就整个暂存目录删掉走人，正式目录与数据库一个字节都不动；
+        // 内存占用也从「整包大小」降到 O(条目数)，1GB 的备份不再需要 1GB 堆。
+        final File staging = new File(filesDir, STAGING_DIR);
+        deleteRecursively(staging);
+        if (!staging.mkdirs()) {
+            throw new IOException("暂存目录创建失败");
+        }
         InputStream rawIn = ctx.getContentResolver().openInputStream(uri);
         if (rawIn == null) {
+            deleteRecursively(staging);
             throw new IOException("无法读取所选文件");
         }
-        BackupInspector.Entries entries;
+        BackupInspector.Streaming entries;
         try (rawIn) {
-            entries = BackupInspector.read(rawIn);
+            entries = BackupInspector.readStreaming(rawIn, relativeName -> {
+                File out = new File(staging, relativeName);
+                try {
+                    if (!out.getCanonicalPath().startsWith(
+                            staging.getCanonicalPath() + File.separator)) {
+                        return null; // 目录穿越：这个条目直接丢弃
+                    }
+                } catch (IOException e) {
+                    return null;
+                }
+                File parent = out.getParentFile();
+                if (parent != null && !parent.exists() && !parent.mkdirs()) {
+                    return null;
+                }
+                try {
+                    return new FileOutputStream(out);
+                } catch (IOException e) {
+                    return null;
+                }
+            });
+        } catch (Exception e) {
+            deleteRecursively(staging);
+            throw e;
         }
-        BackupInspector.Info info = BackupInspector.validateCurrent(entries);
+        BackupInspector.Info info = BackupInspector.validateStreamingCurrent(entries);
         if (!info.ok()) {
+            deleteRecursively(staging);
             throw new IOException(info.reject);
         }
 
-        // ---- 2. 展开媒体文件到 filesDir（保持相对层级；防目录穿越） ----
-        File filesDir = ctx.getFilesDir();
-        String filesDirCanonical = filesDir.getCanonicalPath();
+        // ---- 2. 校验通过后才把暂存文件挪进正式目录（同盘 rename，失败退化成复制） ----
         Result result = new Result();
         result.legacy = info.legacy();
         result.fromDbVersion = info.meta == null ? 0 : info.meta.dbVersion;
-        for (java.util.Map.Entry<String, byte[]> en : entries.media.entrySet()) {
-            File out = new File(filesDir, en.getKey());
-            if (!out.getCanonicalPath().startsWith(filesDirCanonical + File.separator)
-                    && !out.getCanonicalPath().equals(filesDirCanonical)) {
-                continue; // 非法路径，跳过
-            }
-            File parent = out.getParentFile();
-            if (parent != null && !parent.exists() && !parent.mkdirs()) {
-                continue;
-            }
-            try (FileOutputStream fos = new FileOutputStream(out)) {
-                fos.write(en.getValue());
-                result.media++;
-            }
-        }
+        result.media = moveInto(staging, staging, filesDir, filesDirCanonical);
+        deleteRecursively(staging);
 
         // ---- 3. 事务内清空 + 重写（要么全成功，要么全失败） ----
         Gson gson = new Gson();

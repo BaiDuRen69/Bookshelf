@@ -88,36 +88,122 @@ public final class BackupInspector {
     private BackupInspector() {
     }
 
-    /** 顺序读完整个 zip（恢复与整包校验用；调用方需在后台线程） */
+    /** 顺序读完整个 zip 到内存（JVM 单测与小包用；大包的恢复走 {@link #readStreaming}） */
     public static Entries read(InputStream in) throws IOException {
         Entries out = new Entries();
+        Map<String, byte[]> collected = new LinkedHashMap<>();
+        Streaming s = readStreaming(in, new MediaSink() {
+            @Override
+            public java.io.OutputStream open(String relativeName) {
+                return new java.io.ByteArrayOutputStream() {
+                    @Override
+                    public void close() throws java.io.IOException {
+                        collected.put(relativeName, toByteArray());
+                    }
+                };
+            }
+        });
+        out.dataJson = s.dataJson;
+        out.metaJson = s.metaJson;
+        out.totalBytes = s.totalBytes;
+        out.media.putAll(collected);
+        return out;
+    }
+
+    /** 媒体条目的落点：边解压边写，别让整包图片堆在内存里 */
+    public interface MediaSink {
+        /**
+         * 打开一个输出流承接该条目（调用方负责关闭）；返回 null 表示丢弃内容。
+         *
+         * @param relativeName 去掉 {@code media/} 前缀后的名字（相对 filesDir）
+         */
+        java.io.OutputStream open(String relativeName) throws IOException;
+    }
+
+    /** 流式读取结果：内存里只有 data/meta 两份 JSON 与逐条摘要，不含图片字节 */
+    public static final class Streaming {
+        public String dataJson;
+        public String metaJson;
+        public long totalBytes;
+        public int mediaCount;
+        /** 边解边算出来的总校验和（与 {@link BackupChecksum#finish()} 同规则） */
+        public String checksum;
+    }
+
+    /**
+     * 流式读包（v5.8.20）：media 交给 sink 落盘、校验和边读边算，
+     * 恢复 1GB 备份的内存占用从「整包大小」降到 O(条目数)。
+     *
+     * @param sink 传 null 表示只看内容、不落盘（整包校验用）
+     */
+    public static Streaming readStreaming(InputStream in, MediaSink sink) throws IOException {
+        Streaming out = new Streaming();
+        BackupChecksum checksum = new BackupChecksum();
+        byte[] buf = new byte[8192];
         try (ZipInputStream zis = new ZipInputStream(in)) {
             ZipEntry entry;
             while ((entry = zis.getNextEntry()) != null) {
                 if (entry.isDirectory()) {
                     continue;
                 }
-                byte[] data = readAll(zis);
                 String name = entry.getName();
-                // meta.json 自己不算是「数据」：让 totalBytes 与 meta.bytes 同口径
-                if (BackupFormat.isPayload(name)) {
-                    out.totalBytes += data.length;
-                }
-                if (BackupFormat.ENTRY_DATA.equals(name)) {
+                if (BackupFormat.ENTRY_META.equals(name)) {
+                    // meta.json 自己不进校验和，也不计入 totalBytes（与打包端口径一致）
+                    out.metaJson = new String(readAll(zis), StandardCharsets.UTF_8);
+                } else if (BackupFormat.ENTRY_DATA.equals(name)) {
+                    byte[] data = readAll(zis);
                     out.dataJson = new String(data, StandardCharsets.UTF_8);
-                } else if (BackupFormat.ENTRY_META.equals(name)) {
-                    out.metaJson = new String(data, StandardCharsets.UTF_8);
+                    checksum.add(name, data);
+                    if (BackupFormat.isPayload(name)) {
+                        out.totalBytes += data.length;
+                    }
                 } else if (name.startsWith(BackupFormat.MEDIA_PREFIX)) {
-                    out.media.put(name.substring(BackupFormat.MEDIA_PREFIX.length()), data);
+                    String relative = name.substring(BackupFormat.MEDIA_PREFIX.length());
+                    java.security.MessageDigest md = BackupChecksum.newEntryDigest(name);
+                    java.io.OutputStream target = sink == null ? null : sink.open(relative);
+                    long written = 0;
+                    int len;
+                    while ((len = zis.read(buf)) > 0) {
+                        md.update(buf, 0, len);
+                        if (target != null) {
+                            target.write(buf, 0, len);
+                        }
+                        written += len;
+                    }
+                    if (target != null) {
+                        target.close();
+                    }
+                    checksum.addDigest(name, md);
+                    out.mediaCount++;
+                    if (BackupFormat.isPayload(name)) {
+                        out.totalBytes += written;
+                    }
+                } else {
+                    // 不认识的条目：跳过，也不计入校验和（打包端同样没算它）
+                    while (zis.read(buf) > 0) {
+                        // 丢弃
+                    }
                 }
             }
         }
+        out.checksum = checksum.finish();
         return out;
     }
 
     /** 按当前 App 版本校验 */
     public static Info validateCurrent(Entries entries) {
         return validate(entries, BuildConfig.VERSION_CODE, AppDatabase.VERSION);
+    }
+
+    /** 按当前 App 版本校验（流式读包的结果） */
+    public static Info validateStreamingCurrent(Streaming s) {
+        return validateStreaming(s, BuildConfig.VERSION_CODE, AppDatabase.VERSION);
+    }
+
+    /** 校验流式读包结果：校验和读的时候就已经算好，不必把图片留在内存里重算 */
+    public static Info validateStreaming(Streaming s, long currentAppCode, int currentDbVersion) {
+        return validateCore(s.dataJson, s.metaJson, s.mediaCount, s.totalBytes, s.checksum,
+                currentAppCode, currentDbVersion);
     }
 
     /**
@@ -127,26 +213,34 @@ public final class BackupInspector {
      * @param currentDbVersion 当前 Room schema 版本
      */
     public static Info validate(Entries e, long currentAppCode, int currentDbVersion) {
+        // 缺 data.json 时不重算：recompute 需要它，且这种包本来就该直接拒
+        String checksum = e.dataJson == null ? null : recompute(e);
+        return validateCore(e.dataJson, e.metaJson, e.media.size(), e.totalBytes, checksum,
+                currentAppCode, currentDbVersion);
+    }
+
+    private static Info validateCore(String dataJson, String metaJson, int mediaCount,
+                                     long totalBytes, String checksum,
+                                     long currentAppCode, int currentDbVersion) {
         Info i = new Info();
-        i.totalBytes = e.totalBytes;
-        i.mediaCount = e.media.size();
-        i.meta = BackupMeta.parse(e.metaJson);
-        if (e.dataJson == null || e.dataJson.trim().isEmpty()) {
+        i.totalBytes = totalBytes;
+        i.mediaCount = mediaCount;
+        i.meta = BackupMeta.parse(metaJson);
+        if (dataJson == null || dataJson.trim().isEmpty()) {
             i.reject = "备份文件缺少 data.json，不是小书房生成的 zip 备份";
             return i;
         }
-        i.books = countBooks(e.dataJson);
+        i.books = countBooks(dataJson);
         if (i.books < 0 && i.meta != null) {
             i.books = i.meta.books;
         }
         if (i.meta == null) {
             return i; // 旧备份：没有可校验的东西，按内容恢复
         }
-        if (i.meta.hasChecksum()) {
-            i.checksumOk = i.meta.checksum.equalsIgnoreCase(recompute(e));
-        } else {
+        if (!i.meta.hasChecksum()) {
             return i;
         }
+        i.checksumOk = i.meta.checksum.equalsIgnoreCase(checksum);
         if (!i.checksumOk) {
             i.reject = "校验和不通过：文件可能被截断或改动过，已拒绝恢复";
             return i;
@@ -169,10 +263,10 @@ public final class BackupInspector {
         return c.finish();
     }
 
-    /** 整包校验（含解压，耗时以秒计）：文件入口 */
+    /** 整包校验（含解压，耗时以秒计）：文件入口。流式读，不把图片读进内存 */
     public static Info inspect(File f) throws IOException {
         try (InputStream in = new FileInputStream(f)) {
-            return validateCurrent(read(in));
+            return validateStreamingCurrent(readStreaming(in, null));
         }
     }
 
@@ -183,7 +277,7 @@ public final class BackupInspector {
             throw new IOException("无法读取所选文件");
         }
         try {
-            return validateCurrent(read(in));
+            return validateStreamingCurrent(readStreaming(in, null));
         } finally {
             in.close();
         }
