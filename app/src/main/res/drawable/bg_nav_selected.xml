@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 底部导航选中态胶囊（v4.16）：主色浅容器底 + 16dp 圆角 -->
+<!-- 底部导航选中态胶囊（v4.16）：主色浅容器底 + 全圆角
+     胶囊实测高 44dp（dumpsys 窗口内坐标 121px / 2.75），半径取 radius_pill=22dp 即高度的一半 -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
     <solid android:color="?attr/primary_container" />
-    <corners android:radius="@dimen/radius_lg" />
+    <corners android:radius="@dimen/radius_pill" />
 </shape>

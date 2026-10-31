@@ -14,6 +14,9 @@
     <dimen name="radius_sm">8dp</dimen>
     <dimen name="radius_md">12dp</dimen>
     <dimen name="radius_lg">16dp</dimen>
+    <dimen name="radius_xl">20dp</dimen>
+    <dimen name="radius_2xl">24dp</dimen>
+    <!-- 胶囊值 = 控件高度的一半；控件高度变了要同步改，不要写 50%（shape XML 不支持） -->
     <dimen name="radius_pill">22dp</dimen>
 
     <!-- ===== 字阶（v4.24 收敛为 28 / 22 / 17 / 15 / 13 / 11 六档；v4.25 统计 hero 40） ===== -->
