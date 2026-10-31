@@ -103,6 +103,64 @@ public class RadiusTokenTest {
     }
 
     /** 布局里的 CardView：只有统计页两张 hero 卡升到 20dp，其余统计卡保持 16dp 形成层级 */
+    /**
+     * 弹窗与底部面板：走的是「主题属性 → 形状样式」这条链，不是 drawable，
+     * 所以必须按真实链路解析一次，确认 24dp 真的落在弹窗上。
+     */
+    @Test
+    public void 弹窗与面板顶部走24dp() {
+        // 弹窗：MaterialAlertDialog.Builder 用的就是 ThemeOverlay.Bookshelf.Dialog
+        Context dialogCtx = new ContextThemeWrapper(ctx, R.style.ThemeOverlay_Bookshelf_Dialog);
+        float[] dialog = shapeOf(dialogCtx, "shapeAppearanceCornerExtraLarge");
+        assertEquals("弹窗四角应为 radius_2xl", dp(24), dialog[0], TOLERANCE_PX);
+
+        // 面板：bottomSheetStyle → Widget.Bookshelf.BottomSheet → shapeAppearance
+        Context sheetCtx = new ContextThemeWrapper(ctx, R.style.Widget_Bookshelf_BottomSheet);
+        float[] top = shapeOf(sheetCtx, "shapeAppearance");
+        assertEquals("面板左上应为 radius_2xl", dp(24), top[1], TOLERANCE_PX);
+        assertEquals("面板右上应为 radius_2xl", dp(24), top[2], TOLERANCE_PX);
+        assertTrue("面板底部两角必须是直角或继承值，实测 " + java.util.Arrays.toString(top),
+                top[3] <= 0f && top[4] <= 0f);
+    }
+
+    /**
+     * 沿「主题属性 → 样式 → cornerSize* 」取圆角。
+     *
+     * <p>工程开了 nonTransitiveRClass，Material 的 attr / styleable 不在 App 的 R 里，
+     * 所以按名字在运行时取属性 id（取不到就直接断言失败，不静默跳过）。
+     *
+     * @return [cornerSize, topL, topR, bottomL, bottomR]（未定义的返回 -1）
+     */
+    private float[] shapeOf(Context themed, String shapeAttrName) {
+        int attr = materialAttr(shapeAttrName);
+        TypedValue tv = new TypedValue();
+        assertTrue("主题里找不到属性 " + shapeAttrName,
+                themed.getTheme().resolveAttribute(attr, tv, true));
+        int[] ids = new int[]{materialAttr("cornerSize"), materialAttr("cornerSizeTopLeft"),
+                materialAttr("cornerSizeTopRight"), materialAttr("cornerSizeBottomLeft"),
+                materialAttr("cornerSizeBottomRight")};
+        android.content.res.TypedArray a = themed.obtainStyledAttributes(tv.resourceId, ids);
+        try {
+            float[] out = new float[ids.length];
+            for (int i = 0; i < ids.length; i++) {
+                out[i] = a.getDimension(i, -1f);
+            }
+            return out;
+        } finally {
+            a.recycle();
+        }
+    }
+
+    private int materialAttr(String name) {
+        // 库资源在运行时并进 App 的资源空间，所以先按 App 包名找，再退回库包名
+        int id = ctx.getResources().getIdentifier(name, "attr", ctx.getPackageName());
+        if (id == 0) {
+            id = ctx.getResources().getIdentifier(name, "attr", "com.google.android.material");
+        }
+        assertTrue("找不到属性 " + name + "（依赖版本变了？）", id != 0);
+        return id;
+    }
+
     @Test
     public void 布局卡片半径按层级走() {
         final float[] r = new float[4];

@@ -78,13 +78,13 @@
         <item name="buttonBarPositiveButtonStyle">@style/Widget.Bookshelf.Button.Dialog</item>
         <item name="buttonBarNegativeButtonStyle">@style/Widget.Bookshelf.Button.Dialog</item>
         <item name="buttonBarNeutralButtonStyle">@style/Widget.Bookshelf.Button.Dialog</item>
-        <!-- 弹窗背景圆角：M3 默认 28dp 过大，这里收紧到与应用卡片一致 -->
+        <!-- 弹窗背景圆角：M3 默认 28dp 过大，v5.8.22 收到弹窗档 radius_2xl=24dp -->
         <item name="shapeAppearanceCornerExtraLarge">@style/ShapeAppearance.Bookshelf.Dialog</item>
     </style>
 
-    <!-- 弹窗形状：16dp 圆角（与应用卡片一致，M3 默认 28dp 过大） -->
+    <!-- 弹窗形状：24dp 圆角（v5.8.22 起弹窗/面板单独一档，比卡片 16dp 更圆） -->
     <style name="ShapeAppearance.Bookshelf.Dialog" parent="ShapeAppearance.Material3.Corner.Large">
-        <item name="cornerSize">@dimen/card_corner</item>
+        <item name="cornerSize">@dimen/radius_2xl</item>
     </style>
 
     <!-- v4.21：底部半屏面板主题（参照微信读书「全部记录」）
@@ -101,10 +101,10 @@
         <item name="elevationOverlayEnabled">false</item>
     </style>
 
-    <!-- 半屏面板形状：上方 16dp 圆角，下方直角 -->
+    <!-- 半屏面板形状：上方 24dp 圆角（与弹窗同档），下方直角 -->
     <style name="ShapeAppearance.Bookshelf.BottomSheet" parent="ShapeAppearance.Material3.Corner.ExtraLarge">
-        <item name="cornerSizeTopLeft">@dimen/card_corner</item>
-        <item name="cornerSizeTopRight">@dimen/card_corner</item>
+        <item name="cornerSizeTopLeft">@dimen/radius_2xl</item>
+        <item name="cornerSizeTopRight">@dimen/radius_2xl</item>
         <item name="cornerSizeBottomLeft">0dp</item>
         <item name="cornerSizeBottomRight">0dp</item>
     </style>

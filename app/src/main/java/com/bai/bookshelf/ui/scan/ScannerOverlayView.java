@@ -80,7 +80,7 @@ public class ScannerOverlayView extends View {
         outside.reset();
         outside.setFillType(Path.FillType.EVEN_ODD);
         outside.addRect(0, 0, w, h, Path.Direction.CW);
-        outside.addRoundRect(frame, dp(14), dp(14), Path.Direction.CW);
+        outside.addRoundRect(frame, dp(16), dp(16), Path.Direction.CW);
     }
 
     @Override
