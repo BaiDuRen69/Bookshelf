@@ -100,27 +100,70 @@ public class BookshelfApp extends Application {
         if (!prefs.contains(KEY_FIRST_LAUNCH_AT)) {
             prefs.edit().putLong(KEY_FIRST_LAUNCH_AT, System.currentTimeMillis()).apply();
         }
-        db = Room.databaseBuilder(this, AppDatabase.class, "bookshelf.db")
-                .addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3,
-                        AppDatabase.MIGRATION_3_4, AppDatabase.MIGRATION_4_5,
-                        AppDatabase.MIGRATION_5_6, AppDatabase.MIGRATION_6_7,
-                        AppDatabase.MIGRATION_7_8, AppDatabase.MIGRATION_8_9,
-                        AppDatabase.MIGRATION_9_10, AppDatabase.MIGRATION_10_11,
-                        AppDatabase.MIGRATION_11_12, AppDatabase.MIGRATION_12_13,
-                        AppDatabase.MIGRATION_13_14, AppDatabase.MIGRATION_14_15, AppDatabase.MIGRATION_15_16,
-                        AppDatabase.MIGRATION_16_17, AppDatabase.MIGRATION_17_18) // 保数据迁移
+        // v5.7 数据安全：Room 一旦打开就会跑迁移，所以升级前副本必须抢在这之前
+        final int dbVersionBefore = com.bai.bookshelf.util.PreMigrationBackup
+                .prepareBeforeOpen(this);
+        db = buildDb();
+        // v5.8：Room 是懒打开的，迁移失败原先只会在某个后台查询里抛出来，
+        // 用户看到的是空书架或闪退。这里主动开一次库把失败接住，直接进修复页。
+        bg(() -> {
+            try {
+                db.getOpenHelper().getWritableDatabase();
+            } catch (Throwable t) {
+                com.bai.bookshelf.util.DbRepair.markBroken(t);
+                ui(this::openDatabaseRepair);
+                return;
+            }
+            // 只有真正打开成功才记版本：上次如果迁移失败，这次启动才仍会留升级前副本
+            com.bai.bookshelf.util.PreMigrationBackup.markOpened(this, AppDatabase.VERSION);
+            if (com.bai.bookshelf.util.PreMigrationBackup.migrated(
+                    dbVersionBefore, AppDatabase.VERSION)) {
+                // 迁移成功后立刻做一次整包备份（无视「每天一次」），
+                // 让「升级后的第一次启动」就有一个新 schema 的可恢复快照
+                mainHandler.postDelayed(() -> bg(() -> BackupManager.backupNow(this)), 6000);
+            }
+            ensureDefaultData();
+            // v4.42：每天 9:00 检查一次借阅到期（进程被杀也由闹钟拉起）
+            com.bai.bookshelf.util.BorrowReminder.schedule(this);
+            // v4.4：自动备份延后 3 秒再跑——整库 JSON + 全部封面图打 zip 是启动期最重的
+            // 任务，冷启动先让路给首屏渲染，避免磁盘 I/O 与 Glide 加载封面互相争抢
+            mainHandler.postDelayed(() -> BackupManager.autoBackupIfEnabled(this), 3000);
+        });
+    }
+
+    /** 按当前约定建库（迁移清单在这里，别处不要再 new） */
+    private AppDatabase buildDb() {
+        return Room.databaseBuilder(this, AppDatabase.class, AppDatabase.DB_NAME)
+                .addMigrations(AppDatabase.migrations()) // 保数据迁移
                 // v4.0（评审 #1）：兜底策略收紧。fallbackToDestructiveMigration 会在
                 // 迁移路径覆盖不到时（典型：用旧包覆盖安装新版造成降级）直接删表重建、
                 // 藏书数据静默全失——对个人藏书管理 App 不可接受。改为仅在「降级」时
                 // 重建：正常升级失败会抛异常暴露问题，而不是悄悄抹掉数据。
                 .fallbackToDestructiveMigrationOnDowngrade()
                 .build();
-        ensureDefaultData();
-        // v4.42：每天 9:00 检查一次借阅到期（进程被杀也由闹钟拉起）
-        com.bai.bookshelf.util.BorrowReminder.schedule(this);
-        // v4.4：自动备份延后 3 秒再跑——整库 JSON + 全部封面图打 zip 是启动期最重的
-        // 任务，冷启动先让路给首屏渲染，避免磁盘 I/O 与 Glide 加载封面互相争抢
-        mainHandler.postDelayed(() -> BackupManager.autoBackupIfEnabled(this), 3000);
+    }
+
+    /** 修复页用：关掉当前库，文件才搬得动 */
+    public synchronized void closeDatabase() {
+        try {
+            db.close();
+        } catch (Exception ignored) {
+            // 库本来就打不开时 close 也可能抛，这里只求把句柄放掉
+        }
+    }
+
+    /** 修复页用：换一个干净的 Room 实例（旧实例的失败状态会被缓存，不能复用） */
+    public synchronized void reopenDatabase() {
+        db = buildDb();
+    }
+
+    /** 迁移失败后把用户带到修复页，而不是让他对着空书架 */
+    private void openDatabaseRepair() {
+        android.content.Intent intent = new android.content.Intent(this,
+                com.bai.bookshelf.ui.repair.DatabaseRepairActivity.class);
+        intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+                | android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        startActivity(intent);
     }
 
     public AppDatabase db() {

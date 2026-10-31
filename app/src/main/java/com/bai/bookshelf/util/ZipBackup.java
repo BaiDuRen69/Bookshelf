@@ -2,6 +2,7 @@ package com.bai.bookshelf.util;
 
 import android.content.Context;
 
+import com.bai.bookshelf.BuildConfig;
 import com.bai.bookshelf.app.BookshelfApp;
 import com.bai.bookshelf.data.AppDatabase;
 import com.bai.bookshelf.data.entity.Book;
@@ -11,10 +12,15 @@ import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
+import java.security.DigestOutputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -25,32 +31,98 @@ import java.util.zip.ZipOutputStream;
 /**
  * zip 整包备份（v2.8）：替代原 xlsx 自动备份（xlsx 存不了图片）。
  *
- * 备份包结构：
+ * 备份包结构（条目名见 {@link BackupFormat}）：
  * - {@code data.json}：全部表数据（书籍、逐本副本、借出记录、备注图片记录、地点/渠道/标签/分类/国家/出版社/借阅人库），
  *   图片字段（coverUrl / note_images.path）只存相对 filesDir 的路径（如 {@code covers/cover_1.jpg}），换设备也能恢复；
- * - {@code media/}：App 内部存储（filesDir）下的全部图片文件，按原相对层级打包。
+ * - {@code media/}：App 内部存储（filesDir）下的全部图片文件，按原相对层级打包；
+ * - {@code meta.json}（v5.7）：App 版本、DB 版本、打包时间、册数、图片数与 {@link BackupChecksum} 校验和。
  *
- * 生成过程不写时间戳、条目时间固定为 0：相同数据 ⇒ 相同字节，供「内容没变就跳过备份」去重。
+ * 数据条目仍不写时间戳、条目时间固定为 0；meta 里带打包时刻，所以「内容没变就跳过备份」
+ * 从「比字节」改成「比校验和」（见 {@link BackupManager}）。
  */
 public final class ZipBackup {
-
-    private static final String ENTRY_DATA = "data.json";
-    private static final String MEDIA_PREFIX = "media/";
 
     /** 参与备份的图片扩展名（小写） */
     private static final String[] IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".gif"};
 
+    /** 一次打包的产物 */
+    public static class Bundle {
+        public final byte[] zip;
+        public final BackupMeta meta;
+
+        Bundle(byte[] zip, BackupMeta meta) {
+            this.zip = zip;
+            this.meta = meta;
+        }
+    }
+
+    /**
+     *  zip 里的一个媒体条目。
+     *
+     * <p>真实备份用文件实现（流式读入，不把整张封面进内存），
+     * 单测里用字节数组实现，走同一条 {@link #writeZip} 代码路径。
+     */
+    public interface MediaItem {
+        /** zip 内条目名（含 {@code media/} 前缀） */
+        String name();
+
+        InputStream open() throws IOException;
+    }
+
+    /** filesDir 下的图片文件 */
+    private static class FileItem implements MediaItem {
+        private final String entryName;
+        private final File file;
+
+        FileItem(String entryName, File file) {
+            this.entryName = entryName;
+            this.file = file;
+        }
+
+        @Override
+        public String name() {
+            return entryName;
+        }
+
+        @Override
+        public InputStream open() throws IOException {
+            return new FileInputStream(file);
+        }
+    }
+
+    /** 内存字节（单测 / 小附件用） */
+    public static class BytesItem implements MediaItem {
+        private final String entryName;
+        private final byte[] content;
+
+        public BytesItem(String entryName, byte[] content) {
+            this.entryName = entryName;
+            this.content = content;
+        }
+
+        @Override
+        public String name() {
+            return entryName;
+        }
+
+        @Override
+        public InputStream open() {
+            return new java.io.ByteArrayInputStream(content);
+        }
+    }
+
     private ZipBackup() {
     }
 
-    /** 生成备份 zip 的全部字节（需在后台线程调用） */
-    public static byte[] create(Context ctx) throws IOException {
+    /** 生成备份 zip 的全部字节与 meta（需在后台线程调用） */
+    public static Bundle create(Context ctx) throws IOException {
         AppDatabase db = BookshelfApp.get().db();
         String filesDirPath = ctx.getFilesDir().getAbsolutePath();
 
         // ---- 1. data.json（图片字段降级为相对路径） ----
+        List<Book> books = BookSanitizer.normalizeAll(db.bookDao().getAll());
         JsonObject root = new JsonObject();
-        root.add("books", booksToJson(com.bai.bookshelf.util.BookSanitizer.normalizeAll(db.bookDao().getAll()), filesDirPath));
+        root.add("books", booksToJson(books, filesDirPath));
         root.add("book_copies", new Gson().toJsonTree(db.bookCopyDao().getAll()));
         root.add("borrow_records", new Gson().toJsonTree(db.borrowRecordDao().getAll()));
         root.add("note_images", noteImagesToJson(db.noteImageDao().getAll(), filesDirPath));
@@ -62,38 +134,90 @@ public final class ZipBackup {
         root.add("countries", new Gson().toJsonTree(db.countryDao().getAll()));
         root.add("publishers", new Gson().toJsonTree(db.publisherDao().getAll()));
         root.add("borrowers", new Gson().toJsonTree(db.borrowerDao().getAll()));
-        byte[] jsonBytes = new Gson().toJson(root).getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        byte[] jsonBytes = new Gson().toJson(root).getBytes(StandardCharsets.UTF_8);
 
-        // ---- 2. 收集 filesDir 下的图片（排序保证字节确定） ----
+        // ---- 2. 收集 filesDir 下的图片（排序保证条目集合稳定） ----
         File filesDir = ctx.getFilesDir();
-        List<File> media = new ArrayList<>();
-        collectImages(filesDir, filesDir, media);
-        Collections.sort(media, Comparator.comparing(f -> relPath(filesDir, f)));
-
-        // ---- 3. 流式写入 zip ----
-        ByteArrayOutputStream bos = new ByteArrayOutputStream();
-        try (ZipOutputStream zos = new ZipOutputStream(bos)) {
-            ZipEntry dataEntry = new ZipEntry(ENTRY_DATA);
-            dataEntry.setTime(0);
-            zos.putNextEntry(dataEntry);
-            zos.write(jsonBytes);
-            zos.closeEntry();
-
-            byte[] buf = new byte[8192];
-            for (File f : media) {
-                ZipEntry me = new ZipEntry(MEDIA_PREFIX + relPath(filesDir, f));
-                me.setTime(0);
-                zos.putNextEntry(me);
-                try (FileInputStream in = new FileInputStream(f)) {
-                    int len;
-                    while ((len = in.read(buf)) > 0) {
-                        zos.write(buf, 0, len);
-                    }
-                }
-                zos.closeEntry();
-            }
+        List<File> found = new ArrayList<>();
+        collectImages(filesDir, filesDir, found);
+        Collections.sort(found, Comparator.comparing(f -> relPath(filesDir, f)));
+        List<MediaItem> media = new ArrayList<>();
+        for (File f : found) {
+            media.add(new FileItem(BackupFormat.MEDIA_PREFIX + relPath(filesDir, f), f));
         }
-        return bos.toByteArray();
+
+        // ---- 3. 打包装配 ----
+        BackupMeta meta = new BackupMeta();
+        meta.format = 1;
+        meta.appVersion = BuildConfig.VERSION_NAME;
+        meta.appCode = BuildConfig.VERSION_CODE;
+        meta.dbVersion = AppDatabase.VERSION;
+        meta.createdAt = System.currentTimeMillis();
+        meta.books = books.size();
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        writeZip(bos, jsonBytes, media, meta);
+        return new Bundle(bos.toByteArray(), meta);
+    }
+
+    /**
+     * 组装一个备份包：{@code data.json → media/* → meta.json}。
+     *
+     * <p>meta 必须最后写：校验和要覆盖前面全部数据条目，而它自己不能参与计算。
+     */
+    public static void writeZip(OutputStream out, byte[] dataJson, List<MediaItem> media,
+                                BackupMeta meta) throws IOException {
+        BackupChecksum checksum = new BackupChecksum();
+        long payload = 0;
+        try (ZipOutputStream zos = new ZipOutputStream(out)) {
+            payload += writeEntry(zos, BackupFormat.ENTRY_DATA, dataJson, checksum);
+            for (MediaItem item : media) {
+                try (InputStream in = item.open()) {
+                    payload += writeEntry(zos, item.name(), in, checksum);
+                }
+            }
+            meta.algorithm = BackupChecksum.ALGORITHM;
+            meta.media = Math.max(0, checksum.entries() - 1); // 减掉 data.json
+            meta.bytes = payload;
+            meta.checksum = checksum.finish();
+
+            byte[] metaBytes = meta.toJson().getBytes(StandardCharsets.UTF_8);
+            ZipEntry me = new ZipEntry(BackupFormat.ENTRY_META);
+            me.setTime(0);
+            zos.putNextEntry(me);
+            zos.write(metaBytes);
+            zos.closeEntry();
+        }
+    }
+
+    /** 写入一个字节数组条目 */
+    private static long writeEntry(ZipOutputStream zos, String name, byte[] content,
+                                   BackupChecksum checksum) throws IOException {
+        return writeEntry(zos, name, new ByteArrayInputStream(content), checksum);
+    }
+
+    /**
+     * 流式写入一个条目，同时累计它的内容摘要（摘要边写边算，不让整张封面进内存）。
+     *
+     * @return 该条目的未压缩字节数
+     */
+    private static long writeEntry(ZipOutputStream zos, String name, InputStream in,
+                                   BackupChecksum checksum) throws IOException {
+        ZipEntry entry = new ZipEntry(name);
+        entry.setTime(0);
+        zos.putNextEntry(entry);
+        java.security.MessageDigest md = BackupChecksum.newEntryDigest(name);
+        DigestOutputStream dos = new DigestOutputStream(zos, md);
+        byte[] buf = new byte[8192];
+        long total = 0;
+        int len;
+        while ((len = in.read(buf)) > 0) {
+            dos.write(buf, 0, len);
+            total += len;
+        }
+        dos.flush();
+        checksum.addDigest(name, md);
+        zos.closeEntry();
+        return total;
     }
 
     /** 书籍 → JSON 数组：coverUrl 若是 filesDir 下的本地路径则降级为相对路径 */
@@ -188,6 +312,6 @@ public final class ZipBackup {
     /** 文件相对 filesDir 的路径（分隔符统一为 /，与 zip 条目名一致） */
     private static String relPath(File filesDir, File f) {
         String rel = f.getAbsolutePath().substring(filesDir.getAbsolutePath().length() + 1);
-        return rel.replace(java.io.File.separatorChar, '/');
+        return rel.replace(File.separatorChar, '/');
     }
 }

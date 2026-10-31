@@ -36,6 +36,9 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
         </activity>
 
         <!-- 借阅到期：每日闹钟 + 开机后重新排期 -->
@@ -59,7 +62,10 @@
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />
         <activity android:name=".ui.edit.CopyEditActivity" android:exported="false" />
-        <activity android:name=".ui.wish.WishListActivity" android:exported="false" />
+        <activity
+            android:name=".ui.wish.WishListActivity"
+            android:exported="false"
+            android:launchMode="singleTop" />
         <activity android:name=".ui.excerpt.ExcerptListActivity" android:exported="false" />
         <activity android:name=".ui.series.SeriesListActivity" android:exported="false" />
         <activity android:name=".ui.series.SeriesActivity" android:exported="false" />
@@ -73,12 +79,16 @@
         <activity android:name=".ui.stats.PublisherActivity" android:exported="false" />
         <activity android:name=".ui.stats.AuthorActivity" android:exported="false" />
         <activity android:name=".ui.stats.ReadingStatsActivity" android:exported="false" />
+        <activity android:name=".ui.stats.ReadingCalendarActivity" android:exported="false" />
         <activity android:name=".ui.stats.StudyReportActivity" android:exported="false" />
         <activity android:name=".ui.mine.SplitActivity" android:exported="false" />
         <activity android:name=".ui.mine.AboutActivity" android:exported="false" />
         <activity android:name=".ui.mine.ApiSettingsActivity" android:exported="false" />
         <activity android:name=".ui.mine.ApiConfigActivity" android:exported="false" />
         <activity android:name=".ui.mine.UsageQueryActivity" android:exported="false" />
+        <activity android:name=".ui.mine.IncompleteBooksActivity" android:exported="false" />
+        <activity android:name=".ui.mine.LibraryManageActivity" android:exported="false" />
+        <activity android:name=".ui.repair.DatabaseRepairActivity" android:exported="false" />
 
         <!-- 导出 Excel 后通过系统分享发送文件 -->
         <provider

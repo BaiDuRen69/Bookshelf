@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 数据库修复页（v5.8）：迁移失败时的自救入口，不依赖任何数据库查询 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="?android:attr/colorBackground"
+    android:orientation="vertical">
+
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/toolbar"
+        style="@style/Widget.Bookshelf.Toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:title="数据库需要修复"
+        app:navigationIcon="@drawable/ic_back" />
+
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="@dimen/page_padding">
+
+            <TextView
+                style="@style/Text.Bookshelf.SerifTitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="打不开藏书数据库"
+                android:textColor="?attr/on_surface" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/space_sm"
+                android:lineSpacingMultiplier="1.4"
+                android:text="升级时数据库结构没能改写成功。藏书文件还在，先别卸载 App——下面两条路都能把书找回来。"
+                android:textColor="?attr/on_surface_variant"
+                android:textSize="@dimen/text_body" />
+
+            <androidx.cardview.widget.CardView
+                style="@style/Widget.Bookshelf.Card"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/space_lg">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="@dimen/space_lg">
+
+                    <TextView
+                        style="@style/CardTitle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="① 从升级前副本恢复（推荐）"
+                        android:textColor="?attr/on_surface" />
+
+                    <TextView
+                        android:id="@+id/tv_copy_state"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/space_sm"
+                        android:lineSpacingMultiplier="1.35"
+                        android:textColor="?attr/on_surface_variant"
+                        android:textSize="@dimen/text_body_small" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btn_restore_copy"
+                        style="@style/Widget.Bookshelf.Button"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/space_md"
+                        android:text="用副本恢复" />
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+            <androidx.cardview.widget.CardView
+                style="@style/Widget.Bookshelf.Card"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/space_md">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="@dimen/space_lg">
+
+                    <TextView
+                        style="@style/CardTitle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="② 从 zip 备份恢复"
+                        android:textColor="?attr/on_surface" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/space_sm"
+                        android:lineSpacingMultiplier="1.35"
+                        android:text="副本也打不开时走这条。会放弃现在的坏库（改名留在应用里），用备份包重建一个新库。"
+                        android:textColor="?attr/on_surface_variant"
+                        android:textSize="@dimen/text_body_small" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btn_restore_zip"
+                        style="@style/Widget.Bookshelf.Button.Outlined"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/space_md"
+                        android:text="选择备份 zip" />
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/space_lg"
+                android:text="技术细节"
+                android:textColor="?attr/on_surface_variant"
+                android:textSize="@dimen/text_caption" />
+
+            <TextView
+                android:id="@+id/tv_error"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/space_xs"
+                android:fontFamily="monospace"
+                android:lineSpacingMultiplier="1.25"
+                android:textColor="?attr/on_surface_variant"
+                android:textIsSelectable="true"
+                android:textSize="@dimen/text_caption" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_retry"
+                style="@style/Widget.Bookshelf.Button.Text"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/space_md"
+                android:text="再试一次打开" />
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+</LinearLayout>

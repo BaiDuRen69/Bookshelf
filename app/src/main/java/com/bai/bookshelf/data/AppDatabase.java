@@ -55,12 +55,21 @@ import com.bai.bookshelf.data.entity.Tag;
  * v16：新增 wish_books 想读清单表。
  * v17：books 加 review（个人短评），新增 excerpts 摘抄表。
  * v18：books 加系列三列（系列名/卷号/阅读顺序），支撑系列与套装分组。
+ * v19：wish_books 加 sort，支撑想读清单手动拖动排序。
+ * v20：books 加借阅时间段与归还日期（来源=借阅时使用）。
+ * v21：books 加 readingRecords（多次阅读记录 JSON）与弃读状态。
  */
 @Database(entities = {Book.class, Location.class, BorrowRecord.class, SourceChannel.class, Tag.class,
         Category.class, Borrower.class, BookCopy.class, Country.class, NoteImage.class, Publisher.class, WishBook.class,
         Excerpt.class},
-        version = 18, exportSchema = true) // v4.0：导出 schema JSON 供迁移比对与测试
+        version = AppDatabase.VERSION, exportSchema = true) // v4.0：导出 schema JSON 供迁移比对与测试
 public abstract class AppDatabase extends RoomDatabase {
+
+    /** Room schema 版本（v5.7：备份 meta 与升级前副本都要读到它，故提为常量） */
+    public static final int VERSION = 23;
+
+    /** 数据库文件名（建库与升级前副本共用） */
+    public static final String DB_NAME = "bookshelf.db";
 
     public abstract BookDao bookDao();
 
@@ -343,6 +352,52 @@ public abstract class AppDatabase extends RoomDatabase {
         }
     };
 
+    /** v5.7：多次阅读记录 */
+    public static final Migration MIGRATION_20_21 = new Migration(20, 21) {
+        @Override
+        public void migrate(@NonNull SupportSQLiteDatabase database) {
+            database.execSQL("ALTER TABLE books ADD COLUMN readingRecords TEXT DEFAULT ''");
+        }
+    };
+
+    /** v5.7：阅读记录平均评分（0.5 步进；老书的 rating 先回填，编辑保存后再按记录重算） */
+    public static final Migration MIGRATION_21_22 = new Migration(21, 22) {
+        @Override
+        public void migrate(@NonNull SupportSQLiteDatabase database) {
+            database.execSQL("ALTER TABLE books ADD COLUMN ratingAvg REAL NOT NULL DEFAULT 0");
+            database.execSQL("UPDATE books SET ratingAvg = rating WHERE rating > 0");
+        }
+    };
+
+    /** v5.7：多次借书记录；已归还的借阅书统一落成「电子书签」藏书状态 */
+    public static final Migration MIGRATION_22_23 = new Migration(22, 23) {
+        @Override
+        public void migrate(@NonNull SupportSQLiteDatabase database) {
+            database.execSQL("ALTER TABLE books ADD COLUMN borrowRecords TEXT DEFAULT ''");
+            database.execSQL("UPDATE books SET stockStatus = 3 "
+                    + "WHERE ownType = 1 AND borrowReturnDate IS NOT NULL AND borrowReturnDate != '' "
+                    + "AND stockStatus NOT IN (1, 2)");
+        }
+    };
+
+    /** v5.7：来源为借阅的书记录借阅时间段与归还日期 */
+    public static final Migration MIGRATION_19_20 = new Migration(19, 20) {
+        @Override
+        public void migrate(@NonNull SupportSQLiteDatabase database) {
+            database.execSQL("ALTER TABLE books ADD COLUMN borrowStartDate TEXT DEFAULT ''");
+            database.execSQL("ALTER TABLE books ADD COLUMN borrowDueDate TEXT DEFAULT ''");
+            database.execSQL("ALTER TABLE books ADD COLUMN borrowReturnDate TEXT DEFAULT ''");
+        }
+    };
+
+    /** v5.7：想读清单手动排序值 */
+    public static final Migration MIGRATION_18_19 = new Migration(18, 19) {
+        @Override
+        public void migrate(@NonNull SupportSQLiteDatabase database) {
+            database.execSQL("ALTER TABLE wish_books ADD COLUMN sort INTEGER NOT NULL DEFAULT 0");
+        }
+    };
+
     /** v4.42：借阅人补联系方式（催还文案要用） */
     public static final Migration MIGRATION_13_14 = new Migration(13, 14) {
         @Override
@@ -350,4 +405,25 @@ public abstract class AppDatabase extends RoomDatabase {
             database.execSQL("ALTER TABLE borrowers ADD COLUMN phone TEXT DEFAULT ''");
         }
     };
+
+    /** 全部迁移（建库与迁移冒烟测试共用一份清单，避免两处各写一遍漏掉一条） */
+    public static Migration[] migrations() {
+        return new Migration[]{
+                MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5,
+                MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9,
+                MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13,
+                MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17,
+                MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21,
+                MIGRATION_21_22, MIGRATION_22_23};
+    }
+
+    /** 某一个旧版本对应的迁移；没有则 null（供测试逐级串起来） */
+    public static Migration migration(int fromVersion) {
+        for (Migration m : migrations()) {
+            if (m.startVersion == fromVersion) {
+                return m;
+            }
+        }
+        return null;
+    }
 }

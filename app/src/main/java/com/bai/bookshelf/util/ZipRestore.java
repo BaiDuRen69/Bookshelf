@@ -22,31 +22,32 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.reflect.TypeToken;
 
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Type;
 import java.util.List;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipInputStream;
 
 /**
  * zip 备份恢复（v2.8）：解析 {@link ZipBackup} 生成的 .zip，
  * 展开 media/ 到 filesDir，并在一个 Room 事务里清空全部表后按备份 id 重写。
  *
  * 语义为**整包替换**（与 xlsx 导入的「按 ISBN 合并」不同）——调用前必须向用户确认。
+ *
+ * <p>v5.7 数据安全：先用 {@link BackupInspector} 把包读进内存并校验，
+ * 校验不通过 / 备份来自更高版本时直接抛异常，一个字节都不落到 filesDir。
  */
 public final class ZipRestore {
-
-    private static final String ENTRY_DATA = "data.json";
-    private static final String MEDIA_PREFIX = "media/";
 
     /** 恢复结果统计 */
     public static class Result {
         public int books;  // 恢复的书籍数
         public int media;  // 恢复的媒体文件数
+        /** 备份包没有 meta（v5.7 之前生成）⇒ 未能校验 */
+        public boolean legacy;
+        /** 备份的 App 版本低于当前版本（正常升级路径，恢复后由迁移补齐） */
+        public int fromDbVersion;
     }
 
     private ZipRestore() {
@@ -54,36 +55,27 @@ public final class ZipRestore {
 
     /** 从 zip 备份恢复（需在后台线程调用；内部按 id 原样重写，恢复后藏书 id 与备份时一致） */
     public static Result restore(Context ctx, Uri uri, AppDatabase db) throws Exception {
-        String json = null;
-        java.util.LinkedHashMap<String, byte[]> media = new java.util.LinkedHashMap<>();
-
-        // ---- 1. 读 zip：data.json + media/ ----
+        // ---- 1. 读包 + 校验：不通过就抛，filesDir 与数据库都不动 ----
         InputStream rawIn = ctx.getContentResolver().openInputStream(uri);
         if (rawIn == null) {
             throw new IOException("无法读取所选文件");
         }
-        try (ZipInputStream zis = new ZipInputStream(rawIn)) {
-            ZipEntry e;
-            while ((e = zis.getNextEntry()) != null) {
-                if (e.isDirectory()) {
-                    continue;
-                }
-                if (ENTRY_DATA.equals(e.getName())) {
-                    json = new String(readAll(zis), java.nio.charset.StandardCharsets.UTF_8);
-                } else if (e.getName().startsWith(MEDIA_PREFIX)) {
-                    media.put(e.getName().substring(MEDIA_PREFIX.length()), readAll(zis));
-                }
-            }
+        BackupInspector.Entries entries;
+        try (rawIn) {
+            entries = BackupInspector.read(rawIn);
         }
-        if (json == null) {
-            throw new IOException("备份文件缺少 data.json，不是本应用生成的 zip 备份");
+        BackupInspector.Info info = BackupInspector.validateCurrent(entries);
+        if (!info.ok()) {
+            throw new IOException(info.reject);
         }
 
         // ---- 2. 展开媒体文件到 filesDir（保持相对层级；防目录穿越） ----
         File filesDir = ctx.getFilesDir();
         String filesDirCanonical = filesDir.getCanonicalPath();
         Result result = new Result();
-        for (java.util.Map.Entry<String, byte[]> en : media.entrySet()) {
+        result.legacy = info.legacy();
+        result.fromDbVersion = info.meta == null ? 0 : info.meta.dbVersion;
+        for (java.util.Map.Entry<String, byte[]> en : entries.media.entrySet()) {
             File out = new File(filesDir, en.getKey());
             if (!out.getCanonicalPath().startsWith(filesDirCanonical + File.separator)
                     && !out.getCanonicalPath().equals(filesDirCanonical)) {
@@ -101,7 +93,7 @@ public final class ZipRestore {
 
         // ---- 3. 事务内清空 + 重写（要么全成功，要么全失败） ----
         Gson gson = new Gson();
-        JsonObject root = JsonParser.parseString(json).getAsJsonObject();
+        JsonObject root = JsonParser.parseString(entries.dataJson).getAsJsonObject();
         String filesDirPath = filesDir.getAbsolutePath();
 
         db.runInTransaction(() -> {
@@ -175,15 +167,5 @@ public final class ZipRestore {
         JsonArray arr = root.getAsJsonArray(key);
         Type listType = type.getType();
         return new Gson().fromJson(arr, listType);
-    }
-
-    private static byte[] readAll(InputStream in) throws IOException {
-        ByteArrayOutputStream bos = new ByteArrayOutputStream();
-        byte[] buf = new byte[8192];
-        int len;
-        while ((len = in.read(buf)) > 0) {
-            bos.write(buf, 0, len);
-        }
-        return bos.toByteArray();
     }
 }

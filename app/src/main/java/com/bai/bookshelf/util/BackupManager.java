@@ -24,9 +24,10 @@ import java.util.Locale;
  * 保存「是否开启自动备份」与「额外备份文件夹（SAF Uri，可选）」配置，
  * 并在每次启动应用时静默执行备份（失败不打扰用户）。
  *
- * 备份规则（zip 包内含 data.json + media/，见 {@link ZipBackup}）：
+ * 备份规则（zip 包内含 data.json + media/ + meta.json，见 {@link ZipBackup}）：
  * 1. 藏书为 0 本时不备份（没内容没必要留档）；
- * 2. 新备份内容与最近一次备份完全相同则跳过（避免每次启动都产生重复文件）；
+ * 2. 新备份与最近一份备份的**内容校验和**相同则跳过（v5.7：meta 里带了打包时刻，
+ *    不能再比字节）；
  * 3. 每个存放位置（应用内部存储 backups/ 目录 + 用户选的 SAF 文件夹）只保留最近 5 份，更旧的自动清理；
  * 4. 应用内部存储是默认存放位置（v2.8 用户要求）；SAF 文件夹是可选的外部副本。
  */
@@ -36,6 +37,16 @@ public final class BackupManager {
     private static final String KEY_ENABLED = "auto_enabled";
     private static final String KEY_TREE_URI = "tree_uri";
     private static final String KEY_TREE_NAME = "tree_name";
+    /** 外部副本最近一次写成功 / 写失败的时刻，以及失败原因（v5.8 诚实化） */
+    private static final String KEY_SAF_OK_AT = "saf_ok_at";
+    private static final String KEY_SAF_FAIL_AT = "saf_fail_at";
+    private static final String KEY_SAF_FAIL_MSG = "saf_fail_msg";
+    /** 用户关掉「备份太久没更新」提醒的时刻，30 天内不再打扰 */
+    private static final String KEY_REMINDER_OFF_AT = "reminder_off_at";
+    /** 最新备份超过这个天数就提醒一次 */
+    public static final int STALE_DAYS = 30;
+    /** 关掉提醒后安静多少天 */
+    private static final int REMINDER_SNOOZE_DAYS = 30;
 
     /** 备份文件名前缀（用于在两个存放位置里识别本应用产生的备份） */
     private static final String BACKUP_PREFIX = "小书房备份_";
@@ -45,6 +56,22 @@ public final class BackupManager {
     private static final String INTERNAL_DIR = "backups";
     /** 最多保留的备份份数 */
     private static final int MAX_KEEP = 5;
+
+    /** 一次备份的结果（v5.7：把 meta 带回去，UI 能说清「几本、校验和是否写下」） */
+    public static class Outcome {
+        /** 备份成功写出的 meta；null 表示没做成 */
+        public BackupMeta meta;
+        /** zip 字节数（meta 为 null 时无意义） */
+        public long bytes;
+        /** 藏书为空，无需备份 */
+        public boolean empty;
+        /** 备份失败 */
+        public boolean failed;
+        /** 内部备份成功但外部副本写失败（授权失效 / 空间不足） */
+        public boolean safFailed;
+        /** 外部副本失败原因，原样给用户看 */
+        public String safError;
+    }
 
     private BackupManager() {
     }
@@ -78,6 +105,71 @@ public final class BackupManager {
                 .apply();
     }
 
+    /** 外部副本最近一次写成功的时刻（0 = 从没成功过） */
+    public static long safLastOkAt(Context ctx) {
+        return prefs(ctx).getLong(KEY_SAF_OK_AT, 0L);
+    }
+
+    /**
+     * 外部副本「设了文件夹但写不进去」。
+     *
+     * <p>以前 SAF 写失败被 catch 掉，用户以为每天都在备份，其实外部副本早就停了；
+     * 现在把失败时间记下来，页面直接说「自 X 起未更新」。
+     */
+    public static boolean safBroken(Context ctx) {
+        if (getTreeUri(ctx) == null) {
+            return false;
+        }
+        return prefs(ctx).getLong(KEY_SAF_FAIL_AT, 0L) > safLastOkAt(ctx);
+    }
+
+    /** 最近一次外部副本失败的时刻 */
+    public static long safLastFailAt(Context ctx) {
+        return prefs(ctx).getLong(KEY_SAF_FAIL_AT, 0L);
+    }
+
+    public static String safFailMessage(Context ctx) {
+        return prefs(ctx).getString(KEY_SAF_FAIL_MSG, "");
+    }
+
+    private static void markSafOk(Context ctx) {
+        prefs(ctx).edit().putLong(KEY_SAF_OK_AT, System.currentTimeMillis())
+                .remove(KEY_SAF_FAIL_MSG).apply();
+    }
+
+    private static void markSafFail(Context ctx, Exception e) {
+        String msg = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
+        prefs(ctx).edit().putLong(KEY_SAF_FAIL_AT, System.currentTimeMillis())
+                .putString(KEY_SAF_FAIL_MSG, msg).apply();
+    }
+
+    /** 用户关掉「备份太久没更新」提醒，30 天内不再提示 */
+    public static void snoozeStaleReminder(Context ctx) {
+        prefs(ctx).edit().putLong(KEY_REMINDER_OFF_AT, System.currentTimeMillis()).apply();
+    }
+
+    /** 最新备份超过 {@link #STALE_DAYS} 天、且用户最近没关掉提醒 */
+    public static boolean staleReminderNeeded(Context ctx) {
+        File latest = latestInternalBackup(ctx);
+        if (latest == null) {
+            // 从没备份过说明自动备份没开，属于另一件事，不在这里催
+            return false;
+        }
+        long age = System.currentTimeMillis() - latest.lastModified();
+        if (age < STALE_DAYS * 24L * 3600_000L) {
+            return false;
+        }
+        long off = prefs(ctx).getLong(KEY_REMINDER_OFF_AT, 0L);
+        return System.currentTimeMillis() - off >= REMINDER_SNOOZE_DAYS * 24L * 3600_000L;
+    }
+
+    /** 最新备份是多少天前（没有备份返回 -1） */
+    public static long latestBackupAgeDays(Context ctx) {
+        File latest = latestInternalBackup(ctx);
+        return latest == null ? -1
+                : (System.currentTimeMillis() - latest.lastModified()) / (24L * 3600_000L);
+    }
+
     /**
      * 每次启动时调用：开了自动备份就静默生成 zip 备份。
      * 在后台线程执行，任何失败都只忽略不弹窗。
@@ -97,16 +189,23 @@ public final class BackupManager {
                 if (backedUpToday(ctx)) {
                     return; // v4.45：每天最多一次，避免每次启动都压缩整库
                 }
-                byte[] zip = ZipBackup.create(ctx);
+                ZipBackup.Bundle bundle = ZipBackup.create(ctx);
                 // 默认存放位置：应用内部存储 backups/ 目录
-                writeInternal(ctx, zip);
+                writeInternal(ctx, bundle.zip, bundle.meta.checksum);
                 // 可选外部副本：用户选过的 SAF 文件夹
                 Uri treeUri = getTreeUri(ctx);
                 if (treeUri != null) {
-                    writeTree(ctx, treeUri, zip);
+                    try {
+                        writeTree(ctx, treeUri, bundle.zip, bundle.meta.checksum);
+                        markSafOk(ctx);
+                    } catch (Exception e) {
+                        // 内部备份已经写成，外部副本失败只记账不在后台弹窗；
+                        // 我的页会显示「外部副本自 X 起未更新」
+                        markSafFail(ctx, e);
+                    }
                 }
             } catch (Exception ignored) {
-                // 静默失败：文件夹授权失效等情况，用户下次手动备份时会发现
+                // 内部备份失败：装不下/IO 异常，用户下次手动备份时能立刻看到
             }
         });
     }
@@ -133,90 +232,109 @@ public final class BackupManager {
     /**
      * 手动立即备份（忽略「每天一次」限制）。
      *
-     * @return 备份压缩包字节数；0 = 还没有藏书；-1 = 失败
+     * <p>v5.7：返回 {@link Outcome}，UI 能说清册数与字节数，而不只是一个数字。
      */
-    public static long backupNow(Context ctx) {
+    public static Outcome backupNow(Context ctx) {
+        Outcome o = new Outcome();
         try {
             BookshelfApp app = BookshelfApp.get();
             if (app.db().bookDao().count() == 0) {
-                return 0;
+                o.empty = true;
+                return o;
             }
-            byte[] zip = ZipBackup.create(ctx);
-            writeInternal(ctx, zip);
+            ZipBackup.Bundle bundle = ZipBackup.create(ctx);
+            o.meta = bundle.meta;
+            writeInternal(ctx, bundle.zip, bundle.meta.checksum);
             Uri treeUri = getTreeUri(ctx);
             if (treeUri != null) {
                 try {
-                    writeTree(ctx, treeUri, zip);
-                } catch (Exception ignored) {
-                    // 外部文件夹授权失效不影响内部备份
+                    writeTree(ctx, treeUri, bundle.zip, bundle.meta.checksum);
+                    markSafOk(ctx);
+                } catch (Exception e) {
+                    // 外部副本失败不影响内部备份，但必须让用户知道它没写进去
+                    markSafFail(ctx, e);
+                    o.safFailed = true;
+                    o.safError = safFailMessage(ctx);
                 }
             }
-            return zip.length;
+            File latest = latestInternalBackup(ctx);
+            o.bytes = latest == null ? bundle.zip.length : latest.length();
+            return o;
         } catch (Exception e) {
-            return -1;
+            o.failed = true;
+            return o;
         }
     }
 
-    /** 预览一个 zip 备份：返回 {藏书册数, 解压后内容字节数}，读不出册数时为 -1 */
-    public static long[] inspectBackup(Context ctx, Uri uri) {
-        long bytes = 0;
-        String json = null;
-        try (InputStream in = ctx.getContentResolver().openInputStream(uri)) {
-            if (in == null) {
-                return new long[]{-1, -1};
-            }
-            try (java.util.zip.ZipInputStream zis = new java.util.zip.ZipInputStream(in)) {
-                java.util.zip.ZipEntry entry;
-                while ((entry = zis.getNextEntry()) != null) {
-                    if (entry.isDirectory()) {
-                        continue;
-                    }
-                    byte[] data = readStream(zis);
-                    bytes += data.length;
-                    if ("data.json".equals(entry.getName())) {
-                        json = new String(data, java.nio.charset.StandardCharsets.UTF_8);
-                    }
-                }
-            }
-        } catch (Exception e) {
-            return new long[]{-1, -1};
-        }
-        int books = -1;
-        if (json != null) {
+    // ======================= 备份可信度（v5.7 数据安全） =======================
+
+    /** 一份内部备份的校验结论 */
+    public static class Verified {
+        public File file;
+        /** 整包校验结论（含 checksum 比对） */
+        public BackupInspector.Info info;
+        /** 读包失败（文件损坏 / 不是 zip） */
+        public boolean unreadable;
+    }
+
+    /**
+     * 逐个校验内部备份（「验证备份」用；整包解压，耗时以秒计，必须走后台线程）。
+     *
+     * @return 旧→新排序；没有备份时为空列表
+     */
+    public static List<Verified> verifyInternal(Context ctx) {
+        List<Verified> out = new ArrayList<>();
+        for (File f : listInternalBackups(ctx)) {
+            Verified v = new Verified();
+            v.file = f;
             try {
-                org.json.JSONArray array = new org.json.JSONObject(json).optJSONArray("books");
-                books = array == null ? 0 : array.length();
-            } catch (Exception ignored) {
+                v.info = BackupInspector.inspect(f);
+            } catch (Exception e) {
+                v.unreadable = true;
             }
+            out.add(v);
         }
-        return new long[]{books, bytes};
+        return out;
     }
 
-    private static byte[] readStream(InputStream in) throws java.io.IOException {
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        byte[] buffer = new byte[8192];
-        int len;
-        while ((len = in.read(buffer)) > 0) {
-            out.write(buffer, 0, len);
+    /**
+     * 一份备份的人话标注（只读 meta，不解压）：
+     * {@code 128 本 · v5.6.1（DB 23）}；旧包读不出 meta 时返回 null 让调用方退回文件大小。
+     */
+    public static String describeBackup(File f) {
+        BackupMeta meta = BackupInspector.readMeta(f);
+        if (meta == null) {
+            return null;
         }
-        return out.toByteArray();
+        return meta.books + " 本 · " + meta.versionText();
+    }
+
+    /** 内容是否与最近一份备份一致（v5.7：比校验和；旧包无比对基准时退回比字节） */
+    private static boolean unchanged(File latest, byte[] zip, String checksum) {
+        BackupMeta prev = BackupInspector.readMeta(latest);
+        if (prev != null && prev.hasChecksum()) {
+            return prev.checksum.equalsIgnoreCase(checksum);
+        }
+        if (prev != null) {
+            // 有 meta 但没有校验和（理论上只出现在半成品包）：保守起见按「变了」处理
+            return false;
+        }
+        byte[] latestData = readFile(latest);
+        return latestData != null && Arrays.equals(latestData, zip);
     }
 
     // ======================= 应用内部存储 =======================
 
     /** 写入内部存储 backups/ 目录（带内容去重 + 轮换清理） */
-    private static void writeInternal(Context ctx, byte[] zip) {
+    private static void writeInternal(Context ctx, byte[] zip, String checksum) {
         File dir = new File(ctx.getFilesDir(), INTERNAL_DIR);
         if (!dir.exists() && !dir.mkdirs()) {
             return;
         }
         File[] existing = listInternal(dir);
-        if (existing.length > 0) {
-            File latest = existing[existing.length - 1];
-            byte[] latestData = readFile(latest);
-            if (latestData != null && Arrays.equals(latestData, zip)) {
-                return; // 规则 2：内容没变，跳过
-            }
+        if (existing.length > 0
+                && unchanged(existing[existing.length - 1], zip, checksum)) {
+            return; // 规则 2：内容没变，跳过
         }
         File out = new File(dir, BACKUP_PREFIX + timestamp() + BACKUP_EXT);
         writeFile(out, zip);
@@ -267,12 +385,19 @@ public final class BackupManager {
     // ======================= SAF 文件夹（外部副本） =======================
 
     /** 写入用户自选的 SAF 文件夹（带去重 + 轮换清理） */
-    private static void writeTree(Context ctx, Uri treeUri, byte[] zip) throws Exception {
+    private static void writeTree(Context ctx, Uri treeUri, byte[] zip, String checksum)
+            throws Exception {
         List<BackupFile> existing = listBackups(ctx, treeUri);
         if (!existing.isEmpty()) {
             BackupFile latest = existing.get(existing.size() - 1);
-            byte[] latestData = readAll(ctx, latest.uri);
-            if (latestData != null && Arrays.equals(latestData, zip)) {
+            BackupMeta prev;
+            try (InputStream in = ctx.getContentResolver().openInputStream(latest.uri)) {
+                prev = in == null ? null : BackupInspector.readMeta(in);
+            } catch (Exception e) {
+                prev = null;
+            }
+            if (prev != null && prev.hasChecksum()
+                    && prev.checksum.equalsIgnoreCase(checksum)) {
                 return; // 规则 2：内容没变，跳过
             }
         }
@@ -350,24 +475,7 @@ public final class BackupManager {
         return list;
     }
 
-    /** 读取 SAF 文件全部字节；失败返回 null */
-    private static byte[] readAll(Context ctx, Uri uri) {
-        try (InputStream in = ctx.getContentResolver().openInputStream(uri)) {
-            if (in == null) {
-                return null;
-            }
-            ByteArrayOutputStream bos = new ByteArrayOutputStream();
-            byte[] buf = new byte[8192];
-            int len;
-            while ((len = in.read(buf)) > 0) {
-                bos.write(buf, 0, len);
-            }
-            return bos.toByteArray();
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
+    /** 读取内部备份文件全部字节；失败返回 null（旧备份无 meta 时的字节比对用） */
     private static byte[] readFile(File f) {
         try (InputStream in = new java.io.FileInputStream(f)) {
             ByteArrayOutputStream bos = new ByteArrayOutputStream();
