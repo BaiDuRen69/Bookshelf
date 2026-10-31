@@ -48,10 +48,21 @@ public class DatabaseRepairActivity extends BaseActivity {
 
     private void bindCopyState() {
         String label = DbRepair.latestCopyLabel(this);
-        b.tvCopyState.setText(label == null
+        StringBuilder sb = new StringBuilder(label == null
                 ? "没有找到升级前副本（只有数据库版本变化时才会自动留一份）。"
                 : "最近一份副本：" + label
                 + "\n恢复后数据库会回到升级前的状态，再重新尝试升级一次。");
+        if (DbRepair.isPending(this)) {
+            String reason = DbRepair.pendingReason(this);
+            sb.append("\n\n上次恢复没有走完：")
+                    .append(reason.isEmpty() ? "进程在换文件时被中断" : reason);
+        }
+        java.io.File broken = DbRepair.lastBrokenFile(this);
+        if (broken != null) {
+            sb.append("\n被换下来的原库已保留：").append(broken.getName())
+                    .append("（可在「我的 → 备份文件管理」里导出）");
+        }
+        b.tvCopyState.setText(sb);
         b.btnRestoreCopy.setEnabled(label != null);
     }
 
@@ -137,7 +148,7 @@ public class DatabaseRepairActivity extends BaseActivity {
                 app.closeDatabase();
                 app.reopenDatabase();
                 app.db().getOpenHelper().getWritableDatabase();
-                DbRepair.clear();
+                DbRepair.clear(this);
                 app.ui(this::goMain);
             } catch (Throwable t) {
                 DbRepair.markBroken(t);

@@ -318,8 +318,15 @@ public class ShelfFragment extends Fragment {
         // v4.2（评审 #7）：响应式观察 books 表——任何增删改（包括纯文本字段编辑）
         // 都由 Room 自动推送，无需指纹比对、RESULT_OK 标脏或手动触发。
         // 注册时 Room 会立即推送一次当前数据（冷启动首次加载 / 旋转屏恢复都靠它）。
-        BookshelfApp.get().db().bookDao().getAllLive()
-                .observe(getViewLifecycleOwner(), this::onBooksPushed);
+        // v5.8.3：库没就绪（修复中 / 打不开）时不注册，否则注册这一刻就会去打开坏库并抛异常
+        if (BookshelfApp.dbReady()) {
+            try {
+                BookshelfApp.get().db().bookDao().getAllLive()
+                        .observe(getViewLifecycleOwner(), this::onBooksPushed);
+            } catch (RuntimeException ignored) {
+                // 修复页会接管；这里静默，等库修好后页面会重建
+            }
+        }
 
         // 外部（统计页点击作者/出版社/国家）带入的搜索词：视图重建后应用一次
         if (pendingSearchQuery != null) {

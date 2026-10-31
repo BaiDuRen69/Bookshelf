@@ -256,7 +256,9 @@ public class MineDataActions {
      */
     public void showBackupFiles() {
         List<File> files = BackupManager.listInternalBackups(fragment.requireContext());
-        if (files.isEmpty()) {
+        List<File> broken = com.bai.bookshelf.util.DbRepair
+                .listBrokenFiles(fragment.requireContext());
+        if (files.isEmpty() && broken.isEmpty()) {
             new MaterialAlertDialogBuilder(fragment.requireContext())
                     .setTitle("备份文件管理")
                     .setMessage("还没有备份文件。\n\n开启「自动备份」后，每次打开 App 时备份一次"
@@ -268,23 +270,93 @@ public class MineDataActions {
                     .show();
             return;
         }
-        // 列表项：新→旧展示（用户最关心最近的备份）
+        // 列表项：新→旧展示（用户最关心最近的备份），损坏原件排在最后
         Collections.reverse(files);
-        String[] labels = new String[files.size()];
+        List<File> all = new java.util.ArrayList<>(files);
+        List<String> labels = new java.util.ArrayList<>();
         SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault());
-        for (int i = 0; i < files.size(); i++) {
-            File f = files.get(i);
+        for (File f : files) {
             String meta = BackupManager.describeBackup(f); // 只读 meta，不解压
-            labels[i] = String.format(Locale.getDefault(), "%s（%s%s）",
+            labels.add(String.format(Locale.getDefault(), "%s（%s%s）",
                     df.format(new Date(f.lastModified())), humanSize(f.length()),
-                    meta == null ? " · 旧版备份" : " · " + meta);
+                    meta == null ? " · 旧版备份" : " · " + meta));
+        }
+        for (File f : broken) {
+            all.add(f);
+            labels.add("损坏原件 · " + df.format(new Date(f.lastModified()))
+                    + "（" + humanSize(f.length()) + "）");
         }
         new MaterialAlertDialogBuilder(fragment.requireContext())
                 .setTitle("备份文件（新 → 旧）")
                 .setNeutralButton("立即备份", (d, w) -> manualBackup())
-                .setItems(labels, (d, which) -> showFileActions(files.get(which)))
+                .setItems(labels.toArray(new String[0]), (d, which) -> {
+                    File f = all.get(which);
+                    if (f.getName().contains(com.bai.bookshelf.util.DbRepair.BROKEN_SUFFIX)) {
+                        showBrokenActions(f);
+                    } else {
+                        showFileActions(f);
+                    }
+                })
                 .setPositiveButton("验证备份", (d, w) -> verifyBackups())
                 .setNegativeButton(R.string.action_cancel, null)
+                .show();
+    }
+
+    /** 被恢复流程换下来的原数据库：可以导出留存，也可以删掉腾空间 */
+    private void showBrokenActions(File f) {
+        new MaterialAlertDialogBuilder(fragment.requireContext())
+                .setTitle(f.getName())
+                .setMessage("这是恢复时换下来的原数据库。它可能打不开，但也许还有没导出的数据。")
+                .setItems(new String[]{"导出到应用外…", "删除原件"}, (d, which) -> {
+                    if (which == 0) {
+                        shareBroken(f);
+                    } else {
+                        confirmDeleteBroken(f);
+                    }
+                })
+                .setNegativeButton(R.string.action_cancel, null)
+                .show();
+    }
+
+    /** FileProvider 不暴露 databases/ 目录，先复制到 files/share/ 再分享 */
+    private void shareBroken(File f) {
+        try {
+            File dir = new File(fragment.requireContext().getFilesDir(), "share");
+            //noinspection ResultOfMethodCallIgnored
+            dir.mkdirs();
+            File out = new File(dir, f.getName() + ".db");
+            try (java.io.FileInputStream in = new java.io.FileInputStream(f);
+                 java.io.FileOutputStream os = new java.io.FileOutputStream(out)) {
+                byte[] buf = new byte[65536];
+                int len;
+                while ((len = in.read(buf)) > 0) {
+                    os.write(buf, 0, len);
+                }
+            }
+            Uri uri = FileProvider.getUriForFile(fragment.requireContext(),
+                    fragment.requireContext().getPackageName() + ".fileprovider", out);
+            Intent send = new Intent(Intent.ACTION_SEND);
+            send.setType("application/octet-stream");
+            send.putExtra(Intent.EXTRA_STREAM, uri);
+            send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            fragment.startActivity(Intent.createChooser(send, "导出数据库原件"));
+        } catch (Exception e) {
+            Toast.makeText(fragment.requireContext(), "导出失败：" + e.getMessage(),
+                    Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void confirmDeleteBroken(File f) {
+        new MaterialAlertDialogBuilder(fragment.requireContext())
+                .setTitle("删除损坏原件")
+                .setMessage("删掉后这份数据就彻底没了（备份 zip 不受影响）。确定删除？")
+                .setNegativeButton(R.string.action_cancel, null)
+                .setPositiveButton("删除", (d, w) -> {
+                    //noinspection ResultOfMethodCallIgnored
+                    f.delete();
+                    Toast.makeText(fragment.requireContext(), "已删除", Toast.LENGTH_SHORT).show();
+                    refreshRows();
+                })
                 .show();
     }
 

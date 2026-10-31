@@ -45,6 +45,8 @@ public class BookshelfApp extends Application {
     // 「正在加载书架」会一直转到备份结束。现在长任务走 bg，io 专职 UI 驱动的短查询。
     private final ExecutorService bg = Executors.newSingleThreadExecutor();
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    /** 数据库已成功打开过（修复期间为 false，页面据此跳过注册与首查） */
+    private volatile boolean dbReady;
 
     public static BookshelfApp get() {
         return instance;
@@ -104,6 +106,13 @@ public class BookshelfApp extends Application {
         final int dbVersionBefore = com.bai.bookshelf.util.PreMigrationBackup
                 .prepareBeforeOpen(this);
         db = buildDb();
+        // v5.8.3：上次恢复在「换文件」窗口里被杀过，库文件处于未知状态。
+        // 见到标记不冒险开库，直接把用户送到修复页（那里会读副本描述与坏库路径）。
+        if (com.bai.bookshelf.util.DbRepair.isPending(this)) {
+            com.bai.bookshelf.util.DbRepair.restoreBrokenState(this);
+            ui(this::openDatabaseRepair);
+            return;
+        }
         // v5.8：Room 是懒打开的，迁移失败原先只会在某个后台查询里抛出来，
         // 用户看到的是空书架或闪退。这里主动开一次库把失败接住，直接进修复页。
         bg(() -> {
@@ -114,6 +123,7 @@ public class BookshelfApp extends Application {
                 ui(this::openDatabaseRepair);
                 return;
             }
+            dbReady = true;
             // 只有真正打开成功才记版本：上次如果迁移失败，这次启动才仍会留升级前副本
             com.bai.bookshelf.util.PreMigrationBackup.markOpened(this, AppDatabase.VERSION);
             if (com.bai.bookshelf.util.PreMigrationBackup.migrated(
@@ -145,6 +155,7 @@ public class BookshelfApp extends Application {
 
     /** 修复页用：关掉当前库，文件才搬得动 */
     public synchronized void closeDatabase() {
+        dbReady = false;
         try {
             db.close();
         } catch (Exception ignored) {
@@ -155,6 +166,16 @@ public class BookshelfApp extends Application {
     /** 修复页用：换一个干净的 Room 实例（旧实例的失败状态会被缓存，不能复用） */
     public synchronized void reopenDatabase() {
         db = buildDb();
+    }
+
+    /**
+     * v5.8.3：数据库是否已经成功打开过一次。
+     *
+     * <p>页面在注册 LiveData / 首次查询前先问一句，库没就绪就什么都不做——
+     * 否则修复页还在前台，书架和统计页会抢着打开坏库、各自抛一遍异常。
+     */
+    public static boolean dbReady() {
+        return instance != null && instance.dbReady;
     }
 
     /** 迁移失败后把用户带到修复页，而不是让他对着空书架 */
@@ -200,32 +221,46 @@ public class BookshelfApp extends Application {
         return () -> {
             try {
                 r.run();
+            } catch (android.database.sqlite.SQLiteFullException e) {
+                // 磁盘满：不是库坏了，别拉修复页吓人
+                ui(() -> android.widget.Toast.makeText(this,
+                        "存储空间不足，请清理后再试", android.widget.Toast.LENGTH_LONG).show());
+            } catch (android.database.sqlite.SQLiteDatabaseLockedException e) {
+                ui(() -> android.widget.Toast.makeText(this,
+                        "数据库正忙，请稍后重试", android.widget.Toast.LENGTH_SHORT).show());
             } catch (RuntimeException e) {
+                // 修复期间所有后台异常都是预期的：库还没换回来，查询必然失败
+                if (com.bai.bookshelf.util.DbRepair.isRepairing()
+                        || com.bai.bookshelf.util.DbRepair.isBroken()) {
+                    return;
+                }
                 if (!looksLikeDatabaseFailure(e)) {
                     throw e;
                 }
-                if (!com.bai.bookshelf.util.DbRepair.isBroken()) {
-                    com.bai.bookshelf.util.DbRepair.markBroken(e);
-                    ui(this::openDatabaseRepair);
-                }
+                com.bai.bookshelf.util.DbRepair.markBroken(e);
+                ui(this::openDatabaseRepair);
             }
         };
     }
 
-    /** 迁移没跑通、表/列对不上、库文件损坏——这些都交给修复页 */
+    /**
+     * 只认「库结构/文件本身坏了」这几种：迁移校验失败、库文件损坏、表或列不存在。
+     *
+     * <p>以前把所有 SQLiteException 都当成库坏了，磁盘满、锁冲突、约束冲突都会
+     * 把用户拉到修复页——那是误导。后两类现在分别在 guard 里单独提示。
+     */
     private static boolean looksLikeDatabaseFailure(Throwable t) {
         for (Throwable c = t; c != null && c != c.getCause(); c = c.getCause()) {
-            if (c instanceof android.database.sqlite.SQLiteException) {
-                return true;
-            }
             String msg = c.getMessage();
-            if (msg != null) {
-                String m = msg.toLowerCase(java.util.Locale.ROOT);
-                if (m.contains("migration didn't properly handle")
-                        || m.contains("no such table") || m.contains("no such column")
-                        || m.contains("database is malformed") || m.contains("file is not a database")) {
-                    return true;
-                }
+            if (msg == null) {
+                continue;
+            }
+            String m = msg.toLowerCase(java.util.Locale.ROOT);
+            if (m.contains("migration didn't properly handle")
+                    || m.contains("malformed")
+                    || m.contains("file is not a database")
+                    || m.contains("no such table") || m.contains("no such column")) {
+                return true;
             }
         }
         return false;

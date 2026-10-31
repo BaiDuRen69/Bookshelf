@@ -106,8 +106,14 @@ public class StatsFragment extends Fragment {
                 startActivity(new Intent(requireContext(), AuthorActivity.class)));
         // v4.3：改为 Room 响应式观察（与 v4.2 书架页同模式）——注册即推送首次数据，
         // 之后 books 表任何变化自动重算，切 Tab 回来无需手动刷新，视图重建也不会空白
-        BookshelfApp.get().db().bookDao().getAllLive()
-                .observe(getViewLifecycleOwner(), this::onBooksPushed);
+        if (BookshelfApp.dbReady()) {
+            try {
+                BookshelfApp.get().db().bookDao().getAllLive()
+                        .observe(getViewLifecycleOwner(), this::onBooksPushed);
+            } catch (RuntimeException ignored) {
+                // 库没就绪时统计页保持空态，修复流程结束会重建页面
+            }
+        }
         return b.getRoot();
     }
 
