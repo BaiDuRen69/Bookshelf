@@ -22,7 +22,9 @@
             android:paddingTop="6dp"
             android:paddingBottom="10dp">
 
+            <!-- v5.8.5：滚动超过 96dp 时这一行折叠掉，首屏多露一排书 -->
             <LinearLayout
+                android:id="@+id/ll_shelf_hero"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="center_vertical"

@@ -31,7 +31,8 @@ public class BookAdapter extends RecyclerView.Adapter<BookAdapter.VH> {
 
     /** 列表项点击回调 */
     public interface OnBookClick {
-        void onClick(Book book);
+        /** @param cover 列表项封面视图，用于共享元素过渡 */
+        void onClick(Book book, android.view.View cover);
     }
 
     /** 列表项长按回调（进入多选） */
@@ -187,7 +188,9 @@ public class BookAdapter extends RecyclerView.Adapter<BookAdapter.VH> {
                         ? ThemeManager.resolveColor(ctx, R.attr.primary_container)
                         : ThemeManager.resolveColor(ctx, R.attr.surface));
 
-        h.itemView.setOnClickListener(v -> onBookClick.onClick(book));
+        // v5.8.5：封面参与共享元素过渡（8dp 圆角 → 详情 12dp）
+        h.b.ivCover.setTransitionName("cover_" + book.id);
+        h.itemView.setOnClickListener(v -> onBookClick.onClick(book, h.b.ivCover));
         h.itemView.setOnLongClickListener(v -> {
             if (onBookLongClick != null) {
                 onBookLongClick.onLongClick(book);

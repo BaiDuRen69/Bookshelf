@@ -97,6 +97,9 @@ public class ShelfFragment extends Fragment {
     private final java.util.Map<Long, String> searchIndex = new java.util.HashMap<>();
     /** 是否已经注册 books 的 LiveData（库就绪回调可能被调用不止一次） */
     private boolean observingBooks;
+    /** 页头字标行是否已折叠（v5.8.5） */
+    private boolean headerCollapsed;
+    private int heroFullHeight;
     private ShelfSearchBar searchBar;
 
     // v4.42：智能书架（在读/借出中/超期…）与未归还记录
@@ -166,7 +169,7 @@ public class ShelfFragment extends Fragment {
             loading.show(b, true, viewMode);
         }
         // 列表 / 封面 / 文字 三适配器：点击在多选模式下是切换选中，否则进详情页
-        BookAdapter.OnBookClick openDetail = book -> {
+        BookAdapter.OnBookClick openDetail = (book, cover) -> {
             if (selection.isActive()) {
                 selection.toggle(book);
                 return;
@@ -180,7 +183,18 @@ public class ShelfFragment extends Fragment {
             }
             Intent intent = new Intent(requireContext(), BookDetailActivity.class);
             intent.putExtra(BookDetailActivity.EXTRA_BOOK, book);
-            startActivity(intent);
+            // v5.8.5：封面共享元素过渡（v4.39 曾因首帧慢去掉，本轮按需求接回，
+            // 用 300ms 兜底避免离线封面把详情页卡住）
+            if (cover != null && cover.getTransitionName() != null && getActivity() != null) {
+                intent.putExtra(BookDetailActivity.EXTRA_TRANSITION_NAME,
+                        cover.getTransitionName());
+                android.app.ActivityOptions options =
+                        android.app.ActivityOptions.makeSceneTransitionAnimation(
+                                requireActivity(), cover, cover.getTransitionName());
+                startActivity(intent, options.toBundle());
+            } else {
+                startActivity(intent);
+            }
         };
         adapter = new BookAdapter(openDetail);
         gridAdapter = new BookGridAdapter(openDetail::onClick);
@@ -314,6 +328,9 @@ public class ShelfFragment extends Fragment {
                 } else if (dy < -4) {
                     b.fabScan.show();
                 }
+                // v5.8.5：滚过 96dp 把字标行折叠，回到顶部再展开
+                setHeaderCollapsed(recyclerView.computeVerticalScrollOffset()
+                        > (int) (96 * getResources().getDisplayMetrics().density));
             }
         });
 
@@ -446,7 +463,36 @@ public class ShelfFragment extends Fragment {
         b.cardOnboarding.setVisibility(owned >= 1 && !done ? View.VISIBLE : View.GONE);
     }
 
-    /** 库就绪后注册 books 响应式观察（冷启动时本页比开库早，必须排队等一次） */
+    /**
+     * 页头字标行折叠/展开（v5.8.5）。
+     *
+     * <p>用高度补间而不是直接 GONE，避免列表内容突然跳一格；展开高度只量一次并缓存。
+     */
+    private void setHeaderCollapsed(boolean collapse) {
+        if (b == null || headerCollapsed == collapse) {
+            return;
+        }
+        final View hero = b.llShelfHero;
+        if (heroFullHeight <= 0) {
+            heroFullHeight = hero.getHeight();
+        }
+        final int full = heroFullHeight > 0 ? heroFullHeight
+                : (int) (64 * getResources().getDisplayMetrics().density);
+        headerCollapsed = collapse;
+        android.animation.ValueAnimator anim = android.animation.ValueAnimator.ofInt(
+                collapse ? full : 0, collapse ? 0 : full);
+        anim.setDuration(160);
+        anim.addUpdateListener(a -> {
+            int h = (int) a.getAnimatedValue();
+            android.view.ViewGroup.LayoutParams lp = hero.getLayoutParams();
+            lp.height = h;
+            hero.setLayoutParams(lp);
+            hero.setAlpha(full == 0 ? 1f : Math.max(0f, h / (float) full));
+        });
+        anim.start();
+    }
+
+    /** 库就绪后注册 books 响应式观察（冷启动时本页比开库早，必须排队等一次） */    /** 库就绪后注册 books 响应式观察（冷启动时本页比开库早，必须排队等一次） */
     private void observeBooks() {
         if (b == null || !isAdded() || observingBooks) {
             return;

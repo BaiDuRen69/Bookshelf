@@ -53,6 +53,22 @@ public class BaseActivity extends AppCompatActivity {
     public void onContentChanged() {
         super.onContentChanged();
         applyToolbarInset();
+        applyStatusBarIcons();
+    }
+
+    /**
+     * 状态栏图标统一用浅色（白）。
+     *
+     * <p>页头在所有主题下都是主色，夜读是炭黑——都需要白图标。主题 XML 里已经写了
+     * {@code windowLightStatusBar=false}，但少数 ROM 在 Activity recreate 后会沿用
+     * 系统栏外观缓存，所以这里再用 {@link WindowInsetsControllerCompat} 兜一次。
+     */
+    private void applyStatusBarIcons() {
+        androidx.core.view.WindowInsetsControllerCompat controller =
+                androidx.core.view.WindowCompat.getInsetsController(
+                        getWindow(), getWindow().getDecorView());
+        controller.setAppearanceLightStatusBars(false);
+        controller.setAppearanceLightNavigationBars(false);
     }
 
     /**

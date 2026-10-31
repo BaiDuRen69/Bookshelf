@@ -54,6 +54,12 @@ public class StatsFragment extends Fragment {
     private boolean heroAnimated;
     /** 本年「还按 N 种吗」弹窗是否已弹过（进程内 + 持久化各一道） */
     private boolean goalPrompted;
+    /** 切栏过渡进行中（防止连点） */
+    private boolean tabAnimating;
+    /** 每个分栏各自的滚动位置 */
+    private final int[] tabScrollY = new int[4];
+    private static final long TAB_FADE_OUT_MS = 70;
+    private static final long TAB_FADE_IN_MS = 110;
     private com.bai.bookshelf.util.StatsHoldings.Holdings hold;
     private com.bai.bookshelf.util.StatsSpend.Spend spend;
     private com.bai.bookshelf.util.StatsPace.Pace pace;
@@ -168,16 +174,29 @@ public class StatsFragment extends Fragment {
         applyStatsTab();
     }
 
+    /**
+     * 切栏（v5.8.5）：fade-through 过渡 + 每栏各自记住滚动位置。
+     *
+     * <p>以前是 visibility 闪切且每次 scrollTo(0,0)，从购书翻回藏书还得重新往下滚。
+     */
     private void selectStatsTab(int tab) {
-        if (statsTab == tab) {
+        if (statsTab == tab || b == null || tabAnimating) {
             return;
         }
-        statsTab = tab;
-        if (b != null) {
-            b.scrollStats.scrollTo(0, 0);
-        }
-        applyStatsTab();
-        ensureComputed();
+        final android.view.View content = b.scrollStats;
+        tabScrollY[statsTab] = content.getScrollY();
+        tabAnimating = true;
+        content.animate().alpha(0f).setDuration(TAB_FADE_OUT_MS).withEndAction(() -> {
+            statsTab = tab;
+            applyStatsTab();
+            ensureComputed();
+            content.scrollTo(0, tabScrollY[tab]);
+            content.setTranslationY(getResources().getDisplayMetrics().density * 6);
+            content.animate().alpha(1f).translationY(0f)
+                    .setDuration(TAB_FADE_IN_MS)
+                    .withEndAction(() -> tabAnimating = false)
+                    .start();
+        }).start();
     }
 
     private void applyStatsTab() {

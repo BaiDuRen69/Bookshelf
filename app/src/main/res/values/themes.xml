@@ -137,7 +137,8 @@
         <item name="colorPrimaryVariant">@color/night_primary_dark</item>
         <item name="colorSecondary">@color/night_accent</item>
         <item name="colorOnPrimary">@color/night_ink</item>
-        <item name="android:windowLightStatusBar">true</item>
+        <!-- v5.8.5：夜读页头是炭黑，状态栏必须用浅色（白）图标；运行时还会再兜一次 -->
+        <item name="android:windowLightStatusBar">false</item>
         <item name="chip_bg">@color/night_chip_bg</item>
         <item name="accent_text">@color/night_accent_text</item>
         <item name="primary_container">@color/night_container</item>

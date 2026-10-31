@@ -69,6 +69,9 @@ public class BookDetailActivity extends BaseActivity {
     private boolean manageLendImagesExpanded = false;           // 单本借出备注图片是否展开
     private Map<Integer, List<NoteImage>> copyLendImages = new HashMap<>(); // 第 N 本当前借出记录的备注图片
 
+    /** v5.8.5：书架封面共享元素过渡的名字（没有就按普通方式打开） */
+    public static final String EXTRA_TRANSITION_NAME = "transition_name";
+
     /** 借出 ⇄ 归还流程（登记弹窗、借阅人、备注图片） */
     private DetailLending lending;
     /** 逐本信息区（第 N 本的借还按钮、借出备注与图片） */
@@ -79,7 +82,16 @@ public class BookDetailActivity extends BaseActivity {
         super.onCreate(savedInstanceState);
         b = ActivityBookDetailBinding.inflate(getLayoutInflater());
         setContentView(b.getRoot());
-        b.toolbar.setNavigationOnClickListener(v -> finish());
+        setupSharedElementTransition();
+        b.toolbar.setNavigationOnClickListener(v -> finishAfterTransition());
+        // 系统返回键也走反向共享元素（默认 finish() 会跳过返回动画）
+        getOnBackPressedDispatcher().addCallback(this,
+                new androidx.activity.OnBackPressedCallback(true) {
+                    @Override
+                    public void handleOnBackPressed() {
+                        finishAfterTransition();
+                    }
+                });
         InsetsHelper.applyBottomInset(b.bottomBar);
 
         book = extraBook();
@@ -192,6 +204,50 @@ public class BookDetailActivity extends BaseActivity {
     }
 
     @SuppressWarnings("deprecation")
+    /**
+     * 书架封面 → 详情 hero 的共享元素（v5.8.5）。
+     *
+     * <p>封面是异步加载的，所以用 postponeEnterTransition + 300ms 兜底：
+     * 无论图片有没有回来，详情页都不会被卡住；过渡结束后把圆角从列表的 8dp
+     * 补间到详情的 12dp。
+     */
+    private void setupSharedElementTransition() {
+        final String name = getIntent().getStringExtra(EXTRA_TRANSITION_NAME);
+        if (name == null || name.isEmpty()) {
+            return;
+        }
+        androidx.core.view.ViewCompat.setTransitionName(b.ivCover, name);
+        androidx.core.app.ActivityCompat.postponeEnterTransition(this);
+        setEnterSharedElementCallback(new android.app.SharedElementCallback() {
+            @Override
+            public void onSharedElementEnd(java.util.List<String> names,
+                                           java.util.List<android.view.View> views,
+                                           java.util.List<android.view.View> snapshots) {
+                animateCoverRadius();
+            }
+        });
+        // 下一帧就放行：封面图还在异步加载，但共享元素视图已经就位，
+        // 等 Glide 会白白多花 300ms（实测 Displayed 485ms）。
+        b.ivCover.post(() -> androidx.core.app.ActivityCompat
+                .startPostponedEnterTransition(BookDetailActivity.this));
+    }
+
+    /** 圆角从列表的 8dp 补间到 hero 的 12dp */
+    private void animateCoverRadius() {
+        android.view.View parent = (android.view.View) b.ivCover.getParent();
+        if (!(parent instanceof androidx.cardview.widget.CardView)) {
+            return;
+        }
+        final androidx.cardview.widget.CardView card = (androidx.cardview.widget.CardView) parent;
+        float from = getResources().getDimension(R.dimen.radius_sm);
+        float to = getResources().getDimension(R.dimen.radius_md);
+        android.animation.ValueAnimator anim =
+                android.animation.ValueAnimator.ofFloat(from, to);
+        anim.setDuration(180);
+        anim.addUpdateListener(a -> card.setRadius((Float) a.getAnimatedValue()));
+        anim.start();
+    }
+
     private Book extraBook() {
         Book b;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
