@@ -73,6 +73,45 @@ public class PurchaseCalendarSheet {
     private static final int MODE_MONTH = 0;
     private static final int MODE_YEAR = 1;
 
+    /** 文案资源：购买日历用默认值，阅读日历用 readingLabels() */
+    public static class Labels {
+        public int emptyRes = R.string.stats_calendar_empty;
+        public int activeDaysRes = R.string.stats_calendar_active_days;
+        public int blockMonthRes = R.string.stats_calendar_block_month;
+        public int blockYearRes = R.string.stats_calendar_block_year;
+        public int dayPositiveRes = R.string.stats_day_bought;
+        public boolean dayPositiveUsesCount = true;
+        public int dayNoneRes = R.string.stats_day_none;
+        public int hintRes = R.string.stats_click_day_hint;
+        /** 标题里的「累计」用有记录的天数（而不是把每天数值相加） */
+        public boolean blockUsesActiveDays = false;
+    }
+
+    public static Labels readingLabels() {
+        Labels l = new Labels();
+        l.emptyRes = R.string.reading_calendar_empty;
+        l.activeDaysRes = R.string.reading_calendar_active_days;
+        l.blockMonthRes = R.string.reading_calendar_block_month;
+        l.blockYearRes = R.string.reading_calendar_block_year;
+        l.dayPositiveRes = R.string.reading_calendar_day_read;
+        l.dayPositiveUsesCount = false;
+        l.dayNoneRes = R.string.reading_calendar_day_none;
+        l.hintRes = R.string.reading_calendar_hint;
+        return l;
+    }
+
+    /** 统计页全库阅读日历：每天的值是「当天读过的书数」，色阶按本数递深 */
+    public static Labels readingCountLabels() {
+        Labels l = readingLabels();
+        l.blockMonthRes = R.string.reading_calendar_block_month_count;
+        l.blockYearRes = R.string.reading_calendar_block_year_count;
+        l.dayPositiveRes = R.string.reading_calendar_day_books;
+        l.dayPositiveUsesCount = true;
+        l.hintRes = R.string.reading_calendar_hint_count;
+        l.blockUsesActiveDays = true;
+        return l;
+    }
+
     /**
      * 显示「全部记录」日历面板。
      *
@@ -86,7 +125,43 @@ public class PurchaseCalendarSheet {
     public static BottomSheetDialog show(Context context, String title, @Nullable String summary,
                                         Map<String, Integer> dailyCounts, Start start,
                                         @Nullable OnDaySelectListener listener) {
-        return new Impl(context, title, summary, dailyCounts, start, listener).show();
+        return show(context, title, summary, dailyCounts, null, start, new Labels(), listener);
+    }
+
+    /** 通用日历面板（购买 / 阅读共用，文案由 labels 决定） */
+    public static BottomSheetDialog show(Context context, String title, @Nullable String summary,
+                                        Map<String, Integer> dailyCounts, Start start,
+                                        Labels labels, @Nullable OnDaySelectListener listener) {
+        return show(context, title, summary, dailyCounts, null, start, labels, listener);
+    }
+
+    /** 带每日书目：点某天除更新底部详情外，还弹出当天读/买了哪几本 */
+    public static BottomSheetDialog show(Context context, String title, @Nullable String summary,
+                                        Map<String, Integer> dailyCounts,
+                                        @Nullable Map<String, List<String>> dailyBooks,
+                                        Start start, Labels labels,
+                                        @Nullable OnDaySelectListener listener) {
+        SheetPurchaseCalendarBinding b = SheetPurchaseCalendarBinding.inflate(
+                LayoutInflater.from(context));
+        return new Impl(context, b, title, summary, dailyCounts, dailyBooks, start,
+                labels == null ? new Labels() : labels, listener).showDialog();
+    }
+
+    /** 把同一套日历渲染进二级页面的绑定（不创建弹窗；页面自己处理关闭/返回） */
+    public static void bindPage(Context context, SheetPurchaseCalendarBinding b,
+                                String title, @Nullable String summary,
+                                Map<String, Integer> dailyCounts, Start start, Labels labels) {
+        bindPage(context, b, title, summary, dailyCounts, null, start, labels);
+    }
+
+    /** 二级页面 + 每日书目 */
+    public static void bindPage(Context context, SheetPurchaseCalendarBinding b,
+                                String title, @Nullable String summary,
+                                Map<String, Integer> dailyCounts,
+                                @Nullable Map<String, List<String>> dailyBooks,
+                                Start start, Labels labels) {
+        new Impl(context, b, title, summary, dailyCounts, dailyBooks, start,
+                labels == null ? new Labels() : labels, null).render();
     }
 
     /**
@@ -101,8 +176,9 @@ public class PurchaseCalendarSheet {
         private final String titleBase;
         @Nullable
         private final String summary;
-        private final Map<String, Integer> dailyCounts;
-        private final Start start;
+        @Nullable
+        private final Map<String, List<String>> dailyBooks;        private final Start start;
+        private final Labels labels;
         @Nullable
         private final OnDaySelectListener listener;
 
@@ -124,16 +200,18 @@ public class PurchaseCalendarSheet {
         /** 当前创建出来的热力图（用于统一清除选中描边） */
         private final List<PurchaseHeatmapView> heatmaps = new ArrayList<>();
 
-        private Impl(Context context, String title, @Nullable String summary,
-                     Map<String, Integer> dailyCounts, Start start,
-                     @Nullable OnDaySelectListener listener) {
+        private Impl(Context context, SheetPurchaseCalendarBinding b, String title,
+                     @Nullable String summary, Map<String, Integer> dailyCounts,
+                     @Nullable Map<String, List<String>> dailyBooks, Start start,
+                     Labels labels, @Nullable OnDaySelectListener listener) {
             this.context = context;
+            this.b = b;
             this.titleBase = title;
             this.summary = summary;
-            this.dailyCounts = dailyCounts;
+            this.dailyBooks = dailyBooks;
             this.start = start;
+            this.labels = labels;
             this.listener = listener;
-            this.b = SheetPurchaseCalendarBinding.inflate(LayoutInflater.from(context));
             this.primary = ThemeManager.resolveColor(context, ThemeManager.ATTR_COLOR_PRIMARY);
             this.textMain = ThemeManager.resolveColor(context, R.attr.on_surface);
             this.textSub = ThemeManager.resolveColor(context, R.attr.on_surface_variant);
@@ -144,10 +222,8 @@ public class PurchaseCalendarSheet {
             this.yearBlocks = buildYearBlocks(dailyCounts);
         }
 
-        BottomSheetDialog show() {
-            BottomSheetDialog dialog = new BottomSheetDialog(context);
-            dialog.setContentView(b.getRoot());
-
+        /** 渲染标题、汇总、粒度切换与日历块（弹窗与二级页共用） */
+        void render() {
             renderTitle();
             if (summary != null && !summary.isEmpty()) {
                 b.sheetSummary.setText(summary);
@@ -161,10 +237,17 @@ public class PurchaseCalendarSheet {
 
             b.tvModeMonth.setOnClickListener(v -> switchMode(MODE_MONTH));
             b.tvModeYear.setOnClickListener(v -> switchMode(MODE_YEAR));
-            b.sheetClose.setOnClickListener(v -> dialog.dismiss());
 
             renderModeSwitch();
             renderCalendar();
+            resetDayDetail();
+        }
+
+        BottomSheetDialog showDialog() {
+            BottomSheetDialog dialog = new BottomSheetDialog(context);
+            dialog.setContentView(b.getRoot());
+            render();
+            b.sheetClose.setOnClickListener(v -> dialog.dismiss());
 
             // ⚠ 日历区必须限定高度，否则全部年份的月块会把内容撑得极高，
             //   底部的「当天详情条」会被挤出屏幕看不见。
@@ -243,6 +326,7 @@ public class PurchaseCalendarSheet {
             b.llCalendarBlocks.removeAllViews();
             heatmaps.clear();
             if (blocks.isEmpty()) {
+                b.tvCalendarEmpty.setText(labels.emptyRes);
                 b.tvCalendarEmpty.setVisibility(View.VISIBLE);
                 b.calendarScroll.setVisibility(View.GONE);
                 return;
@@ -273,12 +357,13 @@ public class PurchaseCalendarSheet {
 
             // 标题：2026年10月 · 累计购买 4 本
             TextView title = new TextView(context);
+            int total = labels.blockUsesActiveDays ? block.activeDays : block.total;
             if (mode == MODE_YEAR) {
-                title.setText(context.getString(R.string.stats_calendar_block_year,
-                        block.year, block.total));
+                title.setText(context.getString(labels.blockYearRes,
+                        block.year, total));
             } else {
-                title.setText(context.getString(R.string.stats_calendar_block_month,
-                        block.year, block.month0 + 1, block.total));
+                title.setText(context.getString(labels.blockMonthRes,
+                        block.year, block.month0 + 1, total));
             }
             title.setTextColor(textMain);
             title.setTextSize(15);
@@ -287,7 +372,7 @@ public class PurchaseCalendarSheet {
 
             // 副标题：有购买记录的天数
             TextView sub = new TextView(context);
-            sub.setText(context.getString(R.string.stats_calendar_active_days, block.activeDays));
+            sub.setText(context.getString(labels.activeDaysRes, block.activeDays));
             sub.setTextColor(textSub);
             sub.setTextSize(12);
             LinearLayout.LayoutParams subLp = new LinearLayout.LayoutParams(
@@ -367,13 +452,25 @@ public class PurchaseCalendarSheet {
             });
         }
 
+        /** 点某天后的书目：读/买了哪几本 */
+        private List<String> booksForDay(int year, int month0, int day) {
+            if (dailyBooks == null) {
+                return null;
+            }
+            String key = String.format(Locale.ROOT, "%04d-%02d-%02d",
+                    year, month0 + 1, day);
+            return dailyBooks.get(key);
+        }
+
         /** 底部详情条显示某天的信息 */
         private void showDayDetail(int year, int month0, int day, int count) {
             b.llDayDetail.setVisibility(View.VISIBLE);
             if (count > 0) {
-                b.tvDayValue.setText(context.getString(R.string.stats_day_bought, count));
+                b.tvDayValue.setText(labels.dayPositiveUsesCount
+                        ? context.getString(labels.dayPositiveRes, count)
+                        : context.getString(labels.dayPositiveRes));
             } else {
-                b.tvDayValue.setText(R.string.stats_day_none);
+                b.tvDayValue.setText(labels.dayNoneRes);
             }
             b.tvDayDate.setVisibility(View.VISIBLE);
             // 按年模式下同一年内有多个月份，只写「M月D日」会分不清是哪一年，
@@ -385,13 +482,32 @@ public class PurchaseCalendarSheet {
                 b.tvDayDate.setText(String.format(Locale.getDefault(), "%d月%d日",
                         month0 + 1, day));
             }
+
+            // 无感展示：当天读/买了哪几本，直接接在底部详情下方
+            List<String> books = booksForDay(year, month0, day);
+            if (books != null && !books.isEmpty()) {
+                StringBuilder sb = new StringBuilder();
+                for (int i = 0; i < books.size(); i++) {
+                    if (i > 0) {
+                        sb.append('\n');
+                    }
+                    sb.append("· ").append(books.get(i));
+                }
+                b.tvDayBooks.setText(sb.toString());
+                b.tvDayBooks.setVisibility(View.VISIBLE);
+            } else {
+                b.tvDayBooks.setText("");
+                b.tvDayBooks.setVisibility(View.GONE);
+            }
         }
 
         /** 重置底部详情条为提示文案 */
         private void resetDayDetail() {
             b.llDayDetail.setVisibility(View.VISIBLE);
-            b.tvDayValue.setText(R.string.stats_click_day_hint);
+            b.tvDayValue.setText(labels.hintRes);
             b.tvDayDate.setVisibility(View.GONE);
+            b.tvDayBooks.setText("");
+            b.tvDayBooks.setVisibility(View.GONE);
             for (PurchaseHeatmapView heat : heatmaps) {
                 heat.setSelectedDay(-1, -1, -1);
             }

@@ -14,7 +14,40 @@
         app:navigationIcon="@drawable/ic_back"
         app:title="录入书籍" />
 
+    <!-- 编辑分区导航（v5.7）：基本信息 / 出版 / 藏书 / 阅读 -->
+    <LinearLayout
+        android:id="@+id/ll_edit_sections"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingStart="@dimen/page_padding"
+        android:paddingTop="4dp"
+        android:paddingEnd="@dimen/page_padding"
+        android:paddingBottom="4dp">
+
+        <TextView
+            android:id="@+id/chip_edit_basic"
+            style="@style/DetailSectionChip"
+            android:text="基本信息" />
+
+        <TextView
+            android:id="@+id/chip_edit_publish"
+            style="@style/DetailSectionChip"
+            android:text="出版" />
+
+        <TextView
+            android:id="@+id/chip_edit_stock"
+            style="@style/DetailSectionChip"
+            android:text="藏书" />
+
+        <TextView
+            android:id="@+id/chip_edit_reading"
+            style="@style/DetailSectionChip"
+            android:text="阅读" />
+    </LinearLayout>
+
     <androidx.core.widget.NestedScrollView
+        android:id="@+id/scroll_edit"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1">
@@ -530,49 +563,52 @@
 
             <!-- 个人管理信息 -->
             <TextView
+                android:id="@+id/tv_edit_mine_info"
                 style="@style/DetailSectionTitle"
                 android:layout_marginTop="@dimen/space_xl"
                 android:layout_marginBottom="@dimen/space_sm"
                 android:text="我的信息" />
 
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:layout_marginTop="8dp" android:text="存放地点" android:textSize="13sp" />
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical">
-
-                <Spinner android:id="@+id/sp_location" android:layout_width="0dp"
-                    android:layout_height="wrap_content" android:layout_weight="1" android:minHeight="44dp" />
-
-                <ImageButton
-                    android:id="@+id/btn_add_location"
-                    android:layout_width="38dp"
-                    android:layout_height="38dp"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    android:src="@drawable/ic_add"
-                    app:tint="?attr/colorPrimary"
-                    android:contentDescription="添加地点" />
-
-                <ImageButton
-                    android:id="@+id/btn_manage_location"
-                    android:layout_width="38dp"
-                    android:layout_height="38dp"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    android:src="@drawable/ic_edit"
-                    android:contentDescription="管理地点" />
-            </LinearLayout>
-
-            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:text="藏书状态" android:textSize="13sp" />
+                android:layout_marginTop="8dp" android:text="藏书状态" android:textSize="13sp" />
             <Spinner android:id="@+id/sp_stock" android:layout_width="match_parent"
                 android:layout_height="wrap_content" android:minHeight="44dp" />
 
-            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:text="阅读状态" android:textSize="13sp" />
-            <Spinner android:id="@+id/sp_read" android:layout_width="match_parent"
-                android:layout_height="wrap_content" android:minHeight="44dp" />
+            <LinearLayout
+                android:id="@+id/ll_location_block"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="存放地点" android:textSize="13sp" />
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <Spinner android:id="@+id/sp_location" android:layout_width="0dp"
+                        android:layout_height="wrap_content" android:layout_weight="1" android:minHeight="44dp" />
+
+                    <ImageButton
+                        android:id="@+id/btn_add_location"
+                        android:layout_width="38dp"
+                        android:layout_height="38dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:src="@drawable/ic_add"
+                        app:tint="?attr/colorPrimary"
+                        android:contentDescription="添加地点" />
+
+                    <ImageButton
+                        android:id="@+id/btn_manage_location"
+                        android:layout_width="38dp"
+                        android:layout_height="38dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:src="@drawable/ic_edit"
+                        android:contentDescription="管理地点" />
+                </LinearLayout>
+            </LinearLayout>
 
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                 android:text="来源" android:textSize="13sp" />
@@ -583,6 +619,7 @@
                 android:layout_height="wrap_content"
                 android:text="购买渠道（点 + 可直接新增）" android:textSize="13sp" />
             <LinearLayout
+                android:id="@+id/ll_channel_row"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
@@ -617,6 +654,7 @@
                 android:orientation="horizontal">
 
                 <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/til_purchase_date"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1.2"
@@ -632,6 +670,7 @@
                 </com.google.android.material.textfield.TextInputLayout>
 
                 <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/til_purchase_price"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="0.9"
@@ -646,6 +685,7 @@
                 </com.google.android.material.textfield.TextInputLayout>
 
                 <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/til_quantity"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="0.9"
@@ -658,6 +698,58 @@
                         android:layout_height="wrap_content"
                         android:inputType="number" />
                 </com.google.android.material.textfield.TextInputLayout>
+            </LinearLayout>
+
+            <!-- 借书记录（来源=借阅时显示，可记录多次借阅） -->
+            <LinearLayout
+                android:id="@+id/ll_borrow_records"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="借书记录"
+                        android:textColor="?attr/on_surface"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/btn_add_borrow_record"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:background="?attr/selectableItemBackground"
+                        android:paddingHorizontal="8dp"
+                        android:paddingVertical="6dp"
+                        android:text="＋ 添加"
+                        android:textColor="?attr/colorPrimary"
+                        android:textSize="13sp" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/tv_borrow_records_empty"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="还没有借书记录，点「添加」记录第 1 次借阅"
+                    android:textColor="?attr/on_surface_variant"
+                    android:textSize="13sp" />
+
+                <LinearLayout
+                    android:id="@+id/container_borrow_records"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:orientation="vertical" />
             </LinearLayout>
 
             <!-- 套装分摊快捷填充：展示最近一次分摊结果，点击填入实付（无记录时隐藏） -->
@@ -684,33 +776,55 @@
                     app:singleLine="false" />
             </LinearLayout>
 
-            <!-- 我的评分 -->
+            <!-- 阅读记录（v5.7：可多次，每次含状态/起止日期/天数/评分） -->
             <LinearLayout
+                android:id="@+id/ll_reading_records"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
-                android:orientation="horizontal"
-                android:gravity="center_vertical">
+                android:orientation="vertical">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="阅读记录"
+                        android:textColor="?attr/on_surface"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/btn_add_reading_record"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:background="?attr/selectableItemBackground"
+                        android:paddingHorizontal="8dp"
+                        android:paddingVertical="6dp"
+                        android:text="＋ 添加"
+                        android:textColor="?attr/colorPrimary"
+                        android:textSize="13sp" />
+                </LinearLayout>
 
                 <TextView
-                    android:layout_width="wrap_content"
+                    android:id="@+id/tv_reading_records_empty"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="我的评分" />
+                    android:layout_marginTop="4dp"
+                    android:text="还没有阅读记录，点「添加」记录第 1 次阅读"
+                    android:textColor="?attr/on_surface_variant"
+                    android:textSize="13sp" />
 
-                <SeekBar
-                    android:id="@+id/seek_rating"
-                    android:layout_width="0dp"
+                <LinearLayout
+                    android:id="@+id/container_reading_records"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:layout_marginHorizontal="10dp"
-                    android:max="5" />
-
-                <TextView
-                    android:id="@+id/tv_rating_value"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="0 分"
-                    android:textColor="?attr/accent_text" />
+                    android:layout_marginTop="4dp"
+                    android:orientation="vertical" />
             </LinearLayout>
 
             <!-- 备注 -->

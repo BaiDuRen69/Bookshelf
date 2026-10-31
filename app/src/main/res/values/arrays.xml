@@ -1,17 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- 藏书状态（与 Book.stockStatus 取值一一对应：0/1/2） -->
+    <!-- 藏书状态（与 Book.stockStatus 取值一一对应：0/1/2/3） -->
     <string-array name="stock_status_entries">
         <item>在库</item>
         <item>借出</item>
         <item>遗失</item>
-    </string-array>
-
-    <!-- 阅读状态（0/1/2） -->
-    <string-array name="read_status_entries">
-        <item>未读</item>
-        <item>在读</item>
-        <item>已读</item>
+        <item>电子书签</item>
     </string-array>
 
     <!-- 拥有类型（0/1/2） -->
@@ -27,6 +21,7 @@
         <item>在库</item>
         <item>借出</item>
         <item>遗失</item>
+        <item>电子书签</item>
     </string-array>
 
     <!-- 书架页筛选：阅读状态（首项=不限，兼作标签） -->
@@ -35,6 +30,7 @@
         <item>未读</item>
         <item>在读</item>
         <item>已读</item>
+        <item>弃读</item>
     </string-array>
 
     <!-- 书架页排序方式 -->

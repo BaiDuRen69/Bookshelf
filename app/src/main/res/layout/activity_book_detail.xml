@@ -14,7 +14,40 @@
         app:navigationIcon="@drawable/ic_back"
         app:title="书籍详情" />
 
+    <!-- 详情分区导航（v5.7）：概览 / 阅读 / 借阅 / 笔记，吸顶不随内容滚动 -->
+    <LinearLayout
+        android:id="@+id/ll_detail_sections"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingStart="@dimen/page_padding"
+        android:paddingTop="4dp"
+        android:paddingEnd="@dimen/page_padding"
+        android:paddingBottom="4dp">
+
+        <TextView
+            android:id="@+id/chip_overview"
+            style="@style/DetailSectionChip"
+            android:text="概览" />
+
+        <TextView
+            android:id="@+id/chip_reading"
+            style="@style/DetailSectionChip"
+            android:text="阅读" />
+
+        <TextView
+            android:id="@+id/chip_borrow"
+            style="@style/DetailSectionChip"
+            android:text="借阅" />
+
+        <TextView
+            android:id="@+id/chip_notes"
+            style="@style/DetailSectionChip"
+            android:text="笔记" />
+    </LinearLayout>
+
     <androidx.core.widget.NestedScrollView
+        android:id="@+id/scroll_detail"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1">
@@ -152,6 +185,18 @@
                                 android:textColor="?attr/colorPrimary"
                                 android:textSize="@dimen/text_caption"
                                 android:visibility="gone" />
+
+                            <TextView
+                                android:id="@+id/tv_hero_rating"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="6dp"
+                                android:background="@drawable/bg_status_chip"
+                                android:paddingHorizontal="8dp"
+                                android:paddingVertical="3dp"
+                                android:textColor="?attr/accent_text"
+                                android:textSize="@dimen/text_caption"
+                                android:visibility="gone" />
                         </LinearLayout>
                     </LinearLayout>
                     </LinearLayout>
@@ -208,9 +253,30 @@
                         android:orientation="vertical"
                         android:padding="@dimen/space_lg">
 
-                        <TextView
-                            style="@style/DetailSectionTitle"
-                            android:text="书目信息" />
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                style="@style/DetailSectionTitle"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="书目信息" />
+
+                            <ImageView
+                                android:id="@+id/iv_toggle_info"
+                                android:layout_width="32dp"
+                                android:layout_height="32dp"
+                                android:background="?attr/selectableItemBackgroundBorderless"
+                                android:contentDescription="收起书目信息"
+                                android:padding="7dp"
+                                android:rotation="270"
+                                android:src="@drawable/ic_chevron_right_line"
+                                app:tint="?attr/on_surface_variant" />
+                        </LinearLayout>
 
                         <LinearLayout
                             android:id="@+id/ll_info_grid"
@@ -236,9 +302,30 @@
                         android:orientation="vertical"
                         android:padding="@dimen/space_lg">
 
-                        <TextView
-                            style="@style/DetailSectionTitle"
-                            android:text="藏书信息" />
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                style="@style/DetailSectionTitle"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="藏书信息" />
+
+                            <ImageView
+                                android:id="@+id/iv_toggle_core"
+                                android:layout_width="32dp"
+                                android:layout_height="32dp"
+                                android:background="?attr/selectableItemBackgroundBorderless"
+                                android:contentDescription="收起藏书信息"
+                                android:padding="7dp"
+                                android:rotation="270"
+                                android:src="@drawable/ic_chevron_right_line"
+                                app:tint="?attr/on_surface_variant" />
+                        </LinearLayout>
 
                         <LinearLayout
                             android:id="@+id/ll_core_grid"
@@ -280,15 +367,86 @@
                         android:orientation="vertical"
                         android:padding="@dimen/space_lg">
 
-                        <TextView
-                            style="@style/DetailSectionTitle"
-                            android:text="我的书房" />
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                style="@style/DetailSectionTitle"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="我的书房" />
+
+                            <ImageView
+                                android:id="@+id/iv_toggle_manage"
+                                android:layout_width="32dp"
+                                android:layout_height="32dp"
+                                android:background="?attr/selectableItemBackgroundBorderless"
+                                android:contentDescription="收起我的书房"
+                                android:padding="7dp"
+                                android:rotation="270"
+                                android:src="@drawable/ic_chevron_right_line"
+                                app:tint="?attr/on_surface_variant" />
+                        </LinearLayout>
 
                         <LinearLayout
                             android:id="@+id/ll_manage_grid"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="@dimen/space_md"
+                            android:orientation="vertical" />
+                    </LinearLayout>
+                </androidx.cardview.widget.CardView>
+
+                <!-- ==================== 借书记录（v5.7） ==================== -->
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/card_borrow_records"
+                    style="@style/Widget.Bookshelf.Card"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginHorizontal="@dimen/page_padding"
+                    android:layout_marginTop="@dimen/space_md"
+                    android:visibility="gone">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="@dimen/space_lg">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                style="@style/DetailSectionTitle"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="借书记录" />
+
+                            <ImageView
+                                android:id="@+id/iv_toggle_borrow_records"
+                                android:layout_width="32dp"
+                                android:layout_height="32dp"
+                                android:background="?attr/selectableItemBackgroundBorderless"
+                                android:contentDescription="收起借书记录"
+                                android:padding="7dp"
+                                android:rotation="270"
+                                android:src="@drawable/ic_chevron_right_line"
+                                app:tint="?attr/on_surface_variant" />
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:id="@+id/container_borrow_records_detail"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="@dimen/space_sm"
                             android:orientation="vertical" />
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
@@ -341,6 +499,69 @@
                     android:layout_marginTop="4dp"
                     android:orientation="vertical"
                     android:visibility="gone" />
+
+                <!-- ==================== 阅读记录（v5.7） ==================== -->
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/card_reading_records"
+                    style="@style/Widget.Bookshelf.Card"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginHorizontal="@dimen/page_padding"
+                    android:layout_marginTop="@dimen/space_md">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="@dimen/space_lg">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                android:id="@+id/tv_reading_records_title"
+                                style="@style/DetailSectionTitle"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:background="?attr/selectableItemBackground"
+                                android:paddingVertical="4dp"
+                                android:text="阅读记录" />
+
+                            <TextView
+                                android:id="@+id/btn_reading_calendar"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:background="?attr/selectableItemBackground"
+                                android:paddingHorizontal="8dp"
+                                android:paddingVertical="6dp"
+                                android:text="日历 ›"
+                                android:textColor="?attr/colorPrimary"
+                                android:textSize="12sp" />
+
+                            <ImageView
+                                android:id="@+id/iv_toggle_records"
+                                android:layout_width="32dp"
+                                android:layout_height="32dp"
+                                android:background="?attr/selectableItemBackgroundBorderless"
+                                android:contentDescription="收起阅读记录"
+                                android:padding="7dp"
+                                android:rotation="270"
+                                android:src="@drawable/ic_chevron_right_line"
+                                app:tint="?attr/on_surface_variant" />
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:id="@+id/container_reading_records_detail"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="@dimen/space_sm"
+                            android:orientation="vertical" />
+                    </LinearLayout>
+                </androidx.cardview.widget.CardView>
 
                 <!-- ==================== 备注 ==================== -->
                 <TextView
@@ -582,6 +803,16 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="@string/action_edit" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_return_source"
+                style="@style/Widget.Bookshelf.Button.Outlined"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="@dimen/space_sm"
+                android:layout_weight="1"
+                android:text="归还"
+                android:visibility="gone" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_lend"

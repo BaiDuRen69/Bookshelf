@@ -105,4 +105,60 @@ public final class DateKeys {
             return 0;
         }
     }
+
+    /** 部分日期（yyyy / yyyy-MM / yyyy-MM-dd）→ 区间起始日键；非法返回 0 */
+    public static int parseStartKey(String date) {
+        int[] span = purchaseSpan(date);
+        return span == null ? 0 : span[0];
+    }
+
+    /** Calendar → yyyyMMdd 整数键 */
+    public static int keyOf(Calendar c) {
+        return keyOf(c.get(Calendar.YEAR), c.get(Calendar.MONTH) + 1,
+                c.get(Calendar.DAY_OF_MONTH));
+    }
+
+    /** 年月日 → yyyyMMdd 整数键（month1 = 1..12） */
+    public static int keyOf(int year, int month1, int day) {
+        return year * 10000 + month1 * 100 + day;
+    }
+
+    /** yyyyMMdd 整数键 → yyyy-MM-dd */
+    public static String formatKey(int key) {
+        return String.format(java.util.Locale.ROOT, "%04d-%02d-%02d",
+                key / 10000, key / 100 % 100, key % 100);
+    }
+
+    /** 两个日键之间的天数（含首尾） */
+    public static int daysBetweenInclusive(int startKey, int endKey) {
+        Calendar a = Calendar.getInstance();
+        a.set(startKey / 10000, startKey / 100 % 100 - 1, startKey % 100, 0, 0, 0);
+        Calendar b = Calendar.getInstance();
+        b.set(endKey / 10000, endKey / 100 % 100 - 1, endKey % 100, 0, 0, 0);
+        long diff = b.getTimeInMillis() - a.getTimeInMillis();
+        return (int) Math.round(diff / 86400000.0) + 1;
+    }
+
+    /**
+     * 日期区间预设（日历面板）：0=本月，1=近 3 个月（含本月），2=今年，其他=去年。
+     * 返回 {起始日键, 结束日键}。
+     */
+    public static int[] presetRange(int which, Calendar now) {
+        int today = keyOf(now.get(Calendar.YEAR), now.get(Calendar.MONTH) + 1,
+                now.get(Calendar.DAY_OF_MONTH));
+        Calendar c = Calendar.getInstance();
+        switch (which) {
+            case 0:
+                return new int[]{keyOf(now.get(Calendar.YEAR), now.get(Calendar.MONTH) + 1, 1), today};
+            case 1:
+                c.add(Calendar.MONTH, -2);
+                return new int[]{keyOf(c.get(Calendar.YEAR), c.get(Calendar.MONTH) + 1, 1), today};
+            case 2:
+                return new int[]{keyOf(now.get(Calendar.YEAR), 1, 1), today};
+            default:
+                c.add(Calendar.YEAR, -1);
+                return new int[]{keyOf(c.get(Calendar.YEAR), 1, 1),
+                        keyOf(c.get(Calendar.YEAR), 12, 31)};
+        }
+    }
 }

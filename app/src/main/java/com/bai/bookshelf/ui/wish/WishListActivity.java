@@ -1,39 +1,73 @@
 package com.bai.bookshelf.ui.wish;
 
+import android.content.SharedPreferences;
 import android.os.Bundle;
-import android.view.Gravity;
+import android.text.TextUtils;
+import android.view.MotionEvent;
 import android.view.View;
-import android.widget.LinearLayout;
+import android.view.ViewGroup;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import androidx.annotation.NonNull;
+import androidx.recyclerview.widget.ItemTouchHelper;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.bai.bookshelf.R;
 import com.bai.bookshelf.app.BookshelfApp;
 import com.bai.bookshelf.data.entity.Book;
 import com.bai.bookshelf.data.entity.WishBook;
 import com.bai.bookshelf.databinding.ActivityWishListBinding;
-import com.bai.bookshelf.databinding.DialogWishBinding;
+import com.bai.bookshelf.databinding.ItemWishBinding;
 import com.bai.bookshelf.ui.BaseActivity;
 import com.bai.bookshelf.ui.edit.BookEditActivity;
+import com.bai.bookshelf.util.BookSanitizer;
 import com.bai.bookshelf.util.InsetsHelper;
+import com.bai.bookshelf.util.WishBookMatcher;
 import com.bai.bookshelf.util.ThemeManager;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
+import java.text.Collator;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 /**
- * 想读清单（v4.48）：把还没买/没借到的书先记下来。
- * 买到后「转为藏书」把书名/作者/ISBN/心理价带进录入页，并删除这条想读。
+ * 想读清单（v5.7）：把还没买/没借到的书先记下来。
+ * 支持优先级/时间/书名/手动排序（手动可拖动手柄调整），
+ * 长按进入多选后可批量改优先级或删除。
  */
 public class WishListActivity extends BaseActivity {
 
+    /** 桌面长按快捷方式：直接打开「添加想读」 */
+    public static final String ACTION_ADD_WISH = "com.bai.bookshelf.action.ADD_WISH";
+
     private static final int REQ_CONVERT = 4801;
 
+    private static final int SORT_PRIORITY = 0;
+    private static final int SORT_TIME = 1;
+    private static final int SORT_TITLE = 2;
+    private static final int SORT_MANUAL = 3;
+    private static final String KEY_SORT = "wish_sort_mode";
+
     private ActivityWishListBinding b;
-    private DialogWishBinding dialog;
+    private WishEditDialog editDialog;
+    private WishAdapter adapter;
+    private ItemTouchHelper touchHelper;
+
     private final List<WishBook> items = new ArrayList<>();
+    /** 书架里的书（用于「已在书架」提示与标注，不含已归还电子书签） */
+    private List<Book> libraryBooks = new ArrayList<>();
+    private final Set<Long> selectedIds = new HashSet<>();
+    private boolean selectionMode;
+    private int sortMode = SORT_PRIORITY;
+    /** 快捷方式进入：等列表加载完再弹添加框，保证查重数据完整 */
+    private boolean pendingAddWish;
+
     /** 正在「转为藏书」的那条想读；录入页真的保存成功后（RESULT_OK）才删除 */
     private WishBook converting;
 
@@ -43,9 +77,52 @@ public class WishListActivity extends BaseActivity {
         b = ActivityWishListBinding.inflate(getLayoutInflater());
         setContentView(b.getRoot());
         b.toolbar.setNavigationOnClickListener(v -> finish());
-        View bottom = (View) b.btnAddWish.getParent();
-        InsetsHelper.applyBottomInset(bottom);
-        b.btnAddWish.setOnClickListener(v -> showWishDialog(null));
+        InsetsHelper.applyBottomInset(b.bottomWishBar);
+        InsetsHelper.applyBottomInset(b.selectionBarWish);
+        pendingAddWish = getIntent() != null
+                && ACTION_ADD_WISH.equals(getIntent().getAction());
+
+        sortMode = prefs().getInt(KEY_SORT, SORT_PRIORITY);
+        editDialog = new WishEditDialog(this, new WishEditDialog.Host() {
+            @Override
+            public List<WishBook> items() {
+                return items;
+            }
+
+            @Override
+            public void onConvert(WishBook wish) {
+                convertToBook(wish);
+            }
+
+            @Override
+            public void onSaved() {
+                load();
+            }
+
+            @Override
+            public Book findInLibrary(WishBook wish) {
+                return WishBookMatcher.findInLibrary(libraryBooks, wish);
+            }
+        });
+
+        adapter = new WishAdapter();
+        b.recyclerWish.setLayoutManager(new LinearLayoutManager(this));
+        b.recyclerWish.setAdapter(adapter);
+        touchHelper = new ItemTouchHelper(new DragCallback());
+        touchHelper.attachToRecyclerView(b.recyclerWish);
+
+        b.tvWishSort.setOnClickListener(v -> showSortMenu());
+        b.btnAddWish.setOnClickListener(v -> editDialog.show(null, false));
+        b.btnAddWishContinue.setOnClickListener(v -> editDialog.show(null, true));
+        // v5.7 收口：空态改用共享组件（插画 + 衬线标题 + 说明 + 主按钮），文案在此给出
+        b.emptyState.tvEmptyTitle.setText("还没有想读的书");
+        b.emptyState.tvEmptyDesc.setText("买书前先看一眼，避免买重；买到后一键转为藏书");
+        b.emptyState.btnEmptyCta.setText("添加想读");
+        b.emptyState.btnEmptyCta.setOnClickListener(v -> editDialog.show(null, false));
+        b.btnWishSelAll.setOnClickListener(v -> selectAll());
+        b.btnWishSelEdit.setOnClickListener(v -> showBatchEdit());
+        b.btnWishSelDelete.setOnClickListener(v -> confirmBatchDelete());
+        b.btnWishSelCancel.setOnClickListener(v -> exitSelection());
         load();
     }
 
@@ -55,206 +132,250 @@ public class WishListActivity extends BaseActivity {
         load(); // 从录入页返回后刷新（转为藏书会删掉这条）
     }
 
+    @Override
+    protected void onNewIntent(android.content.Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        if (intent != null && ACTION_ADD_WISH.equals(intent.getAction())) {
+            pendingAddWish = true;
+            load();
+        }
+    }
+
+    private SharedPreferences prefs() {
+        return getSharedPreferences("ui_prefs", MODE_PRIVATE);
+    }
+
     private void load() {
         BookshelfApp app = BookshelfApp.get();
+        final int mode = sortMode;
         app.io(() -> {
             List<WishBook> list;
+            List<Book> books;
             try {
-                list = app.db().wishBookDao().getAll();
+                list = mode == SORT_MANUAL
+                        ? app.db().wishBookDao().getAllManual()
+                        : app.db().wishBookDao().getAll();
+                books = BookSanitizer.normalizeAll(app.db().bookDao().getAll());
             } catch (Exception e) {
                 list = new ArrayList<>();
+                books = new ArrayList<>();
             }
+            sortInMemory(list, mode);
             final List<WishBook> fList = list;
+            final List<Book> fBooks = books;
             app.ui(() -> {
                 if (b == null) {
                     return;
                 }
                 items.clear();
                 items.addAll(fList);
-                render();
+                libraryBooks = fBooks;
+                selectionMode = false;
+                selectedIds.clear();
+                adapter.notifyDataSetChanged();
+                updateSortLabel();
+                refreshSelectionUi();
+                updateEmptyState();
+                if (pendingAddWish) {
+                    pendingAddWish = false;
+                    editDialog.show(null, false);
+                }
             });
         });
     }
 
-    private void render() {
-        b.llWish.removeAllViews();
+    private static void sortInMemory(List<WishBook> list, int mode) {
+        if (mode == SORT_TIME) {
+            list.sort((a, c) -> Long.compare(c.createdAt, a.createdAt));
+        } else if (mode == SORT_TITLE) {
+            Collator collator = Collator.getInstance(Locale.CHINA);
+            list.sort((a, c) -> collator.compare(a.title, c.title));
+        }
+    }
+
+    private void updateSortLabel() {
+        String name;
+        switch (sortMode) {
+            case SORT_TIME:
+                name = "添加时间";
+                break;
+            case SORT_TITLE:
+                name = "书名";
+                break;
+            case SORT_MANUAL:
+                name = "手动（拖动 ≡ 调整）";
+                break;
+            default:
+                name = "优先级";
+                break;
+        }
+        b.tvWishSort.setText("排序：" + name + " ▾");
+    }
+
+    private void updateEmptyState() {
         boolean empty = items.isEmpty();
+        b.recyclerWish.setVisibility(empty ? View.GONE : View.VISIBLE);
         b.llWishEmpty.setVisibility(empty ? View.VISIBLE : View.GONE);
-        if (empty) {
-            return;
-        }
-        for (WishBook wish : items) {
-            b.llWish.addView(buildRow(wish));
-        }
     }
 
-    private View buildRow(WishBook wish) {
-        LinearLayout card = new LinearLayout(this);
-        card.setOrientation(LinearLayout.VERTICAL);
-        card.setBackgroundResource(R.drawable.bg_card);
-        int pad = dp(14);
-        card.setPadding(pad, pad, pad, pad);
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        lp.bottomMargin = dp(10);
-        card.setLayoutParams(lp);
-        card.setClickable(true);
-        card.setFocusable(true);
-        card.setOnClickListener(v -> showWishDialog(wish));
-        card.setOnLongClickListener(v -> {
-            confirmDelete(wish);
-            return true;
-        });
-
-        LinearLayout header = new LinearLayout(this);
-        header.setOrientation(LinearLayout.HORIZONTAL);
-        header.setGravity(Gravity.CENTER_VERTICAL);
-        card.addView(header, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
-
-        TextView title = new TextView(this);
-        title.setText(wish.title);
-        title.setTextColor(ThemeManager.resolveColor(this, R.attr.on_surface));
-        title.setTextSize(16);
-        title.setMaxLines(2);
-        title.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        header.addView(title, new LinearLayout.LayoutParams(
-                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-
-        TextView priority = new TextView(this);
-        priority.setText(priorityText(wish.priority));
-        priority.setTextSize(11);
-        priority.setTextColor(ThemeManager.resolveColor(this,
-                wish.priority == WishBook.PRIORITY_HIGH
-                        ? ThemeManager.ATTR_COLOR_PRIMARY : R.attr.on_surface_variant));
-        priority.setBackgroundResource(R.drawable.bg_filter_pill);
-        priority.setPadding(dp(8), dp(3), dp(8), dp(3));
-        LinearLayout.LayoutParams plp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        plp.setMarginStart(dp(8));
-        header.addView(priority, plp);
-
-        StringBuilder meta = new StringBuilder();
-        if (!wish.author.isEmpty()) {
-            meta.append(wish.author);
-        }
-        if (!wish.isbn.isEmpty()) {
-            if (meta.length() > 0) {
-                meta.append(" · ");
-            }
-            meta.append(wish.isbn);
-        }
-        if (wish.expectedPrice > 0) {
-            if (meta.length() > 0) {
-                meta.append(" · ");
-            }
-            meta.append("心理价 ¥").append(fmt(wish.expectedPrice));
-        }
-        if (meta.length() > 0) {
-            TextView tvMeta = new TextView(this);
-            tvMeta.setText(meta);
-            tvMeta.setTextColor(ThemeManager.resolveColor(this, R.attr.on_surface_variant));
-            tvMeta.setTextSize(13);
-            LinearLayout.LayoutParams mlp = new LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-            mlp.topMargin = dp(4);
-            card.addView(tvMeta, mlp);
-        }
-        if (!wish.note.isEmpty()) {
-            TextView tvNote = new TextView(this);
-            tvNote.setText(wish.note);
-            tvNote.setTextColor(ThemeManager.resolveColor(this, R.attr.on_surface_variant));
-            tvNote.setTextSize(13);
-            tvNote.setMaxLines(2);
-            tvNote.setEllipsize(android.text.TextUtils.TruncateAt.END);
-            LinearLayout.LayoutParams nlp = new LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-            nlp.topMargin = dp(4);
-            card.addView(tvNote, nlp);
-        }
-        return card;
-    }
-
-    private void showWishDialog(WishBook existing) {
-        dialog = DialogWishBinding.inflate(getLayoutInflater());
-        dialog.cgWishPriority.check(priorityToChipId(
-                existing == null ? WishBook.PRIORITY_MID : existing.priority));
-
-        if (existing != null) {
-            dialog.etWishTitle.setText(existing.title);
-            dialog.etWishAuthor.setText(existing.author);
-            dialog.etWishIsbn.setText(existing.isbn);
-            dialog.etWishPrice.setText(existing.expectedPrice > 0 ? fmt(existing.expectedPrice) : "");
-            dialog.etWishNote.setText(existing.note);
-        }
-
-        MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(this)
-                .setTitle(existing == null ? "添加想读" : "编辑想读")
-                .setView(dialog.getRoot())
-                .setPositiveButton("保存", null)
-                .setNegativeButton(R.string.action_cancel, null);
-        if (existing != null) {
-            builder.setNeutralButton("转为藏书", (d, w) -> convertToBook(existing));
-        }
-        androidx.appcompat.app.AlertDialog alert = builder.show();
-        // 保存按钮不直接关窗：书名空时留在弹窗里，避免刚填的内容被清掉
-        alert.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE)
-                .setOnClickListener(v -> {
-                    if (saveWish(existing)) {
-                        alert.dismiss();
+    private void showSortMenu() {
+        String[] names = {"优先级", "添加时间", "书名", "手动排序"};
+        new MaterialAlertDialogBuilder(this)
+                .setTitle("想读排序")
+                .setSingleChoiceItems(names, sortMode, (dialog, which) -> {
+                    dialog.dismiss();
+                    if (which == sortMode) {
+                        return;
                     }
-                });
+                    if (which == SORT_MANUAL) {
+                        persistCurrentOrderAsManual();
+                    }
+                    sortMode = which;
+                    prefs().edit().putInt(KEY_SORT, sortMode).apply();
+                    load();
+                })
+                .setNegativeButton(R.string.action_cancel, null)
+                .show();
     }
 
-    private boolean saveWish(WishBook existing) {
-        String title = dialog.etWishTitle.getText().toString().trim();
-        if (title.isEmpty()) {
-            Toast.makeText(this, "书名不能为空", Toast.LENGTH_SHORT).show();
-            return false;
-        }
-        final WishBook wish = existing == null ? new WishBook() : existing;
-        wish.title = title;
-        wish.author = dialog.etWishAuthor.getText().toString().trim();
-        wish.isbn = dialog.etWishIsbn.getText().toString().trim();
-        wish.priority = chipIdToPriority(dialog.cgWishPriority.getCheckedChipId());
-        try {
-            wish.expectedPrice = Double.parseDouble(
-                    dialog.etWishPrice.getText().toString().trim());
-        } catch (Exception e) {
-            wish.expectedPrice = 0;
-        }
-        wish.note = dialog.etWishNote.getText().toString().trim();
-        long now = System.currentTimeMillis();
-        wish.updatedAt = now;
-        if (existing == null) {
-            wish.createdAt = now;
-        }
+    /** 切到手动排序前，把当前看到顺序写进 sort，视觉上不跳 */
+    private void persistCurrentOrderAsManual() {
+        final List<WishBook> snapshot = new ArrayList<>(items);
         BookshelfApp app = BookshelfApp.get();
         app.io(() -> {
-            if (existing == null) {
-                app.db().wishBookDao().insert(wish);
-            } else {
-                app.db().wishBookDao().update(wish);
+            for (int i = 0; i < snapshot.size(); i++) {
+                WishBook wish = snapshot.get(i);
+                wish.sort = i;
+                app.db().wishBookDao().updateSort(wish.id, i);
             }
-            app.ui(this::load);
         });
-        return true;
     }
 
-    private void confirmDelete(WishBook wish) {
+    /** 拖完后把手动顺序落库 */
+    private void persistManualOrder() {
+        final List<WishBook> snapshot = new ArrayList<>(items);
+        BookshelfApp app = BookshelfApp.get();
+        app.io(() -> {
+            for (int i = 0; i < snapshot.size(); i++) {
+                WishBook wish = snapshot.get(i);
+                wish.sort = i;
+                app.db().wishBookDao().updateSort(wish.id, i);
+            }
+        });
+    }
+
+    // ======================= 多选与批量操作 =======================
+
+    private void enterSelection(WishBook wish) {
+        if (selectionMode) {
+            return;
+        }
+        selectionMode = true;
+        selectedIds.add(wish.id);
+        refreshSelectionUi();
+        adapter.notifyDataSetChanged();
+    }
+
+    private void toggleSelection(WishBook wish) {
+        if (!selectedIds.remove(wish.id)) {
+            selectedIds.add(wish.id);
+        }
+        if (selectedIds.isEmpty()) {
+            exitSelection();
+            return;
+        }
+        refreshSelectionUi();
+        adapter.notifyDataSetChanged();
+    }
+
+    private void selectAll() {
+        for (WishBook wish : items) {
+            selectedIds.add(wish.id);
+        }
+        refreshSelectionUi();
+        adapter.notifyDataSetChanged();
+    }
+
+    private void exitSelection() {
+        selectionMode = false;
+        selectedIds.clear();
+        refreshSelectionUi();
+        adapter.notifyDataSetChanged();
+    }
+
+    private void refreshSelectionUi() {
+        if (b == null) {
+            return;
+        }
+        b.selectionBarWish.setVisibility(selectionMode ? View.VISIBLE : View.GONE);
+        b.bottomWishBar.setVisibility(selectionMode ? View.GONE : View.VISIBLE);
+        b.tvWishSelCount.setText("已选 " + selectedIds.size() + " 条");
+    }
+
+    private void showBatchEdit() {
+        if (selectedIds.isEmpty()) {
+            return;
+        }
+        String[] names = {"高优先", "中优先", "低优先"};
+        int[] priorities = {WishBook.PRIORITY_HIGH, WishBook.PRIORITY_MID, WishBook.PRIORITY_LOW};
         new MaterialAlertDialogBuilder(this)
-                .setTitle("删除想读")
-                .setMessage("把《" + wish.title + "》从想读清单里删掉？")
+                .setTitle("批量编辑（已选 " + selectedIds.size() + " 条）")
+                .setItems(names, (d, which) -> applyBatchPriority(priorities[which], names[which]))
+                .setNegativeButton(R.string.action_cancel, null)
+                .show();
+    }
+
+    private void applyBatchPriority(int priority, String label) {
+        final int count = selectedIds.size();
+        final Set<Long> ids = new HashSet<>(selectedIds);
+        BookshelfApp app = BookshelfApp.get();
+        app.io(() -> {
+            long now = System.currentTimeMillis();
+            for (WishBook wish : items) {
+                if (ids.contains(wish.id)) {
+                    wish.priority = priority;
+                    wish.updatedAt = now;
+                    app.db().wishBookDao().update(wish);
+                }
+            }
+            app.ui(() -> {
+                Toast.makeText(this, "已把 " + count + " 条设为「" + label + "」",
+                        Toast.LENGTH_SHORT).show();
+                exitSelection();
+                load();
+            });
+        });
+    }
+
+    private void confirmBatchDelete() {
+        final int count = selectedIds.size();
+        if (count == 0) {
+            return;
+        }
+        new MaterialAlertDialogBuilder(this)
+                .setTitle("批量删除")
+                .setMessage("删除已选的 " + count + " 条想读？此操作不可恢复。")
                 .setPositiveButton("删除", (d, w) -> {
+                    final Set<Long> ids = new HashSet<>(selectedIds);
                     BookshelfApp app = BookshelfApp.get();
                     app.io(() -> {
-                        app.db().wishBookDao().deleteById(wish.id);
-                        app.ui(this::load);
+                        for (Long id : ids) {
+                            app.db().wishBookDao().deleteById(id);
+                        }
+                        app.ui(() -> {
+                            Toast.makeText(this, "已删除 " + count + " 条",
+                                    Toast.LENGTH_SHORT).show();
+                            exitSelection();
+                            load();
+                        });
                     });
                 })
                 .setNegativeButton(R.string.action_cancel, null)
                 .show();
     }
+
+    // ======================= 「转为藏书」 =======================
 
     /** 买到/借到：把信息带进录入页；等录入页真的保存成功后再删掉这条想读 */
     private void convertToBook(WishBook wish) {
@@ -292,24 +413,137 @@ public class WishListActivity extends BaseActivity {
         });
     }
 
-    private static int priorityToChipId(int priority) {
-        if (priority == WishBook.PRIORITY_LOW) {
-            return R.id.chip_priority_low;
+    // ======================= 列表 =======================
+
+    private class WishAdapter extends RecyclerView.Adapter<WishAdapter.VH> {
+
+        @NonNull
+        @Override
+        public VH onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+            ItemWishBinding item = ItemWishBinding.inflate(
+                    getLayoutInflater(), parent, false);
+            return new VH(item);
         }
-        if (priority == WishBook.PRIORITY_HIGH) {
-            return R.id.chip_priority_high;
+
+        @Override
+        public void onBindViewHolder(@NonNull VH h, int position) {
+            WishBook wish = items.get(position);
+            h.b.tvWishTitle.setText(wish.title);
+            h.b.tvWishPriority.setText(priorityText(wish.priority));
+            h.b.tvWishPriority.setTextColor(ThemeManager.resolveColor(
+                    WishListActivity.this,
+                    wish.priority == WishBook.PRIORITY_HIGH
+                            ? ThemeManager.ATTR_COLOR_PRIMARY : R.attr.on_surface_variant));
+            boolean inShelf = WishBookMatcher.findInLibrary(libraryBooks, wish) != null;
+            h.b.tvWishInShelf.setVisibility(inShelf ? View.VISIBLE : View.GONE);
+
+            if (TextUtils.isEmpty(wish.author)) {
+                h.b.tvWishMeta.setVisibility(View.GONE);
+            } else {
+                h.b.tvWishMeta.setVisibility(View.VISIBLE);
+                h.b.tvWishMeta.setText(wish.author);
+            }
+            if (TextUtils.isEmpty(wish.note)) {
+                h.b.tvWishNote.setVisibility(View.GONE);
+            } else {
+                h.b.tvWishNote.setVisibility(View.VISIBLE);
+                h.b.tvWishNote.setText(wish.note);
+            }
+
+            h.b.cbWishSelect.setVisibility(selectionMode ? View.VISIBLE : View.GONE);
+            h.b.cbWishSelect.setOnCheckedChangeListener(null);
+            h.b.cbWishSelect.setChecked(selectedIds.contains(wish.id));
+            h.b.cbWishSelect.setOnCheckedChangeListener((cb, checked) -> {
+                if (checked != selectedIds.contains(wish.id)) {
+                    toggleSelection(wish);
+                }
+            });
+
+            // v5.7：手柄常驻，任何排序方式下都能拖；首次拖动自动切到手动排序
+            boolean canDrag = !selectionMode;
+            h.b.tvWishDrag.setVisibility(canDrag ? View.VISIBLE : View.GONE);
+            h.b.tvWishDrag.setOnTouchListener((v, event) -> {
+                if (event.getActionMasked() == MotionEvent.ACTION_DOWN && canDrag) {
+                    if (sortMode != SORT_MANUAL) {
+                        sortMode = SORT_MANUAL;
+                        prefs().edit().putInt(KEY_SORT, sortMode).apply();
+                        updateSortLabel();
+                    }
+                    touchHelper.startDrag(h);
+                    return true;
+                }
+                return false;
+            });
+
+            h.itemView.setOnClickListener(v -> {
+                if (selectionMode) {
+                    toggleSelection(wish);
+                } else {
+                    editDialog.show(wish, false);
+                }
+            });
+            h.itemView.setOnLongClickListener(v -> {
+                if (!selectionMode) {
+                    enterSelection(wish);
+                }
+                return true;
+            });
         }
-        return R.id.chip_priority_mid;
+
+        @Override
+        public int getItemCount() {
+            return items.size();
+        }
+
+        class VH extends RecyclerView.ViewHolder {
+            final ItemWishBinding b;
+
+            VH(ItemWishBinding b) {
+                super(b.getRoot());
+                this.b = b;
+            }
+        }
     }
 
-    private static int chipIdToPriority(int chipId) {
-        if (chipId == R.id.chip_priority_low) {
-            return WishBook.PRIORITY_LOW;
+    /** 手动排序拖动：只在手动模式且非多选时生效，松手后落库 */
+    private class DragCallback extends ItemTouchHelper.SimpleCallback {
+
+        DragCallback() {
+            super(ItemTouchHelper.UP | ItemTouchHelper.DOWN, 0);
         }
-        if (chipId == R.id.chip_priority_high) {
-            return WishBook.PRIORITY_HIGH;
+
+        @Override
+        public boolean isLongPressDragEnabled() {
+            return false; // 只能按住 ≡ 手柄拖动，长按留给多选
         }
-        return WishBook.PRIORITY_MID;
+
+        @Override
+        public boolean onMove(@NonNull RecyclerView recyclerView,
+                              @NonNull RecyclerView.ViewHolder viewHolder,
+                              @NonNull RecyclerView.ViewHolder target) {
+            if (sortMode != SORT_MANUAL || selectionMode) {
+                return false;
+            }
+            int from = viewHolder.getBindingAdapterPosition();
+            int to = target.getBindingAdapterPosition();
+            if (from == RecyclerView.NO_POSITION || to == RecyclerView.NO_POSITION) {
+                return false;
+            }
+            Collections.swap(items, from, to);
+            adapter.notifyItemMoved(from, to);
+            return true;
+        }
+
+        @Override
+        public void onSwiped(@NonNull RecyclerView.ViewHolder viewHolder, int direction) {
+        }
+
+        @Override
+        public void clearView(@NonNull RecyclerView recyclerView,
+                              @NonNull RecyclerView.ViewHolder viewHolder) {
+            super.clearView(recyclerView, viewHolder);
+            persistManualOrder();
+        }
     }
 
     private static String priorityText(int priority) {
@@ -320,16 +554,5 @@ public class WishListActivity extends BaseActivity {
             return "低优先";
         }
         return "中优先";
-    }
-
-    private static String fmt(double value) {
-        if (value == Math.floor(value) && !Double.isInfinite(value)) {
-            return String.valueOf((long) value);
-        }
-        return String.format(Locale.getDefault(), "%.2f", value);
-    }
-
-    private int dp(int value) {
-        return Math.round(value * getResources().getDisplayMetrics().density);
     }
 }

@@ -90,15 +90,18 @@ public final class BookShareCard {
         float metaY = titleBottom + 168f;
         paint.setTextSize(34f);
         paint.setColor(BRASS);
+        double avgRating = book.ratingAvg > 0 ? book.ratingAvg : book.rating;
         StringBuilder stars = new StringBuilder();
         for (int i = 1; i <= 5; i++) {
-            stars.append(i <= book.rating ? "★" : "☆");
+            stars.append(i <= avgRating ? "★" : "☆");
         }
         c.drawText(stars.toString(), textX, metaY, paint);
         float starsW = paint.measureText(stars.toString());
         paint.setTextSize(24f);
         paint.setColor(MUTED);
-        c.drawText(book.rating > 0 ? "个人评分 " + book.rating + "/5" : "未评分",
+        c.drawText(avgRating > 0
+                        ? "个人评分 " + ReadingRecords.formatRating(avgRating) + "/5"
+                        : "未评分",
                 textX + starsW + 24f, metaY, paint);
 
         // 标签（最多 3 个）
@@ -219,6 +222,9 @@ public final class BookShareCard {
     }
 
     private static String statusText(Book book) {
+        if (book.stockStatus == Book.STOCK_BOOKMARK) {
+            return "电子书签";
+        }
         if (book.stockStatus == Book.STOCK_LENT) {
             return "借出中";
         }
@@ -230,6 +236,9 @@ public final class BookShareCard {
         }
         if (book.readStatus == Book.READ_DONE) {
             return "已读";
+        }
+        if (book.readStatus == Book.READ_DROPPED) {
+            return "弃读";
         }
         return "未读";
     }

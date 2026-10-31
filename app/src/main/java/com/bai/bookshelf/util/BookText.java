@@ -1,5 +1,7 @@
 package com.bai.bookshelf.util;
 
+import com.bai.bookshelf.data.entity.Book;
+
 /**
  * 书名展示的统一工具：全 App 展示书名时套一层《》前，
  * 先用 {@link #bareTitle} 把书名里已有的书名号字符清干净，
@@ -56,5 +58,15 @@ public final class BookText {
     /** 展示用书名：清理后统一套一层《》 */
     public static String quotedTitle(String title) {
         return "《" + bareTitle(title) + "》";
+    }
+
+    /** 日历/清单里的书目：书名 + 作者（有作者时），统一格式 */
+    public static String calendarLabel(Book book) {
+        if (book == null) {
+            return "";
+        }
+        String title = quotedTitle(book.title);
+        String author = book.author == null ? "" : book.author.trim();
+        return author.isEmpty() ? title : title + " · " + author;
     }
 }

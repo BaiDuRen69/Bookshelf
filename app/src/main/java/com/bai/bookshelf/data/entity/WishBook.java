@@ -1,5 +1,6 @@
 package com.bai.bookshelf.data.entity;
 
+import androidx.room.ColumnInfo;
 import androidx.room.Entity;
 import androidx.room.PrimaryKey;
 
@@ -23,6 +24,9 @@ public class WishBook {
     public int priority = PRIORITY_MID;
     public double expectedPrice;   // 心理价（元），0 = 没填
     public String note = "";
+    /** 手动排序值（升序）；其它排序方式不使用 */
+    @ColumnInfo(defaultValue = "0")
+    public int sort;
     public long createdAt;
     public long updatedAt;
 }

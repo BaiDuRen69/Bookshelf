@@ -55,19 +55,12 @@ public final class BorrowReminder {
             next.add(Calendar.DAY_OF_MONTH, 1);
         }
         am.cancel(pi);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, next.getTimeInMillis(), pi);
-        } else {
-            am.set(AlarmManager.RTC_WAKEUP, next.getTimeInMillis(), pi);
-        }
+        am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, next.getTimeInMillis(), pi);
     }
 
     private static PendingIntent pendingIntent(Context context) {
         Intent intent = new Intent(context, BorrowReminderReceiver.class).setAction(ACTION_CHECK);
-        int flags = PendingIntent.FLAG_UPDATE_CURRENT;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            flags |= PendingIntent.FLAG_IMMUTABLE;
-        }
+        int flags = PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE;
         return PendingIntent.getBroadcast(context, REQUEST_CODE, intent, flags);
     }
 
@@ -80,14 +73,17 @@ public final class BorrowReminder {
         Context ctx = context.getApplicationContext();
         app.io(() -> {
             int[] counts;
+            int[] borrowedIn;
             try {
                 counts = countDue(app.db().borrowRecordDao().getAllOpen());
+                borrowedIn = countBorrowedInDue(app.db().bookDao()
+                        .getBorrowedInDue(DateKeys.formatKey(DateKeys.todayKey())));
             } catch (Throwable t) {
                 android.util.Log.w("BorrowReminder", "check due failed", t);
                 return;
             }
-            if (counts[0] + counts[1] > 0) {
-                app.ui(() -> notify(ctx, counts[0], counts[1]));
+            if (counts[0] + counts[1] + borrowedIn[0] + borrowedIn[1] > 0) {
+                app.ui(() -> notify(ctx, counts[0], counts[1], borrowedIn[0], borrowedIn[1]));
             }
         });
     }
@@ -114,7 +110,30 @@ public final class BorrowReminder {
         return new int[]{dueToday, overdue};
     }
 
-    public static void notify(Context ctx, int dueToday, int overdue) {
+    /** 来源为借阅、尚未归还的书：{今天到期数, 逾期数} */
+    public static int[] countBorrowedInDue(List<Book> books) {
+        int today = todayKey();
+        int dueToday = 0;
+        int overdue = 0;
+        if (books == null) {
+            return new int[]{0, 0};
+        }
+        for (Book book : books) {
+            int key = parseKey(book.borrowDueDate);
+            if (key == 0) {
+                continue;
+            }
+            if (key == today) {
+                dueToday++;
+            } else if (key < today) {
+                overdue++;
+            }
+        }
+        return new int[]{dueToday, overdue};
+    }
+
+    public static void notify(Context ctx, int dueToday, int overdue,
+                              int borrowedInToday, int borrowedInOverdue) {
         if (!notificationsEnabled(ctx)) {
             return;
         }
@@ -132,7 +151,7 @@ public final class BorrowReminder {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel channel = new NotificationChannel(CHANNEL_ID,
                     "借阅到期提醒", NotificationManager.IMPORTANCE_DEFAULT);
-            channel.setDescription("借出的书今天到期或已经逾期时提醒");
+            channel.setDescription("借出/借入的书到期或逾期时提醒");
             nm.createNotificationChannel(channel);
         }
         StringBuilder text = new StringBuilder();
@@ -145,12 +164,21 @@ public final class BorrowReminder {
             }
             text.append(dueToday).append(" 本今天到期");
         }
+        if (borrowedInOverdue > 0) {
+            if (text.length() > 0) {
+                text.append("；");
+            }
+            text.append(borrowedInOverdue).append(" 本借阅的书已逾期未还");
+        }
+        if (borrowedInToday > 0) {
+            if (text.length() > 0) {
+                text.append("；");
+            }
+            text.append(borrowedInToday).append(" 本借阅的书今天要归还");
+        }
         Intent open = new Intent(ctx, MainActivity.class)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-        int flags = PendingIntent.FLAG_UPDATE_CURRENT;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            flags |= PendingIntent.FLAG_IMMUTABLE;
-        }
+        int flags = PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE;
         PendingIntent contentIntent = PendingIntent.getActivity(ctx, REQUEST_CODE, open, flags);
         NotificationCompat.Builder builder = new NotificationCompat.Builder(ctx, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_launcher_mono)

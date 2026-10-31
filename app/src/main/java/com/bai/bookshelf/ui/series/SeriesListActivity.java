@@ -38,6 +38,10 @@ public class SeriesListActivity extends BaseActivity {
         setContentView(b.getRoot());
         b.toolbar.setNavigationOnClickListener(v -> finish());
         InsetsHelper.applyBottomInset(b.llSeriesList);
+        // v5.7 收口：空态改用共享组件；这一页没有「就地新增」的动作，主按钮隐藏
+        b.emptyState.tvEmptyTitle.setText("还没有系列");
+        b.emptyState.tvEmptyDesc.setText("在书籍编辑页填上「系列」和卷号，同一系列的书会在这里按顺序排好");
+        b.emptyState.btnEmptyCta.setVisibility(android.view.View.GONE);
     }
 
     @Override

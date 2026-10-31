@@ -180,8 +180,10 @@ public class SeriesActivity extends BaseActivity {
                 && book.readingProgress > 0 && book.readingProgress < 100) {
             status.append(" · 读到 ").append(book.readingProgress).append("%");
         }
-        if (book.rating > 0) {
-            status.append(" · 我的评分 ").append(book.rating);
+        double avgRating = book.ratingAvg > 0 ? book.ratingAvg : book.rating;
+        if (avgRating > 0) {
+            status.append(" · 我的评分 ")
+                    .append(com.bai.bookshelf.util.ReadingRecords.formatRating(avgRating));
         }
         row.tvSeriesStatus.setText(status);
 

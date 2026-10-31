@@ -29,6 +29,11 @@ public interface BookDao {
     @Query("SELECT * FROM books ORDER BY createdAt DESC")
     androidx.lifecycle.LiveData<List<Book>> getAllLive();
 
+    /** 来源为借阅、尚未归还且应还日期已到（含逾期）的书 */
+    @Query("SELECT * FROM books WHERE ownType = 1 AND borrowReturnDate = '' "
+            + "AND borrowDueDate != '' AND borrowDueDate <= :today ORDER BY borrowDueDate ASC")
+    List<Book> getBorrowedInDue(String today);
+
     @Query("SELECT * FROM books WHERE id = :id LIMIT 1")
     Book getById(long id);
 

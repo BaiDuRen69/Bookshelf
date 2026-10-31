@@ -128,7 +128,7 @@ public class CopyEditActivity extends BaseActivity {
             });
             // 编辑模式加载该本已有备注图片（bookId 来自上一页）
             if (bookId > 0) {
-                CopyFormBuilder.loadNoteImagesIfNeeded(this, app, bookId, h);
+                CopyNoteImages.loadNoteImagesIfNeeded(this, app, bookId, h);
             }
             rows.add(h);
         }
@@ -157,7 +157,7 @@ public class CopyEditActivity extends BaseActivity {
                     img.path = out.getAbsolutePath();
                     for (CopyFormBuilder.Holder h : rows) {
                         if (h.copyIndex == pendingCopyImageIndex) {
-                            CopyFormBuilder.addNoteImage(this, h, img);
+                            CopyNoteImages.addNoteImage(this, h, img);
                             break;
                         }
                     }
@@ -182,7 +182,7 @@ public class CopyEditActivity extends BaseActivity {
     private HashMap<Integer, ArrayList<NoteImage>> collectImages() {
         HashMap<Integer, ArrayList<NoteImage>> map = new HashMap<>();
         for (CopyFormBuilder.Holder row : rows) {
-            map.put(row.copyIndex, new ArrayList<>(CopyFormBuilder.getNoteImages(row)));
+            map.put(row.copyIndex, new ArrayList<>(CopyNoteImages.getNoteImages(row)));
         }
         return map;
     }

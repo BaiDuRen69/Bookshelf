@@ -15,7 +15,7 @@ import java.util.Map;
 public final class SmartShelf {
 
     public static final String[] NAMES = {"在读", "借出中", "超期", "最近购入",
-            "未评分", "无封面", "无地点", "待完善", "遗失"};
+            "未评分", "无封面", "无地点", "待完善", "遗失", "借阅中", "电子书签"};
 
     public static final int READING = 0;
     public static final int LENT = 1;
@@ -26,6 +26,8 @@ public final class SmartShelf {
     public static final int NO_LOCATION = 6;
     public static final int INCOMPLETE = 7;
     public static final int LOST = 8;
+    public static final int BORROWED_IN = 9; // 来源=借阅且未归还
+    public static final int BOOKMARK = 10;   // 来源=借阅且已归还（电子书签）
 
     /** 「最近购入」窗口：含今天在内的 30 天 */
     private static final int RECENT_DAYS = 30;
@@ -52,7 +54,7 @@ public final class SmartShelf {
                 return span[1] >= from && span[0] <= todayKey;
             }
             case UNRATED:
-                return book.rating == 0;
+                return book.rating <= 0 && book.ratingAvg <= 0;
             case NO_COVER:
                 return book.coverUrl.isEmpty();
             case NO_LOCATION:
@@ -62,6 +64,10 @@ public final class SmartShelf {
                         || book.category.isEmpty();
             case LOST:
                 return book.stockStatus == Book.STOCK_LOST;
+            case BORROWED_IN:
+                return BookFlags.isBorrowSource(book) && !BookFlags.isReturnedBorrow(book);
+            case BOOKMARK:
+                return BookFlags.isReturnedBorrow(book);
             default:
                 return true;
         }

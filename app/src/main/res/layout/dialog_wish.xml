@@ -43,36 +43,6 @@
                 android:singleLine="true" />
         </com.google.android.material.textfield.TextInputLayout>
 
-        <com.google.android.material.textfield.TextInputLayout
-            style="@style/Widget.Bookshelf.TextField"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/space_md"
-            android:hint="ISBN（可空）">
-
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/et_wish_isbn"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:inputType="number"
-                android:singleLine="true" />
-        </com.google.android.material.textfield.TextInputLayout>
-
-        <com.google.android.material.textfield.TextInputLayout
-            style="@style/Widget.Bookshelf.TextField"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/space_md"
-            android:hint="心理价（元）">
-
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/et_wish_price"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:inputType="numberDecimal"
-                android:singleLine="true" />
-        </com.google.android.material.textfield.TextInputLayout>
-
         <!-- v4.49：优先级从系统 Spinner 换成芯片组。Spinner 的文字取
              ?android:textColorPrimary，在「夜读」主题（本质是 Light 主题套深色）
              下是黑字，压在深色弹窗上几乎看不见；芯片走应用自己的语义色。 -->

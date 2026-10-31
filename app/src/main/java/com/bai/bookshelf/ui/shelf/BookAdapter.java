@@ -149,8 +149,10 @@ public class BookAdapter extends RecyclerView.Adapter<BookAdapter.VH> {
         h.b.tvLocation.setText(locName);
         h.b.tvStock.setText(StatusText.stock(book.stockStatus) + " · " + StatusText.read(book.readStatus));
 
-        // 评分（0 分不显示）
-        h.b.tvRating.setText(book.rating > 0 ? "★ " + book.rating : "");
+        // 评分（0 分不显示；展示多次阅读的平均分，0.5 步进）
+        double avgRating = book.ratingAvg > 0 ? book.ratingAvg : book.rating;
+        h.b.tvRating.setText(avgRating > 0
+                ? "★ " + com.bai.bookshelf.util.ReadingRecords.formatRating(avgRating) : "");
 
         // 标签独立行（ViewHolder 复用，先清空旧标签）
         h.b.tagsRow.removeAllViews();

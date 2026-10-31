@@ -3,11 +3,6 @@ package com.bai.bookshelf.ui.stats;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
-import android.text.SpannableString;
-import android.text.SpannableStringBuilder;
-import android.text.Spanned;
-import android.text.style.AbsoluteSizeSpan;
-import android.text.style.StyleSpan;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
@@ -21,18 +16,14 @@ import com.bai.bookshelf.R;
 import com.bai.bookshelf.app.BookshelfApp;
 import com.bai.bookshelf.data.entity.Book;
 import com.bai.bookshelf.databinding.ActivityReadingStatsBinding;
-import com.bai.bookshelf.databinding.DialogPickPeriodBinding;
 import com.bai.bookshelf.ui.BaseActivity;
 import com.bai.bookshelf.util.BookSanitizer;
+import com.bai.bookshelf.util.BookText;
 import com.bai.bookshelf.util.ThemeManager;
-import com.google.android.material.chip.Chip;
-import com.google.android.material.chip.ChipGroup;
-import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -77,9 +68,18 @@ public class ReadingStatsActivity extends BaseActivity {
      * 现在一次性汇总全量数据，「全部记录」面板按月/按年切分后即可覆盖所有年份。
      */
     private final Map<String, Integer> allDailyCounts = new LinkedHashMap<>();
+    /** 每天买了哪几本（与 allDailyCounts 同步汇总） */
+    private final Map<String, List<String>> allDailyBooks = new LinkedHashMap<>();
 
     /** 当前打开的年/月选择弹窗（选完直接关闭） */
-    private androidx.appcompat.app.AlertDialog pickerDialog;
+    /** 年/月快速选择器（v5.6 从本类抽出） */
+    private StatsPeriodPicker periodPicker;
+    /** 购买排行区（v5.6 从本类抽出） */
+    private StatsRankView rankView;
+    /** 总览区（v5.6 从本类抽出） */
+    private StatsTotalView totalView;
+    /** 购买日历入口（v5.6 从本类抽出） */
+    private StatsCalendarLauncher calendarLauncher;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -87,6 +87,9 @@ public class ReadingStatsActivity extends BaseActivity {
         b = ActivityReadingStatsBinding.inflate(getLayoutInflater());
         setContentView(b.getRoot());
         b.toolbar.setNavigationOnClickListener(v -> finish());
+        rankView = new StatsRankView(this);
+        totalView = new StatsTotalView(this, b);
+        calendarLauncher = new StatsCalendarLauncher(this, b);
 
         // v4.28：空态与书架/统计页统一（插画 + 去录入）
         b.emptyState.tvEmptyTitle.setText("还没有可统计的书");
@@ -119,23 +122,52 @@ public class ReadingStatsActivity extends BaseActivity {
         });
 
         // v4.20：点标题/下拉按钮直接弹出年/月选择器
-        b.tvMonthLabel.setOnClickListener(v -> showMonthPicker());
-        b.btnMonthPick.setOnClickListener(v -> showMonthPicker());
-        b.tvYearLabel.setOnClickListener(v -> showYearPicker());
-        b.btnYearPick.setOnClickListener(v -> showYearPicker());
+        periodPicker = new StatsPeriodPicker(this, new StatsPeriodPicker.Host() {
+            @Override
+            public List<Integer> availableYears() {
+                return ReadingStatsActivity.this.availableYears();
+            }
+
+            @Override
+            public void onMonthPicked(int year, int month0) {
+                monthCursor.set(year, month0, 1);
+                renderMonth();
+            }
+
+            @Override
+            public void onYearPicked(int year) {
+                yearCursor.set(year, 0, 1);
+                renderYear();
+            }
+        });
+        b.tvMonthLabel.setOnClickListener(v ->
+                periodPicker.showMonth(monthCursor.get(Calendar.YEAR),
+                        monthCursor.get(Calendar.MONTH)));
+        b.btnMonthPick.setOnClickListener(v ->
+                periodPicker.showMonth(monthCursor.get(Calendar.YEAR),
+                        monthCursor.get(Calendar.MONTH)));
+        b.tvYearLabel.setOnClickListener(v ->
+                periodPicker.showYear(yearCursor.get(Calendar.YEAR)));
+        b.btnYearPick.setOnClickListener(v ->
+                periodPicker.showYear(yearCursor.get(Calendar.YEAR)));
 
         // v4.20：点击日历某天，下方显示当天买了几本
         b.heatmapMonth.setOnDayClickListener((year, month, day, count) -> {
-            b.tvMonthDayDetail.setText(dayDetailText(year, month, day, count));
+            b.tvMonthDayDetail.setText(StatsText.dayDetailText(year, month, day, count));
         });
         b.heatmapYear.setOnDayClickListener((year, month, day, count) -> {
-            b.tvYearDayDetail.setText(dayDetailText(year, month, day, count));
+            b.tvYearDayDetail.setText(StatsText.dayDetailText(year, month, day, count));
         });
 
         // v4.21：柱状图右上角「全部记录」按钮 —— 从底部升起半屏面板，列出完整记录
-        b.btnMonthDetail.setOnClickListener(v -> showMonthDetailSheet());
-        b.btnYearDetail.setOnClickListener(v -> showYearDetailSheet());
-        b.btnTotalDetail.setOnClickListener(v -> showTotalDetailSheet());
+        b.btnMonthDetail.setOnClickListener(v ->
+                calendarLauncher.showMonth(monthCursor.get(Calendar.YEAR),
+                        monthCursor.get(Calendar.MONTH), allDailyCounts, allDailyBooks));
+        b.btnYearDetail.setOnClickListener(v ->
+                calendarLauncher.showYear(yearCursor.get(Calendar.YEAR),
+                        allDailyCounts, allDailyBooks));
+        b.btnTotalDetail.setOnClickListener(v ->
+                calendarLauncher.showTotal(allDailyCounts, allDailyBooks));
 
         // v4.21：点击柱状图里的某根柱子，同样联动下方的当天详情
         b.chartMonth.setOnBarClickListener((index, value) -> onChartBarClick(index, false));
@@ -172,15 +204,22 @@ public class ReadingStatsActivity extends BaseActivity {
         Map<String, Integer> perMonth = new LinkedHashMap<>();
         // v4.22：同时汇总「全部年份」的每日购买量，供日历面板使用
         allDailyCounts.clear();
+        allDailyBooks.clear();
         for (Book book : books) {
-            int[] pd = parseYmd(book.purchaseDate);
+            int[] pd = StatsText.parseYmd(book.purchaseDate);
             if (pd == null) {
                 continue;
             }
-            String dayKey = pd[0] + "-" + pad2(pd[1] + 1) + "-" + pad2(pd[2]);
+            String dayKey = pd[0] + "-" + StatsText.pad2(pd[1] + 1) + "-" + StatsText.pad2(pd[2]);
             perDay.merge(dayKey, 1, Integer::sum);
             allDailyCounts.merge(dayKey, 1, Integer::sum);
-            perMonth.merge(pd[0] + "-" + pad2(pd[1] + 1), 1, Integer::sum);
+            List<String> dayBooks = allDailyBooks.get(dayKey);
+            if (dayBooks == null) {
+                dayBooks = new ArrayList<>();
+                allDailyBooks.put(dayKey, dayBooks);
+            }
+            dayBooks.add(BookText.calendarLabel(book));
+            perMonth.merge(pd[0] + "-" + StatsText.pad2(pd[1] + 1), 1, Integer::sum);
         }
         globalMaxPerDay = 0;
         for (int v : perDay.values()) {
@@ -237,150 +276,18 @@ public class ReadingStatsActivity extends BaseActivity {
         } else if (tab == 1) {
             renderYear();
         } else {
-            renderTotal();
+            totalView.render(books);
         }
     }
 
     // ==================== 年/月快速选择器（v4.20） ====================
-
-    /** 弹出月份选择器：上方年份快捷条 + 下方 12 个月格子 */
-    private void showMonthPicker() {
-        DialogPickPeriodBinding db = DialogPickPeriodBinding.inflate(getLayoutInflater());
-        db.hsYearChips.setVisibility(View.VISIBLE);
-        db.llYearGrid.setVisibility(View.GONE);
-        db.gridMonths.setVisibility(View.VISIBLE);
-
-        int currentYear = monthCursor.get(Calendar.YEAR);
-        int currentMonth = monthCursor.get(Calendar.MONTH);
-        Calendar now = Calendar.getInstance();
-        int nowYear = now.get(Calendar.YEAR);
-        int nowMonth = now.get(Calendar.MONTH);
-
-        // 当前选中的年份（点年份 Chip 会改它，随后点月份即跳到该年该月）
-        final int[] pickedYear = {currentYear};
-        final int primary = ThemeManager.resolveColor(this, ThemeManager.ATTR_COLOR_PRIMARY);
-        final int textMain = ThemeManager.resolveColor(this, R.attr.on_surface);
-
-        // 12 个月格子
-        final TextView[] monthViews = new TextView[]{
-                db.m1, db.m2, db.m3, db.m4, db.m5, db.m6,
-                db.m7, db.m8, db.m9, db.m10, db.m11, db.m12};
-
-        // 年份变化时刷新月份格子的可用状态（未来月份禁用）与当前选中高亮
-        Runnable refreshMonths = () -> {
-            for (int i = 0; i < 12; i++) {
-                final int m = i;
-                TextView tv = monthViews[i];
-                boolean future = pickedYear[0] > nowYear
-                        || (pickedYear[0] == nowYear && m > nowMonth);
-                tv.setEnabled(!future);
-                tv.setAlpha(future ? 0.35f : 1f);
-                boolean cur = pickedYear[0] == currentYear && m == currentMonth;
-                tv.setTextColor(cur ? primary : textMain);
-                tv.setTypeface(cur ? Typeface.DEFAULT_BOLD : Typeface.DEFAULT);
-                tv.setOnClickListener(v -> {
-                    monthCursor.set(pickedYear[0], m, 1);
-                    renderMonth();
-                    pickerDialog.dismiss();
-                });
-            }
-        };
-
-        // 年份快捷条：数据里出现过的年份 + 当前年，倒序
-        List<Integer> years = availableYears();
-        ChipGroup group = db.chipYearGroup;
-        for (int y : years) {
-            Chip chip = new Chip(this);
-            chip.setId(View.generateViewId());
-            chip.setText(String.valueOf(y));
-            chip.setCheckable(true);
-            group.addView(chip);
-            if (y == currentYear) {
-                group.check(chip.getId());
-            }
-        }
-        // ChipGroup 单选：选中哪个年份就更新 pickedYear 并刷新月份格子
-        group.setOnCheckedStateChangeListener((g, ids) -> {
-            if (ids.isEmpty()) {
-                return;
-            }
-            View v = g.findViewById(ids.get(0));
-            if (v instanceof Chip) {
-                try {
-                    pickedYear[0] = Integer.parseInt(((Chip) v).getText().toString());
-                    refreshMonths.run();
-                } catch (NumberFormatException ignored) {
-                    // 理论上不会发生，忽略
-                }
-            }
-        });
-
-        refreshMonths.run();
-
-        pickerDialog = new MaterialAlertDialogBuilder(this)
-                .setTitle("选择月份")
-                .setView(db.getRoot())
-                .setNegativeButton(R.string.action_cancel, null)
-                .create();
-        pickerDialog.show();
-    }
-
-    /** 弹出年份选择器 */
-    private void showYearPicker() {
-        DialogPickPeriodBinding db = DialogPickPeriodBinding.inflate(getLayoutInflater());
-        db.hsYearChips.setVisibility(View.GONE);
-        db.gridMonths.setVisibility(View.GONE);
-        db.llYearGrid.setVisibility(View.VISIBLE);
-
-        int currentYear = yearCursor.get(Calendar.YEAR);
-        List<Integer> years = availableYears();
-        // 4 列一行
-        int perRow = 4;
-        for (int i = 0; i < years.size(); i += perRow) {
-            LinearLayout row = new LinearLayout(this);
-            row.setOrientation(LinearLayout.HORIZONTAL);
-            for (int j = 0; j < perRow && i + j < years.size(); j++) {
-                final int y = years.get(i + j);
-                TextView tv = new TextView(this);
-                tv.setText(String.valueOf(y));
-                tv.setTextSize(15);
-                tv.setGravity(Gravity.CENTER);
-                tv.setTextColor(y == currentYear
-                        ? ThemeManager.resolveColor(this, ThemeManager.ATTR_COLOR_PRIMARY)
-                        : ThemeManager.resolveColor(this, R.attr.on_surface));
-                if (y == currentYear) {
-                    tv.setTypeface(Typeface.DEFAULT_BOLD);
-                }
-                tv.setBackgroundResource(R.drawable.bg_chip);
-                tv.setPadding(dp(8), dp(12), dp(8), dp(12));
-                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                        0, ViewGroup.LayoutParams.WRAP_CONTENT, 1);
-                lp.setMargins(dp(3), dp(3), dp(3), dp(3));
-                tv.setLayoutParams(lp);
-                tv.setOnClickListener(v -> {
-                    yearCursor.set(y, 0, 1);
-                    renderYear();
-                    pickerDialog.dismiss();
-                });
-                row.addView(tv);
-            }
-            db.llYearGrid.addView(row);
-        }
-
-        pickerDialog = new MaterialAlertDialogBuilder(this)
-                .setTitle("选择年份")
-                .setView(db.getRoot())
-                .setNegativeButton(R.string.action_cancel, null)
-                .create();
-        pickerDialog.show();
-    }
 
     /** 可选年份：书籍购买记录里出现过的年份 ∪ 当前年，倒序 */
     private List<Integer> availableYears() {
         TreeMap<Integer, Boolean> set = new TreeMap<>();
         set.put(Calendar.getInstance().get(Calendar.YEAR), true);
         for (Book book : books) {
-            int[] pd = parseYmd(book.purchaseDate);
+            int[] pd = StatsText.parseYmd(book.purchaseDate);
             if (pd != null) {
                 set.put(pd[0], true);
             }
@@ -392,143 +299,33 @@ public class ReadingStatsActivity extends BaseActivity {
 
     // ==================== 「全部记录」日历面板（v4.22） ====================
 
-    /**
-     * 月视图的「全部记录」：打开日历面板（按月粒度），初始定位到当前游标月。
-     *
-     * <p>v4.22：面板内的日历展示<b>全部年份</b>的记录，不限于当前月；
-     * 右上角可切换「按月 / 按年」，切换后展示对应粒度下的完整记录。
-     */
-    private void showMonthDetailSheet() {
-        int year = monthCursor.get(Calendar.YEAR);
-        int month = monthCursor.get(Calendar.MONTH);
-        showCalendarSheet(false, year, month);
-    }
-
-    /**
-     * 年视图的「全部记录」：打开日历面板（按年粒度），初始定位到当前游标年。
-     */
-    private void showYearDetailSheet() {
-        int year = yearCursor.get(Calendar.YEAR);
-        showCalendarSheet(true, year, 0);
-    }
-
-    /**
-     * 总视图的「全部记录」：打开日历面板（按年粒度），定位到有记录的最新年份。
-     */
-    private void showTotalDetailSheet() {
-        int year = latestYearWithRecords();
-        showCalendarSheet(true, year, 0);
-    }
-
-    /**
-     * 打开「全部记录」日历面板。
-     *
-     * @param yearMode true=按年，false=按月
-     * @param year    初始聚焦的年
-     * @param month0  初始聚焦的月（0-based）
-     */
-    private void showCalendarSheet(boolean yearMode, int year, int month0) {
-        // 标题的周期后缀由面板自己管理（切换粒度时会跟着变），
-        // 这里只传基名「购买日历」。
-        String summary = getString(R.string.stats_calendar_summary,
-                activeDayCount(), totalBookCount());
-
-        PurchaseCalendarSheet.show(this, getString(R.string.stats_calendar_title),
-                summary, allDailyCounts,
-                new PurchaseCalendarSheet.Start(yearMode, year, month0),
-                (y, m, d, count) -> {
-                    // 选中某天：把下方页面的当天详情同步更新
-                    b.tvMonthDayDetail.setText(dayDetailText(y, m, d, count));
-                    b.tvYearDayDetail.setText(dayDetailText(y, m, d, count));
-                });
-    }
-
-    /** 有购买记录的天数（全部年份） */
-    private int activeDayCount() {
-        return allDailyCounts.size();
-    }
-
-    /** 有购买记录的书的总数（全部年份） */
-    private int totalBookCount() {
-        int sum = 0;
-        for (int v : allDailyCounts.values()) {
-            sum += v;
-        }
-        return sum;
-    }
-
-    /** 最新一个有购买记录的年份（没有记录时返回当前年） */
-    private int latestYearWithRecords() {
-        int year = 0;
-        for (String key : allDailyCounts.keySet()) {
-            int[] pd = parseYmd(key);
-            if (pd != null && pd[0] > year) {
-                year = pd[0];
-            }
-        }
-        return year > 0 ? year : Calendar.getInstance().get(Calendar.YEAR);
-    }
-
     /** 月视图柱状图点击：联动下方的当天详情 */
     private void onChartBarClick(int index, boolean secondHalf) {
         int year = monthCursor.get(Calendar.YEAR);
         int month = monthCursor.get(Calendar.MONTH);
-        int days = daysInMonth(year, month);
+        int days = StatsText.daysInMonth(year, month);
         int half = (days + 1) / 2;
         int day = secondHalf ? (half + 1 + index) : (index + 1);
         if (day > days) {
             return;
         }
-        int[] daily = dailyCounts(year, month);
+        int[] daily = StatsAggregator.dailyCounts(books, year, month);
         b.chartMonth.setHighlightedIndex(secondHalf ? -1 : index);
         b.chartMonth2.setHighlightedIndex(secondHalf ? index : -1);
-        b.tvMonthDayDetail.setText(dayDetailText(year, month, day, daily[day - 1]));
+        b.tvMonthDayDetail.setText(StatsText.dayDetailText(year, month, day, daily[day - 1]));
     }
 
     /** 年视图柱状图点击：联动下方的当月详情 */
     private void onYearChartBarClick(int index) {
         int year = yearCursor.get(Calendar.YEAR);
-        int[] monthly = monthlyCounts(year);
+        int[] monthly = StatsAggregator.monthlyCounts(books, year);
         b.chartYear.setHighlightedIndex(index);
         b.tvYearDayDetail.setText(String.format(Locale.getDefault(),
                 "%d年%d月 · 购买 %d 本", year, index + 1, monthly[index]));
     }
 
     /** 某年某月每天的购买数量（下标 0 = 1 日） */
-    private int[] dailyCounts(int year, int month) {
-        int[] out = new int[daysInMonth(year, month)];
-        for (Book book : books) {
-            int[] pd = parseYmd(book.purchaseDate);
-            if (pd != null && pd[0] == year && pd[1] == month) {
-                out[pd[2] - 1]++;
-            }
-        }
-        return out;
-    }
-
-    /** 某年每月购买数量（下标 0 = 1 月） */
-    private int[] monthlyCounts(int year) {
-        int[] out = new int[12];
-        for (Book book : books) {
-            int[] pd = parseYmd(book.purchaseDate);
-            if (pd != null && pd[0] == year) {
-                out[pd[1]]++;
-            }
-        }
-        return out;
-    }
-
     /** 星期几（周一/周二…），用于明细行的副标题 */
-    private static String weekLabel(int year, int month0, int day) {
-        Calendar c = Calendar.getInstance();
-        c.clear();
-        c.set(year, month0, day);
-        String[] names = {"周一", "周二", "周三", "周四", "周五", "周六", "周日"};
-        // Calendar.DAY_OF_WEEK：1=周日 … 7=周六 → 转成「周一为 0」
-        int dow = (c.get(Calendar.DAY_OF_WEEK) + 5) % 7;
-        return names[dow];
-    }
-
     // ==================== 月视图 ====================
 
     private void renderMonth() {
@@ -542,31 +339,12 @@ public class ReadingStatsActivity extends BaseActivity {
         b.btnMonthNext.setEnabled(!atCurrentMonth);
         b.btnMonthNext.setAlpha(atCurrentMonth ? 0.3f : 1f);
 
-        int bought = 0;
-        int entered = 0;
-        double cost = 0;
-        int days = daysInMonth(year, month);
-        int[] daily = new int[days];
-        // v3.0：createdAt 的 Calendar 只创建一次并复用，避免每本书都 new 一次
-        Calendar created = Calendar.getInstance();
-        for (Book book : books) {
-            int[] pd = parseYmd(book.purchaseDate);
-            if (pd != null && pd[0] == year && pd[1] == month) {
-                bought++;
-                daily[pd[2] - 1]++;
-                // v4.20：花费只统计自购（排除赠送 OWN_GIFT / 借阅 OWN_BORROW）
-                if (book.ownType == Book.OWN_BUY) {
-                    cost += book.purchasePrice;
-                }
-            }
-            created.setTimeInMillis(book.createdAt);
-            if (created.get(Calendar.YEAR) == year && created.get(Calendar.MONTH) == month) {
-                entered++;
-            }
-        }
-        b.tvMonthBought.setText(String.valueOf(bought));
-        b.tvMonthEntered.setText(String.valueOf(entered));
-        b.tvMonthCostValue.setText(formatMoney(cost));
+        StatsAggregator.MonthSummary summary = StatsAggregator.monthSummary(books, year, month);
+        int days = summary.daily.length;
+        int[] daily = summary.daily;
+        b.tvMonthBought.setText(String.valueOf(summary.bought));
+        b.tvMonthEntered.setText(String.valueOf(summary.entered));
+        b.tvMonthCostValue.setText(StatsText.formatMoney(summary.cost));
 
         // v2.9：每日图表拆两行——上半月 / 下半月，避免 31 根柱挤在一行
         int half = (days + 1) / 2;
@@ -605,20 +383,7 @@ public class ReadingStatsActivity extends BaseActivity {
         b.chartMonth2.setHighlightedIndex(-1);
 
         // v4.20：本月购买排行（按天降序，没有购买的天不入榜）
-        renderRank(b.llMonthRank, b.tvMonthRankTitle, buildDayRank(year, month, daily));
-    }
-
-    /** 月排行：把有购买的日子按数量降序排列 */
-    private List<RankEntry> buildDayRank(int year, int month, int[] daily) {
-        List<RankEntry> list = new ArrayList<>();
-        for (int i = 0; i < daily.length; i++) {
-            if (daily[i] > 0) {
-                list.add(new RankEntry(String.format(Locale.getDefault(), "%d月%d日", month + 1, i + 1),
-                        daily[i]));
-            }
-        }
-        list.sort((a, b) -> b.count - a.count);
-        return list;
+        rankView.render(b.llMonthRank, b.tvMonthRankTitle, StatsRankView.dayRank(month, daily));
     }
 
     // ==================== 年视图 ====================
@@ -632,28 +397,11 @@ public class ReadingStatsActivity extends BaseActivity {
         b.btnYearNext.setEnabled(!atCurrentYear);
         b.btnYearNext.setAlpha(atCurrentYear ? 0.3f : 1f);
 
-        int bought = 0;
-        int entered = 0;
-        double cost = 0;
-        int[] monthly = new int[12];
-        Calendar created = Calendar.getInstance();
-        for (Book book : books) {
-            int[] pd = parseYmd(book.purchaseDate);
-            if (pd != null && pd[0] == year) {
-                bought++;
-                monthly[pd[1]]++;
-                if (book.ownType == Book.OWN_BUY) {
-                    cost += book.purchasePrice;
-                }
-            }
-            created.setTimeInMillis(book.createdAt);
-            if (created.get(Calendar.YEAR) == year) {
-                entered++;
-            }
-        }
-        b.tvYearBought.setText(String.valueOf(bought));
-        b.tvYearEntered.setText(String.valueOf(entered));
-        b.tvYearCostValue.setText(formatMoney(cost));
+        StatsAggregator.YearSummary summary = StatsAggregator.yearSummary(books, year);
+        int[] monthly = summary.monthly;
+        b.tvYearBought.setText(String.valueOf(summary.bought));
+        b.tvYearEntered.setText(String.valueOf(summary.entered));
+        b.tvYearCostValue.setText(StatsText.formatMoney(summary.cost));
 
         List<String> labels = new ArrayList<>();
         List<Integer> values = new ArrayList<>();
@@ -666,7 +414,7 @@ public class ReadingStatsActivity extends BaseActivity {
         b.chartYear.setData(labels, values, globalMaxPerMonth);
 
         // v4.20：全年购买热力图
-        int[] yearDays = buildYearDaily(year);
+        int[] yearDays = StatsAggregator.yearDaily(books, year);
         b.heatmapYear.setYearMode(true);
         b.heatmapYear.setYearData(year, yearDays);
         renderHeatmapLegend(b.llYearLegend);
@@ -676,285 +424,10 @@ public class ReadingStatsActivity extends BaseActivity {
         b.chartYear.setHighlightedIndex(-1);
 
         // v4.20：本年购买排行（按月降序，没有购买的月份不入榜）
-        List<RankEntry> list = new ArrayList<>();
-        for (int m = 0; m < 12; m++) {
-            if (monthly[m] > 0) {
-                list.add(new RankEntry((m + 1) + "月", monthly[m]));
-            }
-        }
-        list.sort((a, b) -> b.count - a.count);
-        renderRank(b.llYearRank, b.tvYearRankTitle, list);
-    }
-
-    /** 构造整年每天的购买数（下标 0 = 1 月 1 日） */
-    private int[] buildYearDaily(int year) {
-        Calendar c = Calendar.getInstance();
-        c.clear();
-        c.set(year, 0, 1);
-        int len = c.getActualMaximum(Calendar.DAY_OF_YEAR);
-        int[] out = new int[len];
-        for (Book book : books) {
-            int[] pd = parseYmd(book.purchaseDate);
-            if (pd == null || pd[0] != year) {
-                continue;
-            }
-            Calendar d = Calendar.getInstance();
-            d.clear();
-            d.set(pd[0], pd[1], pd[2]);
-            int idx = d.get(Calendar.DAY_OF_YEAR) - 1;
-            if (idx >= 0 && idx < out.length) {
-                out[idx]++;
-            }
-        }
-        return out;
-    }
-
-    // ==================== 排行渲染 ====================
-
-    /** 排行条目 */
-    private static class RankEntry {
-        final String label;
-        final int count;
-
-        RankEntry(String label, int count) {
-            this.label = label;
-            this.count = count;
-        }
-    }
-
-    /**
-     * 渲染排行列表。
-     *
-     * <p>没有任何数据时整块隐藏（标题 + 列表都不显示），符合「没有就不入排行」的要求。
-     */
-    private void renderRank(LinearLayout container, TextView title, List<RankEntry> entries) {
-        container.removeAllViews();
-        if (entries.isEmpty()) {
-            title.setVisibility(View.GONE);
-            container.setVisibility(View.GONE);
-            return;
-        }
-        title.setVisibility(View.VISIBLE);
-        container.setVisibility(View.VISIBLE);
-        int max = entries.get(0).count;
-        int primary = ThemeManager.resolveColor(this, ThemeManager.ATTR_COLOR_PRIMARY);
-        int rank = 1;
-        for (RankEntry e : entries) {
-            container.addView(buildRankRow(rank++, e, max, primary));
-        }
-    }
-
-    /** 排行行：名次 + 名称 + 权重条 + 数量 */
-    private View buildRankRow(int rank, RankEntry e, int max, int primary) {
-        LinearLayout row = new LinearLayout(this);
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        row.setGravity(Gravity.CENTER_VERTICAL);
-        LinearLayout.LayoutParams rowLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        rowLp.topMargin = dp(6);
-        row.setLayoutParams(rowLp);
-        row.setBackgroundResource(R.drawable.bg_chip);
-        row.setPadding(dp(8), dp(7), dp(8), dp(7));
-
-        TextView tvRank = new TextView(this);
-        tvRank.setText(String.valueOf(rank));
-        tvRank.setTextSize(12);
-        tvRank.setGravity(Gravity.CENTER);
-        tvRank.setTextColor(primary);
-        row.addView(tvRank, new LinearLayout.LayoutParams(dp(22), ViewGroup.LayoutParams.WRAP_CONTENT));
-
-        TextView tvName = new TextView(this);
-        tvName.setText(e.label);
-        tvName.setTextSize(13);
-        tvName.setSingleLine(true);
-        row.addView(tvName, new LinearLayout.LayoutParams(dp(72), ViewGroup.LayoutParams.WRAP_CONTENT));
-
-        // 权重条
-        LinearLayout barArea = new LinearLayout(this);
-        barArea.setOrientation(LinearLayout.HORIZONTAL);
-        barArea.setWeightSum(max);
-        View bar = new View(this);
-        bar.setBackgroundResource(R.drawable.bg_stat_bar);
-        bar.getBackground().setTint(primary);
-        barArea.addView(bar, new LinearLayout.LayoutParams(0, dp(14), e.count));
-        if (max > e.count) {
-            barArea.addView(new View(this),
-                    new LinearLayout.LayoutParams(0, dp(14), max - e.count));
-        }
-        LinearLayout.LayoutParams barLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1);
-        barLp.setMargins(dp(6), 0, dp(6), 0);
-        row.addView(barArea, barLp);
-
-        TextView tvCount = new TextView(this);
-        tvCount.setText(e.count + " 本");
-        tvCount.setTextSize(13);
-        tvCount.setTypeface(Typeface.DEFAULT_BOLD);
-        tvCount.setGravity(Gravity.END);
-        row.addView(tvCount, new LinearLayout.LayoutParams(dp(48), ViewGroup.LayoutParams.WRAP_CONTENT));
-
-        return row;
-    }
-
-    // ==================== 总视图 ====================
-
-    private void renderTotal() {
-        int bought = 0;
-        int done = 0;
-        int reading = 0;
-        int none = 0;
-        String firstPurchase = null;
-        for (Book book : books) {
-            if (book.purchaseDate != null && !book.purchaseDate.trim().isEmpty()) {
-                bought++;
-                if (firstPurchase == null || book.purchaseDate.trim().compareTo(firstPurchase) < 0) {
-                    firstPurchase = book.purchaseDate.trim();
-                }
-            }
-            if (book.readStatus == Book.READ_DONE) {
-                done++;
-            } else if (book.readStatus == Book.READING) {
-                reading++;
-            } else {
-                none++;
-            }
-        }
-        int entered = books.size();
-        // v2.9：数字单独大字展示（标签在布局里），这里只填数字
-        b.tvTotalBought.setText(String.valueOf(bought));
-        b.tvTotalEntered.setText(String.valueOf(entered));
-        b.tvTotalDone.setText(String.valueOf(done));
-        b.tvTotalReading.setText(String.valueOf(reading));
-        b.tvTotalNone.setText(String.valueOf(none));
-
-        int[] first = parseYmd(firstPurchase);
-        if (first == null) {
-            b.tvTotalDuration.setText("暂无购买记录");
-            b.tvTotalRange.setText("录入书籍时填写购买日期后即可统计");
-            b.tvTotalCompanion.setVisibility(View.GONE);
-            b.chartTotal.setData(new ArrayList<>(), new ArrayList<>());
-            renderCompanionLine(); // 无购买记录也展示「相伴」
-            return;
-        }
-
-        Calendar firstCal = Calendar.getInstance();
-        firstCal.clear();
-        firstCal.set(first[0], first[1], first[2]);
-        long now = System.currentTimeMillis();
-        long elapsedMillis = Math.max(0, now - firstCal.getTimeInMillis());
-
-        // v2.9：大字改为「已阅读 X 小时 X 分钟」（首购至今换算，数字放大突出）
-        long hours = elapsedMillis / 3600000L;
-        long minutes = (elapsedMillis / 60000L) % 60;
-        b.tvTotalDuration.setText(buildDurationText(hours, minutes));
-
-        // 小字 1：首购至今多少天
-        b.tvTotalRange.setText(String.format(Locale.getDefault(),
-                "%s至今，已阅读 %d 天", formatYmd(first[0], first[1] + 1, first[2]),
-                elapsedMillis / 86400000L));
-
-        // 小字 2：首次打开 App 至今，与小书房相伴多少天
-        renderCompanionLine();
-
-        // 每年购买本数
-        TreeMap<Integer, Integer> yearly = new TreeMap<>();
-        for (Book book : books) {
-            int[] pd = parseYmd(book.purchaseDate);
-            if (pd != null) {
-                yearly.merge(pd[0], 1, Integer::sum);
-            }
-        }
-        List<String> labels = new ArrayList<>();
-        List<Integer> values = new ArrayList<>();
-        for (Map.Entry<Integer, Integer> e : yearly.entrySet()) {
-            labels.add(String.valueOf(e.getKey()));
-            values.add(e.getValue());
-        }
-        b.chartTotal.setUnit("本");
-        b.chartTotal.setData(labels, values);
-        // v4.21：切换页签时清掉高亮
-        b.chartTotal.setHighlightedIndex(-1);
-    }
-
-    /** 「首次打开 App 至今 · 与小书房相伴了 N 天」（v2.9；first_launch_at 由 BookshelfApp 持久化） */
-    private void renderCompanionLine() {
-        long firstLaunch = BookshelfApp.firstLaunchAt();
-        if (firstLaunch <= 0) {
-            b.tvTotalCompanion.setVisibility(View.GONE);
-            return;
-        }
-        b.tvTotalCompanion.setVisibility(View.VISIBLE);
-        Calendar firstCal = Calendar.getInstance();
-        firstCal.setTimeInMillis(firstLaunch);
-        long days = Math.max(0,
-                (System.currentTimeMillis() - firstLaunch) / 86400000L);
-        b.tvTotalCompanion.setText(String.format(Locale.getDefault(),
-                "%s至今 · 与小书房相伴了 %d 天",
-                formatYmd(firstCal.get(Calendar.YEAR), firstCal.get(Calendar.MONTH) + 1,
-                        firstCal.get(Calendar.DAY_OF_MONTH)), days));
-    }
-
-    /** 「已阅读 X 小时 X 分钟」：单位 15sp、数字 28sp 衬线，突出但不笨重 */
-    private static CharSequence buildDurationText(long hours, long minutes) {
-        SpannableStringBuilder sb = new SpannableStringBuilder();
-        sb.append(span("已阅读 ", 15, false));
-        sb.append(serifNumber(String.valueOf(hours)));
-        sb.append(span(" 小时 ", 15, false));
-        sb.append(serifNumber(String.valueOf(minutes)));
-        sb.append(span(" 分钟", 15, false));
-        return sb;
-    }
-
-    private static CharSequence serifNumber(String s) {
-        SpannableString ss = new SpannableString(s);
-        ss.setSpan(new AbsoluteSizeSpan(28, true),
-                0, s.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-        ss.setSpan(new android.text.style.TypefaceSpan("serif"),
-                0, s.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-        return ss;
-    }
-
-    private static CharSequence span(String s, int spSize, boolean bold) {
-        SpannableString ss = new SpannableString(s);
-        ss.setSpan(new AbsoluteSizeSpan(spSize, true),
-                0, s.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-        if (bold) {
-            ss.setSpan(new StyleSpan(Typeface.BOLD),
-                    0, s.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-        }
-        return ss;
-    }
-
-    private static String formatYmd(int y, int m, int d) {
-        return y + "年" + m + "月" + d + "日";
+        rankView.render(b.llYearRank, b.tvYearRankTitle, StatsRankView.monthRank(monthly));
     }
 
     // ==================== 工具 ====================
-
-    /** 点击日历某天后的详情文案（v4.20） */
-    private String dayDetailText(int year, int month0, int day, int count) {
-        String week = weekLabel(year, month0, day);
-        if (count > 0) {
-            return String.format(Locale.getDefault(), "%d年%d月%d日 %s · 购买 %d 本",
-                    year, month0 + 1, day, week, count);
-        }
-        return String.format(Locale.getDefault(), "%d年%d月%d日 %s · 没有购买记录",
-                year, month0 + 1, day, week);
-    }
-
-    /** 金额展示：¥123.45 / ¥123（去掉多余的 .00） */
-    private static String formatMoney(double v) {
-        if (v <= 0) {
-            return "¥0";
-        }
-        if (v == Math.floor(v) && !Double.isInfinite(v)) {
-            return "¥" + String.valueOf((long) v);
-        }
-        return String.format(Locale.getDefault(), "¥%.2f", v);
-    }
-
-    private static String pad2(int v) {
-        return v < 10 ? "0" + v : String.valueOf(v);
-    }
 
     /** 热力图图例：少 → 5 级色块 → 多（v4.25） */
     private void renderHeatmapLegend(LinearLayout container) {
@@ -992,35 +465,4 @@ public class ReadingStatsActivity extends BaseActivity {
         return (int) (v * getResources().getDisplayMetrics().density);
     }
 
-    /**
-     * 解析 yyyy-MM-dd；非法或空返回 null。返回 {年, 月(0-based), 日}。
-     * v3.0：显式校验分隔符，避免 2024/05/06、2024-0506 这类脏数据被误解析成合法日期。
-     */
-    private static int[] parseYmd(String s) {
-        if (s == null) {
-            return null;
-        }
-        String t = s.trim();
-        if (t.length() < 10 || t.charAt(4) != '-' || t.charAt(7) != '-') {
-            return null;
-        }
-        try {
-            int y = Integer.parseInt(t.substring(0, 4));
-            int m = Integer.parseInt(t.substring(5, 7));
-            int d = Integer.parseInt(t.substring(8, 10));
-            if (m < 1 || m > 12 || d < 1 || d > 31) {
-                return null;
-            }
-            return new int[]{y, m - 1, d};
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
-    private static int daysInMonth(int year, int month0) {
-        Calendar c = Calendar.getInstance();
-        c.clear();
-        c.set(year, month0, 1);
-        return c.getActualMaximum(Calendar.DAY_OF_MONTH);
-    }
 }

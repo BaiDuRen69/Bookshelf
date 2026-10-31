@@ -68,7 +68,7 @@
             android:layout_height="wrap_content"
             android:background="?attr/selectableItemBackground"
             android:padding="8dp"
-            android:text="归还"
+            android:text="收回"
             android:textColor="?attr/colorPrimary"
             android:textSize="13sp"
             android:visibility="gone" />

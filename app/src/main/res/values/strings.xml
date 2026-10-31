@@ -43,4 +43,29 @@
     <string name="stats_day_bought">购买 %1$d 本</string>
     <!-- 底部详情条：当天没有记录 -->
     <string name="stats_day_none">当天没有购买记录</string>
+
+    <!-- 阅读日历（v5.7） -->
+    <string name="reading_calendar_title">阅读日历</string>
+    <string name="reading_calendar_empty">暂无阅读记录</string>
+    <string name="reading_calendar_active_days">有阅读记录 %1$d 天</string>
+    <string name="reading_calendar_block_month">%1$d年%2$d月 · 累计阅读 %3$d 天</string>
+    <string name="reading_calendar_block_year">%1$d年 · 累计阅读 %2$d 天</string>
+    <string name="reading_calendar_day_read">当天读过</string>
+    <string name="reading_calendar_day_none">当天没有阅读</string>
+    <string name="reading_calendar_hint">点击日历上的某一天，查看当天阅读情况</string>
+    <string name="reading_calendar_book_summary">本书 · %1$d 天有阅读</string>
+    <string name="reading_calendar_all_summary">全部藏书 · %1$d 天有阅读 · 单日最多 %2$d 本</string>
+    <string name="reading_calendar_entry_sub">颜色越深，当天读过的书越多</string>
+    <string name="reading_calendar_block_month_count">%1$d年%2$d月 · 累计阅读 %3$d 天</string>
+    <string name="reading_calendar_block_year_count">%1$d年 · 累计阅读 %2$d 天</string>
+    <string name="reading_calendar_day_books">读过 %1$d 本</string>
+    <string name="reading_calendar_hint_count">点击日历上的某一天，查看当天读了几本</string>
+
+    <!-- 桌面长按快捷方式（v5.7） -->
+    <string name="shortcut_wish_add">添加想读</string>
+    <string name="shortcut_wish_add_long">添加一本想读的书</string>
+    <string name="shortcut_scan">扫描录入</string>
+    <string name="shortcut_scan_long">扫码快速录入藏书</string>
+    <string name="shortcut_split">购入价分摊</string>
+    <string name="shortcut_split_long">套装书籍购入价分摊</string>
 </resources>

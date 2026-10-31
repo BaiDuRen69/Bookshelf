@@ -18,11 +18,13 @@ public class Book implements Serializable {
     public static final int STOCK_IN = 0;      // 在库
     public static final int STOCK_LENT = 1;    // 借出
     public static final int STOCK_LOST = 2;    // 遗失
+    public static final int STOCK_BOOKMARK = 3; // 电子书签（借阅来源已归还）
 
     // ===== 阅读状态 readStatus 取值 =====
     public static final int READ_NONE = 0;     // 未读
     public static final int READING = 1;       // 在读
     public static final int READ_DONE = 2;     // 已读
+    public static final int READ_DROPPED = 3;  // 弃读
 
     // ===== 拥有类型 ownType 取值 =====
     public static final int OWN_BUY = 0;       // 自购
@@ -64,6 +66,14 @@ public class Book implements Serializable {
     public int stockStatus = STOCK_IN;
     public int readStatus = READ_NONE;
     public int ownType = OWN_BUY;     // 来源大类：0自购 1借阅 2赠书
+    // v5.7：来源为借阅时的借阅时间段与归还时间（yyyy-MM-dd，空=未填/未归还）
+    public String borrowStartDate = "";
+    public String borrowDueDate = "";
+    public String borrowReturnDate = "";
+    // v5.7：多次借书记录（JSON，BorrowSourceRecords 序列化；每次含来源/起止/应还/归还）
+    public String borrowRecords = "";
+    // v5.7：多次阅读记录（JSON，ReadingRecords 序列化）
+    public String readingRecords = "";
     @ColumnInfo(defaultValue = "")
     public String sourceChannel = ""; // 来源渠道（自定义列表，如 拼多多/淘宝/多抓鱼）
     public String purchaseDate = "";  // 购买日期 yyyy-MM-dd
@@ -72,7 +82,9 @@ public class Book implements Serializable {
     public int quantity = 1;          // 拥有数量（同款书持有几本）
     @ColumnInfo(defaultValue = "")
     public String locationDetail = ""; // 各本存放位置（多本时填写，如「2本书房/1本客厅」）
-    public int rating;                // 个人评分 0-5
+    public int rating;                // 个人评分 0-5（最后一次记录的取整值，兼容旧排序/导出）
+    @ColumnInfo(defaultValue = "0")
+    public double ratingAvg;          // 阅读记录评分的平均值（0.5 步进，详情页展示）
     public String note = "";          // 备注
     // ---- v4.44：阅读记录（状态切到在读/已读时自动写入）----
     @ColumnInfo(defaultValue = "")

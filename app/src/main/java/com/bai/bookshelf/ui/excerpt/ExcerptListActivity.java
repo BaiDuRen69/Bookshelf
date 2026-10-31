@@ -1,7 +1,6 @@
 package com.bai.bookshelf.ui.excerpt;
 
 import android.content.Intent;
-import android.net.Uri;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.Gravity;
@@ -12,15 +11,12 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.activity.result.ActivityResultLauncher;
-import androidx.activity.result.contract.ActivityResultContracts;
 
 import com.bai.bookshelf.R;
 import com.bai.bookshelf.app.BookshelfApp;
 import com.bai.bookshelf.data.entity.Book;
 import com.bai.bookshelf.data.entity.Excerpt;
 import com.bai.bookshelf.databinding.ActivityExcerptListBinding;
-import com.bai.bookshelf.databinding.DialogExcerptBinding;
 import com.bai.bookshelf.databinding.DialogImagePreviewBinding;
 import com.bai.bookshelf.databinding.DialogReviewBinding;
 import com.bai.bookshelf.ui.BaseActivity;
@@ -47,27 +43,13 @@ public class ExcerptListActivity extends BaseActivity {
     public static final String EXTRA_BOOK_TITLE = "excerpt_book_title";
 
     private ActivityExcerptListBinding b;
-    private DialogExcerptBinding dialog;
     private long bookId;
     private String bookTitle = "";
     private Book book;
     private final List<Excerpt> items = new ArrayList<>();
 
-    /** 编辑中的摘抄原有图片（取消/换图时清文件用） */
-    private String originalImagePath = "";
-    /** 弹窗里当前选中的图片（新复制进 files 的） */
-    private String pendingImagePath = "";
-    private boolean saved;
-    private boolean dialogActive;
-    private long dialogSession;
-    private long pickSession;
-
-    private final ActivityResultLauncher<String> pickImageLauncher =
-            registerForActivityResult(new ActivityResultContracts.GetContent(), uri -> {
-                if (uri != null) {
-                    copyPickedImage(uri);
-                }
-            });
+    /** 编辑弹窗（v5.6 抽到 ExcerptEditDialog） */
+    private ExcerptEditDialog editDialog;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -77,13 +59,34 @@ public class ExcerptListActivity extends BaseActivity {
         if (bookTitle == null) {
             bookTitle = "";
         }
+        editDialog = new ExcerptEditDialog(this, new ExcerptEditDialog.Host() {
+            @Override
+            public long bookId() {
+                return bookId;
+            }
+
+            @Override
+            public void onSaved() {
+                load();
+            }
+
+            @Override
+            public void onShare(Excerpt excerpt) {
+                shareExcerpt(excerpt);
+            }
+        });
         b = ActivityExcerptListBinding.inflate(getLayoutInflater());
         setContentView(b.getRoot());
         b.toolbar.setNavigationOnClickListener(v -> finish());
         b.tvExcerptBook.setText(bookTitle.isEmpty() ? "" : "《" + bookTitle + "》");
         InsetsHelper.applyBottomInset((View) b.btnAddExcerpt.getParent());
-        b.btnAddExcerpt.setOnClickListener(v -> showExcerptDialog(null));
+        b.btnAddExcerpt.setOnClickListener(v -> editDialog.show(null));
         b.cardReview.setOnClickListener(v -> showReviewDialog());
+        // v5.7 收口：空态改用共享组件，文案在此给出，主按钮直接记一条摘抄
+        b.emptyState.tvEmptyTitle.setText("还没有摘抄");
+        b.emptyState.tvEmptyDesc.setText("读到喜欢的句子记下来，以后按时间回看，像一条读书时间线");
+        b.emptyState.btnEmptyCta.setText("记一条摘抄");
+        b.emptyState.btnEmptyCta.setOnClickListener(v -> editDialog.show(null));
         load();
     }
 
@@ -151,7 +154,7 @@ public class ExcerptListActivity extends BaseActivity {
         card.setLayoutParams(lp);
         card.setClickable(true);
         card.setFocusable(true);
-        card.setOnClickListener(v -> showExcerptDialog(e));
+        card.setOnClickListener(v -> editDialog.show(e));
         card.setOnLongClickListener(v -> {
             confirmDelete(e);
             return true;
@@ -268,140 +271,6 @@ public class ExcerptListActivity extends BaseActivity {
     }
 
     // ======================= 摘抄编辑 =======================
-
-    private void showExcerptDialog(Excerpt existing) {
-        dialog = DialogExcerptBinding.inflate(getLayoutInflater());
-        saved = false;
-        dialogActive = true;
-        dialogSession++;
-        originalImagePath = existing == null ? "" : existing.imagePath;
-        pendingImagePath = originalImagePath == null ? "" : originalImagePath;
-
-        if (existing != null) {
-            if (existing.page > 0) {
-                dialog.etExcerptPage.setText(String.valueOf(existing.page));
-            }
-            dialog.etExcerptContent.setText(existing.content);
-            dialog.etExcerptNote.setText(existing.note);
-            dialog.etExcerptTags.setText(existing.tags);
-        }
-        dialog.btnPickImage.setOnClickListener(v -> {
-            pickSession = dialogSession;
-            pickImageLauncher.launch("image/*");
-        });
-        dialog.btnRemoveImage.setOnClickListener(v -> {
-            pendingImagePath = "";
-            renderDialogImage();
-        });
-
-        MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(this)
-                .setTitle(existing == null ? "添加摘抄" : "编辑摘抄")
-                .setView(dialog.getRoot())
-                .setPositiveButton("保存", null)
-                .setNegativeButton(R.string.action_cancel, null);
-        if (existing != null) {
-            builder.setNeutralButton("分享", (d, w) -> shareExcerpt(existing));
-        }
-        androidx.appcompat.app.AlertDialog alert = builder.show();
-        alert.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE)
-                .setOnClickListener(v -> {
-                    if (saveExcerpt(existing, alert)) {
-                        alert.dismiss();
-                    }
-                });
-        alert.setOnDismissListener(d -> {
-            dialogActive = false;
-            // 取消/返回：回收这次新复制但没保存的图片
-            if (!saved && !pendingImagePath.equals(originalImagePath)) {
-                ExcerptFiles.deleteQuietly(this, pendingImagePath);
-            }
-        });
-        renderDialogImage();
-    }
-
-    private void renderDialogImage() {
-        boolean has = !pendingImagePath.isEmpty();
-        dialog.ivExcerptImage.setVisibility(has ? View.VISIBLE : View.GONE);
-        dialog.btnRemoveImage.setVisibility(has ? View.VISIBLE : View.GONE);
-        dialog.btnPickImage.setText(has ? "更换图片" : "添加图片");
-        if (has) {
-            Glide.with(this).load(new File(pendingImagePath))
-                    .placeholder(R.drawable.ic_cover_placeholder)
-                    .error(R.drawable.ic_cover_placeholder)
-                    .into(dialog.ivExcerptImage);
-        }
-    }
-
-    private void copyPickedImage(Uri uri) {
-        BookshelfApp app = BookshelfApp.get();
-        app.io(() -> {
-            try {
-                String path = ExcerptFiles.copyToFilesDir(this, uri);
-                app.ui(() -> {
-                    if (dialog == null || !dialogActive || pickSession != dialogSession) {
-                        ExcerptFiles.deleteQuietly(this, path);
-                        return;
-                    }
-                    // 换图时先把上一张未保存的新图删掉
-                    if (!pendingImagePath.equals(originalImagePath)) {
-                        ExcerptFiles.deleteQuietly(this, pendingImagePath);
-                    }
-                    pendingImagePath = path;
-                    renderDialogImage();
-                });
-            } catch (Exception e) {
-                app.ui(() -> Toast.makeText(this, "图片读取失败：" + e.getMessage(),
-                        Toast.LENGTH_LONG).show());
-            }
-        });
-    }
-
-    private boolean saveExcerpt(Excerpt existing, androidx.appcompat.app.AlertDialog alert) {
-        if (dialog == null) {
-            return false;
-        }
-        String content = dialog.etExcerptContent.getText().toString().trim();
-        if (content.isEmpty()) {
-            Toast.makeText(this, "摘抄原文不能为空", Toast.LENGTH_SHORT).show();
-            return false;
-        }
-        int page = 0;
-        try {
-            page = Integer.parseInt(dialog.etExcerptPage.getText().toString().trim());
-        } catch (Exception ignored) {
-        }
-        final Excerpt e = existing == null ? new Excerpt() : existing;
-        e.bookId = bookId;
-        e.page = Math.max(0, page);
-        e.content = content;
-        e.note = dialog.etExcerptNote.getText().toString().trim();
-        e.tags = dialog.etExcerptTags.getText().toString().trim();
-        e.imagePath = pendingImagePath;
-        long now = System.currentTimeMillis();
-        e.updatedAt = now;
-        if (existing == null) {
-            e.createdAt = now;
-        }
-        saved = true;
-        final String oldPath = originalImagePath;
-        final String newPath = pendingImagePath;
-        BookshelfApp app = BookshelfApp.get();
-        app.io(() -> {
-            if (existing == null) {
-                app.db().excerptDao().insert(e);
-            } else {
-                app.db().excerptDao().update(e);
-            }
-            if (!newPath.equals(oldPath)) {
-                ExcerptFiles.deleteQuietly(this, oldPath);
-            }
-            app.ui(() -> {
-                Toast.makeText(this, "已保存摘抄", Toast.LENGTH_SHORT).show();
-                load();
-            });
-        });
-        return true;
-    }
 
     private void confirmDelete(Excerpt e) {
         new MaterialAlertDialogBuilder(this)

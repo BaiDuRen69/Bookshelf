@@ -12,17 +12,15 @@ import android.widget.TextView;
 
 import com.bai.bookshelf.R;
 import com.bai.bookshelf.app.BookshelfApp;
+import com.bai.bookshelf.data.entity.Book;
 import com.bai.bookshelf.data.entity.BookCopy;
 import com.bai.bookshelf.data.entity.Location;
 import com.bai.bookshelf.data.entity.NoteImage;
 import com.bai.bookshelf.data.entity.SourceChannel;
-import com.bumptech.glide.Glide;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
-import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 /**
  * 「逐本信息」副本表单的公共构建器。
@@ -56,6 +54,7 @@ public final class CopyFormBuilder {
         public android.widget.Button btnAddNoteImage;
         public android.widget.HorizontalScrollView scrollNoteThumbs;
         public android.widget.LinearLayout containerNoteThumbs;
+        public android.widget.LinearLayout purchaseRow;   // 购买日期 + 实付（借阅/赠书时隐藏）
         public final List<SourceChannel> channels = new ArrayList<>(); // 当前大类下的渠道选项
         public String pendingChannel;                                  // 渠道列表加载完后要选中的名称
         public int lastOwnType = -1;                                   // 上次渠道对应的大类（判断是否换类）
@@ -103,6 +102,7 @@ public final class CopyFormBuilder {
         h.btnAddNoteImage = h.root.findViewById(R.id.btn_copy_add_note_image);
         h.scrollNoteThumbs = h.root.findViewById(R.id.scroll_copy_note_thumbs);
         h.containerNoteThumbs = h.root.findViewById(R.id.container_copy_note_thumbs);
+        h.purchaseRow = h.root.findViewById(R.id.ll_copy_purchase);
         ((TextView) h.root.findViewById(R.id.tv_copy_title)).setText("第 " + copyIndex + " 本");
 
         // 统一的「用户改动」包装：构建/回填期间不触发
@@ -132,6 +132,7 @@ public final class CopyFormBuilder {
             @Override
             public void onItemSelected(android.widget.AdapterView<?> p, View v, int position, long id) {
                 loadChannels(act, h, position);
+                updatePurchaseVisibility(h, position);
                 userChanged.run();
             }
 
@@ -199,7 +200,7 @@ public final class CopyFormBuilder {
                 onAddImage.onAddImage(h.copyIndex);
             }
         });
-        renderNoteThumbs(h);
+        CopyNoteImages.renderNoteThumbs(h);
 
         suppress[0] = oldSuppress;
 
@@ -219,6 +220,13 @@ public final class CopyFormBuilder {
             public void onNothingSelected(android.widget.AdapterView<?> p) {
             }
         };
+    }
+
+    /** 借阅 / 赠书没有「购买日期 / 实付」，只在自购时显示 */
+    private static void updatePurchaseVisibility(Holder h, int ownType) {
+        if (h.purchaseRow != null) {
+            h.purchaseRow.setVisibility(ownType == Book.OWN_BUY ? View.VISIBLE : View.GONE);
+        }
     }
 
     /**
@@ -289,104 +297,4 @@ public final class CopyFormBuilder {
         return c;
     }
 
-    // ======================= 备注图片（第 N 本备注的图片附件） =======================
-
-    /**
-     * 编辑模式时从库加载该副本的备注图片。
-     * 新增模式 bookId <= 0 时直接返回，避免无效查询。
-     */
-    public static void loadNoteImagesIfNeeded(Activity act, BookshelfApp app, long bookId, Holder h) {
-        if (bookId <= 0) {
-            h.initialNoteImageCount = h.noteImages.size();
-            return;
-        }
-        // 若当前 holder 已有图片（来自 pendingCopyImages 抢救），以当前会话状态为准，不再覆盖
-        if (!h.noteImages.isEmpty()) {
-            h.initialNoteImageCount = h.noteImages.size();
-            renderNoteThumbs(h);
-            return;
-        }
-        String ownerKey = "copy:" + bookId + ":" + h.copyIndex;
-        app.io(() -> {
-            List<NoteImage> list = app.db().noteImageDao().getByOwnerKey(ownerKey);
-            act.runOnUiThread(() -> {
-                h.noteImages.clear();
-                h.noteImages.addAll(list);
-                h.initialNoteImageCount = list.size();
-                renderNoteThumbs(h);
-            });
-        });
-    }
-
-    /** 把一张新选中的图片追加到该副本的备注图片列表（调用方已负责落盘） */
-    public static void addNoteImage(Activity act, Holder h, NoteImage img) {
-        h.noteImages.add(img);
-        h.addedImagePaths.add(img.path);
-        renderNoteThumbs(h);
-    }
-
-    /** 渲染备注图片缩略图横向条（点图预览/移除） */
-    public static void renderNoteThumbs(Holder h) {
-        if (h.containerNoteThumbs == null) {
-            return;
-        }
-        h.containerNoteThumbs.removeAllViews();
-        Activity act = (Activity) h.root.getContext();
-        int size = (int) (72 * act.getResources().getDisplayMetrics().density);
-        int gap = (int) (8 * act.getResources().getDisplayMetrics().density);
-        for (NoteImage img : h.noteImages) {
-            android.widget.ImageView iv = new android.widget.ImageView(act);
-            android.widget.LinearLayout.LayoutParams lp =
-                    new android.widget.LinearLayout.LayoutParams(size, size);
-            lp.setMarginEnd(gap);
-            iv.setLayoutParams(lp);
-            iv.setScaleType(android.widget.ImageView.ScaleType.CENTER_CROP);
-            Glide.with(act).load(new File(img.path))
-                    .placeholder(R.drawable.ic_cover_placeholder)
-                    .error(R.drawable.ic_cover_placeholder)
-                    .into(iv);
-            iv.setOnClickListener(v -> showNoteImagePreview(act, h, img));
-            h.containerNoteThumbs.addView(iv);
-        }
-        boolean has = !h.noteImages.isEmpty();
-        h.scrollNoteThumbs.setVisibility(has ? android.view.View.VISIBLE : android.view.View.GONE);
-        h.btnAddNoteImage.setText(has
-                ? "＋ 继续添加备注图片（" + h.noteImages.size() + " 张）"
-                : "＋ 添加备注图片");
-    }
-
-    /** 预览大图并支持移除 */
-    private static void showNoteImagePreview(Activity act, Holder h, NoteImage img) {
-        // v4.18: 图片放进圆角卡片底
-        com.bai.bookshelf.databinding.DialogImagePreviewBinding pb =
-                com.bai.bookshelf.databinding.DialogImagePreviewBinding.inflate(act.getLayoutInflater());
-        Glide.with(act).load(new File(img.path))
-                .placeholder(R.drawable.ic_cover_placeholder)
-                .error(R.drawable.ic_cover_placeholder)
-                .into(pb.ivPreview);
-        new MaterialAlertDialogBuilder(act)
-                .setTitle("备注图片")
-                .setView(pb.getRoot())
-                .setPositiveButton("关闭", null)
-                .setNegativeButton("移除", (d, w) -> removeNoteImage(h, img))
-                .show();
-    }
-
-    private static void removeNoteImage(Holder h, NoteImage img) {
-        h.noteImages.remove(img);
-        if (!h.addedImagePaths.contains(img.path)) {
-            h.removedImagePaths.add(img.path);
-        }
-        renderNoteThumbs(h);
-    }
-
-    /** 取出当前要保存的图片列表（bookId/sort 由调用方补，ownerKey 由保存时补） */
-    public static List<NoteImage> getNoteImages(Holder h) {
-        return new ArrayList<>(h.noteImages);
-    }
-
-    /** 该副本的备注图片是否有增删（用于脏检查） */
-    public static boolean hasImageChanges(Holder h) {
-        return h.noteImages.size() != h.initialNoteImageCount;
-    }
 }

@@ -40,9 +40,41 @@ public class DateKeysTest {
     }
 
     @Test
+    public void parseStartKeyForPartialDates() {
+        assertEquals(20210101, DateKeys.parseStartKey("2021"));
+        assertEquals(20210301, DateKeys.parseStartKey("2021-03"));
+        assertEquals(20210305, DateKeys.parseStartKey("2021-03-05"));
+        assertEquals(0, DateKeys.parseStartKey(""));
+    }
+
+    @Test
     public void daysInMonthHandlesLeapYear() {
         assertEquals(29, DateKeys.daysInMonth(2024, 2));
         assertEquals(28, DateKeys.daysInMonth(2026, 2));
         assertEquals(31, DateKeys.daysInMonth(2026, 12));
+    }
+
+    @Test
+    public void formatKeyPadsMonthAndDay() {
+        assertEquals("2026-10-29", DateKeys.formatKey(20261029));
+        assertEquals("2026-01-03", DateKeys.formatKey(20260103));
+    }
+
+    @Test
+    public void daysBetweenInclusiveCountsBothEnds() {
+        assertEquals(1, DateKeys.daysBetweenInclusive(20261029, 20261029));
+        assertEquals(31, DateKeys.daysBetweenInclusive(20260101, 20260131));
+        assertEquals(4, DateKeys.daysBetweenInclusive(20260227, 20260302));
+    }
+
+    @Test
+    public void presetRangeFollowsCalendar() {
+        java.util.Calendar now = java.util.Calendar.getInstance();
+        now.clear();
+        now.set(2026, 9, 29); // 2026-10-29
+        assertArrayEquals(new int[]{20261001, 20261029}, DateKeys.presetRange(0, now));
+        assertArrayEquals(new int[]{20260801, 20261029}, DateKeys.presetRange(1, now));
+        assertArrayEquals(new int[]{20260101, 20261029}, DateKeys.presetRange(2, now));
+        assertArrayEquals(new int[]{20250101, 20251231}, DateKeys.presetRange(3, now));
     }
 }

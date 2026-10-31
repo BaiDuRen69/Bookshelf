@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 阅读日历二级页（v5.7）：复用购买日历的面板结构，按天显示读过几本 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/toolbar"
+        style="@style/Widget.Bookshelf.Toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/toolbar_h"
+        app:navigationIcon="@drawable/ic_back"
+        app:title="阅读日历" />
+
+    <include
+        android:id="@+id/calendar_panel"
+        layout="@layout/sheet_purchase_calendar"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+</LinearLayout>

@@ -9,8 +9,8 @@ import java.util.Locale;
  */
 public final class StatusText {
 
-    private static final String[] STOCK = {"在库", "借出", "遗失"};
-    private static final String[] READ = {"未读", "在读", "已读"};
+    private static final String[] STOCK = {"在库", "借出", "遗失", "电子书签"};
+    private static final String[] READ = {"未读", "在读", "已读", "弃读"};
     private static final String[] OWN = {"自购", "借阅", "赠书"};
 
     private StatusText() {

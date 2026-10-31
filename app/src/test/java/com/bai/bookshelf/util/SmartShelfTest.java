@@ -127,4 +127,20 @@ public class SmartShelfTest {
         b.readStatus = Book.READ_NONE;
         return b;
     }
+
+    @Test
+    public void borrowedInOnlyWhenSourceBorrowAndNotReturned() {
+        Book book = completeBook(5);
+        book.ownType = Book.OWN_BORROW;
+        assertTrue(SmartShelf.matches(book, SmartShelf.BORROWED_IN, null, TODAY));
+
+        book.borrowReturnDate = "2026-10-30 10:00";
+        book.stockStatus = Book.STOCK_BOOKMARK;
+        assertFalse(SmartShelf.matches(book, SmartShelf.BORROWED_IN, null, TODAY));
+        assertTrue(SmartShelf.matches(book, SmartShelf.BOOKMARK, null, TODAY));
+
+        Book bought = completeBook(6);
+        bought.ownType = Book.OWN_BUY;
+        assertFalse(SmartShelf.matches(bought, SmartShelf.BORROWED_IN, null, TODAY));
+    }
 }

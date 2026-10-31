@@ -6,7 +6,6 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.EditText;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -17,10 +16,8 @@ import com.bai.bookshelf.R;
 import com.bai.bookshelf.app.BookshelfApp;
 import com.bai.bookshelf.data.entity.Category;
 import com.bai.bookshelf.databinding.ActivityCategoryBinding;
-import com.bai.bookshelf.databinding.DialogInputBinding;
 import com.bai.bookshelf.databinding.ItemCategoryBinding;
 import com.bai.bookshelf.ui.BaseActivity;
-import com.bai.bookshelf.util.CategoryPropagator;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -52,6 +49,8 @@ public class CategoryActivity extends BaseActivity {
     private CategoryAdapter adapter;
     private boolean pickerMode;                           // 是否由编辑书籍页进入（选择模式）
     private String currentSelected = "";                  // 当前书籍已选分类名（高亮用）
+    /** 新建/重命名/删除弹窗（v5.6 抽到 CategoryDialogs） */
+    private CategoryDialogs dialogs;
 
     /** 摊平后的列表行：一级行或二级行 */
     private static class Row {
@@ -80,7 +79,13 @@ public class CategoryActivity extends BaseActivity {
         b.recycler.setLayoutManager(new LinearLayoutManager(this));
         b.recycler.setAdapter(adapter);
 
-        b.btnAddTop.setOnClickListener(v -> showInputDialog(null, null));
+        dialogs = new CategoryDialogs(this,
+                () -> all,
+                () -> expanded,
+                () -> currentSelected,
+                name -> currentSelected = name,
+                this::reload);
+        b.btnAddTop.setOnClickListener(v -> dialogs.showInput(null, null));
         b.btnCancelSelection.setOnClickListener(v -> {
             setResult(RESULT_OK, new Intent().putExtra(EXTRA_SELECTED, ""));
             finish();
@@ -150,112 +155,6 @@ public class CategoryActivity extends BaseActivity {
      * @param editing     非空 = 重命名该分类；空 = 新建
      * @param parentOfNew 新建二级时传入所属一级；新建一级传 null（与 editing 互斥）
      */
-    private void showInputDialog(Category editing, Category parentOfNew) {
-        DialogInputBinding db = DialogInputBinding.inflate(getLayoutInflater());
-        EditText edit = db.edit;
-        boolean isRename = editing != null;
-        if (isRename) {
-            edit.setText(editing.name);
-            edit.setSelection(editing.name.length());
-        } else {
-            db.inputLayout.setHint(parentOfNew == null ? "一级分类名（如 文学）" : "二级分类名（如 小说）");
-        }
-        new MaterialAlertDialogBuilder(this)
-                .setTitle(isRename ? "重命名分类" : (parentOfNew == null ? "添加一级分类" : "添加二级分类"))
-                .setView(db.getRoot())
-                .setPositiveButton(isRename ? "确定" : "创建", (d, w) -> {
-                    // 逗号会破坏标签等逗号分隔场景，与旧版保持一致的清洗规则
-                    String name = edit.getText().toString().trim()
-                            .replace(",", "").replace("，", "");
-                    if (name.isEmpty()) {
-                        Toast.makeText(this, "名称不能为空", Toast.LENGTH_SHORT).show();
-                        return;
-                    }
-                    BookshelfApp app = BookshelfApp.get();
-                    app.io(() -> {
-                        // 书籍按名字引用分类，任何层级内不允许重名
-                        for (Category c : app.db().categoryDao().getAll()) {
-                            boolean self = isRename && c.id == editing.id;
-                            if (!self && c.name.equals(name)) {
-                                app.ui(() -> Toast.makeText(this,
-                                        "「" + name + "」已存在，分类名不能重复", Toast.LENGTH_SHORT).show());
-                                return;
-                            }
-                        }
-                        if (isRename) {
-                            String oldName = editing.name;
-                            editing.name = name;
-                            app.db().categoryDao().update(editing);
-                            // 联动：所有书籍上的旧分类名同步换新
-                            CategoryPropagator.renameCategoryEverywhere(app.db(), oldName, name);
-                            if (name.equals(currentSelected)) {
-                                currentSelected = name;
-                            }
-                        } else {
-                            Category cat = new Category();
-                            cat.name = name;
-                            cat.sort = parentOfNew == null
-                                    ? (int) (System.currentTimeMillis() % Integer.MAX_VALUE)
-                                    : nextChildSort(parentOfNew.id);
-                            cat.parentId = parentOfNew == null ? null : parentOfNew.id;
-                            app.db().categoryDao().insert(cat);
-                            if (parentOfNew != null) {
-                                expanded.add(parentOfNew.id); // 新建的二级立刻可见
-                            }
-                        }
-                        app.ui(this::reload);
-                    });
-                })
-                .setNegativeButton(R.string.action_cancel, null)
-                .show();
-    }
-
-    /** 新建二级时的排序值：排在现有二级末尾 */
-    private int nextChildSort(long parentId) {
-        int max = 0;
-        for (Category c : all) {
-            if (c.parentId != null && c.parentId == parentId && c.sort >= max) {
-                max = c.sort + 1;
-            }
-        }
-        return max;
-    }
-
-    /** 删除分类：一级连同其下所有二级一起删，书籍上的这些分类全部清空 */
-    private void confirmDelete(Category cat, boolean isChild) {
-        String msg = isChild
-                ? "从分类库删除二级分类「" + cat.name + "」？所有书籍上的这个分类也会一并清空。"
-                : "删除一级分类「" + cat.name + "」及其下所有二级分类？\n所有书籍上的这些分类都会一并清空。";
-        new MaterialAlertDialogBuilder(this)
-                .setTitle("删除分类")
-                .setMessage(msg)
-                .setPositiveButton("删除", (d, w) -> {
-                    BookshelfApp app = BookshelfApp.get();
-                    app.io(() -> {
-                        if (isChild) {
-                            app.db().categoryDao().deleteById(cat.id);
-                            CategoryPropagator.removeCategoryEverywhere(app.db(), cat.name);
-                        } else {
-                            // 先删二级（联动清空书籍），再删一级本身
-                            for (Category c : app.db().categoryDao().getAll()) {
-                                if (c.parentId != null && c.parentId == cat.id) {
-                                    app.db().categoryDao().deleteById(c.id);
-                                    CategoryPropagator.removeCategoryEverywhere(app.db(), c.name);
-                                }
-                            }
-                            app.db().categoryDao().deleteById(cat.id);
-                            CategoryPropagator.removeCategoryEverywhere(app.db(), cat.name);
-                        }
-                        if (cat.name.equals(currentSelected)) {
-                            currentSelected = "";
-                        }
-                        app.ui(this::reload);
-                    });
-                })
-                .setNegativeButton(R.string.action_cancel, null)
-                .show();
-    }
-
     /** 选择模式：把分类名回传给编辑书籍页 */
     private void returnSelection(String name) {
         setResult(RESULT_OK, new Intent().putExtra(EXTRA_SELECTED, name));
@@ -342,9 +241,9 @@ public class CategoryActivity extends BaseActivity {
                 return false;
             });
 
-            h.b.btnAddChild.setOnClickListener(v -> showInputDialog(null, cat));
-            h.b.btnEdit.setOnClickListener(v -> showInputDialog(cat, null));
-            h.b.btnDelete.setOnClickListener(v -> confirmDelete(cat, row.isChild));
+            h.b.btnAddChild.setOnClickListener(v -> dialogs.showInput(null, cat));
+            h.b.btnEdit.setOnClickListener(v -> dialogs.showInput(cat, null));
+            h.b.btnDelete.setOnClickListener(v -> dialogs.confirmDelete(cat, row.isChild));
         }
 
         @Override

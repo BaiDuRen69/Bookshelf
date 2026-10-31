@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 桌面长按快捷方式：套装购入价分摊 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <path
+        android:fillColor="#FF2E6E5C"
+        android:pathData="M24,2C35.05,2 44,10.95 44,22C44,33.05 35.05,42 24,42C12.95,42 4,33.05 4,22C4,10.95 12.95,2 24,2Z" />
+    <group
+        android:scaleX="1.15"
+        android:scaleY="1.15"
+        android:translateX="10.2"
+        android:translateY="10.2">
+        <path
+            android:fillColor="@android:color/transparent"
+            android:pathData="M6,3h12a2,2 0 0,1 2,2v14a2,2 0 0,1 -2,2H6a2,2 0 0,1 -2,-2V5a2,2 0 0,1 2,-2z M4,8h16 M8,12h.01 M12,12h.01 M16,12h.01 M8,16h.01 M12,16h.01 M16,16v2"
+            android:strokeColor="#FFFFFFFF"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:strokeWidth="1.6" />
+    </group>
+</vector>

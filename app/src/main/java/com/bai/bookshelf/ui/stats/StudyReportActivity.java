@@ -14,6 +14,7 @@ import androidx.core.content.FileProvider;
 import com.bai.bookshelf.R;
 import com.bai.bookshelf.app.BookshelfApp;
 import com.bai.bookshelf.data.entity.Book;
+import com.bai.bookshelf.util.BookFlags;
 import com.bai.bookshelf.databinding.ActivityStudyReportBinding;
 import com.bai.bookshelf.ui.BaseActivity;
 import com.bai.bookshelf.util.InsetsHelper;
@@ -66,7 +67,8 @@ public class StudyReportActivity extends BaseActivity {
                 if (!author.isEmpty()) {
                     authorCount.put(author, authorCount.getOrDefault(author, 0) + 1);
                 }
-                if (mostExpensive == null || bk.listPrice > mostExpensive.listPrice) {
+                if (!BookFlags.isBorrowSource(bk)
+                        && (mostExpensive == null || bk.listPrice > mostExpensive.listPrice)) {
                     mostExpensive = bk;
                 }
                 if (thickest == null || bk.pages > thickest.pages) {
@@ -81,14 +83,19 @@ public class StudyReportActivity extends BaseActivity {
                     topAuthor = e.getKey();
                 }
             }
-            List<Book> recent = new ArrayList<>(books);
+            List<Book> recent = new ArrayList<>();
+            for (Book bk : books) {
+                if (BookFlags.countsAsOwned(bk)) {
+                    recent.add(bk);
+                }
+            }
             recent.sort((x, y) -> Long.compare(y.createdAt, x.createdAt));
             if (recent.size() > 4) {
                 recent = recent.subList(0, 4);
             }
             final int fReadDone = readDone;
             final int fReading = reading;
-            final int fTotal = books.size();
+            final int fTotal = BookFlags.countOwned(books);
             final String fAuthor = topAuthor;
             final int fTopCount = topCount;
             final Book fExpensive = mostExpensive;
@@ -108,8 +115,9 @@ public class StudyReportActivity extends BaseActivity {
                       Book mostExpensive, Book thickest, List<Book> recent) {
         int year = Calendar.getInstance().get(Calendar.YEAR);
         b.tvReportTitle.setText("我的书房 · " + year);
-        b.tvReportTotal.setText(total + " 册");
-        b.tvReportRead.setText("已读 " + readDone + " 本 · 在读 " + reading + " 本");
+        // v5.8 口径：这里统计的是「种」（unique title），不能再写册
+        b.tvReportTotal.setText(total + " 种");
+        b.tvReportRead.setText("已读 " + readDone + " · 在读 " + reading);
         b.tvReportAuthor.setText(authorCount > 0
                 ? "最爱作者：" + author + "（" + authorCount + " 本）"
                 : "最爱作者：—");

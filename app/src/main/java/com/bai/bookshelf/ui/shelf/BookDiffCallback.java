@@ -52,6 +52,7 @@ final class BookDiffCallback extends DiffUtil.Callback {
                 && a.stockStatus == b.stockStatus
                 && a.readStatus == b.readStatus
                 && a.rating == b.rating
+                && Double.compare(a.ratingAvg, b.ratingAvg) == 0
                 && Objects.equals(a.locationId, b.locationId)
                 && Objects.equals(a.title, b.title)
                 && Objects.equals(a.author, b.author)

@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 阅读记录编辑弹窗（v5.7） -->
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:scrollbars="none">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingHorizontal="@dimen/space_xl"
+        android:paddingTop="@dimen/space_sm"
+        android:paddingBottom="@dimen/space_sm">
+
+        <TextView
+            style="@style/DialogSectionTitle"
+            android:layout_marginBottom="6dp"
+            android:text="阅读状态" />
+
+        <com.google.android.material.chip.ChipGroup
+            android:id="@+id/cg_rec_status"
+            style="@style/Widget.Bookshelf.ChipGroup"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:selectionRequired="true"
+            app:singleSelection="true">
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/chip_rec_none"
+                style="@style/Widget.Bookshelf.Chip"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:checkable="true"
+                android:text="未读" />
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/chip_rec_reading"
+                style="@style/Widget.Bookshelf.Chip"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:checkable="true"
+                android:text="在读" />
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/chip_rec_done"
+                style="@style/Widget.Bookshelf.Chip"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:checkable="true"
+                android:text="已读" />
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/chip_rec_dropped"
+                style="@style/Widget.Bookshelf.Chip"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:checkable="true"
+                android:text="弃读" />
+        </com.google.android.material.chip.ChipGroup>
+
+        <com.google.android.material.textfield.TextInputLayout
+            style="@style/Widget.Bookshelf.TextField"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/space_md"
+            android:hint="开始阅读（点选日期）">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/et_rec_start"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:clickable="true"
+                android:focusable="false"
+                android:singleLine="true" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <com.google.android.material.textfield.TextInputLayout
+            style="@style/Widget.Bookshelf.TextField"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/space_md"
+            android:hint="结束阅读（点选日期）">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/et_rec_end"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:clickable="true"
+                android:focusable="false"
+                android:singleLine="true" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <TextView
+            android:id="@+id/tv_rec_days"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="阅读天数：—"
+            android:textColor="?attr/on_surface_variant"
+            android:textSize="13sp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="我的评分" />
+
+            <SeekBar
+                android:id="@+id/seek_rec_rating"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="10dp"
+                android:layout_weight="1"
+                android:max="10" />
+
+            <TextView
+                android:id="@+id/tv_rec_rating"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="0 分"
+                android:textColor="?attr/accent_text" />
+        </LinearLayout>
+    </LinearLayout>
+</ScrollView>

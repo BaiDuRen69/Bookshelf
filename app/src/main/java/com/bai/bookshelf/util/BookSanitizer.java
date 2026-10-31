@@ -51,6 +51,11 @@ public final class BookSanitizer {
         b.note = nz(b.note);
         b.readingStartDate = nz(b.readingStartDate);
         b.readingFinishDate = nz(b.readingFinishDate);
+        b.borrowStartDate = nz(b.borrowStartDate);
+        b.borrowDueDate = nz(b.borrowDueDate);
+        b.borrowReturnDate = nz(b.borrowReturnDate);
+        b.borrowRecords = nz(b.borrowRecords);
+        b.readingRecords = nz(b.readingRecords);
         b.review = nz(b.review);
         b.seriesName = nz(b.seriesName).trim();
         b.seriesVolume = nz(b.seriesVolume).trim();

@@ -1,7 +1,5 @@
 package com.bai.bookshelf.ui.detail;
 
-import androidx.appcompat.app.AlertDialog;
-import android.net.Uri;
 import android.os.Bundle;
 import android.text.util.Linkify;
 import android.view.LayoutInflater;
@@ -13,8 +11,6 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.Toast;
 
-import androidx.activity.result.ActivityResultLauncher;
-import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import com.bai.bookshelf.ui.BaseActivity;
@@ -27,14 +23,11 @@ import com.bai.bookshelf.data.entity.Book;
 import com.bai.bookshelf.data.entity.BorrowRecord;
 import com.bai.bookshelf.data.entity.NoteImage;
 import com.bai.bookshelf.databinding.ActivityLocationBinding;
-import com.bai.bookshelf.databinding.DialogBorrowEditBinding;
 import com.bai.bookshelf.databinding.ItemLocationBinding;
 import com.bai.bookshelf.util.StatusText;
 import com.bumptech.glide.Glide;
 
 import java.io.File;
-import java.io.FileOutputStream;
-import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
@@ -52,16 +45,11 @@ public class BorrowHistoryActivity extends BaseActivity {
     private final List<BorrowRecord> data = new ArrayList<>();
     private RecordAdapter adapter;
     private long bookId;
-    private boolean batchMode = false; // 批量操作模式
-    private final java.util.Set<Long> selectedIds = new java.util.HashSet<>();
+    /** 批量操作（v5.6 抽到 BorrowBatchActions） */
+    private BorrowBatchActions batchActions;
 
-    // 借出记录编辑弹窗中的备注图片状态
-    private final List<NoteImage> currentEditImages = new ArrayList<>();
-    private final java.util.Set<String> currentEditAddedPaths = new java.util.HashSet<>();
-    private final java.util.Set<String> currentEditRemovedPaths = new java.util.HashSet<>();
-    private DialogBorrowEditBinding currentEditBinding;
-    private AlertDialog currentEditDialog; // 保留引用，相册返回时若被系统收起则重新展示
-    private ActivityResultLauncher<String> pickEditImageLauncher;
+    /** 编辑弹窗（v5.6 从本类抽出） */
+    private BorrowEditDialog editDialog;
 
     // 每条借出记录的备注图片张数（用于列表里「〔图N〕」标记，不直接展示图片）
     private java.util.Map<Long, Integer> noteImageCounts = new java.util.HashMap<>();
@@ -71,9 +59,22 @@ public class BorrowHistoryActivity extends BaseActivity {
         super.onCreate(savedInstanceState);
         b = ActivityLocationBinding.inflate(getLayoutInflater());
         setContentView(b.getRoot());
-        pickEditImageLauncher = registerForActivityResult(
-                new ActivityResultContracts.GetContent(),
-                this::onEditImagePicked);
+        editDialog = new BorrowEditDialog(this, new BorrowEditDialog.Host() {
+            @Override
+            public long bookId() {
+                return bookId;
+            }
+
+            @Override
+            public void syncStock() {
+                BorrowHistoryActivity.this.syncBookStock();
+            }
+
+            @Override
+            public void onSaved() {
+                reload();
+            }
+        });
         b.toolbar.setTitle("借出记录");
         b.toolbar.setNavigationOnClickListener(v -> finish());
         // 本页用不到：大类筛选、底部「添加」按钮
@@ -91,101 +92,33 @@ public class BorrowHistoryActivity extends BaseActivity {
         b.recycler.setLayoutManager(new LinearLayoutManager(this));
         b.recycler.setAdapter(adapter);
 
-        // 批量操作：进入/取消/全选/归还/删除
-        b.btnBatch.setOnClickListener(v -> toggleBatchMode());
-        b.btnSelCancel.setOnClickListener(v -> toggleBatchMode());
-        b.btnSelAll.setOnClickListener(v -> {
-            for (BorrowRecord r : data) {
-                selectedIds.add(r.id);
+        batchActions = new BorrowBatchActions(this, b, new BorrowBatchActions.Host() {
+            @Override
+            public List<BorrowRecord> records() {
+                return data;
             }
-            refreshBatchUI();
+
+            @Override
+            public void syncStock() {
+                BorrowHistoryActivity.this.syncBookStock();
+            }
+
+            @Override
+            public void reload() {
+                BorrowHistoryActivity.this.reload();
+            }
+
+            @Override
+            public void notifyList() {
+                adapter.notifyDataSetChanged();
+            }
         });
-        b.btnSelReturn.setOnClickListener(v -> confirmBatchReturn());
-        b.btnSelDelete.setOnClickListener(v -> confirmBatchDelete());
-    }
-
-    /** 进入/退出批量操作模式 */
-    private void toggleBatchMode() {
-        batchMode = !batchMode;
-        selectedIds.clear();
-        refreshBatchUI();
-    }
-
-    /** 同步批量模式的界面状态（操作条、底部按钮、列表勾选框） */
-    private void refreshBatchUI() {
-        b.selectionBar.setVisibility(batchMode ? View.VISIBLE : View.GONE);
-        b.bottomBar.setVisibility(batchMode ? View.GONE : View.VISIBLE);
-        b.btnSelReturn.setVisibility(batchMode ? View.VISIBLE : View.GONE); // 归还按钮仅本页使用
-        b.tvSelCount.setText("已选 " + selectedIds.size() + " 条");
-        adapter.notifyDataSetChanged();
-    }
-
-    /** 批量归还：选中的借出中记录标记为今日归还 */
-    private void confirmBatchReturn() {
-        int count = selectedIds.size();
-        if (count == 0) {
-            Toast.makeText(this, "请先勾选记录", Toast.LENGTH_SHORT).show();
-            return;
-        }
-        BookshelfApp app = BookshelfApp.get();
-        java.util.List<BorrowRecord> targets = new ArrayList<>();
-        for (BorrowRecord r : data) {
-            if (selectedIds.contains(r.id) && r.status == BorrowRecord.STATUS_OUT) {
-                targets.add(r);
-            }
-        }
-        if (targets.isEmpty()) {
-            Toast.makeText(this, "选中的记录都已归还", Toast.LENGTH_SHORT).show();
-            return;
-        }
-        app.io(() -> {
-            for (BorrowRecord r : targets) {
-                r.status = BorrowRecord.STATUS_RETURNED;
-                r.returnDate = StatusText.today();
-                app.db().borrowRecordDao().update(r);
-            }
-            syncBookStock();
-            app.ui(() -> {
-                toggleBatchMode();
-                Toast.makeText(this, "已归还 " + targets.size() + " 条", Toast.LENGTH_SHORT).show();
-                reload();
-            });
-        });
-    }
-
-    /** 批量删除（带确认） */
-    private void confirmBatchDelete() {
-        int count = selectedIds.size();
-        if (count == 0) {
-            Toast.makeText(this, "请先勾选要删除的记录", Toast.LENGTH_SHORT).show();
-            return;
-        }
-        new MaterialAlertDialogBuilder(this)
-                .setTitle("批量删除记录")
-                .setMessage("删除已选的 " + count + " 条借出记录？此操作不可恢复。")
-                .setPositiveButton("删除", (d, w) -> {
-                    BookshelfApp app = BookshelfApp.get();
-                    java.util.Set<Long> ids = new java.util.HashSet<>(selectedIds);
-                    app.io(() -> {
-                        for (Long id : ids) {
-                            String ownerKey = "borrow:" + id;
-                            List<NoteImage> imgs = app.db().noteImageDao().getByOwnerKey(ownerKey);
-                            app.db().noteImageDao().deleteByOwnerKey(ownerKey);
-                            for (NoteImage img : imgs) {
-                                new File(img.path).delete();
-                            }
-                            app.db().borrowRecordDao().deleteById(id);
-                        }
-                        syncBookStock();
-                        app.ui(() -> {
-                            toggleBatchMode();
-                            Toast.makeText(this, "已删除 " + count + " 条记录", Toast.LENGTH_SHORT).show();
-                            reload();
-                        });
-                    });
-                })
-                .setNegativeButton(R.string.action_cancel, null)
-                .show();
+        // 批量操作：进入/取消/全选/收回/删除
+        b.btnBatch.setOnClickListener(v -> batchActions.toggle());
+        b.btnSelCancel.setOnClickListener(v -> batchActions.toggle());
+        b.btnSelAll.setOnClickListener(v -> batchActions.selectAll());
+        b.btnSelReturn.setOnClickListener(v -> batchActions.confirmReturn());
+        b.btnSelDelete.setOnClickListener(v -> batchActions.confirmDelete());
     }
 
     @Override
@@ -209,188 +142,6 @@ public class BorrowHistoryActivity extends BaseActivity {
                 adapter.notifyDataSetChanged();
             });
         });
-    }
-
-    /** 编辑记录：借用人 / 借出日期 / 归还日期（留空=借出中）/ 备注 / 备注图片 */
-    private void showEditDialog(BorrowRecord record) {
-        currentEditBinding = DialogBorrowEditBinding.inflate(getLayoutInflater());
-        DialogBorrowEditBinding db = currentEditBinding;
-        db.etBorrower.setText(record.borrower);
-        db.etLendDate.setText(record.lendDate);
-        db.etReturnDate.setText(record.returnDate);
-        db.etNote.setText(record.note);
-
-        currentEditImages.clear();
-        currentEditAddedPaths.clear();
-        currentEditRemovedPaths.clear();
-        loadBorrowNoteImages(record.id);
-
-        db.btnAddNoteImage.setOnClickListener(v -> {
-            try {
-                pickEditImageLauncher.launch("image/*");
-            } catch (Exception e) {
-                Toast.makeText(this, "无法打开相册：" + e.getMessage(), Toast.LENGTH_LONG).show();
-            }
-        });
-
-        AlertDialog dialog = new MaterialAlertDialogBuilder(this)
-                .setTitle("编辑借出记录")
-                .setView(db.getRoot())
-                .setPositiveButton("保存", (d, w) -> {
-                    String borrower = db.etBorrower.getText().toString().trim();
-                    if (borrower.isEmpty()) {
-                        Toast.makeText(this, "借用人不能为空", Toast.LENGTH_SHORT).show();
-                        return;
-                    }
-                    record.borrower = borrower;
-                    record.lendDate = db.etLendDate.getText().toString().trim();
-                    record.returnDate = db.etReturnDate.getText().toString().trim();
-                    record.note = db.etNote.getText().toString().trim();
-                    // 归还日期留空 = 借出中，否则 = 已归还
-                    record.status = record.returnDate.isEmpty()
-                            ? BorrowRecord.STATUS_OUT : BorrowRecord.STATUS_RETURNED;
-                    BookshelfApp app = BookshelfApp.get();
-                    app.io(() -> {
-                        app.db().borrowRecordDao().update(record);
-                        saveBorrowNoteImages(app, record.id);
-                        syncBookStock();
-                        app.ui(this::reload);
-                    });
-                })
-                .setNegativeButton(R.string.action_cancel, null)
-                .create();
-        currentEditDialog = dialog;
-        dialog.show();
-    }
-
-    private void loadBorrowNoteImages(long recordId) {
-        BookshelfApp app = BookshelfApp.get();
-        app.io(() -> {
-            List<NoteImage> list = app.db().noteImageDao().getByOwnerKey("borrow:" + recordId);
-            runOnUiThread(() -> {
-                currentEditImages.addAll(list);
-                if (currentEditBinding != null) {
-                    renderEditNoteThumbs(currentEditBinding);
-                }
-            });
-        });
-    }
-
-    private void saveBorrowNoteImages(BookshelfApp app, long recordId) {
-        String ownerKey = "borrow:" + recordId;
-        app.db().noteImageDao().deleteByOwnerKey(ownerKey);
-        if (!currentEditImages.isEmpty()) {
-            for (int i = 0; i < currentEditImages.size(); i++) {
-                NoteImage img = currentEditImages.get(i);
-                img.bookId = bookId;
-                img.ownerKey = ownerKey;
-                img.sort = i;
-            }
-            app.db().noteImageDao().insertAll(currentEditImages);
-        }
-        // 清理被移除的文件
-        for (String p : currentEditAddedPaths) {
-            boolean kept = false;
-            for (NoteImage img : currentEditImages) {
-                if (img.path.equals(p)) {
-                    kept = true;
-                    break;
-                }
-            }
-            if (!kept) {
-                new File(p).delete();
-            }
-        }
-        for (String p : currentEditRemovedPaths) {
-            new File(p).delete();
-        }
-        currentEditAddedPaths.clear();
-        currentEditRemovedPaths.clear();
-    }
-
-    private void onEditImagePicked(Uri uri) {
-        if (uri == null || currentEditBinding == null) {
-            return;
-        }
-        BookshelfApp app = BookshelfApp.get();
-        app.io(() -> {
-            try (InputStream in = getContentResolver().openInputStream(uri)) {
-                File dir = new File(getFilesDir(), "note_images");
-                if (!dir.exists()) {
-                    dir.mkdirs();
-                }
-                File out = new File(dir, "note_" + System.currentTimeMillis() + ".jpg");
-                try (FileOutputStream fos = new FileOutputStream(out)) {
-                    byte[] buf = new byte[8192];
-                    int len;
-                    while ((len = in.read(buf)) > 0) {
-                        fos.write(buf, 0, len);
-                    }
-                }
-                app.ui(() -> {
-                    NoteImage img = new NoteImage();
-                    img.bookId = bookId;
-                    img.path = out.getAbsolutePath();
-                    currentEditImages.add(img);
-                    currentEditAddedPaths.add(img.path);
-                    renderEditNoteThumbs(currentEditBinding);
-                    // 部分 ROM 在拉起相册时会收起弹窗，返回后重新展示以便用户看到已选缩略图
-                    if (currentEditDialog != null && !currentEditDialog.isShowing()) {
-                        currentEditDialog.show();
-                    }
-                });
-            } catch (Exception e) {
-                app.ui(() -> Toast.makeText(this, "图片读取失败：" + e.getMessage(),
-                        Toast.LENGTH_LONG).show());
-            }
-        });
-    }
-
-    private void renderEditNoteThumbs(DialogBorrowEditBinding db) {
-        db.containerNoteThumbs.removeAllViews();
-        int size = (int) (72 * getResources().getDisplayMetrics().density);
-        int gap = (int) (8 * getResources().getDisplayMetrics().density);
-        for (NoteImage img : currentEditImages) {
-            ImageView iv = new ImageView(this);
-            android.widget.LinearLayout.LayoutParams lp =
-                    new android.widget.LinearLayout.LayoutParams(size, size);
-            lp.setMarginEnd(gap);
-            iv.setLayoutParams(lp);
-            iv.setScaleType(ImageView.ScaleType.CENTER_CROP);
-            Glide.with(this).load(new File(img.path))
-                    .placeholder(R.drawable.ic_cover_placeholder)
-                    .error(R.drawable.ic_cover_placeholder)
-                    .into(iv);
-            iv.setOnClickListener(v -> showEditNotePreview(db, img));
-            db.containerNoteThumbs.addView(iv);
-        }
-        boolean has = !currentEditImages.isEmpty();
-        db.scrollNoteThumbs.setVisibility(has ? View.VISIBLE : View.GONE);
-        db.btnAddNoteImage.setText(has
-                ? "＋ 继续添加备注图片（" + currentEditImages.size() + " 张）"
-                : "＋ 添加备注图片");
-    }
-
-    private void showEditNotePreview(DialogBorrowEditBinding db, NoteImage img) {
-        // v4.18: 图片放进圆角卡片底（dialog_image_preview）
-        com.bai.bookshelf.databinding.DialogImagePreviewBinding pb =
-                com.bai.bookshelf.databinding.DialogImagePreviewBinding.inflate(getLayoutInflater());
-        Glide.with(this).load(new File(img.path))
-                .placeholder(R.drawable.ic_cover_placeholder)
-                .error(R.drawable.ic_cover_placeholder)
-                .into(pb.ivPreview);
-        new MaterialAlertDialogBuilder(this)
-                .setTitle("备注图片")
-                .setView(pb.getRoot())
-                .setPositiveButton("关闭", null)
-                .setNegativeButton("移除", (d, w) -> {
-                    currentEditImages.remove(img);
-                    if (!currentEditAddedPaths.contains(img.path)) {
-                        currentEditRemovedPaths.add(img.path);
-                    }
-                    renderEditNoteThumbs(db);
-                })
-                .show();
     }
 
     private int dp(int value) {
@@ -584,32 +335,26 @@ public class BorrowHistoryActivity extends BaseActivity {
             h.b.tvDefaultBadge.setVisibility(View.GONE);
             h.b.btnStar.setVisibility(View.GONE);
             // 批量模式：显示勾选框、隐藏编辑/删除按钮，整行点击切换选中
-            h.b.cbSelect.setVisibility(batchMode ? View.VISIBLE : View.GONE);
-            int btnVisibility = batchMode ? View.GONE : View.VISIBLE;
+            h.b.cbSelect.setVisibility(batchActions.isActive() ? View.VISIBLE : View.GONE);
+            int btnVisibility = batchActions.isActive() ? View.GONE : View.VISIBLE;
             h.b.btnEdit.setVisibility(btnVisibility);
             h.b.btnDelete.setVisibility(btnVisibility);
             h.b.cbSelect.setOnCheckedChangeListener(null);
-            h.b.cbSelect.setChecked(selectedIds.contains(record.id));
-            h.b.cbSelect.setOnCheckedChangeListener((c, checked) -> {
-                if (checked) {
-                    selectedIds.add(record.id);
-                } else {
-                    selectedIds.remove(record.id);
-                }
-                b.tvSelCount.setText("已选 " + selectedIds.size() + " 条");
-            });
+            h.b.cbSelect.setChecked(batchActions.ids().contains(record.id));
+            h.b.cbSelect.setOnCheckedChangeListener((c, checked) ->
+                    batchActions.toggleOne(record.id, checked));
             h.itemView.setOnClickListener(v -> {
-                if (batchMode) {
+                if (batchActions.isActive()) {
                     h.b.cbSelect.setChecked(!h.b.cbSelect.isChecked());
                 }
             });
             // 非批量模式：点备注/条目查看完整备注与图片（图片不直接展示，点此展开）
             h.b.tvName.setOnClickListener(v -> {
-                if (!batchMode) {
+                if (!batchActions.isActive()) {
                     showRecordDetail(record);
                 }
             });
-            h.b.btnEdit.setOnClickListener(v -> showEditDialog(record));
+            h.b.btnEdit.setOnClickListener(v -> editDialog.show(record));
             h.b.btnDelete.setOnClickListener(v -> confirmDelete(record));
         }
 

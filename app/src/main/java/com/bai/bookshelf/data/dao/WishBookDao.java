@@ -16,6 +16,13 @@ public interface WishBookDao {
     @Query("SELECT * FROM wish_books ORDER BY priority DESC, createdAt DESC")
     List<WishBook> getAll();
 
+    /** 手动排序：按 sort 升序（新条目 sort 较大，自然排在末尾） */
+    @Query("SELECT * FROM wish_books ORDER BY sort ASC, id ASC")
+    List<WishBook> getAllManual();
+
+    @Query("UPDATE wish_books SET sort = :sort WHERE id = :id")
+    void updateSort(long id, int sort);
+
     @Insert
     long insert(WishBook wish);
 

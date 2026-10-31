@@ -12,6 +12,11 @@ public class BorrowReminderReceiver extends BroadcastReceiver {
 
     @Override
     public void onReceive(Context context, Intent intent) {
+        String action = intent == null ? null : intent.getAction();
+        if (!Intent.ACTION_BOOT_COMPLETED.equals(action)
+                && !BorrowReminder.ACTION_CHECK.equals(action)) {
+            return;
+        }
         BorrowReminder.schedule(context);
         BorrowReminder.checkAndNotify(context);
     }

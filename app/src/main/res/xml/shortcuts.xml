@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 桌面图标长按快捷方式（v5.7） -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_wish"
+        android:shortcutId="wish_add"
+        android:shortcutLongLabel="@string/shortcut_wish_add_long"
+        android:shortcutShortLabel="@string/shortcut_wish_add">
+        <intent
+            android:action="com.bai.bookshelf.action.ADD_WISH"
+            android:targetClass="com.bai.bookshelf.ui.wish.WishListActivity"
+            android:targetPackage="com.bai.bookshelf" />
+    </shortcut>
+
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_scan"
+        android:shortcutId="scan"
+        android:shortcutLongLabel="@string/shortcut_scan_long"
+        android:shortcutShortLabel="@string/shortcut_scan">
+        <intent
+            android:action="com.bai.bookshelf.action.SCAN"
+            android:targetClass="com.bai.bookshelf.ui.scan.ScanActivity"
+            android:targetPackage="com.bai.bookshelf" />
+    </shortcut>
+
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_split"
+        android:shortcutId="split"
+        android:shortcutLongLabel="@string/shortcut_split_long"
+        android:shortcutShortLabel="@string/shortcut_split">
+        <intent
+            android:action="com.bai.bookshelf.action.SPLIT"
+            android:targetClass="com.bai.bookshelf.ui.mine.SplitActivity"
+            android:targetPackage="com.bai.bookshelf" />
+    </shortcut>
+</shortcuts>

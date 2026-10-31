@@ -24,6 +24,8 @@ import com.bai.bookshelf.R;
 import com.bai.bookshelf.util.InsetsHelper;
 import com.bai.bookshelf.util.ThemeManager;
 
+import com.bai.bookshelf.util.DateKeys;
+
 import java.util.Calendar;
 import java.util.Locale;
 
@@ -138,7 +140,7 @@ public final class CalendarPicker {
                 selEnd = startKey;
             }
             Calendar now = Calendar.getInstance();
-            int anchor = startKey > 0 ? startKey : keyOf(now);
+            int anchor = startKey > 0 ? startKey : DateKeys.keyOf(now);
             focusYear = anchor / 10000;
             focusMonth0 = anchor / 100 % 100 - 1;
             if (focusYear < 1900 || focusMonth0 < 0 || focusMonth0 > 11) {
@@ -445,7 +447,7 @@ public final class CalendarPicker {
             c.set(focusYear, focusMonth0, 1);
             int firstDow = (c.get(Calendar.DAY_OF_WEEK) + 5) % 7; // 周一 = 0
             int days = c.getActualMaximum(Calendar.DAY_OF_MONTH);
-            int todayKey = keyOf(Calendar.getInstance());
+            int todayKey = DateKeys.keyOf(Calendar.getInstance());
             boolean complete = range && selStart != 0 && selEnd != 0;
 
             LinearLayout row = null;
@@ -463,7 +465,7 @@ public final class CalendarPicker {
                     row.addView(new View(activity), lp);
                     continue;
                 }
-                int key = keyOf(focusYear, focusMonth0 + 1, day);
+                int key = DateKeys.keyOf(focusYear, focusMonth0 + 1, day);
                 DayCellView cell = new DayCellView(activity);
                 cell.bind(day, primary, onPrimary, onSurface,
                         key == selStart,
@@ -593,29 +595,9 @@ public final class CalendarPicker {
         }
 
         private void applyPreset(int which) {
-            Calendar now = Calendar.getInstance();
-            int today = keyOf(now);
-            Calendar c = Calendar.getInstance();
-            switch (which) {
-                case 0: // 本月
-                    selStart = keyOf(now.get(Calendar.YEAR), now.get(Calendar.MONTH) + 1, 1);
-                    selEnd = today;
-                    break;
-                case 1: // 近 3 个月（含本月）
-                    c.add(Calendar.MONTH, -2);
-                    selStart = keyOf(c.get(Calendar.YEAR), c.get(Calendar.MONTH) + 1, 1);
-                    selEnd = today;
-                    break;
-                case 2: // 今年
-                    selStart = keyOf(now.get(Calendar.YEAR), 1, 1);
-                    selEnd = today;
-                    break;
-                default: // 去年
-                    c.add(Calendar.YEAR, -1);
-                    selStart = keyOf(c.get(Calendar.YEAR), 1, 1);
-                    selEnd = keyOf(c.get(Calendar.YEAR), 12, 31);
-                    break;
-            }
+            int[] range = DateKeys.presetRange(which, Calendar.getInstance());
+            selStart = range[0];
+            selEnd = range[1];
             apply();
         }
 
@@ -643,38 +625,15 @@ public final class CalendarPicker {
 
         private String statusText() {
             if (!range) {
-                return selStart == 0 ? "点选一个日期" : fmt(selStart);
+                return selStart == 0 ? "点选一个日期" : DateKeys.formatKey(selStart);
             }
             if (selStart == 0) {
                 return "点选开始日期";
             }
             if (selEnd == 0) {
-                return "从 " + fmt(selStart) + " 起 · 再点结束日期";
+                return "从 " + DateKeys.formatKey(selStart) + " 起 · 再点结束日期";
             }
-            return fmt(selStart) + " 至 " + fmt(selEnd) + " · 共 " + daysBetween(selStart, selEnd) + " 天";
-        }
-
-        private static int daysBetween(int startKey, int endKey) {
-            Calendar a = Calendar.getInstance();
-            a.set(startKey / 10000, startKey / 100 % 100 - 1, startKey % 100, 0, 0, 0);
-            Calendar b = Calendar.getInstance();
-            b.set(endKey / 10000, endKey / 100 % 100 - 1, endKey % 100, 0, 0, 0);
-            long diff = b.getTimeInMillis() - a.getTimeInMillis();
-            return (int) Math.round(diff / 86400000.0) + 1;
-        }
-
-        private static int keyOf(Calendar c) {
-            return keyOf(c.get(Calendar.YEAR), c.get(Calendar.MONTH) + 1,
-                    c.get(Calendar.DAY_OF_MONTH));
-        }
-
-        private static int keyOf(int year, int month1, int day) {
-            return year * 10000 + month1 * 100 + day;
-        }
-
-        private static String fmt(int key) {
-            return String.format(Locale.ROOT, "%04d-%02d-%02d",
-                    key / 10000, key / 100 % 100, key % 100);
+            return DateKeys.formatKey(selStart) + " 至 " + DateKeys.formatKey(selEnd) + " · 共 " + DateKeys.daysBetweenInclusive(selStart, selEnd) + " 天";
         }
 
         private int dp(int value) {

@@ -66,8 +66,9 @@
         android:layout_height="wrap_content"
         android:minHeight="44dp" />
 
-    <!-- 购买日期 + 实付 -->
+    <!-- 购买日期 + 实付（借阅/赠书时隐藏） -->
     <LinearLayout
+        android:id="@+id/ll_copy_purchase"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="6dp"
