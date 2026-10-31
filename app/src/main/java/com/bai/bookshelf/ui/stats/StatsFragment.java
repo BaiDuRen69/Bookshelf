@@ -45,6 +45,8 @@ public class StatsFragment extends Fragment {
     private FragmentStatsBinding b;
     private int lastFinishedThisYear;
     private int lastAvgDays;
+    /** 是否已注册 books 的 LiveData */
+    private boolean observingBooks;
     private int statsTab = TAB_BOOKS;
     private boolean statsEmpty;
     /** 分类树（一级带二级），树状图下钻用 */
@@ -106,14 +108,8 @@ public class StatsFragment extends Fragment {
                 startActivity(new Intent(requireContext(), AuthorActivity.class)));
         // v4.3：改为 Room 响应式观察（与 v4.2 书架页同模式）——注册即推送首次数据，
         // 之后 books 表任何变化自动重算，切 Tab 回来无需手动刷新，视图重建也不会空白
-        if (BookshelfApp.dbReady()) {
-            try {
-                BookshelfApp.get().db().bookDao().getAllLive()
-                        .observe(getViewLifecycleOwner(), this::onBooksPushed);
-            } catch (RuntimeException ignored) {
-                // 库没就绪时统计页保持空态，修复流程结束会重建页面
-            }
-        }
+        // v5.8.3：库没就绪时排队，等开库成功再注册（冷启动时本页早于开库完成）
+        BookshelfApp.get().whenDbReady(this::observeBooks);
         return b.getRoot();
     }
 
@@ -246,6 +242,20 @@ public class StatsFragment extends Fragment {
     }
 
     /** Room 推送回调（主线程）：books 已是最新快照，交给后台聚合 */
+    /** 库就绪后注册 books 响应式观察 */
+    private void observeBooks() {
+        if (b == null || !isAdded() || observingBooks) {
+            return;
+        }
+        try {
+            observingBooks = true;
+            BookshelfApp.get().db().bookDao().getAllLive()
+                    .observe(getViewLifecycleOwner(), this::onBooksPushed);
+        } catch (RuntimeException e) {
+            observingBooks = false;
+        }
+    }
+
     private void onBooksPushed(java.util.List<Book> pushed) {
         computeFrom(pushed);
     }

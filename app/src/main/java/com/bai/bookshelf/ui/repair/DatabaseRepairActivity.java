@@ -148,6 +148,7 @@ public class DatabaseRepairActivity extends BaseActivity {
                 app.closeDatabase();
                 app.reopenDatabase();
                 app.db().getOpenHelper().getWritableDatabase();
+                app.markDbReady();
                 DbRepair.clear(this);
                 app.ui(this::goMain);
             } catch (Throwable t) {

@@ -95,6 +95,8 @@ public class ShelfFragment extends Fragment {
 
     // v4.41：搜索索引（bookId → 归一化原文 + 拼音 + 首字母）与 150ms 输入防抖
     private final java.util.Map<Long, String> searchIndex = new java.util.HashMap<>();
+    /** 是否已经注册 books 的 LiveData（库就绪回调可能被调用不止一次） */
+    private boolean observingBooks;
     private ShelfSearchBar searchBar;
 
     // v4.42：智能书架（在读/借出中/超期…）与未归还记录
@@ -318,15 +320,9 @@ public class ShelfFragment extends Fragment {
         // v4.2（评审 #7）：响应式观察 books 表——任何增删改（包括纯文本字段编辑）
         // 都由 Room 自动推送，无需指纹比对、RESULT_OK 标脏或手动触发。
         // 注册时 Room 会立即推送一次当前数据（冷启动首次加载 / 旋转屏恢复都靠它）。
-        // v5.8.3：库没就绪（修复中 / 打不开）时不注册，否则注册这一刻就会去打开坏库并抛异常
-        if (BookshelfApp.dbReady()) {
-            try {
-                BookshelfApp.get().db().bookDao().getAllLive()
-                        .observe(getViewLifecycleOwner(), this::onBooksPushed);
-            } catch (RuntimeException ignored) {
-                // 修复页会接管；这里静默，等库修好后页面会重建
-            }
-        }
+        // v5.8.3：库没就绪（修复中 / 打不开）时先排队，等开库成功再注册；
+        // 冷启动时本方法早于后台开库完成，直接跳过会让书架永远空白
+        BookshelfApp.get().whenDbReady(this::observeBooks);
 
         // 外部（统计页点击作者/出版社/国家）带入的搜索词：视图重建后应用一次
         if (pendingSearchQuery != null) {
@@ -448,6 +444,20 @@ public class ShelfFragment extends Fragment {
         boolean done = requireContext().getSharedPreferences("ui_prefs", 0)
                 .getBoolean("onboarding_next_done", false);
         b.cardOnboarding.setVisibility(owned >= 1 && !done ? View.VISIBLE : View.GONE);
+    }
+
+    /** 库就绪后注册 books 响应式观察（冷启动时本页比开库早，必须排队等一次） */
+    private void observeBooks() {
+        if (b == null || !isAdded() || observingBooks) {
+            return;
+        }
+        try {
+            observingBooks = true;
+            BookshelfApp.get().db().bookDao().getAllLive()
+                    .observe(getViewLifecycleOwner(), this::onBooksPushed);
+        } catch (RuntimeException e) {
+            observingBooks = false; // 库又坏了：修复页接管
+        }
     }
 
     private void onBooksPushed(java.util.List<Book> pushed) {        if (b == null) {

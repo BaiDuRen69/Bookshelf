@@ -47,6 +47,9 @@ public class BookshelfApp extends Application {
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     /** 数据库已成功打开过（修复期间为 false，页面据此跳过注册与首查） */
     private volatile boolean dbReady;
+    /** 等库就绪再执行的页面回调（冷启动时 Fragment 早于开库完成） */
+    private final java.util.List<Runnable> dbReadyCallbacks =
+            new java.util.concurrent.CopyOnWriteArrayList<>();
 
     public static BookshelfApp get() {
         return instance;
@@ -123,7 +126,7 @@ public class BookshelfApp extends Application {
                 ui(this::openDatabaseRepair);
                 return;
             }
-            dbReady = true;
+            markDbReady();
             // 只有真正打开成功才记版本：上次如果迁移失败，这次启动才仍会留升级前副本
             com.bai.bookshelf.util.PreMigrationBackup.markOpened(this, AppDatabase.VERSION);
             if (com.bai.bookshelf.util.PreMigrationBackup.migrated(
@@ -176,6 +179,29 @@ public class BookshelfApp extends Application {
      */
     public static boolean dbReady() {
         return instance != null && instance.dbReady;
+    }
+
+    /**
+     * 库就绪后执行（已就绪则立刻回主线程执行）。
+     *
+     * <p>冷启动时 Fragment 的 onViewCreated 早于后台开库完成，直接跳过注册会让
+     * 书架永远空白（show/hide 切 Tab 不会重建 Fragment），所以这里排队等一次。
+     */
+    public void whenDbReady(Runnable r) {
+        if (dbReady) {
+            ui(r);
+        } else {
+            dbReadyCallbacks.add(r);
+        }
+    }
+
+    /** 数据库打开成功（启动自检或修复后重开）：放行排队中的页面回调 */
+    public void markDbReady() {
+        dbReady = true;
+        for (Runnable r : dbReadyCallbacks) {
+            ui(r);
+        }
+        dbReadyCallbacks.clear();
     }
 
     /** 迁移失败后把用户带到修复页，而不是让他对着空书架 */

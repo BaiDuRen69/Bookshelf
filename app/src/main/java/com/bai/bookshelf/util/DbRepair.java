@@ -221,6 +221,7 @@ public final class DbRepair {
             prefs(ctx).edit().putString(KEY_BROKEN_PATH, stamp.getPath()).apply();
             app.reopenDatabase(); // 建一个干净的新库（最新 schema）
             app.db().getOpenHelper().getWritableDatabase();
+            app.markDbReady();
             ZipRestore.Result r = ZipRestore.restore(ctx, uri, app.db());
             clear(ctx);
             return r.books;
@@ -250,6 +251,7 @@ public final class DbRepair {
             renameSidecars(tmp, dbFile);
             app.reopenDatabase();
             app.db().getOpenHelper().getWritableDatabase();
+            app.markDbReady();
             clear(ctx);
         } catch (Throwable t) {
             rollback(app, dbFile, brokenTarget);
