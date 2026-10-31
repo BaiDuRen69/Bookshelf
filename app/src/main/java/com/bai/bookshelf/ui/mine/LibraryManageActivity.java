@@ -29,6 +29,9 @@ public class LibraryManageActivity extends BaseActivity {
                 startActivity(new Intent(this, TagActivity.class)));
         b.rowCategory.setOnClickListener(v ->
                 startActivity(new Intent(this, CategoryActivity.class)));
+        // v5.8.18：借阅人档案（借过几本 / 有没有逾期 / 手上还剩几本）
+        b.rowBorrower.setOnClickListener(v ->
+                startActivity(new Intent(this, com.bai.bookshelf.ui.lend.BorrowerActivity.class)));
         b.rowSplit.setOnClickListener(v ->
                 startActivity(new Intent(this, SplitActivity.class)));
     }

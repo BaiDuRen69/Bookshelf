@@ -45,7 +45,7 @@ public final class GlobalSearch {
         LOCATIONS, CHANNELS, CATEGORIES, TAGS, AUTHORS, PUBLISHERS, COUNTRIES,
         READING_STATS, READING_CALENDAR, YEAR_REPORT, SPLIT, INCOMPLETE,
         LIBRARY_MANAGE, API_SETTINGS, ABOUT, BACKUP, BACKUP_FILES, APP_LOCK,
-        AUTO_UPDATE, EXPORT_EXCEL, REPAIR
+        AUTO_UPDATE, EXPORT_EXCEL, REPAIR, BORROWERS
     }
 
     /** 一个入口：名称 + 额外关键词 + 目标 */
@@ -91,6 +91,7 @@ public final class GlobalSearch {
         list.add(new Entry("来源渠道", "购买渠道 拼多多 淘宝 多抓鱼", Target.CHANNELS));
         list.add(new Entry("分类管理", "二级分类 归类 目录", Target.CATEGORIES));
         list.add(new Entry("标签管理", "打标 待读 儿童", Target.TAGS));
+        list.add(new Entry("借阅人档案", "借出 借书 逾期 催还 借阅人", Target.BORROWERS));
         list.add(new Entry("作者分布", "作家 谁写得多", Target.AUTHORS));
         list.add(new Entry("出版社分布", "版本 出版方", Target.PUBLISHERS));
         list.add(new Entry("国家/地区分布", "中国 美国 日本", Target.COUNTRIES));

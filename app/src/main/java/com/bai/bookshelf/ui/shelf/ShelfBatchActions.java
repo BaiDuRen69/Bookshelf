@@ -191,12 +191,12 @@ public final class ShelfBatchActions {
         return activity.findViewById(android.R.id.content);
     }
 
-    /** 批量设置：地点 / 标签 / 阅读状态 */
+    /** 批量设置：地点 / 标签 / 阅读状态 / 借出 */
     public void showBatchEdit() {
         if (selectedIds.get().isEmpty()) {
             return;
         }
-        String[] options = {"设置存放地点", "添加标签", "设置阅读状态"};
+        String[] options = {"设置存放地点", "添加标签", "设置阅读状态", "借给某人"};
         new MaterialAlertDialogBuilder(activity)
                 .setTitle("批量设置（已选 " + selectedIds.get().size() + " 种）")
                 .setItems(options, (d, which) -> {
@@ -204,12 +204,192 @@ public final class ShelfBatchActions {
                         showBatchLocation();
                     } else if (which == 1) {
                         showBatchTag();
-                    } else {
+                    } else if (which == 2) {
                         showBatchRead();
+                    } else {
+                        showBatchLend();
                     }
                 })
                 .setNegativeButton(R.string.action_cancel, null)
                 .show();
+    }
+
+    // ==================== 批量借出（v5.8.18）====================
+
+    /** 一次把 N 本登记给同一个人：每本借出 1 册，已经在外面的跳过 */
+    private void showBatchLend() {
+        BookshelfApp app = BookshelfApp.get();
+        app.io(() -> {
+            List<com.bai.bookshelf.data.entity.Borrower> all;
+            try {
+                all = app.db().borrowerDao().getAll();
+            } catch (Exception e) {
+                all = new ArrayList<>();
+            }
+            final List<com.bai.bookshelf.data.entity.Borrower> fAll = all;
+            app.ui(() -> showBorrowerPicker(fAll));
+        });
+    }
+
+    private void showBorrowerPicker(List<com.bai.bookshelf.data.entity.Borrower> all) {
+        String[] names = new String[all.size() + 1];
+        for (int i = 0; i < all.size(); i++) {
+            names[i] = all.get(i).name;
+        }
+        names[all.size()] = "＋ 新建借阅人";
+        new MaterialAlertDialogBuilder(activity)
+                .setTitle("借给谁（已选 " + selectedIds.get().size() + " 种）")
+                .setItems(names, (d, which) -> {
+                    if (which == all.size()) {
+                        showNewBorrowerThenConfirm();
+                    } else {
+                        confirmLend(all.get(which).name);
+                    }
+                })
+                .setNegativeButton(R.string.action_cancel, null)
+                .show();
+    }
+
+    private void showNewBorrowerThenConfirm() {
+        DialogInputBinding input = DialogInputBinding.inflate(activity.getLayoutInflater());
+        input.inputLayout.setHint("借阅人名字");
+        new MaterialAlertDialogBuilder(activity)
+                .setTitle("新建借阅人")
+                .setView(input.getRoot())
+                .setPositiveButton("下一步", (d, w) -> {
+                    String name = input.edit.getText().toString().trim();
+                    if (name.isEmpty()) {
+                        android.widget.Toast.makeText(activity, "先填名字",
+                                android.widget.Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    BookshelfApp app = BookshelfApp.get();
+                    app.io(() -> {
+                        com.bai.bookshelf.data.entity.Borrower borrower =
+                                new com.bai.bookshelf.data.entity.Borrower();
+                        borrower.name = name;
+                        app.db().borrowerDao().insert(borrower);
+                        app.ui(() -> confirmLend(name));
+                    });
+                })
+                .setNegativeButton(R.string.action_cancel, null)
+                .show();
+    }
+
+    /** 确认页：一行可点的应还日期 + 说明 */
+    private void confirmLend(String borrower) {
+        final String[] due = {defaultDueDate()};
+        android.widget.TextView row = new android.widget.TextView(activity);
+        row.setText("应还日期：" + due[0] + "（点按修改）");
+        row.setTextColor(com.bai.bookshelf.util.ThemeManager.resolveColor(
+                activity, R.attr.on_surface));
+        row.setBackgroundResource(R.drawable.bg_search);
+        int pad = Math.round(14 * activity.getResources().getDisplayMetrics().density);
+        row.setPadding(pad, pad, pad, pad);
+        row.setOnClickListener(v -> com.bai.bookshelf.ui.widget.CalendarPicker.showSingle(
+                activity, "应还日期",
+                com.bai.bookshelf.util.BorrowReminder.parseKey(due[0]),
+                key -> {
+                    due[0] = com.bai.bookshelf.util.BorrowReminder.formatKey(key);
+                    row.setText("应还日期：" + due[0] + "（点按修改）");
+                },
+                () -> {
+                    due[0] = "";
+                    row.setText("应还日期：未设置（点按设置）");
+                }));
+        new MaterialAlertDialogBuilder(activity)
+                .setTitle("借给 " + borrower)
+                .setMessage("把已选的 " + selectedIds.get().size()
+                        + " 种各借出 1 册；已经在外面的书会自动跳过。")
+                .setView(row)
+                .setPositiveButton("确认借出", (d, w) -> doBatchLend(borrower, due[0]))
+                .setNegativeButton(R.string.action_cancel, null)
+                .show();
+    }
+
+    /** 默认应还日期：今天 + 30 天（与单本借出一致） */
+    private String defaultDueDate() {
+        java.util.Calendar c = java.util.Calendar.getInstance();
+        c.add(java.util.Calendar.DAY_OF_MONTH, 30);
+        return com.bai.bookshelf.util.BorrowReminder.formatKey(
+                c.get(java.util.Calendar.YEAR) * 10000
+                        + (c.get(java.util.Calendar.MONTH) + 1) * 100
+                        + c.get(java.util.Calendar.DAY_OF_MONTH));
+    }
+
+    private void doBatchLend(String borrower, String dueDate) {
+        Set<Long> ids = new HashSet<>(selectedIds.get());
+        List<Book> targets = new ArrayList<>();
+        for (Book book : allBooks.get()) {
+            if (ids.contains(book.id)) {
+                targets.add(book);
+            }
+        }
+        if (targets.isEmpty()) {
+            return;
+        }
+        BookshelfApp app = BookshelfApp.get();
+        app.io(() -> {
+            long now = System.currentTimeMillis();
+            String today = com.bai.bookshelf.util.DateKeys
+                    .formatKey(com.bai.bookshelf.util.DateKeys.todayKey());
+            final List<Long> recordIds = new ArrayList<>();
+            final List<Book> before = new ArrayList<>();
+            int skipped = 0;
+            for (Book book : targets) {
+                if (!app.db().borrowRecordDao().findOpenListByBook(book.id).isEmpty()) {
+                    skipped++;
+                    continue;
+                }
+                Book snapshot = com.bai.bookshelf.util.BookSnapshot.copy(book);
+                if (snapshot == null) {
+                    skipped++;
+                    continue;
+                }
+                com.bai.bookshelf.data.entity.BorrowRecord record =
+                        new com.bai.bookshelf.data.entity.BorrowRecord();
+                record.bookId = book.id;
+                record.borrower = borrower;
+                record.lendDate = today;
+                record.dueDate = dueDate == null ? "" : dueDate;
+                record.status = com.bai.bookshelf.data.entity.BorrowRecord.STATUS_OUT;
+                record.copyIndex = 1;
+                long recordId = app.db().borrowRecordDao().insert(record);
+                if (recordId <= 0) {
+                    continue;
+                }
+                recordIds.add(recordId);
+                before.add(snapshot);
+                book.stockStatus = Book.STOCK_LENT;
+                book.updatedAt = now;
+                book.dirty = true;
+                app.db().bookDao().update(book);
+            }
+            final int lent = recordIds.size();
+            final int fSkipped = skipped;
+            app.ui(() -> {
+                exitSelection.run();
+                if (lent == 0) {
+                    android.widget.Toast.makeText(activity, "这些书都已经在外面了",
+                            android.widget.Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                String message = "已把 " + lent + " 本借给 " + borrower
+                        + (fSkipped > 0 ? "（" + fSkipped + " 本已在外面，跳过）" : "");
+                UndoBar.offer(anchorView(), message, () -> app.io(() -> {
+                    long revertAt = System.currentTimeMillis();
+                    for (long recordId : recordIds) {
+                        app.db().borrowRecordDao().deleteById(recordId);
+                    }
+                    for (Book old : before) {
+                        old.updatedAt = revertAt;
+                        old.dirty = true;
+                        app.db().bookDao().update(old);
+                    }
+                }), null);
+                com.bai.bookshelf.util.BorrowReminder.refresh(activity);
+            });
+        });
     }
 
     private void showBatchLocation() {

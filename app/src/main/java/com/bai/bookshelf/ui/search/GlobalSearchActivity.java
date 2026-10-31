@@ -321,6 +321,10 @@ public class GlobalSearchActivity extends BaseActivity {
             case LIBRARY_MANAGE:
                 startActivity(new Intent(this, LibraryManageActivity.class));
                 break;
+            case BORROWERS:
+                startActivity(new Intent(this,
+                        com.bai.bookshelf.ui.lend.BorrowerActivity.class));
+                break;
             case API_SETTINGS:
                 startActivity(new Intent(this, ApiSettingsActivity.class));
                 break;

@@ -158,6 +158,36 @@
                     <View style="@style/MineRowDivider" />
 
                     <LinearLayout
+                        android:id="@+id/row_borrower"
+                        style="@style/MineRow">
+
+                        <ImageView
+                            style="@style/MineRowIcon"
+                            android:contentDescription="借阅人档案"
+                            android:src="@drawable/ic_person_line" />
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="@dimen/space_md"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                style="@style/MineRowTitle"
+                                android:text="借阅人档案" />
+
+                            <TextView
+                                style="@style/MineRowSubtitle"
+                                android:text="谁借了几本、有没有逾期、手上还剩几本" />
+                        </LinearLayout>
+
+                        <ImageView style="@style/MineRowChevron" />
+                    </LinearLayout>
+
+                    <View style="@style/MineRowDivider" />
+
+                    <LinearLayout
                         android:id="@+id/row_split"
                         style="@style/MineRow">
 

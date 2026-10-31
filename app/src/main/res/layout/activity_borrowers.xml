@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 借阅人档案（v5.8.18）：每人一行，显示在外 / 借过 / 逾期 / 按时率 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="?android:attr/colorBackground"
+    android:orientation="vertical">
+
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/toolbar"
+        style="@style/Widget.Bookshelf.Toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/toolbar_h"
+        app:navigationIcon="@drawable/ic_back"
+        app:title="借阅人档案" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingHorizontal="@dimen/page_padding"
+        android:paddingTop="@dimen/space_xs"
+        android:paddingBottom="@dimen/space_xs"
+        android:text="点一个人可以把他手上没还的书发成借阅条；长按改名或删除。"
+        android:textColor="?attr/on_surface_variant"
+        android:textSize="@dimen/text_caption" />
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recycler"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:clipToPadding="false"
+        android:paddingHorizontal="@dimen/page_padding"
+        android:paddingBottom="@dimen/space_sm" />
+
+    <TextView
+        android:id="@+id/tv_empty"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:gravity="center"
+        android:padding="@dimen/page_padding"
+        android:text="还没有借出记录。\n在书架长按多选，批量设置里选「借给某人」就能一次登记。"
+        android:textColor="?attr/on_surface_variant"
+        android:textSize="@dimen/text_body"
+        android:visibility="gone" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btn_add"
+        style="@style/Widget.Bookshelf.Button"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="@dimen/page_padding"
+        android:text="添加借阅人" />
+</LinearLayout>
