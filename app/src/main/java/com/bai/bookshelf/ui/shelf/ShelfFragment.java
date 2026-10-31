@@ -32,8 +32,10 @@ import com.bai.bookshelf.util.InsetsHelper;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 /**
@@ -97,6 +99,10 @@ public class ShelfFragment extends Fragment {
 
     // v4.41：搜索索引（bookId → 归一化原文 + 拼音 + 首字母）与 150ms 输入防抖
     private final java.util.Map<Long, String> searchIndex = new java.util.HashMap<>();
+    /** v5.8.20：每本书上次入索引时的 updatedAt，用来只重算变过的书 */
+    private final java.util.Map<Long, Long> indexedStamps = new java.util.HashMap<>();
+    /** 上次索引看到的摘抄表指纹（条数 + 最后改动时刻） */
+    private String excerptFingerprint = "";
     /** 是否已经注册 books 的 LiveData（库就绪回调可能被调用不止一次） */
     private boolean observingBooks;
     /** 筛选/搜索的代际号（v5.8.13）：只有最新一次的结果允许上屏 */
@@ -996,19 +1002,94 @@ public class ShelfFragment extends Fragment {
      */
     private int ownedCopies;
 
-    /** 数据变化后异步重建搜索索引（拼音转写较贵，不放在按键路径上） */
+    /**
+     * 数据变化后更新搜索索引（v5.8.20 改增量）。
+     *
+     * <p>拼音转写很贵（真机实测 1000 本全量重建 3.6 秒），以前每改一本书就整表重来一遍，
+     * 还要重读全部摘抄。现在按 updatedAt 找出真正变过的书，只重算这些本；
+     * 摘抄表用一条指纹查询判断有没有变，变了才重读。首次或改动面超过四分之一时才整表重建。
+     */
     private void refreshSearchIndexAsync() {
         final List<Book> snapshot = new ArrayList<>(allBooks);
         BookshelfApp app = BookshelfApp.get();
         app.io(() -> {
-            List<com.bai.bookshelf.data.entity.Excerpt> excerpts;
+            String fingerprint = null;
             try {
-                excerpts = app.db().excerptDao().getAll();
-            } catch (Exception e) {
-                excerpts = new ArrayList<>();
+                fingerprint = app.db().excerptDao().fingerprint();
+            } catch (Exception ignored) {
+                // 读不到指纹就当摘抄没变，最多晚一轮再修
             }
-            final java.util.Map<Long, String> map =
-                    com.bai.bookshelf.util.SearchIndex.build(snapshot, excerpts);
+            final boolean excerptsChanged = fingerprint != null
+                    && !fingerprint.equals(excerptFingerprint);
+            if (fingerprint != null) {
+                excerptFingerprint = fingerprint;
+            }
+
+            final Set<Long> dirty;
+            final Set<Long> gone;
+            List<com.bai.bookshelf.data.entity.Excerpt> allExcerpts = null;
+            if (excerptsChanged) {
+                try {
+                    allExcerpts = app.db().excerptDao().getAll();
+                } catch (Exception ignored) {
+                    allExcerpts = new ArrayList<>();
+                }
+            }
+            Set<Long> touched = new HashSet<>();
+            if (allExcerpts != null) {
+                for (com.bai.bookshelf.data.entity.Excerpt e : allExcerpts) {
+                    touched.add(e.bookId);
+                }
+            }
+            dirty = com.bai.bookshelf.util.SearchIndex.dirtyIds(snapshot, indexedStamps, touched);
+            gone = com.bai.bookshelf.util.SearchIndex.removedIds(indexedStamps.keySet(), snapshot);
+            // 首次、记账与索引对不上、或改动面超过四分之一时，整表重建更划算
+            final boolean full = com.bai.bookshelf.util.SearchIndex.needsFullRebuild(
+                    indexedStamps.isEmpty() && !snapshot.isEmpty(),
+                    searchIndex.size(), indexedStamps.size(), dirty.size(), snapshot.size());
+            final List<Book> targets = new ArrayList<>();
+            if (!full) {
+                for (Book book : snapshot) {
+                    if (dirty.contains(book.id)) {
+                        targets.add(book);
+                    }
+                }
+            }
+            final Map<Long, String> rebuilt;
+            final Map<Long, Long> rebuiltStamps = new HashMap<>();
+            if (full) {
+                List<com.bai.bookshelf.data.entity.Excerpt> excerpts = allExcerpts;
+                if (excerpts == null) {
+                    try {
+                        excerpts = app.db().excerptDao().getAll();
+                    } catch (Exception e) {
+                        excerpts = new ArrayList<>();
+                    }
+                }
+                rebuilt = com.bai.bookshelf.util.SearchIndex.build(snapshot, excerpts);
+                for (Book book : snapshot) {
+                    rebuiltStamps.put(book.id, book.updatedAt);
+                }
+            } else {
+                rebuilt = new HashMap<>(searchIndex);
+                rebuiltStamps.putAll(indexedStamps);
+                for (Long id : gone) {
+                    rebuilt.remove(id);
+                    rebuiltStamps.remove(id);
+                }
+                for (Book book : targets) {
+                    String text = "";
+                    try {
+                        text = com.bai.bookshelf.util.SearchIndex.excerptText(
+                                app.db().excerptDao().getByBook(book.id));
+                    } catch (Exception ignored) {
+                    }
+                    rebuilt.put(book.id,
+                            com.bai.bookshelf.util.SearchIndex.forBook(book, text));
+                    rebuiltStamps.put(book.id, book.updatedAt);
+                }
+            }
+            final Map<Long, String> map = rebuilt;
             int copiesResult = -1;
             try {
                 copiesResult = com.bai.bookshelf.util.LibraryStats.countOwnedCopies(snapshot,
@@ -1026,6 +1107,8 @@ public class ShelfFragment extends Fragment {
                 ownedCopies = copies >= 0 ? copies : titles;
                 searchIndex.clear();
                 searchIndex.putAll(map);
+                indexedStamps.clear();
+                indexedStamps.putAll(rebuiltStamps);
                 // 册数与种数一起决定页头文案，索引回来时顺手刷新一次
                 statusView.updateMeta(titles, ownedCopies, locations.size());
                 // 索引晚于输入就绪时补一次筛选（此时才可能命中拼音）

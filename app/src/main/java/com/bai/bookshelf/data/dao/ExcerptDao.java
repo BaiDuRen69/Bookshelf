@@ -22,6 +22,13 @@ public interface ExcerptDao {
     @Query("SELECT COUNT(*) FROM excerpts WHERE bookId = :bookId")
     int countByBook(long bookId);
 
+    /**
+     * 摘抄表指纹（条数 + 最后改动时刻）：书架搜索索引靠它判断「摘抄有没有变过」，
+     * 不用再为这件事读一遍全表（v5.8.20）。
+     */
+    @Query("SELECT COUNT(*) || '/' || IFNULL(MAX(updatedAt), 0) FROM excerpts")
+    String fingerprint();
+
     @Insert
     long insert(Excerpt excerpt);
 
