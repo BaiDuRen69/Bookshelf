@@ -162,6 +162,28 @@ public final class SearchText {
         }
     }
 
+    /**
+     * 排序/索引用的罗马化串：汉字转拼音后归一化（「红楼梦」→「hongloumeng」）。
+     * Android 10 以下没有系统转写，返回原文归一化结果，排序退化为按字符序。
+     */
+    public static String sortKey(String text) {
+        if (text == null || text.isEmpty()) {
+            return "";
+        }
+        String latinized = latin(text);
+        return latinized.isEmpty() ? normalize(text) : normalize(latinized);
+    }
+
+    /** 索引条分组字母：A–Z；数字/符号开头或转写不出来的一律归「#」 */
+    public static String initialLetter(String text) {
+        String key = sortKey(text);
+        if (key.isEmpty()) {
+            return "#";
+        }
+        char c = key.charAt(0);
+        return c >= 'a' && c <= 'z' ? String.valueOf(Character.toUpperCase(c)) : "#";
+    }
+
     /** 每个音节取首字母：「hong lou meng」→「hlm」 */
     private static String initials(String spaced) {
         if (spaced.isEmpty()) {

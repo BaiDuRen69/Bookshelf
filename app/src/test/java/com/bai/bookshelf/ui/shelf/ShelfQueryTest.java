@@ -193,6 +193,38 @@ public class ShelfQueryTest {
         return b;
     }
 
+    @Test
+    public void sortByAuthorAndTitle() {
+        Book zhang = book(1, "C 书");
+        zhang.author = "Zhang San";
+        Book li = book(2, "B 书");
+        li.author = "Li Si";
+        Book none = book(3, "A 书");
+        none.author = "";
+
+        ShelfQuery.Criteria byAuthor = new ShelfQuery.Criteria();
+        byAuthor.sortType = 11;
+        List<Book> authors = ShelfQuery.query(Arrays.asList(zhang, li, none),
+                byAuthor, "", null, null, 20261027);
+        // 作者字母序：Li < Zhang < 没填作者的排最后
+        assertEquals(2, authors.get(0).id);
+        assertEquals(1, authors.get(1).id);
+        assertEquals(3, authors.get(2).id);
+
+        ShelfQuery.Criteria byTitle = new ShelfQuery.Criteria();
+        byTitle.sortType = 1;
+        List<Book> titles = ShelfQuery.query(Arrays.asList(zhang, li, none),
+                byTitle, "", null, null, 20261027);
+        assertEquals(3, titles.get(0).id);
+
+        ShelfQuery.Criteria reversed = new ShelfQuery.Criteria();
+        reversed.sortType = 1;
+        reversed.sortReversed = true;
+        List<Book> desc = ShelfQuery.query(Arrays.asList(zhang, li, none),
+                reversed, "", null, null, 20261027);
+        assertEquals(1, desc.get(0).id);
+    }
+
     private static Category category(long id, String name, Long parentId) {
         Category c = new Category();
         c.id = id;

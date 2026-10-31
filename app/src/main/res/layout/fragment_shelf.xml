@@ -593,6 +593,29 @@
                 android:paddingTop="@dimen/space_sm"
                 android:paddingBottom="96dp" />
 
+            <!-- v5.8.16：A–Z 索引条与拖动气泡（结果够长且按书名/作者排序时才出现） -->
+            <TextView
+                android:id="@+id/tv_index_bubble"
+                android:layout_width="64dp"
+                android:layout_height="64dp"
+                android:layout_gravity="center"
+                android:background="@drawable/bg_index_bubble"
+                android:fontFamily="serif"
+                android:gravity="center"
+                android:textColor="?attr/colorOnPrimary"
+                android:textSize="26sp"
+                android:visibility="gone" />
+
+            <com.bai.bookshelf.ui.shelf.IndexSidebarView
+                android:id="@+id/index_sidebar"
+                android:layout_width="26dp"
+                android:layout_height="match_parent"
+                android:layout_gravity="end|center_vertical"
+                android:layout_marginEnd="2dp"
+                android:paddingTop="12dp"
+                android:paddingBottom="12dp"
+                android:visibility="gone" />
+
             <!-- 空态：线稿插画 + 主文案 + 主按钮 -->
             <LinearLayout
                 android:id="@+id/ll_empty"

@@ -172,7 +172,14 @@ public final class ShelfQuery {
     private static void sort(List<Book> result, int sortType, boolean reversed) {
         switch (sortType) {
             case 1:
-                result.sort((x, y) -> x.title.compareToIgnoreCase(y.title));
+                // v5.8.16：拼音序而不是字符序，「安娜」才会排在「赵」前面
+                result.sort((x, y) -> compareRomanized(x.title, y.title));
+                break;
+            case 11:
+                result.sort((x, y) -> {
+                    int byAuthor = compareRomanized(x.author, y.author);
+                    return byAuthor != 0 ? byAuthor : compareRomanized(x.title, y.title);
+                });
                 break;
             case 2:
                 result.sort((x, y) -> Double.compare(
@@ -215,6 +222,22 @@ public final class ShelfQuery {
         if (reversed) {
             Collections.reverse(result);
         }
+    }
+
+    /** 罗马化串比较；空串（没填 / 转写不出来）排最后 */
+    static int compareRomanized(String a, String b) {
+        String ka = com.bai.bookshelf.util.SearchText.sortKey(a);
+        String kb = com.bai.bookshelf.util.SearchText.sortKey(b);
+        if (ka.isEmpty() && kb.isEmpty()) {
+            return 0;
+        }
+        if (ka.isEmpty()) {
+            return 1;
+        }
+        if (kb.isEmpty()) {
+            return -1;
+        }
+        return ka.compareTo(kb);
     }
 
     private static double parseDouban(Book book) {

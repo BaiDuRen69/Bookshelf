@@ -46,6 +46,7 @@
         <item>按字数</item>
         <item>按书名长度</item>
         <item>按页数</item>
+        <item>按作者</item>
     </string-array>
 
     <!-- API 鉴权方式（与 ApiPrefs.AUTH_* 一一对应：0/1/2） -->

@@ -100,6 +100,9 @@ public class ShelfFragment extends Fragment {
     /** 筛选/搜索的代际号（v5.8.13）：只有最新一次的结果允许上屏 */
     private long filterGeneration;
 
+    /** v5.8.16：当前结果的字母桶（按书名/作者排序时才有值） */
+    private List<String> indexLetters = new ArrayList<>();
+
     /** 页头字标行是否已折叠（v5.8.5） */
     private boolean headerCollapsed;
     private int heroFullHeight;
@@ -339,6 +342,7 @@ public class ShelfFragment extends Fragment {
                         > (int) (96 * getResources().getDisplayMetrics().density));
             }
         });
+        setupIndexSidebar();
 
         // v4.2（评审 #7）：响应式观察 books 表——任何增删改（包括纯文本字段编辑）
         // 都由 Room 自动推送，无需指纹比对、RESULT_OK 标脏或手动触发。
@@ -767,6 +771,52 @@ public class ShelfFragment extends Fragment {
         b.llRecentSearches.addView(chip);
     }
 
+    /** v5.8.16：右侧字母索引条——点一下或按住拖动都跳，拖动时中间显示气泡 */
+    private void setupIndexSidebar() {
+        b.indexSidebar.setContentDescription("字母索引，按字母跳转");
+        b.indexSidebar.setListener(new IndexSidebarView.Listener() {
+            @Override
+            public void onLetter(String letter) {
+                int pos = com.bai.bookshelf.util.ShelfIndex
+                        .firstPositionAtOrAfter(indexLetters, letter);
+                if (pos < 0) {
+                    return;
+                }
+                RecyclerView.LayoutManager lm = b.recycler.getLayoutManager();
+                if (lm instanceof androidx.recyclerview.widget.GridLayoutManager) {
+                    ((androidx.recyclerview.widget.GridLayoutManager) lm)
+                            .scrollToPositionWithOffset(pos, 0);
+                } else {
+                    b.recycler.scrollToPosition(pos);
+                }
+                b.tvIndexBubble.setText(letter);
+                b.tvIndexBubble.setVisibility(View.VISIBLE);
+            }
+
+            @Override
+            public void onDragEnd() {
+                b.tvIndexBubble.setVisibility(View.GONE);
+            }
+        });
+    }
+
+    /** 结果够长且确实是字母序时才露出索引条 */
+    private void updateIndexBar() {
+        if (b == null) {
+            return;
+        }
+        java.util.Set<String> available =
+                com.bai.bookshelf.util.ShelfIndex.available(indexLetters);
+        boolean show = indexLetters.size() >= com.bai.bookshelf.util.ShelfIndex.MIN_ITEMS
+                && available.size() >= 2;
+        b.indexSidebar.setVisibility(show ? View.VISIBLE : View.GONE);
+        if (!show) {
+            b.tvIndexBubble.setVisibility(View.GONE);
+            return;
+        }
+        b.indexSidebar.setAvailable(available);
+    }
+
     private void applyFilters() {
         if (b == null) {
             return;
@@ -844,12 +894,17 @@ public class ShelfFragment extends Fragment {
         BookshelfApp.get().io(() -> {
             final List<Book> result =
                     ShelfQuery.query(fSnapshot, fCriteria, fQueryNorm, fIndex, fLoans, fToday);
+            // 字母索引桶跟排序走：只有「按书名 / 按作者」是字母序，其余排序不出现索引条
+            final List<String> letters =
+                    com.bai.bookshelf.util.ShelfIndex.letters(result, fCriteria.sortType);
             BookshelfApp.get().ui(() -> {
                 if (gen != filterGeneration || b == null) {
                     return; // 期间又输入/改了筛选，这批结果已经过期
                 }
                 // v3.2 优化：只给「当前正在显示」的适配器提交数据。
                 lastResult = result;
+                indexLetters = letters;
+                updateIndexBar();
                 // v4.41：搜索词同时给三个适配器，命中处高亮
                 adapter.setKeyword(fKeyword);
                 gridAdapter.setKeyword(fKeyword);
