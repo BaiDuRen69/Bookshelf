@@ -40,6 +40,10 @@ public interface NoteImageDao {
     @Query("SELECT * FROM note_images")
     List<NoteImage> getAll();
 
+    /** 备份前置指纹用：行数 */
+    @Query("SELECT COUNT(*) FROM note_images")
+    long count();
+
     /** zip 备份恢复用：清空备注图片记录 */
     @Query("DELETE FROM note_images")
     void deleteAll();

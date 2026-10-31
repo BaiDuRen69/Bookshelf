@@ -25,6 +25,8 @@ import java.util.Locale;
  * 并在每次启动应用时静默执行备份（失败不打扰用户）。
  *
  * 备份规则（zip 包内含 data.json + media/ + meta.json，见 {@link ZipBackup}）：
+ * 0. 自动备份先看{@link BackupFingerprint 内容指纹}，与上次打包时一致就直接跳过（v5.8.21，
+ *    省掉一次「读全部封面 + 算校验和 + 压成 zip」）；
  * 1. 藏书为 0 本时不备份（没内容没必要留档）；
  * 2. 新备份与最近一份备份的**内容校验和**相同则跳过（v5.7：meta 里带了打包时刻，
  *    不能再比字节）；
@@ -43,6 +45,8 @@ public final class BackupManager {
     private static final String KEY_SAF_FAIL_MSG = "saf_fail_msg";
     /** 用户关掉「备份太久没更新」提醒的时刻，30 天内不再打扰 */
     private static final String KEY_REMINDER_OFF_AT = "reminder_off_at";
+    /** 上一次打包成功时的内容指纹（v5.8.21：状态没变就连包都不打） */
+    private static final String KEY_CONTENT_FP = "content_fp";
     /** 最新备份超过这个天数就提醒一次 */
     public static final int STALE_DAYS = 30;
     /** 关掉提醒后安静多少天 */
@@ -189,6 +193,11 @@ public final class BackupManager {
                 if (backedUpToday(ctx)) {
                     return; // v4.45：每天最多一次，避免每次启动都压缩整库
                 }
+                // v5.8.21 规则 0：内容和上次打包时一模一样就跳过（省掉整包压缩与 I/O）
+                String fp = BackupFingerprint.of(ctx, app.db());
+                if (canSkipAuto(ctx, fp)) {
+                    return;
+                }
                 // v5.8.11：打包直接落临时文件，外部副本从文件流式读，整包不再进内存
                 File tmp = tempZip(ctx);
                 try {
@@ -205,6 +214,7 @@ public final class BackupManager {
                         }
                     }
                     writeInternal(ctx, tmp, meta.checksum);
+                    rememberFingerprint(ctx, fp);
                 } finally {
                     //noinspection ResultOfMethodCallIgnored
                     tmp.delete();
@@ -213,6 +223,30 @@ public final class BackupManager {
                 // 内部备份失败：装不下/IO 异常，用户下次手动备份时能立刻看到
             }
         });
+    }
+
+    /**
+     * 这次自动备份能不能整个跳过（v5.8.21 规则 0）。
+     *
+     * <p>三个条件同时成立才跳：算得出指纹、内部确实已有备份文件、指纹与上次打包时一致。
+     * 任何一项不满足都照常打包——宁可多备份一次。
+     */
+    static boolean canSkipAuto(Context ctx, String fp) {
+        return fp != null
+                && latestInternalBackup(ctx) != null
+                && fp.equals(prefs(ctx).getString(KEY_CONTENT_FP, ""));
+    }
+
+    /**
+     * 记下「这次打包时的内容指纹」（v5.8.21）。
+     *
+     * <p>只在写盘成功后记；失败时留旧值，下次启动照常打一次包，不会因为记错而漏备份。
+     */
+    private static void rememberFingerprint(Context ctx, String fp) {
+        if (fp == null) {
+            return;
+        }
+        prefs(ctx).edit().putString(KEY_CONTENT_FP, fp).apply();
     }
 
     /** 最近一份内部备份（没有则 null） */
@@ -249,6 +283,9 @@ public final class BackupManager {
             }
             File tmp = tempZip(ctx);
             try {
+                // 手动备份永远真打包（用户点了就要有结果），但顺手刷新指纹，
+                // 让之后的自动备份能认出「内容其实没变」
+                String fp = BackupFingerprint.of(ctx, app.db());
                 BackupMeta meta = ZipBackup.createTo(ctx, tmp);
                 o.meta = meta;
                 Uri treeUri = getTreeUri(ctx);
@@ -264,6 +301,7 @@ public final class BackupManager {
                     }
                 }
                 writeInternal(ctx, tmp, meta.checksum);
+                rememberFingerprint(ctx, fp);
                 File latest = latestInternalBackup(ctx);
                 o.bytes = latest == null ? tmp.length() : latest.length();
             } finally {

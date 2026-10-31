@@ -25,6 +25,10 @@ public interface BookCopyDao {
     @Query("SELECT * FROM book_copies")
     List<BookCopy> getAll();
 
+    /** 备份前置指纹用：行数 */
+    @Query("SELECT COUNT(*) FROM book_copies")
+    long count();
+
     /** zip 备份恢复用：清空副本表 */
     @Query("DELETE FROM book_copies")
     void deleteAll();

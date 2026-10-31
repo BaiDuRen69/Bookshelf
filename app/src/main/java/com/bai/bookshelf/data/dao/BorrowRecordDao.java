@@ -40,6 +40,10 @@ public interface BorrowRecordDao {
     @Query("SELECT * FROM borrow_records")
     List<BorrowRecord> getAll();
 
+    /** 备份前置指纹用：行数 */
+    @Query("SELECT COUNT(*) FROM borrow_records")
+    long count();
+
     /** zip 备份恢复用：清空借出记录 */
     @Query("DELETE FROM borrow_records")
     void deleteAll();

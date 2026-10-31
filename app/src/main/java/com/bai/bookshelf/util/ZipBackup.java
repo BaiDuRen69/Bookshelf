@@ -298,8 +298,8 @@ public final class ZipBackup {
         return new File(filesDirPath, path).getAbsolutePath();
     }
 
-    /** 递归收集目录下的图片文件 */
-    private static void collectImages(File root, File dir, List<File> out) {
+    /** 递归收集目录下的图片文件（{@link BackupFingerprint} 共用同一套取文件规则） */
+    static void collectImages(File root, File dir, List<File> out) {
         File[] children = dir.listFiles();
         if (children == null) {
             return;
@@ -327,7 +327,7 @@ public final class ZipBackup {
     }
 
     /** 文件相对 filesDir 的路径（分隔符统一为 /，与 zip 条目名一致） */
-    private static String relPath(File filesDir, File f) {
+    static String relPath(File filesDir, File f) {
         String rel = f.getAbsolutePath().substring(filesDir.getAbsolutePath().length() + 1);
         return rel.replace(File.separatorChar, '/');
     }
