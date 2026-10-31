@@ -133,11 +133,9 @@ public class DbRepairInstrumentedTest {
     @Test
     public void 坏库可以用zip备份重建() throws Exception {
         int expected = insertSampleBook();
-        ZipBackup.Bundle bundle = ZipBackup.create(ctx());
         File zip = new File(ctx().getCacheDir(), "repair_test.zip");
-        try (FileOutputStream out = new FileOutputStream(zip)) {
-            out.write(bundle.zip);
-        }
+        // v5.8.11：打包直接写文件（不再整包进内存）
+        ZipBackup.createTo(ctx(), zip);
         corruptDatabase();
 
         int restored = DbRepair.restoreFromZip(ctx(), Uri.fromFile(zip));

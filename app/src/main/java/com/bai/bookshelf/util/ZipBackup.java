@@ -45,16 +45,6 @@ public final class ZipBackup {
     /** 参与备份的图片扩展名（小写） */
     private static final String[] IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".gif"};
 
-    /** 一次打包的产物 */
-    public static class Bundle {
-        public final byte[] zip;
-        public final BackupMeta meta;
-
-        Bundle(byte[] zip, BackupMeta meta) {
-            this.zip = zip;
-            this.meta = meta;
-        }
-    }
 
     /**
      *  zip 里的一个媒体条目。
@@ -114,8 +104,14 @@ public final class ZipBackup {
     private ZipBackup() {
     }
 
-    /** 生成备份 zip 的全部字节与 meta（需在后台线程调用） */
-    public static Bundle create(Context ctx) throws IOException {
+    /**
+     * 生成备份 zip 并<b>直接写到文件</b>（需在后台线程调用）。
+     *
+     * <p>v5.8.11：以前先打包进 ByteArrayOutputStream 再落盘，整库图片会在内存里
+     * 再走一遍；现在 ZipOutputStream 直写文件、SHA-256 边写边算，
+     * 内存峰值只剩 data.json 本身 + 8KB 缓冲。返回 meta（含校验和）。
+     */
+    public static BackupMeta createTo(Context ctx, File out) throws IOException {
         AppDatabase db = BookshelfApp.get().db();
         String filesDirPath = ctx.getFilesDir().getAbsolutePath();
 
@@ -154,9 +150,22 @@ public final class ZipBackup {
         meta.dbVersion = AppDatabase.VERSION;
         meta.createdAt = System.currentTimeMillis();
         meta.books = books.size();
-        ByteArrayOutputStream bos = new ByteArrayOutputStream();
-        writeZip(bos, jsonBytes, media, meta);
-        return new Bundle(bos.toByteArray(), meta);
+        // ZipOutputStream.close() 会连底层 FileOutputStream 一起关掉，那样就没法 sync 了；
+        // 用一个「关的时候只 flush」的包装，先 finish 再 fsync 落盘
+        try (java.io.FileOutputStream raw = new java.io.FileOutputStream(out)) {
+            java.util.zip.ZipOutputStream zos = new java.util.zip.ZipOutputStream(
+                    new java.io.FilterOutputStream(raw) {
+                        @Override
+                        public void close() throws IOException {
+                            flush();
+                        }
+                    });
+            writeZipTo(zos, jsonBytes, media, meta);
+            zos.finish();
+            zos.flush();
+            raw.getFD().sync();
+        }
+        return meta;
     }
 
     /**
@@ -166,9 +175,17 @@ public final class ZipBackup {
      */
     public static void writeZip(OutputStream out, byte[] dataJson, List<MediaItem> media,
                                 BackupMeta meta) throws IOException {
+        try (ZipOutputStream zos = new ZipOutputStream(out)) {
+            writeZipTo(zos, dataJson, media, meta);
+        }
+    }
+
+    /** 往已建好的 ZipOutputStream 里写全部条目（调用方负责 finish/关流） */
+    private static void writeZipTo(ZipOutputStream zos, byte[] dataJson, List<MediaItem> media,
+                                   BackupMeta meta) throws IOException {
         BackupChecksum checksum = new BackupChecksum();
         long payload = 0;
-        try (ZipOutputStream zos = new ZipOutputStream(out)) {
+        {
             payload += writeEntry(zos, BackupFormat.ENTRY_DATA, dataJson, checksum);
             for (MediaItem item : media) {
                 try (InputStream in = item.open()) {

@@ -189,20 +189,25 @@ public final class BackupManager {
                 if (backedUpToday(ctx)) {
                     return; // v4.45：每天最多一次，避免每次启动都压缩整库
                 }
-                ZipBackup.Bundle bundle = ZipBackup.create(ctx);
-                // 默认存放位置：应用内部存储 backups/ 目录
-                writeInternal(ctx, bundle.zip, bundle.meta.checksum);
-                // 可选外部副本：用户选过的 SAF 文件夹
-                Uri treeUri = getTreeUri(ctx);
-                if (treeUri != null) {
-                    try {
-                        writeTree(ctx, treeUri, bundle.zip, bundle.meta.checksum);
-                        markSafOk(ctx);
-                    } catch (Exception e) {
-                        // 内部备份已经写成，外部副本失败只记账不在后台弹窗；
-                        // 我的页会显示「外部副本自 X 起未更新」
-                        markSafFail(ctx, e);
+                // v5.8.11：打包直接落临时文件，外部副本从文件流式读，整包不再进内存
+                File tmp = tempZip(ctx);
+                try {
+                    BackupMeta meta = ZipBackup.createTo(ctx, tmp);
+                    Uri treeUri = getTreeUri(ctx);
+                    if (treeUri != null) {
+                        try {
+                            writeTree(ctx, treeUri, tmp, meta.checksum);
+                            markSafOk(ctx);
+                        } catch (Exception e) {
+                            // 内部备份随后会写成，外部副本失败只记账不在后台弹窗；
+                            // 我的页会显示「外部副本自 X 起未更新」
+                            markSafFail(ctx, e);
+                        }
                     }
+                    writeInternal(ctx, tmp, meta.checksum);
+                } finally {
+                    //noinspection ResultOfMethodCallIgnored
+                    tmp.delete();
                 }
             } catch (Exception ignored) {
                 // 内部备份失败：装不下/IO 异常，用户下次手动备份时能立刻看到
@@ -242,23 +247,29 @@ public final class BackupManager {
                 o.empty = true;
                 return o;
             }
-            ZipBackup.Bundle bundle = ZipBackup.create(ctx);
-            o.meta = bundle.meta;
-            writeInternal(ctx, bundle.zip, bundle.meta.checksum);
-            Uri treeUri = getTreeUri(ctx);
-            if (treeUri != null) {
-                try {
-                    writeTree(ctx, treeUri, bundle.zip, bundle.meta.checksum);
-                    markSafOk(ctx);
-                } catch (Exception e) {
-                    // 外部副本失败不影响内部备份，但必须让用户知道它没写进去
-                    markSafFail(ctx, e);
-                    o.safFailed = true;
-                    o.safError = safFailMessage(ctx);
+            File tmp = tempZip(ctx);
+            try {
+                BackupMeta meta = ZipBackup.createTo(ctx, tmp);
+                o.meta = meta;
+                Uri treeUri = getTreeUri(ctx);
+                if (treeUri != null) {
+                    try {
+                        writeTree(ctx, treeUri, tmp, meta.checksum);
+                        markSafOk(ctx);
+                    } catch (Exception e) {
+                        // 外部副本失败不影响内部备份，但必须让用户知道它没写进去
+                        markSafFail(ctx, e);
+                        o.safFailed = true;
+                        o.safError = safFailMessage(ctx);
+                    }
                 }
+                writeInternal(ctx, tmp, meta.checksum);
+                File latest = latestInternalBackup(ctx);
+                o.bytes = latest == null ? tmp.length() : latest.length();
+            } finally {
+                //noinspection ResultOfMethodCallIgnored
+                tmp.delete();
             }
-            File latest = latestInternalBackup(ctx);
-            o.bytes = latest == null ? bundle.zip.length : latest.length();
             return o;
         } catch (Exception e) {
             o.failed = true;
@@ -310,34 +321,35 @@ public final class BackupManager {
     }
 
     /** 内容是否与最近一份备份一致（v5.7：比校验和；旧包无比对基准时退回比字节） */
-    private static boolean unchanged(File latest, byte[] zip, String checksum) {
+    /**
+     * 内容是否没变：只看校验和。
+     *
+     * <p>v5.8.11 起备份不再整包进内存，没法再拿字节数组兜底；没有 meta 的老包
+     * 一律按「变了」处理（下次打包会带上 meta，之后就走校验和去重）。
+     */
+    private static boolean unchanged(File latest, String checksum) {
         BackupMeta prev = BackupInspector.readMeta(latest);
-        if (prev != null && prev.hasChecksum()) {
-            return prev.checksum.equalsIgnoreCase(checksum);
-        }
-        if (prev != null) {
-            // 有 meta 但没有校验和（理论上只出现在半成品包）：保守起见按「变了」处理
-            return false;
-        }
-        byte[] latestData = readFile(latest);
-        return latestData != null && Arrays.equals(latestData, zip);
+        return prev != null && prev.hasChecksum()
+                && prev.checksum.equalsIgnoreCase(checksum);
     }
 
     // ======================= 应用内部存储 =======================
 
-    /** 写入内部存储 backups/ 目录（带内容去重 + 轮换清理） */
-    private static void writeInternal(Context ctx, byte[] zip, String checksum) {
+    /** 把打包好的临时文件写入 backups/ 目录（带内容去重 + 轮换清理） */
+    private static File writeInternal(Context ctx, File src, String checksum) {
         File dir = new File(ctx.getFilesDir(), INTERNAL_DIR);
         if (!dir.exists() && !dir.mkdirs()) {
-            return;
+            return null;
         }
         File[] existing = listInternal(dir);
-        if (existing.length > 0
-                && unchanged(existing[existing.length - 1], zip, checksum)) {
-            return; // 规则 2：内容没变，跳过
+        if (existing.length > 0 && unchanged(existing[existing.length - 1], checksum)) {
+            return null; // 规则 2：内容没变，跳过
         }
         File out = new File(dir, BACKUP_PREFIX + timestamp() + BACKUP_EXT);
-        writeFile(out, zip);
+        if (!src.renameTo(out)) {
+            // 跨目录改名失败就退化成流式复制（仍不把整包读进内存）
+            copyFile(src, out);
+        }
         // 规则 3：只保留最近 MAX_KEEP 份
         File[] all = listInternal(dir);
         while (all.length > MAX_KEEP) {
@@ -345,6 +357,39 @@ public final class BackupManager {
                 break; // 删不掉就停下，下轮再试
             }
             all = listInternal(dir);
+        }
+        return out;
+    }
+
+    /** 打包临时文件（放在 backups/ 里，rename 同目录才原子；点开头不会被当成备份） */
+    private static File tempZip(Context ctx) {
+        File dir = new File(ctx.getFilesDir(), INTERNAL_DIR);
+        //noinspection ResultOfMethodCallIgnored
+        dir.mkdirs();
+        File[] stale = dir.listFiles((d, name) -> name.startsWith(".tmp_"));
+        if (stale != null) {
+            long hourAgo = System.currentTimeMillis() - 3600_000L;
+            for (File f : stale) {
+                if (f.lastModified() < hourAgo) {
+                    //noinspection ResultOfMethodCallIgnored
+                    f.delete();
+                }
+            }
+        }
+        return new File(dir, ".tmp_" + System.currentTimeMillis() + BACKUP_EXT);
+    }
+
+    /** 流式复制文件（8KB 缓冲） */
+    private static void copyFile(File src, File dst) {
+        try (java.io.InputStream in = new java.io.FileInputStream(src);
+             FileOutputStream out = new FileOutputStream(dst)) {
+            byte[] buf = new byte[8192];
+            int len;
+            while ((len = in.read(buf)) > 0) {
+                out.write(buf, 0, len);
+            }
+        } catch (Exception ignored) {
+            // 复制失败：保留临时文件，下一次会重来
         }
     }
 
@@ -385,7 +430,7 @@ public final class BackupManager {
     // ======================= SAF 文件夹（外部副本） =======================
 
     /** 写入用户自选的 SAF 文件夹（带去重 + 轮换清理） */
-    private static void writeTree(Context ctx, Uri treeUri, byte[] zip, String checksum)
+    private static void writeTree(Context ctx, Uri treeUri, File src, String checksum)
             throws Exception {
         List<BackupFile> existing = listBackups(ctx, treeUri);
         if (!existing.isEmpty()) {
@@ -401,7 +446,7 @@ public final class BackupManager {
                 return; // 规则 2：内容没变，跳过
             }
         }
-        createAndWrite(ctx, treeUri, BACKUP_PREFIX + timestamp() + BACKUP_EXT, zip);
+        createAndWrite(ctx, treeUri, BACKUP_PREFIX + timestamp() + BACKUP_EXT, src);
         // 规则 3：只保留最近 MAX_KEEP 份
         List<BackupFile> all = listBackups(ctx, treeUri);
         while (all.size() > MAX_KEEP) {
@@ -414,8 +459,8 @@ public final class BackupManager {
         }
     }
 
-    /** 在 SAF 文件夹里新建文件并写入字节 */
-    private static void createAndWrite(Context ctx, Uri treeUri, String fileName, byte[] data)
+    /** 在 SAF 文件夹里新建文件并流式写入 */
+    private static void createAndWrite(Context ctx, Uri treeUri, String fileName, File src)
             throws Exception {
         android.net.Uri docUri = DocumentsContract.buildDocumentUriUsingTree(
                 treeUri, DocumentsContract.getTreeDocumentId(treeUri));
@@ -428,7 +473,13 @@ public final class BackupManager {
             if (os == null) {
                 throw new Exception("无法写入所选文件夹");
             }
-            os.write(data);
+            try (java.io.InputStream in = new java.io.FileInputStream(src)) {
+                byte[] buf = new byte[8192];
+                int len;
+                while ((len = in.read(buf)) > 0) {
+                    os.write(buf, 0, len);
+                }
+            }
         }
     }
 

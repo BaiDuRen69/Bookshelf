@@ -77,7 +77,7 @@ v5.8 已发版（数据库 v18 → v23，全部是保数据迁移，覆盖安装
 
 ## 📲 下载安装
 
-1. 打开 [**Releases 下载页**](https://github.com/BaiDuRen69/Bookshelf/releases/latest)，下载 `XiaoShuFang-v5.8.10.apk`
+1. 打开 [**Releases 下载页**](https://github.com/BaiDuRen69/Bookshelf/releases/latest)，下载 `XiaoShuFang-v5.8.11.apk`
 2. 在手机上点开下载好的文件（若提示「不允许安装未知应用」，按手机提示允许即可）
 3. 安装完成，打开小书房，开始扫第一本书 🎉
 
@@ -143,7 +143,7 @@ v5.8 已发版（数据库 v18 → v23，全部是保数据迁移，覆盖安装
 原生 Android（Java）· Room（23 版保数据迁移）· CameraX 1.4.2 + ML Kit 17.3.0（条形码识别）+ ML Kit 文本识别 16.0.1（封面 OCR，
 原生库均已适配 Android 15+ 的 16 KB 内存页）·
 Retrofit · Glide · 零依赖手写 XLSX 读写器（不引入 POI）· EncryptedSharedPreferences（API 密钥加密存储）· androidx.biometric（应用锁）
-最新版本 v5.8.10（versionCode 112，Room 数据库 v23）。
+最新版本 v5.8.11（versionCode 113，Room 数据库 v23）。
 
 ### v5.8 统计口径层
 
