@@ -84,6 +84,11 @@ public final class ShelfAddActions {
             sheet.dismiss();
             showIsbnInput(activity);
         });
+        sb.rowPaste.setOnClickListener(v -> {
+            sheet.dismiss();
+            launchAndRefresh.accept(new Intent(activity,
+                    com.bai.bookshelf.ui.scan.PasteIsbnActivity.class));
+        });
         sb.rowManual.setOnClickListener(v -> {
             sheet.dismiss();
             launchAndRefresh.accept(new Intent(activity, BookEditActivity.class));

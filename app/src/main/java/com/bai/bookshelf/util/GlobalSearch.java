@@ -41,7 +41,7 @@ public final class GlobalSearch {
 
     /** 可跳转的功能入口（借出记录是每本书的二级页，不在此列） */
     public enum Target {
-        ADD_BOOK, SCAN, OCR, INVENTORY, WISH, SERIES,
+        ADD_BOOK, SCAN, PASTE_ISBN, OCR, INVENTORY, WISH, SERIES,
         LOCATIONS, CHANNELS, CATEGORIES, TAGS, AUTHORS, PUBLISHERS, COUNTRIES,
         READING_STATS, READING_CALENDAR, YEAR_REPORT, SPLIT, INCOMPLETE,
         LIBRARY_MANAGE, API_SETTINGS, ABOUT, BACKUP, BACKUP_FILES, APP_LOCK,
@@ -82,6 +82,7 @@ public final class GlobalSearch {
         List<Entry> list = new ArrayList<>();
         list.add(new Entry("录入新书", "添加 新增 手工录入 书名", Target.ADD_BOOK));
         list.add(new Entry("扫码录入", "条形码 isbn 扫描 相机", Target.SCAN));
+        list.add(new Entry("粘贴 ISBN 清单", "批量导入 书单 一列书号 文本", Target.PASTE_ISBN));
         list.add(new Entry("拍照识字", "ocr 封面 识别 拍照", Target.OCR));
         list.add(new Entry("盘点模式", "找书 清点 不在架 扫码核对", Target.INVENTORY));
         list.add(new Entry("想读清单", "想买 待读 愿望 书单", Target.WISH));

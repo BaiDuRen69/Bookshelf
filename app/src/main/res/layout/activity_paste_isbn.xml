@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 粘贴 ISBN 清单批量录入（v5.8.16）：粘贴 → 解析 → 逐本查询 → 预览勾选 → 一次入库 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="?android:attr/colorBackground"
+    android:orientation="vertical">
+
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/toolbar"
+        style="@style/Widget.Bookshelf.Toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/toolbar_h"
+        app:navigationIcon="@drawable/ic_back"
+        app:title="粘贴 ISBN 清单" />
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:clipToPadding="false"
+        android:paddingBottom="@dimen/space_lg">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingHorizontal="@dimen/page_padding"
+            android:paddingTop="@dimen/space_sm">
+
+            <EditText
+                android:id="@+id/et_isbn"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:autofillHints="none"
+                android:background="@drawable/bg_search"
+                android:gravity="top|start"
+                android:hint="把一列 ISBN 粘进来：换行、逗号、空格、顿号分隔都可以"
+                android:inputType="textMultiLine"
+                android:minLines="6"
+                android:padding="12dp"
+                android:textColor="?attr/on_surface"
+                android:textColorHint="?attr/on_surface_variant"
+                android:textSize="@dimen/text_body_small" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/space_sm"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_query"
+                    style="@style/Widget.Bookshelf.Button"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="解析并查询" />
+
+                <TextView
+                    android:id="@+id/btn_clear"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="@dimen/space_sm"
+                    android:background="?attr/selectableItemBackground"
+                    android:padding="10dp"
+                    android:text="清空"
+                    android:textColor="?attr/on_surface_variant"
+                    android:textSize="@dimen/text_body_small" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/tv_progress"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/space_xs"
+                android:textColor="?attr/on_surface_variant"
+                android:textSize="@dimen/text_caption" />
+
+            <ProgressBar
+                android:id="@+id/pb_query"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="match_parent"
+                android:layout_height="4dp"
+                android:layout_marginTop="6dp"
+                android:max="100"
+                android:progressBackgroundTint="?attr/outline"
+                android:progressDrawable="@drawable/progress_reading"
+                android:progressTint="?attr/colorPrimary"
+                android:visibility="gone" />
+
+            <LinearLayout
+                android:id="@+id/ll_items"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/space_sm"
+                android:orientation="vertical" />
+        </LinearLayout>
+    </ScrollView>
+
+    <LinearLayout
+        android:id="@+id/bottom_bar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="?attr/surface"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingHorizontal="@dimen/page_padding"
+        android:paddingVertical="6dp">
+
+        <TextView
+            android:id="@+id/btn_location"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:background="?attr/selectableItemBackground"
+            android:padding="8dp"
+            android:text="地点：未设置 ›"
+            android:textColor="?attr/on_surface"
+            android:textSize="@dimen/text_body_small" />
+
+        <CheckBox
+            android:id="@+id/cb_copies"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="重复加一本"
+            android:textSize="@dimen/text_caption"
+            android:visibility="gone" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_save"
+            style="@style/Widget.Bookshelf.Button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="@dimen/space_xs"
+            android:enabled="false"
+            android:text="保存 0 种" />
+    </LinearLayout>
+</LinearLayout>

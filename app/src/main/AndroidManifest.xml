@@ -61,6 +61,10 @@
 
         <activity android:name=".ui.scan.ScanActivity" android:exported="false" />
         <activity
+            android:name=".ui.scan.PasteIsbnActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
+        <activity
             android:name=".ui.edit.BookEditActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />

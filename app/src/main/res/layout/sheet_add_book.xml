@@ -39,7 +39,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
-            android:text="选择一种方式，把这书记进书房"
+            android:text="一本一目录入，或粘一列书号批量导入"
             android:textColor="?attr/on_surface_variant"
             android:textSize="@dimen/text_body_small" />
 
@@ -127,6 +127,50 @@
                     <TextView
                         style="@style/MineRowSubtitle"
                         android:text="知道 ISBN 时直接查询" />
+                </LinearLayout>
+
+                <ImageView style="@style/MineRowChevron" />
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginStart="60dp"
+                android:background="?attr/outline" />
+
+            <LinearLayout
+                android:id="@+id/row_paste"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="?attr/selectableItemBackground"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center_vertical"
+                android:padding="@dimen/space_md">
+
+                <ImageView
+                    android:layout_width="@dimen/mine_icon_box"
+                    android:layout_height="@dimen/mine_icon_box"
+                    android:background="@drawable/bg_icon_container"
+                    android:contentDescription="粘贴 ISBN 清单"
+                    android:padding="8dp"
+                    android:src="@drawable/ic_import_line"
+                    app:tint="?attr/colorPrimary" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="@dimen/space_md"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        style="@style/MineRowTitle"
+                        android:text="粘贴 ISBN 清单" />
+
+                    <TextView
+                        style="@style/MineRowSubtitle"
+                        android:text="一列书号一次导入" />
                 </LinearLayout>
 
                 <ImageView style="@style/MineRowChevron" />

@@ -38,17 +38,12 @@ import java.util.List;
  */
 public class ScanBatchController {
 
-    private static final int BATCH_QUERYING = 0;
-    private static final int BATCH_READY = 1;
-    private static final int BATCH_DUPLICATE = 2;
-    private static final int BATCH_FAILED = 3;
-
     private final BaseActivity activity;
     private final ActivityScanBinding b;
     private final Runnable onScanConsumed; // 恢复扫码待机
 
     private boolean active = false;
-    private final List<BatchItem> queue = new ArrayList<>();
+    private final List<com.bai.bookshelf.util.BatchImport.Item> queue = new ArrayList<>();
     private BatchSheetView sheet;
     private final List<Location> locations = new ArrayList<>();
     private boolean locationsLoaded = false;
@@ -95,20 +90,20 @@ public class ScanBatchController {
 
     /** 扫码命中一本：查重 + 补全信息，加入队列（不打断连续扫描） */
     public void add(String isbn) {
-        for (BatchItem item : queue) {
+        for (com.bai.bookshelf.util.BatchImport.Item item : queue) {
             if (item.isbn.equals(isbn)) {
                 Toast.makeText(activity, "这条已在待录入列表", Toast.LENGTH_SHORT).show();
                 new Handler(Looper.getMainLooper()).postDelayed(onScanConsumed, 800);
                 return;
             }
         }
-        final BatchItem item = new BatchItem(isbn);
+        final com.bai.bookshelf.util.BatchImport.Item item = new com.bai.bookshelf.util.BatchImport.Item(isbn);
         queue.add(item);
         updateUi();
         AddBookHelper.lookup(activity, isbn, new AddBookHelper.LookupCallback() {
             @Override
             public void onDuplicate(Book existing) {
-                item.status = BATCH_DUPLICATE;
+                item.status = com.bai.bookshelf.util.BatchImport.DUPLICATE;
                 item.existingId = existing.id;
                 item.title = existing.title;
                 item.author = existing.author;
@@ -118,7 +113,7 @@ public class ScanBatchController {
 
             @Override
             public void onBook(Book book) {
-                item.status = BATCH_READY;
+                item.status = com.bai.bookshelf.util.BatchImport.READY;
                 item.book = book;
                 item.title = book.title;
                 item.author = book.author;
@@ -128,7 +123,7 @@ public class ScanBatchController {
 
             @Override
             public void onFailed(String message) {
-                item.status = BATCH_FAILED;
+                item.status = com.bai.bookshelf.util.BatchImport.FAILED;
                 item.message = message == null ? "查询失败" : message;
                 afterItemChanged();
             }
@@ -239,7 +234,7 @@ public class ScanBatchController {
         int onVariant = ThemeManager.resolveColor(activity, R.attr.on_surface_variant);
         int danger = ContextCompat.getColor(activity, R.color.danger);
         for (int i = 0; i < queue.size(); i++) {
-            final BatchItem item = queue.get(i);
+            final com.bai.bookshelf.util.BatchImport.Item item = queue.get(i);
             LinearLayout row = new LinearLayout(activity);
             row.setOrientation(LinearLayout.HORIZONTAL);
             row.setGravity(Gravity.CENTER_VERTICAL);
@@ -270,7 +265,7 @@ public class ScanBatchController {
 
             TextView tvStatus = new TextView(activity);
             tvStatus.setText(statusOf(item));
-            tvStatus.setTextColor(item.status == BATCH_FAILED ? danger : onVariant);
+            tvStatus.setTextColor(item.status == com.bai.bookshelf.util.BatchImport.FAILED ? danger : onVariant);
             Typo.text(tvStatus, R.dimen.text_body_small);
             LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.WRAP_CONTENT,
@@ -306,7 +301,7 @@ public class ScanBatchController {
         }
     }
 
-    private void loadCover(ImageView iv, BatchItem item) {
+    private void loadCover(ImageView iv, com.bai.bookshelf.util.BatchImport.Item item) {
         Book temp = new Book();
         temp.title = titleOf(item);
         temp.coverUrl = item.coverUrl == null ? "" : item.coverUrl;
@@ -317,20 +312,20 @@ public class ScanBatchController {
         }
     }
 
-    private String titleOf(BatchItem item) {
-        if (item.status == BATCH_READY || item.status == BATCH_DUPLICATE) {
+    private String titleOf(com.bai.bookshelf.util.BatchImport.Item item) {
+        if (item.status == com.bai.bookshelf.util.BatchImport.READY || item.status == com.bai.bookshelf.util.BatchImport.DUPLICATE) {
             return item.title.isEmpty() ? "（未命名）" : item.title;
         }
         return "ISBN " + item.isbn;
     }
 
-    private String statusOf(BatchItem item) {
+    private String statusOf(com.bai.bookshelf.util.BatchImport.Item item) {
         switch (item.status) {
-            case BATCH_READY:
+            case com.bai.bookshelf.util.BatchImport.READY:
                 return "待保存";
-            case BATCH_DUPLICATE:
+            case com.bai.bookshelf.util.BatchImport.DUPLICATE:
                 return "已在书架（默认跳过）";
-            case BATCH_FAILED:
+            case com.bai.bookshelf.util.BatchImport.FAILED:
                 return "查询失败：" + item.message;
             default:
                 return "正在查询…";
@@ -343,10 +338,10 @@ public class ScanBatchController {
         }
         int ready = 0;
         int dup = 0;
-        for (BatchItem item : queue) {
-            if (item.status == BATCH_READY) {
+        for (com.bai.bookshelf.util.BatchImport.Item item : queue) {
+            if (item.status == com.bai.bookshelf.util.BatchImport.READY) {
                 ready++;
-            } else if (item.status == BATCH_DUPLICATE) {
+            } else if (item.status == com.bai.bookshelf.util.BatchImport.DUPLICATE) {
                 dup++;
             }
         }
@@ -359,12 +354,12 @@ public class ScanBatchController {
     }
 
     private void save(android.app.Dialog dialogToDismiss) {
-        final List<BatchItem> ready = new ArrayList<>();
-        final List<BatchItem> dups = new ArrayList<>();
-        for (BatchItem item : queue) {
-            if (item.status == BATCH_READY) {
+        final List<com.bai.bookshelf.util.BatchImport.Item> ready = new ArrayList<>();
+        final List<com.bai.bookshelf.util.BatchImport.Item> dups = new ArrayList<>();
+        for (com.bai.bookshelf.util.BatchImport.Item item : queue) {
+            if (item.status == com.bai.bookshelf.util.BatchImport.READY) {
                 ready.add(item);
-            } else if (item.status == BATCH_DUPLICATE) {
+            } else if (item.status == com.bai.bookshelf.util.BatchImport.DUPLICATE) {
                 dups.add(item);
             }
         }
@@ -375,37 +370,15 @@ public class ScanBatchController {
         }
         final long locId = locationId;
         final BookshelfApp app = BookshelfApp.get();
+        final java.util.List<com.bai.bookshelf.util.BatchImport.Item> chosen = new java.util.ArrayList<>();
+        chosen.addAll(ready);
+        chosen.addAll(dups);
         app.io(() -> {
-            long now = System.currentTimeMillis();
-            int saved = 0;
-            int copied = 0;
-            for (BatchItem item : ready) {
-                Book book = item.book;
-                if (book == null || book.title == null || book.title.trim().isEmpty()) {
-                    continue;
-                }
-                book.locationId = locId > 0 ? locId : null;
-                book.ownType = Book.OWN_BUY;
-                book.createdAt = now;
-                book.updatedAt = now;
-                book.dirty = true;
-                if (app.db().bookDao().insert(book) > 0) {
-                    saved++;
-                }
-            }
-            if (addCopies) {
-                for (BatchItem item : dups) {
-                    Book exist = app.db().bookDao().getById(item.existingId);
-                    if (exist != null) {
-                        exist.quantity = exist.quantity + 1;
-                        exist.updatedAt = now;
-                        app.db().bookDao().update(exist);
-                        copied++;
-                    }
-                }
-            }
-            final int fSaved = saved;
-            final int fCopied = copied;
+            // v5.8.16：入库规则与「粘贴 ISBN 清单」共用 BatchImport.save
+            final com.bai.bookshelf.util.BatchImport.Result res =
+                    com.bai.bookshelf.util.BatchImport.save(app, chosen, locId, addCopies);
+            final int fSaved = res.saved;
+            final int fCopied = res.copied;
             app.ui(() -> {
                 dialogToDismiss.dismiss();
                 queue.clear();
@@ -422,19 +395,4 @@ public class ScanBatchController {
         return Math.round(value * activity.getResources().getDisplayMetrics().density);
     }
 
-    /** 批量队列里的一本书 */
-    private static final class BatchItem {
-        final String isbn;
-        int status = BATCH_QUERYING;
-        Book book;
-        long existingId = -1;
-        String title = "";
-        String author = "";
-        String coverUrl = "";
-        String message = "";
-
-        BatchItem(String isbn) {
-            this.isbn = isbn;
-        }
-    }
 }

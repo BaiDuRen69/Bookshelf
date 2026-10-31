@@ -265,6 +265,9 @@ public class GlobalSearchActivity extends BaseActivity {
             case SCAN:
                 startActivity(new Intent(this, ScanActivity.class));
                 break;
+            case PASTE_ISBN:
+                startActivity(new Intent(this, com.bai.bookshelf.ui.scan.PasteIsbnActivity.class));
+                break;
             case OCR:
                 startActivity(new Intent(this, ScanActivity.class));
                 break;
