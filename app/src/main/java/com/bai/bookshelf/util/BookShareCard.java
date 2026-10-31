@@ -189,6 +189,8 @@ public final class BookShareCard {
 
         c.save();
         c.clipPath(clip);
+        // 上面画白底时把 paint 的 alpha 调成了 0x33，直接复用会把封面也画成 20% 透明
+        paint.setAlpha(255);
         if (cover != null) {
             // centerCrop
             float scale = Math.max(w / cover.getWidth(), h / cover.getHeight());

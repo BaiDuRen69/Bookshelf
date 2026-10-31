@@ -5,6 +5,8 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
@@ -22,6 +24,9 @@ import com.bai.bookshelf.util.ThemeManager;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
+
+import java.io.File;
+import java.io.FileOutputStream;
 
 /**
  * 小组件 RemoteViews 渲染（v5.8.14）：不依赖桌面宿主，
@@ -88,9 +93,28 @@ public class ReadingWidgetRenderTest {
                 }
                 assertEquals(expectedBg,
                         ((GradientDrawable) background).getColor().getDefaultColor());
+
+                if (theme == ThemeManager.THEME_GREEN) {
+                    saveRender(ctx, root);
+                }
             }
         } finally {
             ThemeManager.set(ctx, original);
+        }
+    }
+
+    /** 离屏画一张 2×2 小组件，测试后 run-as 拉出来目检（不碰桌面、不切前台） */
+    private void saveRender(Context ctx, View root) {
+        int size = 420;
+        root.measure(View.MeasureSpec.makeMeasureSpec(size, View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(size, View.MeasureSpec.EXACTLY));
+        root.layout(0, 0, size, size);
+        Bitmap bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
+        root.draw(new Canvas(bitmap));
+        try (FileOutputStream out = new FileOutputStream(
+                new File(ctx.getCacheDir(), "widget_render.png"))) {
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out);
+        } catch (Exception ignored) {
         }
     }
 }
