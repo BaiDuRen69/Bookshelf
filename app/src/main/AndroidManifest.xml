@@ -90,6 +90,19 @@
         <activity android:name=".ui.mine.LibraryManageActivity" android:exported="false" />
         <activity android:name=".ui.repair.DatabaseRepairActivity" android:exported="false" />
 
+        <!-- v5.8.8：桌面小组件 2×2（在读 / 年度目标 / 今日到期） -->
+        <receiver
+            android:name=".ui.widget.ReadingWidgetProvider"
+            android:exported="true"
+            android:label="小书房 · 在读">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_reading_info" />
+        </receiver>
+
         <!-- 导出 Excel 后通过系统分享发送文件 -->
         <provider
             android:name="androidx.core.content.FileProvider"

@@ -136,6 +136,8 @@ public class BookshelfApp extends Application {
                 mainHandler.postDelayed(() -> bg(() -> BackupManager.backupNow(this)), 6000);
             }
             ensureDefaultData();
+            // v5.8.8：应用启动后顺手刷新桌面小组件（数据可能已经变了）
+            com.bai.bookshelf.ui.widget.ReadingWidgetProvider.refresh(this);
             // v4.42：每天 9:00 检查一次借阅到期（进程被杀也由闹钟拉起）
             com.bai.bookshelf.util.BorrowReminder.schedule(this);
             // v4.4：自动备份延后 3 秒再跑——整库 JSON + 全部封面图打 zip 是启动期最重的

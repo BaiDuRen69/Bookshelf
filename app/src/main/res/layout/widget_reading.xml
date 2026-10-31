@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 桌面小组件 2×2（v5.8.8）：在读一本 + 年度目标 + 今日到期 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/bg_widget"
+    android:orientation="vertical"
+    android:padding="14dp">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="小书房"
+        android:textColor="#2E6B57"
+        android:textSize="12sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/widget_reading"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginTop="6dp"
+        android:layout_weight="1"
+        android:ellipsize="end"
+        android:maxLines="3"
+        android:text="书架空着"
+        android:textColor="#3A3228"
+        android:textSize="15sp" />
+
+    <ProgressBar
+        android:id="@+id/widget_progress"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent"
+        android:layout_height="4dp"
+        android:layout_marginTop="6dp"
+        android:max="100"
+        android:progress="0" />
+
+    <TextView
+        android:id="@+id/widget_goal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:ellipsize="end"
+        android:singleLine="true"
+        android:text="今年 0 / 24 种"
+        android:textColor="#6B6660"
+        android:textSize="11sp" />
+
+    <TextView
+        android:id="@+id/widget_due"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:ellipsize="end"
+        android:singleLine="true"
+        android:textColor="#B3261E"
+        android:textSize="11sp"
+        android:visibility="gone" />
+</LinearLayout>

@@ -90,6 +90,18 @@ public class DbRepairInstrumentedTest {
     /** 造一份升级前副本（与 PreMigrationBackup 的目录格式一致） */
     private void makePreMigrationCopy() throws Exception {
         BookshelfApp.get().closeDatabase();
+        // 先清掉应用自己留下的旧副本，避免恢复时拿到更早的一份（测试要的是刚拷的）
+        for (File old : com.bai.bookshelf.util.PreMigrationBackup.list(ctx())) {
+            File[] children = old.listFiles();
+            if (children != null) {
+                for (File c : children) {
+                    //noinspection ResultOfMethodCallIgnored
+                    c.delete();
+                }
+            }
+            //noinspection ResultOfMethodCallIgnored
+            old.delete();
+        }
         File dir = new File(ctx().getFilesDir(),
                 "backups/premigration/20990101_000000_db" + AppDatabase.VERSION
                         + "_to_" + AppDatabase.VERSION);

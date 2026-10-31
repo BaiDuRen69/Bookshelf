@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 桌面小组件元数据（v5.8.8）：2×2，半小时刷新一次 -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:initialLayout="@layout/widget_reading"
+    android:minWidth="110dp"
+    android:minHeight="110dp"
+    android:targetCellWidth="2"
+    android:targetCellHeight="2"
+    android:resizeMode="none"
+    android:updatePeriodMillis="1800000"
+    android:widgetCategory="home_screen" />
