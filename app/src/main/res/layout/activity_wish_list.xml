@@ -57,69 +57,93 @@
         </LinearLayout>
     </FrameLayout>
 
+    <!-- 多选操作条（v5.8.15）：与书架同一套浮起卡片，上行「已选 · 全选 · 退出」 -->
     <LinearLayout
         android:id="@+id/selection_bar_wish"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginHorizontal="@dimen/space_lg"
         android:layout_marginBottom="6dp"
-        android:background="@drawable/bg_selection_capsule"
-        android:elevation="6dp"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:paddingStart="@dimen/space_lg"
-        android:paddingEnd="@dimen/space_sm"
-        android:paddingVertical="6dp"
+        android:background="@drawable/bg_float_card"
+        android:elevation="10dp"
+        android:orientation="vertical"
+        android:paddingStart="@dimen/space_md"
+        android:paddingTop="2dp"
+        android:paddingEnd="@dimen/space_xs"
+        android:paddingBottom="2dp"
         android:visibility="gone">
 
-        <TextView
-            android:id="@+id/tv_wish_sel_count"
-            android:layout_width="0dp"
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="已选 0 条"
-            android:textColor="?attr/on_primary_container"
-            android:textSize="@dimen/text_body_small" />
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
 
-        <TextView
-            android:id="@+id/btn_wish_sel_all"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:background="?attr/selectableItemBackground"
-            android:padding="8dp"
-            android:text="全选"
-            android:textColor="?attr/on_primary_container"
-            android:textSize="@dimen/text_body_small" />
+            <TextView
+                android:id="@+id/tv_wish_sel_count"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:paddingStart="4dp"
+                android:text="已选 0 条"
+                android:textColor="?attr/on_surface"
+                android:textSize="@dimen/text_body_small"
+                android:textStyle="bold" />
 
-        <TextView
-            android:id="@+id/btn_wish_sel_edit"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:background="?attr/selectableItemBackground"
-            android:padding="8dp"
-            android:text="批量编辑"
-            android:textColor="?attr/on_primary_container"
-            android:textSize="@dimen/text_body_small" />
+            <TextView
+                android:id="@+id/btn_wish_sel_all"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="?attr/selectableItemBackground"
+                android:padding="8dp"
+                android:text="全选"
+                android:textColor="?attr/colorPrimary"
+                android:textSize="@dimen/text_body_small" />
 
-        <TextView
-            android:id="@+id/btn_wish_sel_delete"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:background="?attr/selectableItemBackground"
-            android:padding="8dp"
-            android:text="删除"
-            android:textColor="?attr/on_primary_container"
-            android:textSize="@dimen/text_body_small" />
+            <TextView
+                android:id="@+id/btn_wish_sel_cancel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="?attr/selectableItemBackground"
+                android:padding="8dp"
+                android:text="退出"
+                android:textColor="?attr/on_surface_variant"
+                android:textSize="@dimen/text_body_small" />
+        </LinearLayout>
 
-        <TextView
-            android:id="@+id/btn_wish_sel_cancel"
-            android:layout_width="wrap_content"
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="2dp"
+            android:layout_marginBottom="2dp"
+            android:background="?attr/outline" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:background="?attr/selectableItemBackground"
-            android:padding="8dp"
-            android:text="取消"
-            android:textColor="?attr/on_primary_container"
-            android:textSize="@dimen/text_body_small" />
+            android:gravity="center_vertical|end"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/btn_wish_sel_edit"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="?attr/selectableItemBackground"
+                android:padding="8dp"
+                android:text="批量编辑"
+                android:textColor="?attr/on_surface"
+                android:textSize="@dimen/text_body_small" />
+
+            <TextView
+                android:id="@+id/btn_wish_sel_delete"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="?attr/selectableItemBackground"
+                android:padding="8dp"
+                android:text="删除"
+                android:textColor="@color/danger"
+                android:textSize="@dimen/text_body_small" />
+        </LinearLayout>
     </LinearLayout>
 
     <LinearLayout

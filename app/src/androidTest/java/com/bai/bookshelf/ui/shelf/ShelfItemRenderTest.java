@@ -58,6 +58,35 @@ public class ShelfItemRenderTest {
         });
     }
 
+    @Test
+    public void 选中项有主色蒙层与勾选圈() {
+        Context ctx = ApplicationProvider.getApplicationContext();
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+            Context themed = new ContextThemeWrapper(ctx,
+                    ThemeManager.styleRes(ThemeManager.current(ctx)));
+            BookGridAdapter adapter = new BookGridAdapter((b, cover) -> {
+            });
+            java.util.List<Book> books = java.util.Arrays.asList(
+                    book(11, 1, ""), book(12, 3, ""), book(13, 1, "套装"));
+            adapter.submit(books);
+            java.util.Set<Long> ids = new java.util.HashSet<>();
+            ids.add(books.get(0).id);
+            ids.add(books.get(1).id);
+            adapter.setSelectionState(true, ids);
+
+            FrameLayout parent = new FrameLayout(themed);
+            int[] expected = {View.VISIBLE, View.VISIBLE, View.GONE};
+            for (int i = 0; i < 3; i++) {
+                BookGridAdapter.VH vh = adapter.onCreateViewHolder(parent, 0);
+                adapter.onBindViewHolder(vh, i);
+                assertEquals("第 " + i + " 项蒙层", expected[i],
+                        vh.itemView.findViewById(R.id.v_select_scrim).getVisibility());
+                assertEquals("第 " + i + " 项勾选圈", expected[i],
+                        vh.itemView.findViewById(R.id.iv_select_check).getVisibility());
+            }
+        });
+    }
+
     private void render(Context ctx) throws Exception {
         BookGridAdapter adapter = new BookGridAdapter((b, cover) -> {
         });

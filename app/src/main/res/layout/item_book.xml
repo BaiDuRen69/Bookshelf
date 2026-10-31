@@ -69,6 +69,28 @@
                 android:textColor="#FFFFFF"
                 android:textSize="9sp"
                 android:visibility="gone" />
+            <!-- v5.8.15：多选态——12% 主色蒙层 + 右上勾选圈 -->
+            <View
+                android:id="@+id/v_select_scrim"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:alpha="0.12"
+                android:background="?attr/colorPrimary"
+                android:visibility="gone" />
+
+            <ImageView
+                android:id="@+id/iv_select_check"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:layout_gravity="top|end"
+                android:layout_margin="3dp"
+                android:background="@drawable/bg_check_circle"
+                android:importantForAccessibility="no"
+                android:padding="3dp"
+                android:scaleType="fitCenter"
+                android:src="@drawable/ic_check_line"
+                app:tint="?attr/colorOnPrimary"
+                android:visibility="gone" />
         </FrameLayout>
 
         <LinearLayout

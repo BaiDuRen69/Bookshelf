@@ -213,13 +213,18 @@ public class BookAdapter extends RecyclerView.Adapter<BookAdapter.VH> {
             bindProgressOverlay(h, book);
         }
 
-        // 多选模式：只改 CardView 的底色。
-        // 注意不能用 itemView.setBackgroundColor——那会把 CardView 自己的圆角卡片底覆盖成透明。
+        // 多选模式（v5.8.15）：有封面时蒙层 + 勾选圈；纯文字视图没有封面可盖，保留卡片底色
         android.content.Context ctx = h.itemView.getContext();
-        ((androidx.cardview.widget.CardView) h.itemView).setCardBackgroundColor(
-                selectionMode && selectedIds.contains(book.id)
-                        ? ThemeManager.resolveColor(ctx, R.attr.primary_container)
-                        : ThemeManager.resolveColor(ctx, R.attr.surface));
+        boolean selected = selectionMode && selectedIds.contains(book.id);
+        if (hideCover) {
+            ((androidx.cardview.widget.CardView) h.itemView).setCardBackgroundColor(
+                    selected ? ThemeManager.resolveColor(ctx, R.attr.primary_container)
+                            : ThemeManager.resolveColor(ctx, R.attr.surface));
+        } else {
+            h.b.vSelectScrim.setVisibility(selected ? View.VISIBLE : View.GONE);
+            h.b.ivSelectCheck.setVisibility(selected ? View.VISIBLE : View.GONE);
+            h.b.ivSelectCheck.setContentDescription(selected ? "已选中" : null);
+        }
 
         // v5.8.5：封面参与共享元素过渡（8dp 圆角 → 详情 12dp）
         h.b.ivCover.setTransitionName("cover_" + book.id);

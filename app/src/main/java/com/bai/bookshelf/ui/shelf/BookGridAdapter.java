@@ -151,10 +151,11 @@ public class BookGridAdapter extends RecyclerView.Adapter<BookGridAdapter.VH> {
         // v4.19：封面高度交给 RatioImageView 按实测宽度自行换算（3:4），
         // 这里不再做任何高度估算，保证所有列的封面比例完全一致。
 
-        // 多选模式下的选中高亮
-        h.itemView.setBackgroundColor(selectionMode && selectedIds.contains(book.id)
-                ? ThemeManager.primaryAlpha(h.itemView.getContext(), 0x22)
-                : android.graphics.Color.TRANSPARENT);
+        // 多选模式：封面盖一层 12% 主色蒙层 + 右上勾选圈（v5.8.15）
+        boolean selected = selectionMode && selectedIds.contains(book.id);
+        h.b.vSelectScrim.setVisibility(selected ? View.VISIBLE : View.GONE);
+        h.b.ivSelectCheck.setVisibility(selected ? View.VISIBLE : View.GONE);
+        h.b.ivSelectCheck.setContentDescription(selected ? "已选中" : null);
 
         h.b.ivCover.setTransitionName("cover_" + book.id);
         h.itemView.setOnClickListener(v -> onBookClick.onClick(book, h.b.ivCover));
