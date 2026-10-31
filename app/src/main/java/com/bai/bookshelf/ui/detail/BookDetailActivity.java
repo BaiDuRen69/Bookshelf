@@ -61,6 +61,8 @@ public class BookDetailActivity extends BaseActivity {
     /** v5.8.15：共享元素转场期间不做视差，否则封面会被拽离转场路径 */
     private boolean transitionRunning;
     private int heroFadeRange = -1;
+    /** 滚动每帧都要用，主题色只解析一次 */
+    private int toolbarTitleColor;
 
     /** 分类展示串「一级-二级」（v4.9，reload 时解析好再给 bind 用） */
     private String categoryDisplay = "";
@@ -371,10 +373,12 @@ public class BookDetailActivity extends BaseActivity {
         float fade = Math.max(0f, Math.min(1f, scrollY / (float) heroFadeRange));
         b.tvToolbarTitle.setAlpha(fade);
         b.tvToolbarTitle.setVisibility(fade > 0.02f ? View.VISIBLE : View.INVISIBLE);
+        if (toolbarTitleColor == 0) {
+            toolbarTitleColor = ThemeManager.resolveColor(this,
+                    com.google.android.material.R.attr.colorOnPrimary);
+        }
         b.toolbar.setTitleTextColor(androidx.core.graphics.ColorUtils.setAlphaComponent(
-                ThemeManager.resolveColor(this,
-                        com.google.android.material.R.attr.colorOnPrimary),
-                Math.round(255 * (1 - fade))));
+                toolbarTitleColor, Math.round(255 * (1 - fade))));
     }
 
     private void showProgressDialog(int current) {
