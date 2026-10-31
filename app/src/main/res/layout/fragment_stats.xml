@@ -773,6 +773,15 @@
                             android:layout_height="200dp"
                             android:layout_marginTop="@dimen/space_sm" />
 
+                        <!-- v5.8.15：色块太多时小块放不下标签，用图例兜住「哪块是哪类」 -->
+                        <LinearLayout
+                            android:id="@+id/ll_treemap_legend"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="@dimen/space_sm"
+                            android:orientation="vertical"
+                            android:visibility="gone" />
+
                         <TextView
                             android:id="@+id/tv_treemap_hint"
                             android:layout_width="match_parent"

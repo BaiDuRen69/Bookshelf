@@ -895,11 +895,19 @@ public class StatsFragment extends Fragment {
             com.bai.bookshelf.util.StatsHoldings.Group g = categoryTree.get(treemapDrill);
             b.treemapCategories.setData(g.children);
             b.tvTreemapHint.setText("「" + g.name + "」的二级分类 · 点此返回一级");
+            renderTreemapLegend(g.children);
             return;
         }
         treemapDrill = -1;
         b.treemapCategories.setData(categoryTree);
         b.tvTreemapHint.setText(b.treemapCategories.metricHint() + " · 点一块看二级");
+        renderTreemapLegend(categoryTree);
+    }
+
+    /** 图例：色点与块内取色同源（v5.8.15，构建逻辑见 TreemapLegend） */
+    private void renderTreemapLegend(
+            java.util.List<com.bai.bookshelf.util.StatsHoldings.Group> groups) {
+        TreemapLegend.fill(b.llTreemapLegend, groups, b.treemapCategories::colorAt);
     }
 
     /** 买入年份 → 多久读完：一行一个年份，观察窗口没关满的不给 N 年比例 */

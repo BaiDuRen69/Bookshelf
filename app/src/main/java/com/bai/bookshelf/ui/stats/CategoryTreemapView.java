@@ -10,7 +10,10 @@ import android.view.MotionEvent;
 import android.view.View;
 
 import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat;
+import androidx.core.graphics.ColorUtils;
 
+import com.bai.bookshelf.R;
 import com.bai.bookshelf.util.StatsHoldings;
 import com.bai.bookshelf.util.ThemeManager;
 
@@ -47,13 +50,16 @@ public class CategoryTreemapView extends View {
     private final Paint fillPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint titlePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint subPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint strokePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
     private final float gap;
+    private final float strokeWidth;
     private final int minLabelW;
     private final int minLabelH;
     private float baseTitleSize;
     private float baseSubSize;
-    private int textColor;
+    private boolean night;
+    private int strokeColor;
 
     private RectF[] cached;
     private int cachedW = -1;
@@ -73,6 +79,7 @@ public class CategoryTreemapView extends View {
         float sp = Math.min(context.getResources().getDisplayMetrics().scaledDensity,
                 1.3f * density);
         gap = GAP_DP * density;
+        strokeWidth = 2f * density;
         minLabelW = (int) (MIN_LABEL_W_DP * density);
         minLabelH = (int) (MIN_LABEL_H_DP * density);
         titlePaint.setTextSize(13 * sp);
@@ -80,6 +87,8 @@ public class CategoryTreemapView extends View {
         titlePaint.setFakeBoldText(true);
         baseTitleSize = titlePaint.getTextSize();
         baseSubSize = subPaint.getTextSize();
+        strokePaint.setStyle(Paint.Style.STROKE);
+        strokePaint.setStrokeWidth(strokeWidth);
     }
 
     public void setOnCellClickListener(OnCellClickListener l) {
@@ -111,18 +120,53 @@ public class CategoryTreemapView extends View {
         return String.format(Locale.getDefault(), "面积 = 种数 · 共 %d 类", data.size());
     }
 
+    /** 亮色主题按块序轮转六色布面板（相邻块必然不同色），夜读用暗金梯度 */
+    private static final int[] CLOTH = {
+            0xFF2E6E5C, 0xFF3A5BA0, 0xFF9E4A3A,
+            0xFFA9762E, 0xFF6B5A7E, 0xFF33383A
+    };
+
     private void buildColors() {
         fillColors.clear();
-        int primary = ThemeManager.resolveColor(getContext(), ThemeManager.ATTR_COLOR_PRIMARY);
-        textColor = ThemeManager.resolveColor(getContext(),
-                com.google.android.material.R.attr.colorOnPrimary);
+        Context ctx = getContext();
+        night = ThemeManager.current(ctx) == ThemeManager.THEME_NIGHT;
+        strokeColor = ThemeManager.resolveColor(ctx, R.attr.on_surface);
+        int surface = ThemeManager.resolveColor(ctx, R.attr.surface);
+        int gold = ContextCompat.getColor(ctx, R.color.night_accent);
         int n = Math.max(1, data.size());
         for (int i = 0; i < data.size(); i++) {
-            // 同一色相按块序渐淡：比随机配色更容易读出「这些是一组」
-            int alpha = 235 - i * (150 / n);
-            fillColors.add(Color.argb(alpha, Color.red(primary), Color.green(primary),
-                    Color.blue(primary)));
+            fillColors.add(night ? goldRamp(i, n, gold, surface) : CLOTH[i % CLOTH.length]);
         }
+    }
+
+    /**
+     * 暗金梯度：第一块最亮，按块数把跨度摊开，越往后越靠炭黑底。
+     * 类别多到一档跨度看不清时，用奇偶再拉开半档，保证相邻块仍然可辨。
+     */
+    private static int goldRamp(int index, int count, int gold, int surface) {
+        float fade = count <= 1 ? 0f
+                : Math.min(0.9f, index * 0.78f / (count - 1));
+        if (count > 10 && (index & 1) == 1) {
+            fade = Math.min(0.92f, fade + 0.39f / (count - 1));
+        }
+        return ColorUtils.blendARGB(gold, surface, fade);
+    }
+
+    /** 宿主画底部图例时取同一份配色 */
+    public int colorAt(int index) {
+        return index >= 0 && index < fillColors.size() ? fillColors.get(index) : Color.TRANSPARENT;
+    }
+
+    /**
+     * 块上的文字按对比度现选：白字与墨字谁更清楚用谁。
+     * 暗金梯度第一块亮度接近中灰，写死白字只有 2:1，必须换成墨色。
+     */
+    int labelColorFor(int fill) {
+        int ink = night ? ContextCompat.getColor(getContext(), R.color.night_ink) : 0xFF1F1B16;
+        double lum = ColorUtils.calculateLuminance(fill);
+        double vsWhite = (lum + 0.05) == 0 ? 0 : 1.05 / (lum + 0.05);
+        double vsInk = (lum + 0.05) / (ColorUtils.calculateLuminance(ink) + 0.05);
+        return vsWhite >= vsInk ? Color.WHITE : ink;
     }
 
     private void refreshAccessibility() {
@@ -162,15 +206,20 @@ public class CategoryTreemapView extends View {
             fillPaint.setColor(fillColors.get(i));
             fillPaint.setAlpha(highlighted >= 0 && highlighted != i ? 80 : 255);
             canvas.drawRoundRect(r, 6, 6, fillPaint);
+            if (highlighted == i) {
+                strokePaint.setColor(ColorUtils.setAlphaComponent(strokeColor, 230));
+                canvas.drawRoundRect(r, 6, 6, strokePaint);
+            }
             if (r.width() < minLabelW || r.height() < minLabelH) {
                 continue;
             }
             float pad = 8;
             StatsHoldings.Group g = data.get(i);
             String sub = g.titles + " 种 · " + g.copies + " 册";
-            titlePaint.setColor(textColor);
+            int label = labelColorFor(fillColors.get(i));
+            titlePaint.setColor(label);
             titlePaint.setAlpha(255);
-            subPaint.setColor(textColor);
+            subPaint.setColor(label);
             subPaint.setAlpha(210);
             float scale = 1f;
             while (scale > MIN_LABEL_SCALE && !labelFits(g.name, sub, r, pad, scale)) {
@@ -280,25 +329,27 @@ public class CategoryTreemapView extends View {
                 break;
             }
             float strip = rowSum * scale / side;
-            boolean alongWidth = rw >= rh;
+            // 短边是高度时竖着铺一列（列宽 = strip，项沿高度排），短边是宽度时横着铺一行。
+            // 轴向弄反会让 strip 算成「按另一条边摊」，块会溢出画框、后面的类别直接看不见。
+            boolean alongHeight = rh <= rw;
             float cursor = 0;
             for (Item it : row) {
                 float len = (it.value / rowSum) * side;
                 RectF r = new RectF();
-                if (alongWidth) {
-                    r.set(x + cursor, y, x + cursor + len - gap, y + strip - gap);
-                } else {
+                if (alongHeight) {
                     r.set(x, y + cursor, x + strip - gap, y + cursor + len - gap);
+                } else {
+                    r.set(x + cursor, y, x + cursor + len - gap, y + strip - gap);
                 }
                 out[it.index] = r;
                 cursor += len;
             }
-            if (alongWidth) {
-                y += strip;
-                rh -= strip;
-            } else {
+            if (alongHeight) {
                 x += strip;
                 rw -= strip;
+            } else {
+                y += strip;
+                rh -= strip;
             }
             i = j;
         }
