@@ -62,7 +62,7 @@ public final class TagPropagator {
 
     /** 重组标签字符串并写库 */
     private static void saveTags(AppDatabase db, Book book, List<String> tags) {
-        book.tags = String.join(",", tags);
+        book.tags = android.text.TextUtils.join(",", tags);
         book.updatedAt = System.currentTimeMillis();
         db.bookDao().update(book);
     }

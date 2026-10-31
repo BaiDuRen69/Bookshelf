@@ -58,8 +58,8 @@ public final class TagPicker {
                 .setTitle("选择标签")
                 .setView(db.getRoot())
                 .setPositiveButton("完成", (d, w) -> {
-                    book.tags = String.join(",", selected);
-                    tagsField.setText(String.join(", ", selected));
+                    book.tags = android.text.TextUtils.join(",", selected);
+                    tagsField.setText(android.text.TextUtils.join(", ", selected));
                 })
                 .setNegativeButton(R.string.action_cancel, null)
                 .show();

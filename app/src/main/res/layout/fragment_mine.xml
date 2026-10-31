@@ -75,6 +75,17 @@
                                 android:text="0 / 4"
                                 android:textColor="?attr/on_surface_variant"
                                 android:textSize="@dimen/text_caption_large" />
+
+                            <ImageView
+                                android:id="@+id/btn_task_close"
+                                android:layout_width="28dp"
+                                android:layout_height="28dp"
+                                android:layout_marginStart="@dimen/space_sm"
+                                android:background="?attr/selectableItemBackgroundBorderless"
+                                android:contentDescription="关闭任务清单"
+                                android:padding="6dp"
+                                android:src="@drawable/ic_close"
+                                app:tint="?attr/on_surface_variant" />
                         </LinearLayout>
 
                         <LinearLayout
@@ -125,6 +136,17 @@
                                 android:text="选一个外部备份文件夹（换机时更稳）"
                                 android:textColor="?attr/on_surface"
                                 android:textSize="@dimen/text_body_small" />
+
+                            <TextView
+                                android:id="@+id/tv_task_skip_folder"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:background="?attr/selectableItemBackgroundBorderless"
+                                android:paddingHorizontal="@dimen/space_sm"
+                                android:paddingVertical="@dimen/space_xs"
+                                android:text="跳过"
+                                android:textColor="?attr/on_surface_variant"
+                                android:textSize="@dimen/text_caption_large" />
                         </LinearLayout>
 
                         <LinearLayout

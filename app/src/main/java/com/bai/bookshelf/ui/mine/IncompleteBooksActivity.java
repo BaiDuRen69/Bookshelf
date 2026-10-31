@@ -154,7 +154,7 @@ public class IncompleteBooksActivity extends BaseActivity {
         public void onBindViewHolder(@NonNull VH h, int position) {
             Book book = shown.get(position);
             h.b.tvIncompleteTitle.setText(book.title);
-            h.b.tvIncompleteMissing.setText("缺少：" + String.join("、",
+            h.b.tvIncompleteMissing.setText("缺少：" + android.text.TextUtils.join("、",
                     missingFields(book)));
             StringBuilder meta = new StringBuilder();
             if (!book.author.trim().isEmpty()) {

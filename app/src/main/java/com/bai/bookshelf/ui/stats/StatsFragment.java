@@ -47,6 +47,50 @@ public class StatsFragment extends Fragment {
     private int lastAvgDays;
     /** 是否已注册 books 的 LiveData */
     private boolean observingBooks;
+    /** v5.8.3：统计页「可见才计算、切栏只重画当前栏」所需的状态与缓存 */
+    private java.util.List<Book> statsBooks = new java.util.ArrayList<>();
+    private boolean statsComputed;
+    private boolean statsVisible;
+    private boolean heroAnimated;
+    private com.bai.bookshelf.util.StatsHoldings.Holdings hold;
+    private com.bai.bookshelf.util.StatsSpend.Spend spend;
+    private com.bai.bookshelf.util.StatsPace.Pace pace;
+    private com.bai.bookshelf.util.StatsLend.Lend lend;
+    private com.bai.bookshelf.util.StatsHealth.Health health;
+    private com.bai.bookshelf.util.StatsHealth.Rating rating;
+    private com.bai.bookshelf.util.StatsHealth.Anomalies anomalies;
+    private com.bai.bookshelf.util.StatsPace.Habit habit;
+    private com.bai.bookshelf.util.StatsPace.Stale stale;
+    private com.bai.bookshelf.util.StatsPace.BuyRead buyRead;
+    private com.bai.bookshelf.util.StatsSpend.Relation relation;
+    private com.bai.bookshelf.util.StatsHealth.NoteStat noteStat;
+    private com.bai.bookshelf.util.StatsHealth.WishStat wishStat;
+    private com.bai.bookshelf.util.StatsSpend.Trend trend;
+    private java.util.List<com.bai.bookshelf.util.StatsHoldings.Group> channels;
+    private java.util.List<com.bai.bookshelf.util.StatsHoldings.Group> costByCategory;
+    private java.util.List<com.bai.bookshelf.util.StatsHoldings.Group> seriesGroups;
+    private java.util.List<com.bai.bookshelf.util.StatsHoldings.Group> lendByCategory;
+    private java.util.List<com.bai.bookshelf.util.StatsHoldings.Share> structure;
+    private java.util.List<com.bai.bookshelf.util.StatsHoldings.Cohort> cohorts;
+    private java.util.List<com.bai.bookshelf.util.StatsLend.Lender> lenders;
+    private java.util.List<com.bai.bookshelf.util.StatsSpend.PeriodDelta> periods;
+    private java.util.List<Book> books;
+    private java.util.List<OpenLoan> openLoans;
+    private int fTotal;
+    private int fFinished;
+    private int fAvgDays;
+    private double fTotalPrice;
+    private double fTotalSpent;
+    private double fTotalWords;
+    private Book fMostExpensive;
+    private Book fMostPages;
+    private Book fMostWords;
+    private Book fEarliest;
+    private Book fMostPrintings;
+    private java.util.List<Book> fRecent;
+    private java.util.List<java.util.Map.Entry<String, Integer>> topAuthors;
+    private java.util.List<java.util.Map.Entry<String, Integer>> topPublishers;
+    private java.util.List<java.util.Map.Entry<String, Integer>> topCountries;
     private int statsTab = TAB_BOOKS;
     private boolean statsEmpty;
     /** 分类树（一级带二级），树状图下钻用 */
@@ -131,6 +175,7 @@ public class StatsFragment extends Fragment {
             b.scrollStats.scrollTo(0, 0);
         }
         applyStatsTab();
+        ensureComputed();
     }
 
     private void applyStatsTab() {
@@ -161,6 +206,7 @@ public class StatsFragment extends Fragment {
         setCardVisible(b.cardReading, purchase);
         setCardVisible(b.cardChannel, purchase);
         setCardVisible(b.cardTrend, purchase);
+        setCardVisible(b.cardOpenLoans, loan);
         setCardVisible(b.cardBorrowers, loan);
         // 洞察卡跟着分栏走：藏书看健康/结构，阅读看书债/速度，购书看花费/渠道
         setCardVisible(b.cardInsight, !empty);
@@ -169,6 +215,9 @@ public class StatsFragment extends Fragment {
         styleStatsTab(b.tabReading, statsTab == TAB_READING);
         styleStatsTab(b.tabPurchase, statsTab == TAB_PURCHASE);
         styleStatsTab(b.tabLoan, statsTab == TAB_LOAN);
+        if (statsComputed) {
+            renderTab(statsTab);
+        }
     }
 
     private void applyInsightForTab() {
@@ -257,7 +306,40 @@ public class StatsFragment extends Fragment {
     }
 
     private void onBooksPushed(java.util.List<Book> pushed) {
-        computeFrom(pushed);
+        statsBooks = pushed;
+        statsComputed = false;
+        if (statsVisible && b != null) {
+            computeFrom(statsBooks);
+        } else {
+            // 不可见时不查库、不聚合：只把空态定下来，等切到统计页再算
+            statsEmpty = com.bai.bookshelf.util.BookFlags.countOwned(pushed) == 0;
+            applyStatsTab();
+        }
+    }
+
+    /** 可见且没算过才算（数据变化后 Mark 成未计算） */
+    private void ensureComputed() {
+        if (!statsComputed && b != null) {
+            computeFrom(statsBooks);
+        }
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        statsVisible = !isHidden();
+        if (statsVisible) {
+            ensureComputed();
+        }
+    }
+
+    @Override
+    public void onHiddenChanged(boolean hidden) {
+        super.onHiddenChanged(hidden);
+        statsVisible = !hidden;
+        if (!hidden) {
+            ensureComputed();
+        }
     }
 
     /** 后台线程聚合数据，回主线程渲染（books 由 LiveData 推送给出） */
@@ -387,28 +469,9 @@ public class StatsFragment extends Fragment {
                 }
             }
 
-            final int fFinished = finishedThisYear;
-            final int fAvgDays = readDaysCount > 0
+            fFinished = finishedThisYear;
+            fAvgDays = readDaysCount > 0
                     ? (int) Math.round((double) readDaysSum / readDaysCount) : 0;
-            app.ui(() -> {
-                if (b == null) {
-                    return;
-                }
-                lastFinishedThisYear = fFinished;
-                lastAvgDays = fAvgDays;
-                bindReadingGoal(fFinished, fAvgDays);
-            });
-
-            // 组装文案（v4.25：不在这里拼长文本，交给 hero 数字与分布条）
-            final int fTotal = total;
-            final double fTotalPrice = totalPrice;
-            final double fTotalSpent = totalSpent;
-            final double fTotalWords = totalWords;
-            final Book fMostExpensive = mostExpensive;
-            final Book fMostPages = mostPages;
-            final Book fMostWords = mostWords;
-            final Book fEarliest = earliest;
-            final Book fMostPrintings = mostPrintings;
 
             // v4.31：最近录入的 4 本，用于 hero 封面拼贴
             List<Book> recent = new ArrayList<>();
@@ -418,11 +481,6 @@ public class StatsFragment extends Fragment {
                 }
             }
             recent.sort((x, y) -> Long.compare(y.createdAt, x.createdAt));
-            final List<Book> fRecent = recent.size() > 4 ? recent.subList(0, 4) : recent;
-
-            List<Map.Entry<String, Integer>> topAuthors = topN(authorCount, 8);
-            List<Map.Entry<String, Integer>> topPublishers = topN(publisherCount, 8);
-            List<Map.Entry<String, Integer>> topCountries = topN(countryCount, 8);
 
             // ---- v5.8 第二批：阅读习惯 / 该处理的书 / 买读比 / 评分 / 数据体检 / 渠道 ----
             java.util.List<Integer> dayKeys = new ArrayList<>();
@@ -490,64 +548,295 @@ public class StatsFragment extends Fragment {
                     com.bai.bookshelf.util.StatsHoldings.groupBy(books, copiesByBook,
                             book -> book.seriesName, "未成系列", true);
 
+            // v5.8.3：聚合结果落到字段里，切栏时直接复用，不再重复查库/重算
+            this.hold = hold;
+            this.spend = spend;
+            this.pace = pace;
+            this.lend = lend;
+            this.health = health;
+            this.rating = rating;
+            this.anomalies = anomalies;
+            this.habit = habit;
+            this.stale = stale;
+            this.buyRead = buyRead;
+            this.relation = relation;
+            this.noteStat = noteStat;
+            this.wishStat = wishStat;
+            this.channels = channels;
+            this.costByCategory = costByCategory;
+            this.structure = structure;
+            this.trend = trend;
+            this.seriesGroups = seriesGroups;
+            this.cohorts = cohorts;
+            this.lenders = lenders;
+            this.lendByCategory = lendByCategory;
+            this.periods = periods;
+            this.books = books;
+            this.fTotal = total;
+            this.fTotalPrice = totalPrice;
+            this.fTotalSpent = totalSpent;
+            this.fTotalWords = totalWords;
+            this.fMostExpensive = mostExpensive;
+            this.fMostPages = mostPages;
+            this.fMostWords = mostWords;
+            this.fEarliest = earliest;
+            this.fMostPrintings = mostPrintings;
+            this.fRecent = recent.size() > 4 ? new ArrayList<>(recent.subList(0, 4)) : recent;
+            this.topAuthors = topN(authorCount, 8);
+            this.topPublishers = topN(publisherCount, 8);
+            this.topCountries = topN(countryCount, 8);
+            this.openLoans = buildOpenLoans(books, loanRecords, todayKey);
+
             app.ui(() -> {
                 if (b == null) {
                     return;
                 }
-                // v4.28：0 本时收成一张空态卡，避免五张卡都在说「暂无数据」
-                boolean empty = fTotal == 0;
-                statsEmpty = empty;
+                statsComputed = true;
+                statsEmpty = fTotal == 0;
+                lastFinishedThisYear = fFinished;
+                lastAvgDays = fAvgDays;
+                bindReadingGoal(fFinished, fAvgDays);
                 applyStatsTab();
-
-                // v4.30：藏书总数 600ms count-up，数字不再是一次性跳出
-                android.animation.ValueAnimator countUp =
-                        android.animation.ValueAnimator.ofInt(0, fTotal);
-                countUp.setDuration(600);
-                countUp.addUpdateListener(a ->
-                        b.tvStatsTotal.setText(String.valueOf(a.getAnimatedValue())));
-                countUp.start();
-                b.tvStatsReadDone.setText(String.valueOf(hold.readDone));
-                b.tvStatsReading.setText(String.valueOf(hold.reading));
-                b.tvStatsUnread.setText(String.valueOf(hold.unread));
-                b.tvStatsDropped.setText(String.valueOf(hold.dropped));
-                // 种是主数字，册 / 在外 / 遗失按册另说，避免「19 册」这种既错又没信息量
-                StringBuilder copies = new StringBuilder("共 ")
-                        .append(hold.copies).append(" 册");
-                if (hold.copiesLent > 0) {
-                    copies.append(" · 在外 ").append(hold.copiesLent);
-                }
-                if (hold.copiesLost > 0) {
-                    copies.append(" · 遗失 ").append(hold.copiesLost);
-                }
-                b.tvStatsCopies.setText(copies);
-                insightBooks = booksInsight(hold, health, lend, lenders, lendByCategory,
-                        rating, anomalies);
-                insightReading = readingInsight(pace, noteStat);
-                insightPurchase = purchaseInsight(spend, relation, periods, wishStat);
-                insightLend = lendInsight(lend, lenders, lendByCategory);
-                renderBorrowers(lenders);
-                applyInsightForTab();
-                b.tvHabit.setText(habitText(habit, stale, buyRead));
-                renderChannels(channels);
-                renderCostRows(costByCategory);
-                renderStructure(structure);
-                renderTrend(trend);
-                renderSeries(seriesGroups, books);
-                renderTreemap();
-                renderCohort(cohorts);
-                b.tvStatsPrice.setText(String.format(Locale.getDefault(), "¥%.2f", fTotalPrice));
-                b.tvStatsSpent.setText(String.format(Locale.getDefault(), "¥%.2f", fTotalSpent));
-                b.tvStatsWords.setText(String.format(Locale.getDefault(),
-                        "%.1f 万字", fTotalWords / 10000.0));
-                buildExtremes(fMostExpensive, fMostPages, fMostWords,
-                        fEarliest, fMostPrintings);
-                bindCoverFan(fRecent);
-                DistRowBuilder rows = distRows();
-                rows.fill(b.containerAuthors, topAuthors, DistRowBuilder.emptyHint("作者", null));
-                rows.fill(b.containerPublishers, topPublishers, DistRowBuilder.emptyHint("出版社", null));
-                rows.fill(b.containerCountries, topCountries, DistRowBuilder.emptyHint("国家/地区", null));
             });
         });
+    }
+
+    /** 按分栏渲染：切栏只重画这一栏，另外三栏的视图不动（v5.8.3） */
+    private void renderTab(int tab) {
+        if (b == null) {
+            return;
+        }
+        if (tab == TAB_BOOKS) {
+            renderBooksTab();
+        } else if (tab == TAB_READING) {
+            renderReadingTab();
+        } else if (tab == TAB_PURCHASE) {
+            renderPurchaseTab();
+        } else {
+            renderLendTab();
+        }
+        applyInsightForTab();
+    }
+
+    private void renderBooksTab() {
+        if (hold == null) {
+            return;
+        }
+        // v4.30：藏书总数 600ms count-up，只在第一次进本页时跑
+        if (!heroAnimated) {
+            heroAnimated = true;
+            android.animation.ValueAnimator countUp =
+                    android.animation.ValueAnimator.ofInt(0, fTotal);
+            countUp.setDuration(600);
+            countUp.addUpdateListener(a ->
+                    b.tvStatsTotal.setText(String.valueOf(a.getAnimatedValue())));
+            countUp.start();
+        } else {
+            b.tvStatsTotal.setText(String.valueOf(fTotal));
+        }
+        b.tvStatsReadDone.setText(String.valueOf(hold.readDone));
+        b.tvStatsReading.setText(String.valueOf(hold.reading));
+        b.tvStatsUnread.setText(String.valueOf(hold.unread));
+        b.tvStatsDropped.setText(String.valueOf(hold.dropped));
+        // 种是主数字，册 / 在外 / 遗失按册另说，避免「19 册」这种既错又没信息量
+        StringBuilder copies = new StringBuilder("共 ")
+                .append(hold.copies).append(" 册");
+        if (hold.copiesLent > 0) {
+            copies.append(" · 在外 ").append(hold.copiesLent);
+        }
+        if (hold.copiesLost > 0) {
+            copies.append(" · 遗失 ").append(hold.copiesLost);
+        }
+        b.tvStatsCopies.setText(copies);
+        insightBooks = booksInsight(hold, health, rating, anomalies);
+        renderTreemap();
+        renderCohort(cohorts);
+        renderSeries(seriesGroups, books);
+        buildExtremes(fMostExpensive, fMostPages, fMostWords, fEarliest, fMostPrintings);
+        bindCoverFan(fRecent);
+        DistRowBuilder rows = distRows();
+        rows.fill(b.containerAuthors, topAuthors, DistRowBuilder.emptyHint("作者", null));
+        rows.fill(b.containerPublishers, topPublishers, DistRowBuilder.emptyHint("出版社", null));
+        rows.fill(b.containerCountries, topCountries, DistRowBuilder.emptyHint("国家/地区", null));
+    }
+
+    private void renderReadingTab() {
+        if (pace == null) {
+            return;
+        }
+        insightReading = readingInsight(pace, noteStat);
+        b.tvHabit.setText(habitText(habit, stale, buyRead));
+        renderStructure(structure);
+    }
+
+    private void renderPurchaseTab() {
+        if (spend == null) {
+            return;
+        }
+        insightPurchase = purchaseInsight(spend, relation, periods, wishStat);
+        b.tvStatsPrice.setText(String.format(Locale.getDefault(), "¥%.2f", fTotalPrice));
+        b.tvStatsSpent.setText(String.format(Locale.getDefault(), "¥%.2f", fTotalSpent));
+        b.tvStatsWords.setText(String.format(Locale.getDefault(),
+                "%.1f 万字", fTotalWords / 10000.0));
+        renderChannels(channels);
+        renderCostRows(costByCategory);
+        renderTrend(trend);
+    }
+
+    private void renderLendTab() {
+        if (lend == null) {
+            return;
+        }
+        insightLend = lendInsight(lend, lenders, lendByCategory);
+        renderBorrowers(lenders);
+        renderOpenLoans();
+    }
+
+    /** 在借清单：书名 · 借阅人 · 应还日期（逾期标红），点一行可直接收回（v5.8.3） */
+    private void renderOpenLoans() {
+        b.llOpenLoans.removeAllViews();
+        if (openLoans == null || openLoans.isEmpty()) {
+            addRow(b.llOpenLoans, "现在没有借出去的书", 13, true);
+            b.tvOpenLoansHint.setText("在书详情页或逐本信息里可以登记借出");
+            return;
+        }
+        java.text.SimpleDateFormat md = new java.text.SimpleDateFormat("M月d日",
+                Locale.getDefault());
+        int today = com.bai.bookshelf.util.DateKeys.todayKey();
+        for (final OpenLoan loan : openLoans) {
+            StringBuilder line = new StringBuilder();
+            if (loan.book == null) {
+                line.append("记录 #").append(loan.record.id).append("（书已删除）");
+            } else {
+                line.append("《").append(loan.title).append("》");
+            }
+            line.append(" · ").append(loan.borrower);
+            if (loan.dueKey > 0) {
+                line.append(" · 应还 ").append(formatKey(loan.dueKey));
+                int overdue = com.bai.bookshelf.util.BorrowReminder.daysBetween(
+                        loan.dueKey, today);
+                if (overdue > 0) {
+                    line.append("（逾期 ").append(overdue).append(" 天）");
+                }
+            } else {
+                line.append(" · 未填应还日期");
+            }
+            boolean overdue = loan.dueKey > 0 && loan.dueKey < today;
+            android.widget.TextView row = addRow(b.llOpenLoans, line.toString(), 13, false);
+            if (overdue) {
+                // 逾期单独用错误色，别和「次要文字」的浅灰混在一起
+                row.setTextColor(com.bai.bookshelf.util.ThemeManager.resolveColor(
+                        requireContext(), com.google.android.material.R.attr.colorError));
+            }
+            row.setOnClickListener(v -> confirmReturn(loan));
+        }
+        b.tvOpenLoansHint.setText("点一行可收回；逾期按应还日期和今天比较");
+    }
+
+    private static String formatKey(int yyyyMMdd) {
+        return (yyyyMMdd / 100 % 100) + "月" + (yyyyMMdd % 100) + "日";
+    }
+
+    /** 收回一本：关闭借阅记录 + 把书/副本状态改回在库（与详情页同一套规则） */
+    private void confirmReturn(final OpenLoan loan) {
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+                .setTitle("收回《" + loan.title + "》？")
+                .setMessage("借阅人：" + loan.borrower
+                        + (loan.dueKey > 0 ? "\n应还日期：" + formatKey(loan.dueKey) : "")
+                        + "\n\n收回后会记下归还日期，并把这一册改回在库。")
+                .setNegativeButton("取消", null)
+                .setPositiveButton("收回", (d, w) -> doReturn(loan))
+                .show();
+    }
+
+    private void doReturn(final OpenLoan loan) {
+        BookshelfApp app = BookshelfApp.get();
+        app.io(() -> {
+            try {
+                loan.record.status = com.bai.bookshelf.data.entity.BorrowRecord.STATUS_RETURNED;
+                loan.record.returnDate = com.bai.bookshelf.util.StatusText.today();
+                app.db().borrowRecordDao().update(loan.record);
+                if (loan.record.copyIndex == 1) {
+                    Book book = loan.book;
+                    if (book != null) {
+                        book.stockStatus = Book.STOCK_IN;
+                        if (BookFlags.isBorrowSource(book)
+                                && !com.bai.bookshelf.util.BorrowSourceRecords.hasOpen(book)
+                                && book.borrowReturnDate != null
+                                && !book.borrowReturnDate.trim().isEmpty()) {
+                            book.stockStatus = Book.STOCK_BOOKMARK;
+                        }
+                        book.updatedAt = System.currentTimeMillis();
+                        app.db().bookDao().update(book);
+                    }
+                } else {
+                    for (com.bai.bookshelf.data.entity.BookCopy c
+                            : app.db().bookCopyDao().getByBook(loan.record.bookId)) {
+                        if (c.copyIndex == loan.record.copyIndex) {
+                            c.stockStatus = Book.STOCK_IN;
+                            app.db().bookCopyDao().update(c);
+                            break;
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                app.ui(() -> android.widget.Toast.makeText(requireContext(),
+                        "收回失败：" + e.getMessage(), android.widget.Toast.LENGTH_SHORT).show());
+                return;
+            }
+            app.ui(() -> {
+                if (b == null) {
+                    return;
+                }
+                android.widget.Toast.makeText(requireContext(),
+                        "已收回《" + loan.title + "》", android.widget.Toast.LENGTH_SHORT).show();
+                // 逐本借出改的是 book_copies，不会触发 books 的 LiveData，手动重算
+                statsComputed = false;
+                computeFrom(statsBooks);
+            });
+        });
+    }
+
+    /** 在借清单的一行：借阅记录 + 书 + 应还日键 */
+    private static class OpenLoan {
+        final com.bai.bookshelf.data.entity.BorrowRecord record;
+        final Book book;
+        final String title;
+        final String borrower;
+        final int dueKey;
+
+        OpenLoan(com.bai.bookshelf.data.entity.BorrowRecord r, Book book) {
+            this.record = r;
+            this.book = book;
+            this.title = book == null || book.title.isEmpty() ? "（未命名）" : book.title;
+            this.borrower = r.borrower == null || r.borrower.isEmpty() ? "未填借阅人" : r.borrower;
+            this.dueKey = com.bai.bookshelf.util.DateKeys.parseKey(r.dueDate);
+        }
+    }
+
+    private static java.util.List<OpenLoan> buildOpenLoans(List<Book> books,
+                                                           java.util.List<com.bai.bookshelf.data.entity.BorrowRecord> records,
+                                                           int todayKey) {
+        java.util.Map<Long, Book> byId = new java.util.HashMap<>();
+        for (Book bk : books) {
+            byId.put(bk.id, bk);
+        }
+        java.util.List<OpenLoan> out = new ArrayList<>();
+        for (com.bai.bookshelf.data.entity.BorrowRecord r : records) {
+            if (r.status == com.bai.bookshelf.data.entity.BorrowRecord.STATUS_OUT) {
+                out.add(new OpenLoan(r, byId.get(r.bookId)));
+            }
+        }
+        // 逾期的排最前，其余按应还日期
+        out.sort((a, b) -> {
+            boolean ao = a.dueKey > 0 && a.dueKey < todayKey;
+            boolean bo = b.dueKey > 0 && b.dueKey < todayKey;
+            if (ao != bo) {
+                return ao ? -1 : 1;
+            }
+            return Integer.compare(a.dueKey, b.dueKey);
+        });
+        return out;
     }
 
     /** 画分类树状图：一级总览，或某个一级分类下的二级 */
@@ -581,7 +870,8 @@ public class StatsFragment extends Fragment {
     }
 
     /** 往容器里加一行纯文字（cohort / 渠道榜共用，省掉每处重复的 TextView 拼装） */
-    private void addRow(android.widget.LinearLayout container, String text, float sp, boolean secondary) {
+    private android.widget.TextView addRow(android.widget.LinearLayout container, String text,
+                                            float sp, boolean secondary) {
         android.widget.TextView tv = new android.widget.TextView(requireContext());
         tv.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, sp);
         tv.setTextColor(com.bai.bookshelf.util.ThemeManager.resolveColor(requireContext(),
@@ -593,6 +883,7 @@ public class StatsFragment extends Fragment {
                 android.view.ViewGroup.LayoutParams.WRAP_CONTENT);
         lp.topMargin = Math.round(6 * getResources().getDisplayMetrics().density);
         container.addView(tv, lp);
+        return tv;
     }
 
     /** 渠道 ROI：每个来源一行「N 种 · 花费 · 折扣 · 每页 · 读完率」 */
@@ -914,9 +1205,6 @@ public class StatsFragment extends Fragment {
      */
     private static String booksInsight(com.bai.bookshelf.util.StatsHoldings.Holdings h,
                                        com.bai.bookshelf.util.StatsHealth.Health g,
-                                       com.bai.bookshelf.util.StatsLend.Lend l,
-                                       java.util.List<com.bai.bookshelf.util.StatsLend.Lender> lenders,
-                                       java.util.List<com.bai.bookshelf.util.StatsHoldings.Group> lends,
                                        com.bai.bookshelf.util.StatsHealth.Rating r,
                                        com.bai.bookshelf.util.StatsHealth.Anomalies a) {
         StringBuilder sb = new StringBuilder(holdingsLine(h)).append('\n');

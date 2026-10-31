@@ -56,7 +56,7 @@ public final class RecentSearches {
         while (all.size() > MAX) {
             all.remove(all.size() - 1);
         }
-        prefs(ctx).edit().putString(KEY, String.join(SEP, all)).apply();
+        prefs(ctx).edit().putString(KEY, android.text.TextUtils.join(SEP, all)).apply();
     }
 
     public static void clear(Context ctx) {

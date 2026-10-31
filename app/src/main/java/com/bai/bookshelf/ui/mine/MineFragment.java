@@ -122,6 +122,16 @@ public class MineFragment extends Fragment {
                 com.bai.bookshelf.ui.stats.ReadingGoalDialog.show(requireContext(), this::refreshTasks));
         b.rowTaskInfo.setOnClickListener(v -> startActivity(new android.content.Intent(
                 requireContext(), IncompleteBooksActivity.class)));
+        b.tvTaskSkipFolder.setOnClickListener(v -> {
+            requireContext().getSharedPreferences("ui_prefs", 0).edit()
+                    .putBoolean("task_skip_folder", true).apply();
+            refreshTasks();
+        });
+        b.btnTaskClose.setOnClickListener(v -> {
+            requireContext().getSharedPreferences("ui_prefs", 0).edit()
+                    .putBoolean("task_list_dismissed", true).apply();
+            refreshTasks();
+        });
         dataActions.attach(b);
         dataActions.refreshRows();
         // 应用更新（v4.7）：启动检查开关 + 手动检查
@@ -293,10 +303,22 @@ public class MineFragment extends Fragment {
             return;
         }
         android.content.Context ctx = requireContext();
+        android.content.SharedPreferences prefs =
+                ctx.getSharedPreferences("ui_prefs", 0);
+        boolean dismissed = prefs.getBoolean("task_list_dismissed", false);
         boolean backup = BackupManager.isEnabled(ctx);
-        boolean folder = BackupManager.getTreeUri(ctx) != null;
-        boolean goal = ctx.getSharedPreferences("ui_prefs", 0)
-                .getBoolean("reading_goal_set", false);
+        boolean folder = BackupManager.getTreeUri(ctx) != null
+                || prefs.getBoolean("task_skip_folder", false);
+        boolean goal = prefs.getBoolean("reading_goal_set", false);
+        // 老用户迁移：这个版本之前设过自定义目标（不是默认 24）就算已完成
+        if (!goal) {
+            int year = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR);
+            if (prefs.getInt("reading_goal_year", 0) == year
+                    && prefs.getInt("reading_goal", 24) != 24) {
+                prefs.edit().putBoolean("reading_goal_set", true).apply();
+                goal = true;
+            }
+        }
         boolean info = incompleteCount == 0;
         int done = (backup ? 1 : 0) + (folder ? 1 : 0) + (goal ? 1 : 0) + (info ? 1 : 0);
         b.tvTaskProgress.setText(done + " / 4");
@@ -307,7 +329,8 @@ public class MineFragment extends Fragment {
         b.tvTaskInfo.setText(info
                 ? "封面 / 分类 / 存放地点都齐了"
                 : "补全书的封面 / 分类 / 存放地点（还差 " + incompleteCount + " 种）");
-        b.cardTasks.setVisibility(done >= 4 ? View.GONE : View.VISIBLE);
+        b.tvTaskSkipFolder.setVisibility(folder ? View.GONE : View.VISIBLE);
+        b.cardTasks.setVisibility(done >= 4 || dismissed ? View.GONE : View.VISIBLE);
     }
 
     private static void bindTask(android.widget.ImageView icon, boolean done) {

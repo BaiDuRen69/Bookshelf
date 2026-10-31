@@ -1048,6 +1048,43 @@
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
 
+                <!-- ==================== 在借清单（v5.8.3 第 4 栏） ==================== -->
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/card_open_loans"
+                    style="@style/Widget.Bookshelf.Card"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/space_md">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="@dimen/space_lg">
+
+                        <TextView
+                            style="@style/CardTitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="在借清单"
+                            android:textColor="?attr/on_surface" />
+
+                        <LinearLayout
+                            android:id="@+id/ll_open_loans"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical" />
+
+                        <TextView
+                            android:id="@+id/tv_open_loans_hint"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="@dimen/space_sm"
+                            android:textColor="?attr/on_surface_variant"
+                            android:textSize="@dimen/text_caption_large" />
+                    </LinearLayout>
+                </androidx.cardview.widget.CardView>
+
                 <!-- ==================== 借阅人（v5.8.1 第 4 栏） ==================== -->
                 <androidx.cardview.widget.CardView
                     android:id="@+id/card_borrowers"
