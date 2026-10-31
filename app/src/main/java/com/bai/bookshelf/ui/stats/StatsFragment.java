@@ -65,6 +65,12 @@ public class StatsFragment extends Fragment {
     private com.bai.bookshelf.util.StatsHoldings.Holdings hold;
     private com.bai.bookshelf.util.StatsSpend.Spend spend;
     private com.bai.bookshelf.util.StatsPace.Pace pace;
+    /** 在读还剩多少页 / 预计读完日（v5.8.19） */
+    private com.bai.bookshelf.util.StatsPace.Backlog backlog;
+    /** 「下一本读什么」的候选与当前抽中的一本（v5.8.19） */
+    private java.util.List<com.bai.bookshelf.util.NextPick.Pick> nextRanked = new ArrayList<>();
+    private com.bai.bookshelf.util.NextPick.Pick nextPick;
+    private long nextPickSeed = 1L;
     private com.bai.bookshelf.util.StatsLend.Lend lend;
     private com.bai.bookshelf.util.StatsHealth.Health health;
     private com.bai.bookshelf.util.StatsHealth.Rating rating;
@@ -132,6 +138,13 @@ public class StatsFragment extends Fragment {
                 startActivity(new Intent(requireContext(),
                         com.bai.bookshelf.ui.stats.StudyReportActivity.class)));
         b.tvGoalSet.setOnClickListener(v -> showReadingGoalDialog());
+        // v5.8.19：「下一本读什么」。换一本只重抽（候选已缓存），开始读直接改状态
+        b.btnNextPickReroll.setOnClickListener(v -> {
+            nextPickSeed = System.nanoTime();
+            renderNextPick();
+            v.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP);
+        });
+        b.btnNextPickStart.setOnClickListener(v -> startPickedBook());
         // v5.8：分类树状图。点一块下钻到它的二级，点下方提示行返回一级
         b.treemapCategories.setOnCellClickListener(index -> {
             if (treemapDrill >= 0 || categoryTree == null || index >= categoryTree.size()) {
@@ -223,6 +236,7 @@ public class StatsFragment extends Fragment {
         setCardVisible(b.cardReadingGoal, reading);
         setCardVisible(b.cardReadingCalendar, reading);
         setCardVisible(b.cardHabit, reading);
+        setCardVisible(b.cardNextPick, reading);
         setCardVisible(b.cardStructure, reading);
         setCardVisible(b.cardYearReport, reading);
         setCardVisible(b.cardPurchaseOverview, purchase);
@@ -420,6 +434,13 @@ public class StatsFragment extends Fragment {
             }
             final com.bai.bookshelf.util.StatsPace.Pace pace =
                     com.bai.bookshelf.util.StatsPace.pace(books, copiesByBook, hold, readingDays);
+            // v5.8.19：在读剩余页数与预计读完日，速度沿用上面的中位页/天
+            final com.bai.bookshelf.util.StatsPace.Backlog backlog =
+                    com.bai.bookshelf.util.StatsPace.backlog(books,
+                            pace.medianPagesPerDay, todayKey);
+            // v5.8.19：「下一本读什么」的候选（加权排序，抽哪一本在 UI 侧按种子决定）
+            final java.util.List<com.bai.bookshelf.util.NextPick.Pick> nextRanked =
+                    com.bai.bookshelf.util.NextPick.rank(books, todayKey);
             java.util.List<com.bai.bookshelf.data.entity.BorrowRecord> loanRecords;
             try {
                 loanRecords = BookshelfApp.get().db().borrowRecordDao().getAll();
@@ -597,6 +618,10 @@ public class StatsFragment extends Fragment {
             this.hold = hold;
             this.spend = spend;
             this.pace = pace;
+            this.backlog = backlog;
+            this.nextRanked = nextRanked;
+            // 种子不变 → 同一批书永远抽到同一本；点「换一本」才换种子
+            this.nextPick = com.bai.bookshelf.util.NextPick.chooseFrom(nextRanked, nextPickSeed);
             this.lend = lend;
             this.health = health;
             this.rating = rating;
@@ -711,9 +736,63 @@ public class StatsFragment extends Fragment {
         if (pace == null) {
             return;
         }
-        insightReading = readingInsight(pace, noteStat);
+        insightReading = readingInsight(pace, backlog, noteStat);
         b.tvHabit.setText(habitText(habit, stale, buyRead));
+        renderNextPick();
         renderStructure(structure);
+    }
+
+    /** 「下一本读什么」卡片（v5.8.19）：抽中的书 + 为什么是它 + 一键开读 */
+    private void renderNextPick() {
+        if (b == null) {
+            return;
+        }
+        com.bai.bookshelf.util.NextPick.Pick pick = nextPick;
+        if (pick == null && !nextRanked.isEmpty()) {
+            pick = com.bai.bookshelf.util.NextPick.chooseFrom(nextRanked, nextPickSeed);
+            nextPick = pick;
+        }
+        boolean has = pick != null;
+        b.tvNextPick.setText(has
+                ? com.bai.bookshelf.util.BookText.quotedTitle(pick.book.title)
+                        + (pick.book.author == null || pick.book.author.isEmpty()
+                        ? "" : " · " + pick.book.author)
+                : "没有待读的书了 · 想读清单里的可以先加进书架");
+        b.tvNextPickReason.setText(has ? pick.reasonLine() : "");
+        b.btnNextPickReroll.setVisibility(has && nextRanked.size() > 1 ? View.VISIBLE : View.GONE);
+        b.btnNextPickStart.setVisibility(has ? View.VISIBLE : View.GONE);
+    }
+
+    /** 一键把抽中的这本改成在读（8 秒内可撤销） */
+    private void startPickedBook() {
+        final com.bai.bookshelf.util.NextPick.Pick pick = nextPick;
+        if (pick == null || b == null) {
+            return;
+        }
+        final com.bai.bookshelf.data.entity.Book book = pick.book;
+        final com.bai.bookshelf.data.entity.Book before =
+                com.bai.bookshelf.util.BookSnapshot.copy(book);
+        final BookshelfApp app = BookshelfApp.get();
+        final android.view.View anchor = b.getRoot();
+        app.io(() -> {
+            com.bai.bookshelf.util.ReadingRecords.applyStatus(book, Book.READING,
+                    com.bai.bookshelf.util.DateKeys.formatKey(
+                            com.bai.bookshelf.util.DateKeys.todayKey()));
+            book.updatedAt = System.currentTimeMillis();
+            book.dirty = true;
+            app.db().bookDao().update(book);
+            app.ui(() -> {
+                // 改状态会触发 Room 推送，统计随之重算；这里先清掉当前选择，避免指向已读的书
+                nextPick = null;
+                renderNextPick();
+                com.bai.bookshelf.util.UndoBar.offer(anchor,
+                        "开始读" + com.bai.bookshelf.util.BookText.quotedTitle(book.title),
+                        before == null ? null : () -> app.io(() -> {
+                            app.db().bookDao().update(before);
+                            app.ui(() -> renderNextPick());
+                        }), null);
+            });
+        });
     }
 
     private void renderPurchaseTab() {
@@ -1301,10 +1380,11 @@ public class StatsFragment extends Fragment {
         b.tvBorrowersHint.setText("口径：按借出笔数排序；按时归还率见上方洞察");
     }
 
-    /** 阅读栏洞察：速度、书债与摘抄覆盖（习惯卡单独成卡，这里不重复） */
+    /** 阅读栏洞察：速度、书债、在读剩余页数与摘抄覆盖（习惯卡单独成卡，这里不重复） */
     private static String readingInsight(com.bai.bookshelf.util.StatsPace.Pace p,
+                                         com.bai.bookshelf.util.StatsPace.Backlog backlog,
                                          com.bai.bookshelf.util.StatsHealth.NoteStat n) {
-        return speedLine(p) + "\n" + debtLine(p) + "\n" + n.line();
+        return speedLine(p) + "\n" + debtLine(p) + "\n" + backlog.line() + "\n" + n.line();
     }
 
     /** 购书栏洞察：花费、单位成本、同比环比、价格相关性与想读转化 */
