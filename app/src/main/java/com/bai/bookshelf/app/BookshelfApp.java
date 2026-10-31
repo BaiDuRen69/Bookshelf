@@ -181,12 +181,54 @@ public class BookshelfApp extends Application {
 
     /** 在后台线程执行（UI 驱动的短查询） */
     public void io(Runnable r) {
-        io.execute(r);
+        io.execute(guard(r));
     }
 
     /** 在后台维护线程执行（v4.4：启动期长任务专用，不阻塞 UI 查询的 io 线程） */
     public void bg(Runnable r) {
-        bg.execute(r);
+        bg.execute(guard(r));
+    }
+
+    /**
+     * v5.8：数据库打不开时，各页面的查询会接二连三地抛异常。
+     *
+     * <p>以前这些异常会变成闪退，用户连「修复」的入口都看不到。这里在提交时统一兜一层：
+     * 认得出是数据库本身的问题就顺手拉起修复页并吞掉异常；其他异常原样抛给默认处理器，
+     * 保持原来的崩溃可见性。
+     */
+    private Runnable guard(Runnable r) {
+        return () -> {
+            try {
+                r.run();
+            } catch (RuntimeException e) {
+                if (!looksLikeDatabaseFailure(e)) {
+                    throw e;
+                }
+                if (!com.bai.bookshelf.util.DbRepair.isBroken()) {
+                    com.bai.bookshelf.util.DbRepair.markBroken(e);
+                    ui(this::openDatabaseRepair);
+                }
+            }
+        };
+    }
+
+    /** 迁移没跑通、表/列对不上、库文件损坏——这些都交给修复页 */
+    private static boolean looksLikeDatabaseFailure(Throwable t) {
+        for (Throwable c = t; c != null && c != c.getCause(); c = c.getCause()) {
+            if (c instanceof android.database.sqlite.SQLiteException) {
+                return true;
+            }
+            String msg = c.getMessage();
+            if (msg != null) {
+                String m = msg.toLowerCase(java.util.Locale.ROOT);
+                if (m.contains("migration didn't properly handle")
+                        || m.contains("no such table") || m.contains("no such column")
+                        || m.contains("database is malformed") || m.contains("file is not a database")) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     /** 切回主线程执行 */
