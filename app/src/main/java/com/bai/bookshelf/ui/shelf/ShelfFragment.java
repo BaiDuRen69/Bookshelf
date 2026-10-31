@@ -97,6 +97,9 @@ public class ShelfFragment extends Fragment {
     private final java.util.Map<Long, String> searchIndex = new java.util.HashMap<>();
     /** 是否已经注册 books 的 LiveData（库就绪回调可能被调用不止一次） */
     private boolean observingBooks;
+    /** 筛选/搜索的代际号（v5.8.13）：只有最新一次的结果允许上屏 */
+    private long filterGeneration;
+
     /** 页头字标行是否已折叠（v5.8.5） */
     private boolean headerCollapsed;
     private int heroFullHeight;
@@ -698,46 +701,60 @@ public class ShelfFragment extends Fragment {
         criteria.smartShelf = smartShelf;
         criteria.sortType = sortIndex;
         criteria.sortReversed = sortReversed;
-        List<Book> result = ShelfQuery.query(allBooks, criteria, queryNorm,
-                searchIndex, loans.map(), com.bai.bookshelf.util.BorrowReminder.todayKey());
-
-        // v3.2 优化：只给「当前正在显示」的适配器提交数据。
-        // 原先三个适配器每次都 submit（同一份数据渲染三遍），而 RecyclerView 一次只挂载一个，
-        // 另两个的渲染纯属浪费——尤其是封面视图每次都要重新触发一遍 Glide 加载。
-        // 切视图时 applyViewMode 会调用 applyFilters() 重新提交，所以切换依然即时。
-        lastResult = result;
-        // v4.41：搜索词同时给三个适配器，命中处高亮
-        adapter.setKeyword(keyword);
-        gridAdapter.setKeyword(keyword);
-        textAdapter.setKeyword(keyword);
-        int activeFilters = activeFilterCount(stockFilter, readFilter, locFilter, tagFilter,
+        // v5.8.13：筛选/搜索一律下后台 + 代际号。以前每敲一个字就在主线程对全库
+        // 跑一次 ShelfQuery（1000 本时肉眼可见掉帧），现在主线程只做快照，
+        // 结果回来时如果期间又输入了新的词，直接丢掉过期结果。
+        final ShelfQuery.Criteria fCriteria = criteria;
+        final String fKeyword = keyword;
+        final String fQueryNorm = queryNorm;
+        final List<Book> fSnapshot = new ArrayList<>(allBooks);
+        final Map<Long, String> fIndex = searchIndex;
+        final Map<Long, com.bai.bookshelf.data.entity.BorrowRecord> fLoans = loans.map();
+        final int fToday = com.bai.bookshelf.util.BorrowReminder.todayKey();
+        final int fSmart = smartShelf;
+        final int fActive = activeFilterCount(stockFilter, readFilter, locFilter, tagFilter,
                 catFilter, countryFilter);
-        boolean filtered = activeFilters > 0 || !queryNorm.isEmpty() || smartShelf >= 0;
-        statusView.bindResultLine(result.size(), activeFilters,
-                queryNorm.isEmpty() ? "" : keyword,
-                smartShelf >= 0 ? SMART_NAMES[smartShelf] : "");
-        b.tvShelfResultCount.setVisibility(View.VISIBLE);
-        statusView.updateMeta(com.bai.bookshelf.util.BookFlags.countOwned(allBooks),
-                ownedCopies, locations.size());
-        if (filterPanel != null) {
-            b.hsvFilters.post(filterPanel::updateFade);
-        }
-        // v4.28：书架为空时隐藏 FAB（空态已有主按钮，避免一屏两个扫码入口）
-        shelfEmpty = result.isEmpty();
-        if (shelfEmpty) {
-            b.fabScan.hide();
-        } else if (!selection.isActive()) {
-            b.fabScan.show();
-        }
-        Map<Long, String> locMap = locationNameMap(); // 只构造一次（原本构造了两次）
-        if (viewMode == 1) {
-            gridAdapter.submit(result);
-        } else if (viewMode == 2) {
-            textAdapter.submit(result, locMap);
-        } else {
-            adapter.submit(result, locMap);
-        }
-        statusView.updateEmptyState(result.isEmpty(), keyword, filtered);
+        final long gen = ++filterGeneration;
+        BookshelfApp.get().io(() -> {
+            final List<Book> result =
+                    ShelfQuery.query(fSnapshot, fCriteria, fQueryNorm, fIndex, fLoans, fToday);
+            BookshelfApp.get().ui(() -> {
+                if (gen != filterGeneration || b == null) {
+                    return; // 期间又输入/改了筛选，这批结果已经过期
+                }
+                // v3.2 优化：只给「当前正在显示」的适配器提交数据。
+                lastResult = result;
+                // v4.41：搜索词同时给三个适配器，命中处高亮
+                adapter.setKeyword(fKeyword);
+                gridAdapter.setKeyword(fKeyword);
+                textAdapter.setKeyword(fKeyword);
+                boolean filtered = fActive > 0 || !fQueryNorm.isEmpty() || fSmart >= 0;
+                statusView.bindResultLine(result.size(), fActive, fQueryNorm.isEmpty() ? "" : fKeyword,
+                        fSmart >= 0 ? SMART_NAMES[fSmart] : "");
+                b.tvShelfResultCount.setVisibility(View.VISIBLE);
+                statusView.updateMeta(com.bai.bookshelf.util.BookFlags.countOwned(allBooks),
+                        ownedCopies, locations.size());
+                if (filterPanel != null) {
+                    b.hsvFilters.post(filterPanel::updateFade);
+                }
+                // v4.28：书架为空时隐藏 FAB（空态已有主按钮，避免一屏两个扫码入口）
+                shelfEmpty = result.isEmpty();
+                if (shelfEmpty) {
+                    b.fabScan.hide();
+                } else if (!selection.isActive()) {
+                    b.fabScan.show();
+                }
+                Map<Long, String> locMap = locationNameMap(); // 只构造一次（原本构造了两次）
+                if (viewMode == 1) {
+                    gridAdapter.submit(result);
+                } else if (viewMode == 2) {
+                    textAdapter.submit(result, locMap);
+                } else {
+                    adapter.submit(result, locMap);
+                }
+                statusView.updateEmptyState(result.isEmpty(), fKeyword, filtered);
+            });
+        });
     }
 
     /** 当前生效的筛选项数量（不含搜索关键词） */

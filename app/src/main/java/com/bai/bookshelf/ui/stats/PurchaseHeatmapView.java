@@ -38,6 +38,9 @@ import java.util.Calendar;
  */
 public class PurchaseHeatmapView extends View {
 
+    /** v5.8.13：绘制复用同一个矩形，避免每帧 new RectF（一个月 31 格只用这一个） */
+    private final RectF tmpRect = new RectF();
+
     /** 单元格点击回调 */
     public interface OnDayClickListener {
         /**
@@ -490,7 +493,7 @@ public class PurchaseHeatmapView extends View {
         }
 
         float top0 = showHeader ? headHeight : 0;
-        RectF rect = new RectF();
+        RectF rect = tmpRect;
         for (int day = 1; day <= monthDays; day++) {
             int idx = firstDayOffset + day - 1;
             int col = idx % 7;
@@ -582,7 +585,7 @@ public class PurchaseHeatmapView extends View {
             }
         }
 
-        RectF rect = new RectF();
+        RectF rect = tmpRect;
         // v4.22：年模式下把选中日期换算成「当年第几天」，用于描边
         int selectedIndex = -1;
         if (selectedYear == yearValue && selectedDay > 0) {
@@ -633,7 +636,7 @@ public class PurchaseHeatmapView extends View {
         monthLabelPaint.setTextSize(sp(9));
         cellPaint.setColor(surfaceDim);
 
-        RectF rect = new RectF();
+        RectF rect = tmpRect;
         for (int m = 0; m < 12; m++) {
             int col = m % MINI_COLS;
             int row = m / MINI_COLS;

@@ -105,9 +105,6 @@ public class BookshelfApp extends Application {
         if (!prefs.contains(KEY_FIRST_LAUNCH_AT)) {
             prefs.edit().putLong(KEY_FIRST_LAUNCH_AT, System.currentTimeMillis()).apply();
         }
-        // v5.7 数据安全：Room 一旦打开就会跑迁移，所以升级前副本必须抢在这之前
-        final int dbVersionBefore = com.bai.bookshelf.util.PreMigrationBackup
-                .prepareBeforeOpen(this);
         db = buildDb();
         // v5.8.3：上次恢复在「换文件」窗口里被杀过，库文件处于未知状态。
         // 见到标记不冒险开库，直接把用户送到修复页（那里会读副本描述与坏库路径）。
@@ -119,6 +116,17 @@ public class BookshelfApp extends Application {
         // v5.8：Room 是懒打开的，迁移失败原先只会在某个后台查询里抛出来，
         // 用户看到的是空书架或闪退。这里主动开一次库把失败接住，直接进修复页。
         bg(() -> {
+            // v5.8.12：升级前副本必须在「Room 第一次打开」之前，但不必在主线程——
+            // 大库同步复制是升级后首启的 ANR 候选。这里先复制再开库，顺序不变，
+            // 主线程只是把任务丢进 bg 就返回。
+            int versionBefore = -1;
+            try {
+                versionBefore = com.bai.bookshelf.util.PreMigrationBackup
+                        .prepareBeforeOpen(this);
+            } catch (Throwable ignored) {
+                // 副本失败不阻断启动（与旧行为一致），继续开库
+            }
+            final int dbVersionBefore = versionBefore;
             try {
                 db.getOpenHelper().getWritableDatabase();
             } catch (Throwable t) {

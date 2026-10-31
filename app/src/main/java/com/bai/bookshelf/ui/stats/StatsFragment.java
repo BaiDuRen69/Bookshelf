@@ -58,6 +58,8 @@ public class StatsFragment extends Fragment {
     private boolean tabAnimating;
     /** 每个分栏各自的滚动位置 */
     private final int[] tabScrollY = new int[4];
+    /** 每栏是否需要重画（v5.8.12：数据没变时切回某栏不再重画 treemap/榜单/图表） */
+    private final boolean[] tabDirty = {true, true, true, true};
     private static final long TAB_FADE_OUT_MS = 70;
     private static final long TAB_FADE_IN_MS = 110;
     private com.bai.bookshelf.util.StatsHoldings.Holdings hold;
@@ -236,8 +238,11 @@ public class StatsFragment extends Fragment {
         styleStatsTab(b.tabReading, statsTab == TAB_READING);
         styleStatsTab(b.tabPurchase, statsTab == TAB_PURCHASE);
         styleStatsTab(b.tabLoan, statsTab == TAB_LOAN);
-        if (statsComputed) {
+        if (statsComputed && tabDirty[statsTab]) {
             renderTab(statsTab);
+            tabDirty[statsTab] = false;
+        } else {
+            applyInsightForTab();
         }
     }
 
@@ -624,6 +629,8 @@ public class StatsFragment extends Fragment {
                     return;
                 }
                 statsComputed = true;
+                // 数据变了：四栏都标脏，下次显示时各自重画一次
+                java.util.Arrays.fill(tabDirty, true);
                 statsEmpty = fTotal == 0;
                 lastFinishedThisYear = fFinished;
                 lastAvgDays = fAvgDays;

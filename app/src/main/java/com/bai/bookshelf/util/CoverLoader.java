@@ -23,8 +23,18 @@ public final class CoverLoader {
     private CoverLoader() {
     }
 
+    /** v5.8.13：占位封面按书名缓存，列表滚动时不再每次 bind 都新建一个 Drawable */
+    private static final android.util.LruCache<String, Drawable> PLACEHOLDERS =
+            new android.util.LruCache<>(128);
+
     public static Drawable placeholder(Context ctx, Book book) {
-        return new BookCoverDrawable(ctx, book.title);
+        String key = book.title == null ? "" : book.title;
+        Drawable cached = PLACEHOLDERS.get(key);
+        if (cached == null) {
+            cached = new BookCoverDrawable(ctx, book.title);
+            PLACEHOLDERS.put(key, cached);
+        }
+        return cached;
     }
 
     /** 无封面：直接画布面首字封面 */
@@ -48,8 +58,15 @@ public final class CoverLoader {
         }
         Object model = book.coverUrl.startsWith("http") ? book.coverUrl : new File(book.coverUrl);
         applyScaleType(iv, book.coverUrl);
+        // v5.8.13：按实际格宽解码（避免整张大图进内存）、RGB_565 省一半位图内存，
+        // 先给 1/4 缩略图占位，再淡入全尺寸
+        float density = iv.getResources().getDisplayMetrics().density;
+        int width = iv.getWidth() > 0 ? iv.getWidth() : Math.round(120 * density);
         Glide.with(iv)
                 .load(model)
+                .override(width, Math.round(width * 4f / 3f))
+                .format(com.bumptech.glide.load.DecodeFormat.PREFER_RGB_565)
+                .thumbnail(0.25f)
                 .placeholder(placeholder(iv.getContext(), book))
                 .error(placeholder(iv.getContext(), book))
                 .transition(DrawableTransitionOptions.withCrossFade(180))
