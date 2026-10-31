@@ -103,6 +103,18 @@
     </style>
 
     <!-- 两级标题：CardTitle（独立卡片 17sp 衬线）/ SectionTitle（卡内小标题 13sp sans-medium 次级色） -->
+    <!-- 全局搜索分组抬头（v5.8.16）：比卡片标题低一级，只起分隔作用 -->
+    <style name="SearchGroupTitle">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:paddingHorizontal">@dimen/page_padding</item>
+        <item name="android:paddingTop">@dimen/space_md</item>
+        <item name="android:paddingBottom">2dp</item>
+        <item name="android:textSize">@dimen/text_caption</item>
+        <item name="android:letterSpacing">0.08</item>
+        <item name="android:textColor">?attr/on_surface_variant</item>
+    </style>
+
     <style name="CardTitle">
         <item name="android:layout_width">wrap_content</item>
         <item name="android:layout_height">wrap_content</item>

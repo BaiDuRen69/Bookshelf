@@ -291,6 +291,14 @@ public class ShelfFragment extends Fragment {
                 smartBar.setExpanded(!smartBar.expanded()));
 
         searchBar = new ShelfSearchBar(b.etSearch, b.btnClearSearch, this::applyFilters);
+        // v5.8.16：键盘「搜索」键打开全局搜索页（藏书 / 摘抄 / 想读 / 功能入口）
+        b.etSearch.setOnEditorActionListener((v, actionId, event) -> {
+            if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH) {
+                openGlobalSearch(searchBar.text());
+                return true;
+            }
+            return false;
+        });
         setupRecentSearches();
         searchBar.setup();
         setupOnboarding();
@@ -687,16 +695,46 @@ public class ShelfFragment extends Fragment {
         }
         java.util.List<String> recent =
                 com.bai.bookshelf.util.RecentSearches.list(requireContext());
-        boolean show = b.etSearch.hasFocus() && searchBar.text().isEmpty() && !recent.isEmpty();
+        boolean show = b.etSearch.hasFocus() && searchBar.text().isEmpty();
         b.hsvRecent.setVisibility(show ? View.VISIBLE : View.GONE);
         if (!show) {
             return;
         }
         b.llRecentSearches.removeAllViews();
+        addGlobalSearchChip();
         for (String q : recent) {
             addRecentChip(q, false);
         }
-        addRecentChip("清除", true);
+        if (!recent.isEmpty()) {
+            addRecentChip("清除", true);
+        }
+    }
+
+    /** 聚焦且未输入时给一个「全局搜索」入口（v5.8.16） */
+    private void addGlobalSearchChip() {
+        TextView chip = new TextView(requireContext());
+        chip.setText("全局搜索 ›");
+        com.bai.bookshelf.util.Typo.text(chip, R.dimen.text_body_small);
+        chip.setTextColor(com.bai.bookshelf.util.ThemeManager.resolveColor(
+                requireContext(), com.bai.bookshelf.util.ThemeManager.ATTR_COLOR_PRIMARY));
+        chip.setBackgroundResource(R.drawable.bg_filter_pill);
+        int padH = (int) getResources().getDimension(R.dimen.space_md);
+        int padV = (int) getResources().getDimension(R.dimen.space_xs);
+        chip.setPadding(padH, padV, padH, padV);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT);
+        lp.setMarginEnd((int) getResources().getDimension(R.dimen.space_xs));
+        chip.setLayoutParams(lp);
+        chip.setOnClickListener(v -> openGlobalSearch(""));
+        b.llRecentSearches.addView(chip);
+    }
+
+    private void openGlobalSearch(String keyword) {
+        android.content.Intent intent = new android.content.Intent(requireContext(),
+                com.bai.bookshelf.ui.search.GlobalSearchActivity.class);
+        intent.putExtra(com.bai.bookshelf.ui.search.GlobalSearchActivity.EXTRA_QUERY, keyword);
+        startActivity(intent);
     }
 
     private void addRecentChip(String label, boolean clearAll) {

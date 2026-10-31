@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 全局搜索的一行结果：主标题 + 说明行 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="?attr/selectableItemBackground"
+    android:gravity="center_vertical"
+    android:minHeight="56dp"
+    android:orientation="vertical"
+    android:paddingHorizontal="@dimen/page_padding"
+    android:paddingVertical="8dp">
+
+    <TextView
+        android:id="@+id/tv_row_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:ellipsize="end"
+        android:maxLines="2"
+        android:textColor="?attr/on_surface"
+        android:textSize="@dimen/text_body" />
+
+    <TextView
+        android:id="@+id/tv_row_sub"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="1dp"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:textColor="?attr/on_surface_variant"
+        android:textSize="@dimen/text_caption" />
+</LinearLayout>

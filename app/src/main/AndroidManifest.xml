@@ -73,6 +73,7 @@
         <activity android:name=".ui.series.SeriesListActivity" android:exported="false" />
         <activity android:name=".ui.series.SeriesActivity" android:exported="false" />
         <activity android:name=".ui.detail.BookDetailActivity" android:exported="false" />
+        <activity android:name=".ui.search.GlobalSearchActivity" android:exported="false" />
         <activity android:name=".ui.detail.BorrowHistoryActivity" android:exported="false" />
         <activity android:name=".ui.location.LocationActivity" android:exported="false" />
         <activity android:name=".ui.location.SourceChannelActivity" android:exported="false" />

@@ -169,6 +169,7 @@
                     android:drawableTint="?attr/on_surface_variant"
                     android:drawablePadding="6dp"
                     android:hint="@string/hint_search"
+                    android:imeOptions="actionSearch"
                     android:inputType="text"
                     android:paddingStart="36dp"
                     android:paddingEnd="36dp"

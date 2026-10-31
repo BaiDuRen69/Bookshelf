@@ -28,6 +28,9 @@ public class MainActivity extends BaseActivity {
     /** 二级页/外部带入的搜索词 Intent Extra（v2.9：国家/出版社/作者二级页点击跳转用） */
     public static final String EXTRA_SEARCH_QUERY = "search_query";
 
+    /** 直接打开某个 Tab（v5.8.16：全局搜索里「自动备份 / 应用锁」这类入口用） */
+    public static final String EXTRA_TAB = "tab_index";
+
     // v4.5：三个 Tab 挂载到 FragmentManager 时的 tag，用于 Activity 重建后找回还原实例
     private static final String TAG_SHELF = "tab_shelf";
     private static final String TAG_STATS = "tab_stats";
@@ -118,10 +121,15 @@ public class MainActivity extends BaseActivity {
         handleSearchIntent(intent);
     }
 
-    /** 处理「跳到书架并搜索某关键词」的 Intent（来自统计页或二级页） */
+    /** 处理「跳到某个 Tab / 跳到书架并搜索某关键词」的 Intent（统计页、二级页、全局搜索） */
     private void handleSearchIntent(android.content.Intent intent) {
         if (intent == null) {
             return;
+        }
+        int tab = intent.getIntExtra(EXTRA_TAB, -1);
+        if (tab >= 0 && tab <= 2) {
+            intent.removeExtra(EXTRA_TAB);
+            selectTab(tab);
         }
         String q = intent.getStringExtra(EXTRA_SEARCH_QUERY);
         if (q == null || q.trim().isEmpty()) {

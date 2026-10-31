@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 全局搜索（v5.8.16）：一次输入同时找 藏书 / 摘抄 / 想读 / 功能入口 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="?android:attr/colorBackground"
+    android:orientation="vertical">
+
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/toolbar"
+        style="@style/Widget.Bookshelf.Toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/toolbar_h"
+        app:navigationIcon="@drawable/ic_back"
+        app:title="全局搜索" />
+
+    <EditText
+        android:id="@+id/et_query"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="@dimen/page_padding"
+        android:layout_marginTop="@dimen/space_sm"
+        android:autofillHints="none"
+        android:background="@drawable/bg_search"
+        android:drawableStart="@drawable/ic_search"
+        android:drawablePadding="6dp"
+        android:drawableTint="?attr/on_surface_variant"
+        android:hint="搜书名 / 作者 / 摘抄 / 想读 / 功能"
+        android:imeOptions="actionSearch"
+        android:inputType="text"
+        android:paddingHorizontal="12dp"
+        android:paddingVertical="9dp"
+        android:singleLine="true"
+        android:textColor="?attr/on_surface"
+        android:textColorHint="?attr/on_surface_variant"
+        android:textSize="@dimen/text_body" />
+
+    <ScrollView
+        android:id="@+id/scroll_results"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_marginTop="@dimen/space_xs"
+        android:clipToPadding="false"
+        android:paddingBottom="@dimen/space_lg">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/tv_hint"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingHorizontal="@dimen/page_padding"
+                android:paddingVertical="@dimen/space_md"
+                android:text="输入关键词，藏书、摘抄、想读和功能入口会一起找。"
+                android:textColor="?attr/on_surface_variant"
+                android:textSize="@dimen/text_body_small" />
+
+            <TextView
+                android:id="@+id/tv_empty"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingHorizontal="@dimen/page_padding"
+                android:paddingVertical="@dimen/space_md"
+                android:text="没有匹配的结果"
+                android:textColor="?attr/on_surface_variant"
+                android:textSize="@dimen/text_body_small"
+                android:visibility="gone" />
+
+            <LinearLayout
+                android:id="@+id/group_books"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <TextView
+                    style="@style/SearchGroupTitle"
+                    android:text="藏书" />
+
+                <LinearLayout
+                    android:id="@+id/ll_books"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/group_excerpts"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <TextView
+                    style="@style/SearchGroupTitle"
+                    android:text="摘抄" />
+
+                <LinearLayout
+                    android:id="@+id/ll_excerpts"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/group_wishes"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <TextView
+                    style="@style/SearchGroupTitle"
+                    android:text="想读" />
+
+                <LinearLayout
+                    android:id="@+id/ll_wishes"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/group_actions"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <TextView
+                    style="@style/SearchGroupTitle"
+                    android:text="功能入口" />
+
+                <LinearLayout
+                    android:id="@+id/ll_actions"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical" />
+            </LinearLayout>
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>
