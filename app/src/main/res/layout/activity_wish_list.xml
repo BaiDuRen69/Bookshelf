@@ -14,24 +14,31 @@
         app:navigationIcon="@drawable/ic_back"
         app:title="想读清单" />
 
+    <TextView
+        android:id="@+id/tv_wish_sort"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="?attr/selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true"
+        android:paddingHorizontal="@dimen/page_padding"
+        android:paddingVertical="8dp"
+        android:text="排序：优先级 ▾"
+        android:textColor="?attr/on_surface_variant"
+        android:textSize="13sp" />
+
     <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1">
 
-        <ScrollView
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/recycler_wish"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:clipToPadding="false"
-            android:scrollbars="none">
-
-            <LinearLayout
-                android:id="@+id/ll_wish"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="@dimen/page_padding" />
-        </ScrollView>
+            android:padding="@dimen/page_padding"
+            android:scrollbars="none" />
 
         <LinearLayout
             android:id="@+id/ll_wish_empty"
@@ -39,42 +46,107 @@
             android:layout_height="match_parent"
             android:gravity="center"
             android:orientation="vertical"
-            android:padding="32dp"
             android:visibility="gone">
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:fontFamily="serif"
-                android:text="想读的书，先记在这里"
-                android:textColor="?attr/on_surface"
-                android:textSize="20sp" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:gravity="center"
-                android:lineSpacingMultiplier="1.4"
-                android:text="买书前先看一眼，避免买重；买到后一键转为藏书。"
-                android:textColor="?attr/on_surface_variant"
-                android:textSize="@dimen/text_body_small" />
+            <!-- v5.7 收口：空态统一用共享组件，文案在代码里给 -->
+            <include
+                android:id="@+id/emptyState"
+                layout="@layout/view_empty_state"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content" />
         </LinearLayout>
     </FrameLayout>
 
     <LinearLayout
+        android:id="@+id/selection_bar_wish"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="@dimen/space_lg"
+        android:layout_marginBottom="6dp"
+        android:background="@drawable/bg_selection_capsule"
+        android:elevation="6dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="@dimen/space_lg"
+        android:paddingEnd="@dimen/space_sm"
+        android:paddingVertical="6dp"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/tv_wish_sel_count"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="已选 0 条"
+            android:textColor="?attr/on_primary_container"
+            android:textSize="@dimen/text_body_small" />
+
+        <TextView
+            android:id="@+id/btn_wish_sel_all"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="?attr/selectableItemBackground"
+            android:padding="8dp"
+            android:text="全选"
+            android:textColor="?attr/on_primary_container"
+            android:textSize="@dimen/text_body_small" />
+
+        <TextView
+            android:id="@+id/btn_wish_sel_edit"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="?attr/selectableItemBackground"
+            android:padding="8dp"
+            android:text="批量编辑"
+            android:textColor="?attr/on_primary_container"
+            android:textSize="@dimen/text_body_small" />
+
+        <TextView
+            android:id="@+id/btn_wish_sel_delete"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="?attr/selectableItemBackground"
+            android:padding="8dp"
+            android:text="删除"
+            android:textColor="?attr/on_primary_container"
+            android:textSize="@dimen/text_body_small" />
+
+        <TextView
+            android:id="@+id/btn_wish_sel_cancel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="?attr/selectableItemBackground"
+            android:padding="8dp"
+            android:text="取消"
+            android:textColor="?attr/on_primary_container"
+            android:textSize="@dimen/text_body_small" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/bottom_wish_bar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="?attr/surface"
-        android:orientation="vertical"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
         android:paddingHorizontal="@dimen/page_padding"
         android:paddingVertical="@dimen/space_sm">
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_add_wish"
             style="@style/Widget.Bookshelf.Button"
-            android:layout_width="match_parent"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_weight="1"
             android:text="＋ 添加想读" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_add_wish_continue"
+            style="@style/Widget.Bookshelf.Button.Outlined"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:layout_weight="1"
+            android:text="连续添加" />
     </LinearLayout>
 </LinearLayout>

@@ -120,8 +120,50 @@ public class MiniBarChartView extends View {
         this.labels = labels != null ? labels : new ArrayList<>();
         this.values = values != null ? values : new ArrayList<>();
         this.sharedMax = sharedMax;
+        refreshAccessibility();
         requestLayout();
         startGrowAnimation();
+    }
+
+    /**
+     * v5.7 无障碍：图是 canvas 手绘的，TalkBack 读不到任何一根柱子，
+     * 这里把数据翻成一句话挂到 contentDescription 上。
+     * 项数多时只报合计与峰值，避免一屏念不完。
+     */
+    private void refreshAccessibility() {
+        setContentDescription(describeData());
+    }
+
+    /** 图表的语音描述（包级可见，便于单测） */
+    String describeData() {
+        int n = Math.min(labels.size(), values.size());
+        if (n == 0) {
+            return "柱状图，暂无数据";
+        }
+        int total = 0;
+        int maxAt = 0;
+        for (int i = 0; i < n; i++) {
+            int v = values.get(i);
+            total += v;
+            if (v > values.get(maxAt)) {
+                maxAt = i;
+            }
+        }
+        StringBuilder sb = new StringBuilder("柱状图，").append(n)
+                .append(" 项，合计 ").append(total).append(unit);
+        if (n <= 12) {
+            sb.append("：");
+            for (int i = 0; i < n; i++) {
+                if (i > 0) {
+                    sb.append("，");
+                }
+                sb.append(labels.get(i)).append(' ').append(values.get(i)).append(unit);
+            }
+        } else {
+            sb.append("，最多的是 ").append(labels.get(maxAt)).append(' ')
+                    .append(values.get(maxAt)).append(unit);
+        }
+        return sb.toString();
     }
 
     /** v4.25：250ms 生长动画；重复 setData 时重新从 0 长起 */
@@ -152,6 +194,7 @@ public class MiniBarChartView extends View {
     /** 刻度值单位（如「本」），为空则只显示数字 */
     public void setUnit(String unit) {
         this.unit = unit != null ? unit : "";
+        refreshAccessibility();
         invalidate();
     }
 

@@ -93,11 +93,13 @@
     </style>
 
     <style name="TextAppearance.Bookshelf.ToolbarTitle" parent="TextAppearance.Material3.TitleLarge">
-        <item name="android:textSize">@dimen/text_title</item>
+        <!-- v5.7 收口：页头统一 17sp（text_headline）；文字色跟随主题，
+             夜读主题主色是暗金，写死白色只有约 2:1 对比度 -->
+        <item name="android:textSize">@dimen/text_headline</item>
         <item name="android:fontFamily">serif</item>
         <item name="android:textStyle">normal</item>
         <item name="android:letterSpacing">0.04</item>
-        <item name="android:textColor">@color/white</item>
+        <item name="android:textColor">?attr/colorOnPrimary</item>
     </style>
 
     <!-- 两级标题：CardTitle（独立卡片 17sp 衬线）/ SectionTitle（卡内小标题 13sp sans-medium 次级色） -->
@@ -290,6 +292,62 @@
         <item name="android:layout_marginTop">2dp</item>
         <item name="android:textColor">?attr/on_surface_variant</item>
         <item name="android:textSize">@dimen/text_body_small</item>
+    </style>
+
+    <!-- 新人引导行动胶囊 -->
+    <style name="OnboardActionChip">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">34dp</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:layout_marginEnd">6dp</item>
+        <item name="android:background">@drawable/bg_filter_pill</item>
+        <item name="android:clickable">true</item>
+        <item name="android:focusable">true</item>
+        <item name="android:gravity">center</item>
+        <item name="android:paddingStart">4dp</item>
+        <item name="android:paddingEnd">4dp</item>
+        <item name="android:textColor">?attr/on_surface</item>
+        <item name="android:textSize">12sp</item>
+    </style>
+
+    <!-- 详情页分区导航胶囊 -->
+    <style name="DetailSectionChip">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">32dp</item>
+        <item name="android:layout_marginEnd">6dp</item>
+        <item name="android:background">@drawable/bg_filter_pill</item>
+        <item name="android:clickable">true</item>
+        <item name="android:focusable">true</item>
+        <item name="android:gravity">center</item>
+        <item name="android:minWidth">52dp</item>
+        <item name="android:paddingStart">12dp</item>
+        <item name="android:paddingEnd">12dp</item>
+        <item name="android:textColor">?attr/on_surface</item>
+        <item name="android:textSize">12sp</item>
+    </style>
+
+    <!-- 常用工具格子：标题 + 一行说明 -->
+    <style name="MineToolTitle">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">6dp</item>
+        <item name="android:gravity">center</item>
+        <item name="android:textColor">?attr/on_surface</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:maxLines">1</item>
+        <item name="android:ellipsize">end</item>
+    </style>
+
+    <style name="MineToolSubtitle">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">2dp</item>
+        <item name="android:gravity">center</item>
+        <item name="android:textColor">?attr/on_surface_variant</item>
+        <item name="android:textSize">11sp</item>
+        <item name="android:maxLines">2</item>
+        <item name="android:ellipsize">end</item>
     </style>
 
     <!-- 分区标题：按功能分组，标题具体（Material Design 设置页规范） -->

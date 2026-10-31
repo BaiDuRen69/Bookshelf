@@ -25,6 +25,7 @@
             android:background="@drawable/bg_cover"
             android:clipToOutline="true"
             android:foreground="@drawable/bg_cover_stroke"
+            android:importantForAccessibility="no"
             android:scaleType="centerCrop"
             android:src="@drawable/ic_cover_placeholder" />
 

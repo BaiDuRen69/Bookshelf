@@ -134,28 +134,15 @@
                     android:layout_height="wrap_content"
                     android:gravity="center"
                     android:orientation="vertical"
-                    android:paddingHorizontal="24dp"
-                    android:paddingTop="56dp"
-                    android:paddingBottom="40dp"
+                    android:paddingTop="@dimen/space_xl"
                     android:visibility="gone">
 
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:fontFamily="serif"
-                        android:text="还没有摘抄"
-                        android:textColor="?attr/on_surface"
-                        android:textSize="20sp" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:gravity="center"
-                        android:lineSpacingMultiplier="1.4"
-                        android:text="读到喜欢的句子，点下方按钮记下来；\n以后按时间回看，像一条读书时间线。"
-                        android:textColor="?attr/on_surface_variant"
-                        android:textSize="@dimen/text_body_small" />
+                    <!-- v5.7 收口：空态统一用共享组件，文案在代码里给 -->
+                    <include
+                        android:id="@+id/emptyState"
+                        layout="@layout/view_empty_state"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content" />
                 </LinearLayout>
             </LinearLayout>
         </ScrollView>

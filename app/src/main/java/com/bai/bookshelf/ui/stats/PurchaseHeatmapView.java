@@ -61,7 +61,6 @@ public class PurchaseHeatmapView extends View {
     private static final String[] WEEK_HEADS = {"一", "二", "三", "四", "五", "六", "日"};
 
     /** 单元格色阶（相对主色的透明度）：0 本走浅灰底 */
-    private static final int[] LEVEL_ALPHA = {0, 70, 120, 175, 255};
 
     private boolean yearMode = false;
     /** 迷你年模式（12 个月小方阵） */
@@ -112,26 +111,8 @@ public class PurchaseHeatmapView extends View {
     /** 选中日的描边（蓝框） */
     private final Paint selectPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
-    /**
-     * 绘制时记录每个可点击单元格的位置，用于精确命中测试。
-     *
-     * <p>用可增长的数组而不是 List，避免每次 onDraw 都 new 几十个对象
-     * （Android 会在 draw 期间做 GC 抖动）。
-     */
-    private RectF[] hitRects = new RectF[64];
-    /**
-     * 与 hitRects 一一对应的天序号。
-     * 月模式=日序 1..31；年模式=全年天序 0-based；
-     * 迷你年模式=「月*100+日」编码。
-     */
-    private int[] hitDays = new int[64];
-    /** 本次绘制实际使用的单元格数 */
-    private int hitCount = 0;
-
-    /** 迷你年模式：每个月小网格的标签位置（用于点击月份） */
-    private final RectF[] miniMonthRects = new RectF[12];
-    private final int[] miniMonthIds = new int[12];
-    private int miniMonthCount = 0;
+    /** 可点击区域登记与命中测试（v5.6 抽到 HeatmapHits） */
+    private final HeatmapHits hits = new HeatmapHits();
 
     private float cellSize = 0;
     private float cellGap = 0;
@@ -184,8 +165,82 @@ public class PurchaseHeatmapView extends View {
         // Calendar.SUNDAY=1..SATURDAY=7 → 转成周一为 0 的偏移
         int dow = c.get(Calendar.DAY_OF_WEEK);
         this.firstDayOffset = (dow + 5) % 7;
+        refreshAccessibility();
         requestLayout();
         invalidate();
+    }
+
+    /**
+     * v5.7 无障碍：格子是 canvas 画的，TalkBack 一格也读不到。
+     * 按当前模式给整块日历一句摘要（具体某天仍可用面板里的「当日明细」文字）。
+     */
+    private void refreshAccessibility() {
+        String title;
+        int[] counts;
+        int yearForLabel;
+        if (miniYearMode) {
+            title = miniYearValue + " 年全年日历";
+            counts = flatten(miniMonths);
+            yearForLabel = miniYearValue;
+        } else if (yearMode) {
+            title = yearValue + " 年全年日历";
+            counts = yearCounts;
+            yearForLabel = yearValue;
+        } else {
+            title = monthYear + " 年 " + (month0 + 1) + " 月日历";
+            counts = monthCounts;
+            yearForLabel = monthYear;
+        }
+        int active = 0;
+        int total = 0;
+        int peak = 0;
+        int peakAt = -1;
+        for (int i = 0; i < counts.length; i++) {
+            if (counts[i] > 0) {
+                active++;
+                total += counts[i];
+                if (counts[i] > peak) {
+                    peak = counts[i];
+                    peakAt = i;
+                }
+            }
+        }
+        StringBuilder sb = new StringBuilder(title).append("，").append(active)
+                .append(" 天有记录，合计 ").append(total);
+        if (peakAt >= 0) {
+            sb.append("，最多的一天是 ").append(dayLabel(yearForLabel, peakAt)).append(' ').append(peak);
+        }
+        setContentDescription(sb);
+    }
+
+    /** 12 个月拼成一条从 1 月 1 日开始的日序列 */
+    private static int[] flatten(int[][] months) {
+        int len = 0;
+        for (int[] m : months) {
+            len += m == null ? 0 : m.length;
+        }
+        int[] out = new int[len];
+        int at = 0;
+        for (int[] m : months) {
+            if (m == null) {
+                continue;
+            }
+            System.arraycopy(m, 0, out, at, m.length);
+            at += m.length;
+        }
+        return out;
+    }
+
+    /** 日序列下标 → 「10 月 15 日」（月模式下就是当月第几天） */
+    private String dayLabel(int year, int dayIndex) {
+        if (!yearMode && !miniYearMode) {
+            return (dayIndex + 1) + " 日";
+        }
+        Calendar c = Calendar.getInstance();
+        c.clear();
+        c.set(year, Calendar.JANUARY, 1);
+        c.add(Calendar.DAY_OF_MONTH, dayIndex);
+        return (c.get(Calendar.MONTH) + 1) + " 月 " + c.get(Calendar.DAY_OF_MONTH) + " 日";
     }
 
     /**
@@ -199,6 +254,7 @@ public class PurchaseHeatmapView extends View {
         this.miniYearMode = false;
         this.yearValue = year;
         this.yearCounts = counts != null ? counts : new int[0];
+        refreshAccessibility();
         requestLayout();
         invalidate();
     }
@@ -214,6 +270,7 @@ public class PurchaseHeatmapView extends View {
         this.miniYearMode = true;
         this.miniYearValue = year;
         this.miniMonths = months != null ? months : new int[12][];
+        refreshAccessibility();
         requestLayout();
         invalidate();
     }
@@ -396,8 +453,7 @@ public class PurchaseHeatmapView extends View {
         if (w <= 0 || h <= 0) {
             return;
         }
-        hitCount = 0;
-        miniMonthCount = 0;
+        hits.reset();
         if (miniYearMode) {
             drawMiniYear(canvas, w);
         } else if (yearMode) {
@@ -405,25 +461,6 @@ public class PurchaseHeatmapView extends View {
         } else {
             drawMonth(canvas, w);
         }
-    }
-
-    /** 记录一个可点击单元格（数组按需扩容，重复绘制不产生新对象） */
-    private void addHit(float left, float top, float right, float bottom, int day) {
-        if (hitCount >= hitRects.length) {
-            int newLen = hitRects.length * 2;
-            RectF[] newRects = new RectF[newLen];
-            int[] newDays = new int[newLen];
-            System.arraycopy(hitRects, 0, newRects, 0, hitRects.length);
-            System.arraycopy(hitDays, 0, newDays, 0, hitDays.length);
-            hitRects = newRects;
-            hitDays = newDays;
-        }
-        if (hitRects[hitCount] == null) {
-            hitRects[hitCount] = new RectF();
-        }
-        hitRects[hitCount].set(left, top, right, bottom);
-        hitDays[hitCount] = day;
-        hitCount++;
     }
 
     // ---------------- 月模式 ----------------
@@ -465,7 +502,7 @@ public class PurchaseHeatmapView extends View {
             int cnt = (day - 1 < monthCounts.length && monthCounts[day - 1] > 0)
                     ? monthCounts[day - 1] : 0;
             rect.set(left, cellTop, left + cellSize, cellTop + cellSize);
-            cellPaint.setColor(colorFor(cnt, primary, surfaceDim));
+            cellPaint.setColor(HeatmapMath.colorFor(cnt, primary, surfaceDim));
             canvas.drawRoundRect(rect, dp(6), dp(6), cellPaint);
 
             boolean selected = selectedDay == day && selectedMonth == month0
@@ -495,7 +532,7 @@ public class PurchaseHeatmapView extends View {
                 }
             }
 
-            addHit(left, cellTop, left + cellSize, cellTop + cellSize, day);
+            hits.add(left, cellTop, left + cellSize, cellTop + cellSize, day);
         }
     }
 
@@ -527,7 +564,7 @@ public class PurchaseHeatmapView extends View {
         monthLabelPaint.setTextSize(sp(8));
         int lastLabelCol = -99;
         for (int m = 0; m < 12; m++) {
-            int dayIdx = dayIndexOfFirstOfMonth(yearValue, m);
+            int dayIdx = HeatmapMath.dayIndexOfFirstOfMonth(yearValue, m);
             if (dayIdx < 0) {
                 continue;
             }
@@ -565,7 +602,7 @@ public class PurchaseHeatmapView extends View {
             float left = labelW + col * (cellSize + cellGap);
             float top = headHeight + row * (cellSize + rowGap);
             rect.set(left, top, left + cellSize, top + cellSize);
-            cellPaint.setColor(colorFor(cnt, primary, surfaceDim));
+            cellPaint.setColor(HeatmapMath.colorFor(cnt, primary, surfaceDim));
             canvas.drawRoundRect(rect, dp(2), dp(2), cellPaint);
 
             if (i == selectedIndex) {
@@ -575,7 +612,7 @@ public class PurchaseHeatmapView extends View {
                 canvas.drawRoundRect(rect, dp(2), dp(2), selectPaint);
             }
 
-            addHit(left, top, left + cellSize, top + cellSize, i);
+            hits.add(left, top, left + cellSize, top + cellSize, i);
         }
     }
 
@@ -607,19 +644,12 @@ public class PurchaseHeatmapView extends View {
             String label = (m + 1) + "月";
             float tw = monthLabelPaint.measureText(label);
             canvas.drawText(label, mx, my + miniLabelH - sp(2), monthLabelPaint);
-            if (miniMonthCount < miniMonthRects.length) {
-                if (miniMonthRects[miniMonthCount] == null) {
-                    miniMonthRects[miniMonthCount] = new RectF();
-                }
-                // ⚠ 标签文字本身很窄（≈20dp），手指很难点中。
-                //   热区向右扩展到该月块的一半、向下略微溢出，
-                //   保证「点月份标题」这个手势可靠触发。
-                miniMonthRects[miniMonthCount].set(mx - dp(2), my,
-                        mx + Math.max(tw, miniMonthW * 0.5f) + dp(2),
-                        my + miniLabelH + dp(4));
-                miniMonthIds[miniMonthCount] = m;
-                miniMonthCount++;
-            }
+            // ⚠ 标签文字本身很窄（≈20dp），手指很难点中。
+            //   热区向右扩展到该月块的一半、向下略微溢出，
+            //   保证「点月份标题」这个手势可靠触发。
+            hits.addMini(mx - dp(2), my,
+                    mx + Math.max(tw, miniMonthW * 0.5f) + dp(2),
+                    my + miniLabelH + dp(4), m);
 
             int[] counts = m < miniMonths.length ? miniMonths[m] : null;
             if (counts == null) {
@@ -642,7 +672,7 @@ public class PurchaseHeatmapView extends View {
                 float top = my + miniLabelH + rr * (miniCell + miniCellGap);
                 rect.set(left, top, left + miniCell, top + miniCell);
                 int cnt = counts[day - 1] > 0 ? counts[day - 1] : 0;
-                cellPaint.setColor(colorFor(cnt, primary, surfaceDim));
+                cellPaint.setColor(HeatmapMath.colorFor(cnt, primary, surfaceDim));
                 canvas.drawRoundRect(rect, dp(1.5f), dp(1.5f), cellPaint);
 
                 if (selectedYear == miniYearValue && selectedMonth == m && selectedDay == day) {
@@ -651,32 +681,9 @@ public class PurchaseHeatmapView extends View {
                     selectPaint.setStrokeWidth(dp(1.2f));
                     canvas.drawRoundRect(rect, dp(1.5f), dp(1.5f), selectPaint);
                 }
-                addHit(left, top, left + miniCell, top + miniCell, m * 100 + day);
+                hits.add(left, top, left + miniCell, top + miniCell, m * 100 + day);
             }
         }
-    }
-
-    /** 指定年月的 1 号是全年第几天（0-based），找不到返回 -1 */
-    private static int dayIndexOfFirstOfMonth(int year, int month0) {
-        Calendar c = Calendar.getInstance();
-        c.clear();
-        c.set(year, 0, 1);
-        int len = c.getActualMaximum(Calendar.DAY_OF_YEAR);
-        Calendar m = Calendar.getInstance();
-        m.clear();
-        m.set(year, month0, 1);
-        int idx = m.get(Calendar.DAY_OF_YEAR) - 1;
-        return (idx >= 0 && idx < len) ? idx : -1;
-    }
-
-    /** 按购买本数取色阶 */
-    private int colorFor(int count, int primary, int surfaceDim) {
-        if (count <= 0) {
-            return surfaceDim;
-        }
-        int level = count >= 4 ? 4 : count;
-        int alpha = LEVEL_ALPHA[level];
-        return (alpha << 24) | (primary & 0x00FFFFFF);
     }
 
     // ==================== 点击 ====================
@@ -686,16 +693,16 @@ public class PurchaseHeatmapView extends View {
         if (event.getAction() == MotionEvent.ACTION_UP) {
             if (miniYearMode) {
                 // 先判月份标签，再判具体某天
-                int mi = hitMiniMonth(event.getX(), event.getY());
+                int mi = hits.miniHit(event.getX(), event.getY());
                 if (mi >= 0 && onMonthClick != null) {
-                    onMonthClick.onMonthClick(miniYearValue, miniMonthIds[mi]);
+                    onMonthClick.onMonthClick(miniYearValue, hits.miniIdAt(mi));
                     performClick();
                     return true;
                 }
             }
-            int idx = hitTest(event.getX(), event.getY());
+            int idx = hits.hit(event.getX(), event.getY(), dp(1));
             if (idx >= 0 && onDayClick != null) {
-                int dayRef = hitDays[idx];
+                int dayRef = hits.dayAt(idx);
                 if (miniYearMode) {
                     int m = dayRef / 100;
                     int day = dayRef % 100;
@@ -726,33 +733,6 @@ public class PurchaseHeatmapView extends View {
     @Override
     public boolean performClick() {
         return super.performClick();
-    }
-
-    /** 命中测试：返回命中格子的下标，未命中返回 -1（外扩 1dp 容差，照顾手指点击） */
-    private int hitTest(float x, float y) {
-        float slop = dp(1);
-        for (int i = 0; i < hitCount; i++) {
-            RectF r = hitRects[i];
-            if (r == null) {
-                continue;
-            }
-            if (x >= r.left - slop && x <= r.right + slop
-                    && y >= r.top - slop && y <= r.bottom + slop) {
-                return i;
-            }
-        }
-        return -1;
-    }
-
-    /** 命中月份标签：返回 miniMonthIds 的下标，未命中返回 -1 */
-    private int hitMiniMonth(float x, float y) {
-        for (int i = 0; i < miniMonthCount; i++) {
-            RectF r = miniMonthRects[i];
-            if (r != null && x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) {
-                return i;
-            }
-        }
-        return -1;
     }
 
     private float sp(float value) {

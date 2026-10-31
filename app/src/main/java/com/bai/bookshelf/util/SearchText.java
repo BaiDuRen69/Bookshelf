@@ -28,6 +28,16 @@ public final class SearchText {
     private static Object transliterator;
     private static boolean transliteratorReady;
 
+    /**
+     * 声调等组合标记。建索引是「每本一次」，1000 本时 {@code String.replaceAll}
+     * 会重复编译 1000 次正则，这里预编译共享。
+     */
+    private static final java.util.regex.Pattern COMBINING_MARKS =
+            java.util.regex.Pattern.compile("\\p{M}");
+    /** 拼音音节分隔，同上 */
+    private static final java.util.regex.Pattern SYLLABLE_SEP =
+            java.util.regex.Pattern.compile("\\s+");
+
     private SearchText() {
     }
 
@@ -144,8 +154,8 @@ public final class SearchText {
             }
             String out = ((android.icu.text.Transliterator) transliterator).transliterate(s);
             // 兜底去掉可能残留的声调符号，再统一小写
-            out = Normalizer.normalize(out, Normalizer.Form.NFD)
-                    .replaceAll("\\p{M}", "");
+            out = COMBINING_MARKS.matcher(
+                    Normalizer.normalize(out, Normalizer.Form.NFD)).replaceAll("");
             return out.toLowerCase(Locale.ROOT);
         } catch (Throwable t) {
             return "";
@@ -158,7 +168,7 @@ public final class SearchText {
             return "";
         }
         StringBuilder sb = new StringBuilder();
-        for (String token : spaced.split("\\s+")) {
+        for (String token : SYLLABLE_SEP.split(spaced)) {
             for (int i = 0; i < token.length(); i++) {
                 char c = token.charAt(i);
                 if (Character.isLetterOrDigit(c)) {
