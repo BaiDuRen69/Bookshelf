@@ -127,6 +127,82 @@ public final class StatsPace {
         return p;
     }
 
+    /**
+     * 在读进度盘点（v5.8.19）：还剩多少页没读、按中位速度大概哪天读完。
+     * 只算「在读 + 填了总页数」的书，没填页数的单独报个数，不混进页数口径。
+     */
+    public static final class Backlog {
+        public int titles;
+        public int counted;
+        public int pagesLeft;
+        public double pagesPerDay;
+        public int daysLeft = -1;
+        public String etaDate;
+
+        public String line() {
+            if (titles == 0) {
+                return "现在没有「在读」的书 · 去书架把要读的点成在读";
+            }
+            StringBuilder sb = new StringBuilder();
+            sb.append("在读 ").append(titles).append(" 本");
+            if (counted == 0) {
+                sb.append(" · 都没填总页数，算不出还剩多少页");
+                return sb.toString();
+            }
+            sb.append(" · 还剩约 ").append(pagesLeft).append(" 页");
+            if (counted < titles) {
+                sb.append("（").append(titles - counted).append(" 本没填页数，没算进来）");
+            }
+            if (pagesLeft == 0) {
+                sb.append(" · 都读到 100% 了，去标个「已读」");
+                return sb.toString();
+            }
+            if (pagesPerDay <= 0 || daysLeft < 0) {
+                sb.append(" · 读完记录里凑不出速度，算不出预计读完日");
+            } else {
+                sb.append(" · 按 ").append(Math.round(pagesPerDay)).append(" 页/天，约 ")
+                        .append(daysLeft).append(" 天后（").append(etaDate).append("）读完");
+            }
+            return sb.toString();
+        }
+    }
+
+    /**
+     * @param medianPagesPerDay 来自 {@link Pace#medianPagesPerDay}，<=0 表示样本不足
+     * @param todayKey          yyyyMMdd 整数键
+     */
+    public static Backlog backlog(List<Book> raw, double medianPagesPerDay, int todayKey) {
+        Backlog b = new Backlog();
+        b.pagesPerDay = medianPagesPerDay;
+        for (Book book : BookSanitizer.normalizeAll(raw)) {
+            if (book.readStatus != Book.READING) {
+                continue;
+            }
+            b.titles++;
+            int left = ReadingProgress.pagesLeft(book);
+            if (left < 0) {
+                continue;
+            }
+            b.counted++;
+            b.pagesLeft += left;
+        }
+        if (b.pagesPerDay > 0 && b.pagesLeft > 0) {
+            b.daysLeft = (int) Math.ceil(b.pagesLeft / b.pagesPerDay);
+            b.etaDate = plusDays(todayKey, b.daysLeft);
+        }
+        return b;
+    }
+
+    /** yyyyMMdd 键 + N 天 → yyyy-MM-dd */
+    private static String plusDays(int dateKey, int days) {
+        java.util.Calendar c = java.util.Calendar.getInstance();
+        c.set(dateKey / 10000, dateKey / 100 % 100 - 1, dateKey % 100, 0, 0, 0);
+        c.add(java.util.Calendar.DAY_OF_MONTH, days);
+        return String.format(java.util.Locale.ROOT, "%04d-%02d-%02d",
+                c.get(java.util.Calendar.YEAR), c.get(java.util.Calendar.MONTH) + 1,
+                c.get(java.util.Calendar.DAY_OF_MONTH));
+    }
+
     /** 年度目标能不能完成 */
     public static class Goal {
         public int target;

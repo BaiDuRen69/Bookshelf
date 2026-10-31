@@ -381,20 +381,52 @@ public class BookDetailActivity extends BaseActivity {
                 toolbarTitleColor, Math.round(255 * (1 - fade))));
     }
 
+    /**
+     * 进度弹窗（v5.8.19）：填了总页数就能直接写「读到第几页」，
+     * 页码与进度条双向联动；没填页数时只有进度条，并提示去哪儿补页数。
+     */
     private void showProgressDialog(int current) {
+        final int totalPages = book.pages;
         android.widget.LinearLayout wrap = new android.widget.LinearLayout(this);
         wrap.setOrientation(android.widget.LinearLayout.VERTICAL);
         int pad = (int) (20 * getResources().getDisplayMetrics().density);
         wrap.setPadding(pad, pad / 2, pad, 0);
         final android.widget.TextView label = new android.widget.TextView(this);
-        label.setText(current + "%");
         final android.widget.SeekBar bar = new android.widget.SeekBar(this);
         bar.setMax(100);
         bar.setProgress(current);
+        final android.widget.EditText pageEdit;
+        // 页码与进度条互相回写，用这个开关挡住来回触发的死循环
+        final boolean[] syncing = {false};
+        if (totalPages > 0) {
+            pageEdit = new android.widget.EditText(this);
+            pageEdit.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+            pageEdit.setHint("读到第几页");
+            pageEdit.setText(String.valueOf(
+                    com.bai.bookshelf.util.ReadingProgress.pageForPercent(current, totalPages)));
+        } else {
+            pageEdit = null;
+        }
+        Runnable render = () -> {
+            int percent = bar.getProgress();
+            label.setText(totalPages > 0
+                    ? "第 " + com.bai.bookshelf.util.ReadingProgress
+                            .pageForPercent(percent, totalPages)
+                            + " 页 / 共 " + totalPages + " 页 · " + percent + "%"
+                    : percent + "%");
+        };
         bar.setOnSeekBarChangeListener(new android.widget.SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(android.widget.SeekBar sb, int value, boolean fromUser) {
-                label.setText(value + "%");
+                render.run();
+                if (pageEdit != null && !syncing[0]) {
+                    syncing[0] = true;
+                    pageEdit.setText(String.valueOf(
+                            com.bai.bookshelf.util.ReadingProgress
+                                    .pageForPercent(value, totalPages)));
+                    pageEdit.setSelection(pageEdit.getText().length());
+                    syncing[0] = false;
+                }
             }
 
             @Override
@@ -405,8 +437,50 @@ public class BookDetailActivity extends BaseActivity {
             public void onStopTrackingTouch(android.widget.SeekBar sb) {
             }
         });
+        if (pageEdit != null) {
+            pageEdit.addTextChangedListener(new android.text.TextWatcher() {
+                @Override
+                public void beforeTextChanged(CharSequence s, int s0, int c, int a) {
+                }
+
+                @Override
+                public void onTextChanged(CharSequence s, int s0, int b1, int c1) {
+                }
+
+                @Override
+                public void afterTextChanged(android.text.Editable s) {
+                    if (syncing[0]) {
+                        return;
+                    }
+                    int page;
+                    try {
+                        page = Integer.parseInt(s.toString().trim());
+                    } catch (NumberFormatException e) {
+                        return;
+                    }
+                    page = Math.max(0, Math.min(totalPages, page));
+                    syncing[0] = true;
+                    bar.setProgress(com.bai.bookshelf.util.ReadingProgress
+                            .percentForPage(page, totalPages));
+                    render.run();
+                    syncing[0] = false;
+                }
+            });
+        }
+        render.run();
         wrap.addView(label);
+        if (pageEdit != null) {
+            wrap.addView(pageEdit);
+        }
         wrap.addView(bar);
+        if (totalPages <= 0) {
+            android.widget.TextView hint = new android.widget.TextView(this);
+            hint.setTextSize(12f);
+            hint.setTextColor(com.bai.bookshelf.util.ThemeManager.resolveColor(
+                    this, R.attr.on_surface_variant));
+            hint.setText("这本书还没填总页数，暂时只能按百分比记。填了页数（编辑页 → 页数）就能直接写「读到第几页」。");
+            wrap.addView(hint);
+        }
         new MaterialAlertDialogBuilder(this)
                 .setTitle("阅读进度")
                 .setView(wrap)
@@ -416,10 +490,12 @@ public class BookDetailActivity extends BaseActivity {
     }
 
     private void saveProgress(int percent) {
+        final int value = Math.max(0, Math.min(100, percent));
+        final boolean alreadyDone = book.readStatus == Book.READ_DONE;
         final BookshelfApp app = BookshelfApp.get();
         app.io(() -> {
             try {
-                book.readingProgress = Math.max(0, Math.min(100, percent));
+                book.readingProgress = value;
                 book.updatedAt = System.currentTimeMillis();
                 app.db().bookDao().update(book);
             } catch (Exception e) {
@@ -427,7 +503,52 @@ public class BookDetailActivity extends BaseActivity {
                         "保存失败：" + e.getMessage(), android.widget.Toast.LENGTH_SHORT).show());
                 return;
             }
-            app.ui(this::reload);
+            app.ui(() -> {
+                reload();
+                // v5.8.19：进度推到 100% 但状态还没改，就顺势问一句要不要标已读
+                if (value >= 100 && !alreadyDone) {
+                    offerFinish();
+                }
+            });
+        });
+    }
+
+    /** 读完了：提议标记已读，可以顺手去补一条阅读记录 */
+    private void offerFinish() {
+        new MaterialAlertDialogBuilder(this)
+                .setTitle("读完了？")
+                .setMessage("进度已经到 100%，要把它标成「已读」吗？标记时会顺手记下读完的日期。")
+                .setPositiveButton("标记已读", (d, w) -> markRead(false))
+                .setNeutralButton("已读并补记录", (d, w) -> markRead(true))
+                .setNegativeButton("先不", null)
+                .show();
+    }
+
+    private void markRead(boolean openRecord) {
+        BookshelfApp app = BookshelfApp.get();
+        final Book before = com.bai.bookshelf.util.BookSnapshot.copy(book);
+        app.io(() -> {
+            com.bai.bookshelf.util.ReadingRecords.applyStatus(book, Book.READ_DONE,
+                    com.bai.bookshelf.util.DateKeys.formatKey(
+                            com.bai.bookshelf.util.DateKeys.todayKey()));
+            book.readingProgress = 100;
+            book.updatedAt = System.currentTimeMillis();
+            book.dirty = true;
+            app.db().bookDao().update(book);
+            app.ui(() -> {
+                reload();
+                com.bai.bookshelf.util.UndoBar.offer(
+                        findViewById(android.R.id.content), "已标记为「已读」",
+                        before == null ? null : () -> app.io(() -> {
+                            app.db().bookDao().update(before);
+                            app.ui(this::reload);
+                        }), null);
+                if (openRecord) {
+                    Intent intent = new Intent(this, BookEditActivity.class);
+                    intent.putExtra(BookEditActivity.EXTRA_BOOK, book);
+                    startActivity(intent);
+                }
+            });
         });
     }
 
