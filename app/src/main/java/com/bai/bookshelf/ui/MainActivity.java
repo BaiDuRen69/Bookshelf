@@ -212,23 +212,15 @@ public class MainActivity extends BaseActivity {
         }
     }
 
-    /** 底部导航选中态：胶囊背景 or 透明 */
-    private void setTabPill(android.view.View pill, boolean selected) {
+    /** 底部导航选中态：胶囊底色淡入淡出，图标与文字不参与透明度动画 */
+    private void setTabPill(android.widget.LinearLayout pill, boolean selected) {
         if (selected) {
-            // v5.8.7：胶囊 120ms 位移 + 淡入（从上一个 Tab 的方向滑 14dp 进来）
-            pill.setBackgroundResource(R.drawable.bg_nav_selected);
-            pill.setAlpha(0f);
-            pill.setScaleX(0.94f);
-            pill.setScaleY(0.94f);
+            // v5.8.7：胶囊从上一个 Tab 的方向滑 14dp 进来
             float from = lastPillIndex >= 0 && lastPillIndex > currentTab ? 14f : -14f;
-            pill.setTranslationX(from * getResources().getDisplayMetrics().density);
-            pill.animate().alpha(1f).scaleX(1f).scaleY(1f).translationX(0f)
-                    .setDuration(120).start();
+            com.bai.bookshelf.util.NavPill.show(pill,
+                    from * getResources().getDisplayMetrics().density);
         } else {
-            pill.animate().alpha(0f).setDuration(90)
-                    .withEndAction(() -> pill.setBackgroundColor(
-                            android.graphics.Color.TRANSPARENT))
-                    .start();
+            com.bai.bookshelf.util.NavPill.hide(pill);
         }
     }
 
