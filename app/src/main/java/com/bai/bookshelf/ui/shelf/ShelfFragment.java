@@ -316,6 +316,12 @@ public class ShelfFragment extends Fragment {
                 () -> locations,
                 () -> tagList,
                 () -> selection.exit());
+        // v5.8.17：多选操作条的五个按钮（v5.6 抽出批量动作类时漏了接线，一直点了没反应）
+        b.btnSelAll.setOnClickListener(v -> selection.selectAll(lastResult));
+        b.btnSelCancel.setOnClickListener(v -> selection.exit());
+        b.btnSelShare.setOnClickListener(v -> batchActions.showShareMenu());
+        b.btnSelEdit.setOnClickListener(v -> batchActions.showBatchEdit());
+        b.btnSelDelete.setOnClickListener(v -> batchActions.confirmDelete());
 
         // 录入方式选择
         b.btnAdd.setOnClickListener(v ->
