@@ -1,5 +1,6 @@
 package com.bai.bookshelf.util;
 
+import java.io.File;
 import android.app.Activity;
 import androidx.appcompat.app.AlertDialog;
 import android.content.Context;
@@ -208,16 +209,129 @@ public final class UpdateChecker {
         });
     }
 
-    /** 浏览器打开 APK 下载链接（无附件时为 Release 页）；无浏览器时提示 */
+    /**
+     * 应用内更新（v5.8.10）：下载 APK → FileProvider 拉起系统安装器。
+     *
+     * <p>没拿到附件链接时才退回浏览器打开 Release 页。下载前先检查「安装未知应用」
+     * 权限，没给就引导去设置，避免下载完才发现装不了。
+     */
     private static void openDownload(Activity act, String url) {
         if (TextUtils.isEmpty(url)) {
             Toast.makeText(act, "获取下载链接失败，请到 GitHub Release 页面下载", Toast.LENGTH_LONG).show();
             return;
         }
+        if (act.isFinishing() || act.isDestroyed()) {
+            return;
+        }
+        if (android.os.Build.VERSION.SDK_INT >= 26
+                && !act.getPackageManager().canRequestPackageInstalls()) {
+            new com.google.android.material.dialog.MaterialAlertDialogBuilder(act)
+                    .setTitle("需要允许安装应用")
+                    .setMessage("从应用内直接安装更新，需要在系统设置里允许「小书房」安装未知应用。"
+                            + "\n\n授权后回到这里再点一次「更新」即可。")
+                    .setNegativeButton("取消", null)
+                    .setPositiveButton("去设置", (d, w) -> {
+                        try {
+                            act.startActivity(new Intent(
+                                    android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                                    Uri.parse("package:" + act.getPackageName())));
+                        } catch (Exception e) {
+                            Toast.makeText(act, "打不开系统设置，请手动允许安装未知应用",
+                                    Toast.LENGTH_LONG).show();
+                        }
+                    })
+                    .show();
+            return;
+        }
+        downloadAndInstall(act, url);
+    }
+
+    /** 下载到 cache/updates，完成后拉起安装器；带一个可取消的进度弹窗 */
+    private static void downloadAndInstall(Activity act, String url) {
+        android.widget.TextView label = new android.widget.TextView(act);
+        label.setPadding(56, 32, 56, 8);
+        label.setText("正在下载更新… 0%");
+        final boolean[] cancelled = {false};
+        androidx.appcompat.app.AlertDialog dialog =
+                new com.google.android.material.dialog.MaterialAlertDialogBuilder(act)
+                        .setTitle("下载更新")
+                        .setView(label)
+                        .setNegativeButton("取消", (d, w) -> cancelled[0] = true)
+                        .setCancelable(false)
+                        .create();
+        dialog.show();
+
+        new Thread(() -> {
+            File apk = null;
+            String error = null;
+            try {
+                File dir = new File(act.getCacheDir(), "updates");
+                //noinspection ResultOfMethodCallIgnored
+                dir.mkdirs();
+                apk = new File(dir, "xiaoshufang-update.apk");
+                HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
+                conn.setConnectTimeout(10000);
+                conn.setReadTimeout(30000);
+                conn.setRequestProperty("User-Agent", "XiaoShuFang-App");
+                conn.setInstanceFollowRedirects(true);
+                int code = conn.getResponseCode();
+                if (code != 200) {
+                    throw new Exception("下载失败（HTTP " + code + "）");
+                }
+                long total = conn.getContentLengthLong();
+                long done = 0;
+                try (InputStream in = conn.getInputStream();
+                     java.io.FileOutputStream out = new java.io.FileOutputStream(apk)) {
+                    byte[] buf = new byte[65536];
+                    int len;
+                    long lastUi = 0;
+                    while ((len = in.read(buf)) > 0) {
+                        if (cancelled[0]) {
+                            throw new Exception("已取消");
+                        }
+                        out.write(buf, 0, len);
+                        done += len;
+                        long now = System.currentTimeMillis();
+                        if (total > 0 && now - lastUi > 120) {
+                            lastUi = now;
+                            final int pct = (int) (done * 100 / total);
+                            act.runOnUiThread(() -> label.setText("正在下载更新… " + pct + "%"));
+                        }
+                    }
+                }
+                if (apk.length() < 1024 * 1024) {
+                    throw new Exception("下载的文件不完整");
+                }
+            } catch (Exception e) {
+                error = e.getMessage() == null ? "下载失败" : e.getMessage();
+            }
+            final File f = apk;
+            final String err = error;
+            act.runOnUiThread(() -> {
+                if (dialog.isShowing()) {
+                    dialog.dismiss();
+                }
+                if (err != null) {
+                    Toast.makeText(act, err, Toast.LENGTH_LONG).show();
+                    return;
+                }
+                installApk(act, f);
+            });
+        }, "apk-download").start();
+    }
+
+    /** 用 FileProvider 把下载好的 APK 交给系统安装器 */
+    private static void installApk(Activity act, File apk) {
         try {
-            act.startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+            Uri uri = androidx.core.content.FileProvider.getUriForFile(act,
+                    act.getPackageName() + ".fileprovider", apk);
+            Intent install = new Intent(Intent.ACTION_VIEW);
+            install.setDataAndType(uri, "application/vnd.android.package-archive");
+            install.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    | Intent.FLAG_ACTIVITY_NEW_TASK);
+            act.startActivity(install);
         } catch (Exception e) {
-            Toast.makeText(act, "未找到浏览器，请手动访问：\n" + url, Toast.LENGTH_LONG).show();
+            Toast.makeText(act, "无法拉起安装器：" + e.getMessage(), Toast.LENGTH_LONG).show();
         }
     }
 

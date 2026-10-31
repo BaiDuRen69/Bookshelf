@@ -11,4 +11,6 @@
     <files-path name="backups" path="backups/" />
     <!-- 书房年报分享图（v4.32） -->
     <files-path name="share" path="share/" />
+    <!-- 应用内更新下载的 APK（v5.8.10） -->
+    <cache-path name="updates" path="updates/" />
 </paths>

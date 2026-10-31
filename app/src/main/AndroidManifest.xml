@@ -3,6 +3,9 @@
 
     <!-- 相机：扫码录入；非硬性要求，无相机设备仅不能使用扫码 -->
     <uses-feature android:name="android.hardware.camera.any" android:required="false" />
+    <!-- v5.8.10：应用内更新需要拉起系统安装器 -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
     <uses-permission android:name="android.permission.CAMERA" />
     <!-- 网络：ISBN 图书信息查询、封面加载 -->
     <uses-permission android:name="android.permission.INTERNET" />
