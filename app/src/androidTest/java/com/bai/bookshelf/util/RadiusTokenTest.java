@@ -102,6 +102,30 @@ public class RadiusTokenTest {
         }
     }
 
+    /**
+     * 五、明确保持原样的小控件（防的是以后有人再来「全局收敛」）。
+     *
+     * <p>图表与日历是 Canvas 自绘（Treemap 6、MiniBar 6、Heatmap 6/2/1.5、
+     * DistRow 4、ReadingStats 2、CalendarPicker 9），没有可断言的公开出口，
+     * 改动只能靠代码评审挡住；这里钉住的是 drawable 那一层。
+     */
+    @Test
+    public void 小控件与封面保持小圆角() {
+        for (int id : new int[]{R.drawable.bg_chip, R.drawable.bg_status_chip,
+                R.drawable.bg_badge, R.drawable.bg_progress_badge, R.drawable.bg_cover}) {
+            assertEquals(ctx.getResources().getResourceEntryName(id) + " 应保持 8dp",
+                    dp(8), cornerOf(id), TOLERANCE_PX);
+        }
+        for (int id : new int[]{R.drawable.bg_dialog_row, R.drawable.bg_summary_chip}) {
+            assertEquals(ctx.getResources().getResourceEntryName(id) + " 应保持 12dp",
+                    dp(12), cornerOf(id), TOLERANCE_PX);
+        }
+        assertEquals("搜索框本来就是 44dp 高的胶囊", dp(22),
+                cornerOf(R.drawable.bg_search), TOLERANCE_PX);
+        assertEquals(dp(20), cornerOf(R.drawable.bg_filter_pill), TOLERANCE_PX);
+        assertEquals(dp(20), cornerOf(R.drawable.bg_filter_pill_selected), TOLERANCE_PX);
+    }
+
     /** 布局里的 CardView：只有统计页两张 hero 卡升到 20dp，其余统计卡保持 16dp 形成层级 */
     /**
      * 弹窗与底部面板：走的是「主题属性 → 形状样式」这条链，不是 drawable，
