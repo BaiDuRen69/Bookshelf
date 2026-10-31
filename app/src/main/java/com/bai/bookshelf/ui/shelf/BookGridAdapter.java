@@ -149,6 +149,14 @@ public class BookGridAdapter extends RecyclerView.Adapter<BookGridAdapter.VH> {
         h.b.vSpine.setVisibility(generatedCover ? View.VISIBLE : View.GONE);
         h.b.vEdge.setVisibility(generatedCover ? View.GONE : View.VISIBLE);
         bindStatusBadge(h, book);
+        // v5.8.9：在读进度角标（0 与 100 不显示，读完由状态角标表达）
+        int progress = book.readingProgress;
+        if (progress > 0 && progress < 100 && book.readStatus == Book.READING) {
+            h.b.tvProgressBadge.setText(progress + "%");
+            h.b.tvProgressBadge.setVisibility(View.VISIBLE);
+        } else {
+            h.b.tvProgressBadge.setVisibility(View.GONE);
+        }
         bindCover(h, book);
 
         // v4.19：封面高度交给 RatioImageView 按实测宽度自行换算（3:4），

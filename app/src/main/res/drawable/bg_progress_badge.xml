@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 在读进度角标（v5.8.9）：封面上角的小胶囊 -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#CC1F3A30" />
+    <corners android:radius="8dp" />
+</shape>

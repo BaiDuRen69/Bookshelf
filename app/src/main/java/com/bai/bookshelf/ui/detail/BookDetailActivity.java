@@ -266,6 +266,70 @@ public class BookDetailActivity extends BaseActivity {
     }
 
     /** 重新从数据库读取最新数据（含地点名、借出记录、逐本信息、备注图片） */
+    /** 阅读进度（v5.8.9）：只对「在读」显示，点按用滑杆改百分比 */
+    private void bindReadingProgress() {
+        boolean reading = book != null && book.readStatus == Book.READING;
+        b.tvReadingProgress.setVisibility(reading ? View.VISIBLE : View.GONE);
+        if (!reading) {
+            return;
+        }
+        final int p = Math.max(0, Math.min(100, book.readingProgress));
+        b.tvReadingProgress.setText(p > 0
+                ? "阅读进度 " + p + "% · 点按修改"
+                : "记录阅读进度（点按设置）");
+        b.tvReadingProgress.setOnClickListener(v -> showProgressDialog(p));
+    }
+
+    private void showProgressDialog(int current) {
+        android.widget.LinearLayout wrap = new android.widget.LinearLayout(this);
+        wrap.setOrientation(android.widget.LinearLayout.VERTICAL);
+        int pad = (int) (20 * getResources().getDisplayMetrics().density);
+        wrap.setPadding(pad, pad / 2, pad, 0);
+        final android.widget.TextView label = new android.widget.TextView(this);
+        label.setText(current + "%");
+        final android.widget.SeekBar bar = new android.widget.SeekBar(this);
+        bar.setMax(100);
+        bar.setProgress(current);
+        bar.setOnSeekBarChangeListener(new android.widget.SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(android.widget.SeekBar sb, int value, boolean fromUser) {
+                label.setText(value + "%");
+            }
+
+            @Override
+            public void onStartTrackingTouch(android.widget.SeekBar sb) {
+            }
+
+            @Override
+            public void onStopTrackingTouch(android.widget.SeekBar sb) {
+            }
+        });
+        wrap.addView(label);
+        wrap.addView(bar);
+        new MaterialAlertDialogBuilder(this)
+                .setTitle("阅读进度")
+                .setView(wrap)
+                .setNegativeButton(R.string.action_cancel, null)
+                .setPositiveButton("保存", (d, w) -> saveProgress(bar.getProgress()))
+                .show();
+    }
+
+    private void saveProgress(int percent) {
+        final BookshelfApp app = BookshelfApp.get();
+        app.io(() -> {
+            try {
+                book.readingProgress = Math.max(0, Math.min(100, percent));
+                book.updatedAt = System.currentTimeMillis();
+                app.db().bookDao().update(book);
+            } catch (Exception e) {
+                app.ui(() -> android.widget.Toast.makeText(this,
+                        "保存失败：" + e.getMessage(), android.widget.Toast.LENGTH_SHORT).show());
+                return;
+            }
+            app.ui(this::reload);
+        });
+    }
+
     private void reload() {
         DetailDataLoader.load(BookshelfApp.get(), book.id, data -> {
             if (data == null) { // 已被删除
@@ -374,6 +438,7 @@ public class BookDetailActivity extends BaseActivity {
                 DetailSectionCollapse.BORROW_RECORDS, "借书记录");
         View.OnClickListener readingCalendar = v -> showReadingCalendar();
         b.tvReadingRecordsTitle.setOnClickListener(readingCalendar);
+        bindReadingProgress();
         b.btnReadingCalendar.setOnClickListener(readingCalendar);
         b.containerReadingRecordsDetail.setOnClickListener(readingCalendar);
         bindSectionChips();

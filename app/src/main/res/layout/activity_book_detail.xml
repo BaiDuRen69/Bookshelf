@@ -554,6 +554,16 @@
                                 app:tint="?attr/on_surface_variant" />
                         </LinearLayout>
 
+                        <TextView
+                            android:id="@+id/tv_reading_progress"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:background="?attr/selectableItemBackground"
+                            android:paddingVertical="4dp"
+                            android:textColor="?attr/on_surface_variant"
+                            android:textSize="@dimen/text_body_small"
+                            android:visibility="gone" />
+
                         <LinearLayout
                             android:id="@+id/container_reading_records_detail"
                             android:layout_width="match_parent"
