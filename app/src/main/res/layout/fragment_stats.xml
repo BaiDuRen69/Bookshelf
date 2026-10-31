@@ -141,12 +141,11 @@
 
                             <TextView
                                 android:id="@+id/tv_stats_total"
-                                style="@style/Text.Bookshelf.SerifNumber"
+                                style="@style/Text.Bookshelf.Metric.Hero"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="0"
-                                android:textColor="?attr/colorPrimary"
-                                android:textSize="@dimen/text_hero" />
+                                android:textColor="?attr/colorPrimary" />
 
                             <TextView
                                 android:layout_width="wrap_content"
@@ -253,12 +252,11 @@
 
                                 <TextView
                                     android:id="@+id/tv_stats_read_done"
-                                    style="@style/Text.Bookshelf.SerifNumber"
+                                    style="@style/Text.Bookshelf.Metric"
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
                                     android:text="0"
-                                    android:textColor="?attr/on_surface"
-                                    android:textSize="@dimen/text_title" />
+                                    android:textColor="?attr/on_surface" />
 
                                 <TextView
                                     android:layout_width="wrap_content"
@@ -278,12 +276,11 @@
 
                                 <TextView
                                     android:id="@+id/tv_stats_reading"
-                                    style="@style/Text.Bookshelf.SerifNumber"
+                                    style="@style/Text.Bookshelf.Metric"
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
                                     android:text="0"
-                                    android:textColor="?attr/on_surface"
-                                    android:textSize="@dimen/text_title" />
+                                    android:textColor="?attr/on_surface" />
 
                                 <TextView
                                     android:layout_width="wrap_content"
@@ -303,12 +300,11 @@
 
                                 <TextView
                                     android:id="@+id/tv_stats_unread"
-                                    style="@style/Text.Bookshelf.SerifNumber"
+                                    style="@style/Text.Bookshelf.Metric"
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
                                     android:text="0"
-                                    android:textColor="?attr/on_surface"
-                                    android:textSize="@dimen/text_title" />
+                                    android:textColor="?attr/on_surface" />
 
                                 <TextView
                                     android:layout_width="wrap_content"
@@ -328,12 +324,11 @@
 
                                 <TextView
                                     android:id="@+id/tv_stats_dropped"
-                                    style="@style/Text.Bookshelf.SerifNumber"
+                                    style="@style/Text.Bookshelf.Metric"
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
                                     android:text="0"
-                                    android:textColor="?attr/on_surface"
-                                    android:textSize="@dimen/text_title" />
+                                    android:textColor="?attr/on_surface" />
 
                                 <TextView
                                     android:layout_width="wrap_content"

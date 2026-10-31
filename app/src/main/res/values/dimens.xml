@@ -23,6 +23,11 @@
     <dimen name="text_body_large">16sp</dimen>
     <dimen name="text_title_small">20sp</dimen>
     <dimen name="text_display_large">32sp</dimen>
+    <!-- v5.8.6：主数字版式（Metric）四档 -->
+    <dimen name="text_metric_hero">40sp</dimen>
+    <dimen name="text_metric_value">28sp</dimen>
+    <dimen name="text_metric_unit">13sp</dimen>
+    <dimen name="text_metric_overline">11sp</dimen>
     <dimen name="text_hero">40sp</dimen>
     <dimen name="text_display">28sp</dimen>
     <dimen name="text_title">22sp</dimen>

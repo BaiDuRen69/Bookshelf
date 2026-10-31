@@ -137,6 +137,26 @@
         <item name="android:fontFeatureSettings">tnum</item>
     </style>
 
+    <!-- v5.8.6：主数字统一版式 —— serif + tnum，数字 28/40、单位 13、overline 11 -->
+    <style name="Text.Bookshelf.Metric" parent="Text.Bookshelf.SerifNumber">
+        <item name="android:textSize">@dimen/text_metric_value</item>
+    </style>
+
+    <style name="Text.Bookshelf.Metric.Hero">
+        <item name="android:textSize">@dimen/text_metric_hero</item>
+    </style>
+
+    <style name="Text.Bookshelf.Metric.Unit">
+        <item name="android:textSize">@dimen/text_metric_unit</item>
+        <item name="android:letterSpacing">0.02</item>
+    </style>
+
+    <style name="Text.Bookshelf.Metric.Overline">
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:textSize">@dimen/text_metric_overline</item>
+        <item name="android:letterSpacing">0.08</item>
+    </style>
+
     <!-- 11–13sp 小标题统一走 sans-serif-medium（见 MineSectionTitle / DialogSectionTitle） -->
 
     <!-- ===== 详情页（v4.25） ===== -->
