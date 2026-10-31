@@ -50,7 +50,7 @@
             android:layout_weight="1"
             android:text="已选 0 项"
             android:textColor="?attr/colorPrimary"
-            android:textSize="13sp" />
+            android:textSize="@dimen/text_body_small" />
 
         <TextView
             android:id="@+id/btn_sel_all"
@@ -60,7 +60,7 @@
             android:padding="8dp"
             android:text="全选"
             android:textColor="?attr/colorPrimary"
-            android:textSize="13sp" />
+            android:textSize="@dimen/text_body_small" />
 
         <TextView
             android:id="@+id/btn_sel_return"
@@ -70,7 +70,7 @@
             android:padding="8dp"
             android:text="收回"
             android:textColor="?attr/colorPrimary"
-            android:textSize="13sp"
+            android:textSize="@dimen/text_body_small"
             android:visibility="gone" />
 
         <TextView
@@ -81,7 +81,7 @@
             android:padding="8dp"
             android:text="删除"
             android:textColor="@color/danger"
-            android:textSize="13sp"
+            android:textSize="@dimen/text_body_small"
             android:textStyle="bold" />
 
         <TextView
@@ -92,7 +92,7 @@
             android:padding="8dp"
             android:text="取消"
             android:textColor="?attr/on_surface_variant"
-            android:textSize="13sp" />
+            android:textSize="@dimen/text_body_small" />
     </LinearLayout>
 
     <!-- 底部按钮行：批量删除 + 添加 -->

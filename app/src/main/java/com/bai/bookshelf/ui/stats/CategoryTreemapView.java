@@ -329,18 +329,51 @@ public class CategoryTreemapView extends View {
         return Math.max(thickness / len, len / thickness);
     }
 
+    /** 按下时的位置，用来区分「点一下」和「想滚动」 */
+    private float downX;
+    private float downY;
+
     @Override
     public boolean onTouchEvent(MotionEvent event) {
-        if (event.getAction() != MotionEvent.ACTION_UP || listener == null || cached == null) {
+        if (listener == null || cached == null) {
             return super.onTouchEvent(event);
         }
-        for (int i = 0; i < cached.length; i++) {
-            if (cached[i] != null && cached[i].contains(event.getX(), event.getY())) {
-                performClick();
-                listener.onCellClick(i);
+        switch (event.getActionMasked()) {
+            case MotionEvent.ACTION_DOWN:
+                downX = event.getX();
+                downY = event.getY();
+                // 必须接下 DOWN：不接的话父级 ScrollView 会直接接管这次手势，
+                // ACTION_UP 永远到不了这里，真机上表现为「点一块没反应」
+                return cellAt(downX, downY) >= 0;
+            case MotionEvent.ACTION_MOVE: {
+                float slop = 8 * getResources().getDisplayMetrics().density;
+                if (Math.abs(event.getX() - downX) > slop
+                        || Math.abs(event.getY() - downY) > slop) {
+                    // 手指开始划动，把后续事件交还给 ScrollView，别把页面卡住
+                    getParent().requestDisallowInterceptTouchEvent(false);
+                    return false;
+                }
                 return true;
             }
+            case MotionEvent.ACTION_UP: {
+                int hit = cellAt(event.getX(), event.getY());
+                if (hit >= 0) {
+                    performClick();
+                    listener.onCellClick(hit);
+                }
+                return hit >= 0;
+            }
+            default:
+                return true;
         }
-        return super.onTouchEvent(event);
+    }
+
+    private int cellAt(float x, float y) {
+        for (int i = 0; i < cached.length; i++) {
+            if (cached[i] != null && cached[i].contains(x, y)) {
+                return i;
+            }
+        }
+        return -1;
     }
 }

@@ -59,7 +59,7 @@
                         android:paddingVertical="2dp"
                         android:text="重命名"
                         android:textColor="?attr/colorPrimary"
-                        android:textSize="12sp" />
+                        android:textSize="@dimen/text_caption_large" />
                 </LinearLayout>
 
                 <TextView
@@ -91,7 +91,7 @@
                 android:layout_marginBottom="@dimen/space_sm"
                 android:text="该系列藏书"
                 android:textColor="?attr/on_surface_variant"
-                android:textSize="13sp" />
+                android:textSize="@dimen/text_body_small" />
 
             <LinearLayout
                 android:id="@+id/ll_series_books"

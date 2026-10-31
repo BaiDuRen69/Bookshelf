@@ -21,7 +21,7 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
-        android:textSize="16sp"
+        android:textSize="@dimen/text_body_large"
         android:textColor="?attr/on_surface" />
 
     <TextView
@@ -30,7 +30,7 @@
         android:layout_height="wrap_content"
         android:layout_marginEnd="6dp"
         android:text="默认"
-        android:textSize="11sp"
+        android:textSize="@dimen/text_caption"
         android:textColor="?attr/accent_text"
         android:visibility="gone" />
 

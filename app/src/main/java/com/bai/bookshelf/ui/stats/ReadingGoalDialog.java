@@ -45,7 +45,10 @@ public final class ReadingGoalDialog {
                     }
                     context.getSharedPreferences("ui_prefs", 0).edit()
                             .putInt("reading_goal_year", year)
-                            .putInt("reading_goal", value).apply();
+                            .putInt("reading_goal", value)
+                            // 任务清单靠这个标记判断「用户自己设过目标」，
+                            // 默认值 24 不能算完成
+                            .putBoolean("reading_goal_set", true).apply();
                     Toast.makeText(context, "今年目标 " + value + " 种", Toast.LENGTH_SHORT).show();
                     if (onSaved != null) {
                         onSaved.run();

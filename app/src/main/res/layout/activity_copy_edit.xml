@@ -30,7 +30,7 @@
                 android:layout_height="wrap_content"
                 android:text="第 1 册的信息在录入页上方填写，这里是第 2 册及以后"
                 android:textColor="?attr/on_surface_variant"
-                android:textSize="12sp" />
+                android:textSize="@dimen/text_caption_large" />
 
             <LinearLayout
                 android:id="@+id/container"

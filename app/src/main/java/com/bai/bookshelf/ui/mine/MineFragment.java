@@ -18,6 +18,8 @@ import com.bai.bookshelf.app.BookshelfApp;
 import com.bai.bookshelf.data.entity.Book;
 import com.bai.bookshelf.data.entity.Location;
 import com.bai.bookshelf.databinding.FragmentMineBinding;
+import com.bai.bookshelf.util.BackupManager;
+import com.bai.bookshelf.util.BookFlags;
 import com.bai.bookshelf.util.InsetsHelper;
 import com.bai.bookshelf.ui.scan.ScanActivity;
 import com.bai.bookshelf.BuildConfig;
@@ -36,6 +38,8 @@ import java.util.Map;
 public class MineFragment extends Fragment {
 
     private FragmentMineBinding b;
+    /** 需要补全的藏书数（封面/分类/存放地点任一缺失），任务清单用 */
+    private int incompleteCount;
 
     /** 导出 Excel 的目标文件夹选择器（SAF） */
     private androidx.activity.result.ActivityResultLauncher<Uri> exportTreeLauncher;
@@ -102,6 +106,22 @@ public class MineFragment extends Fragment {
         b.rowBackupFiles.setOnClickListener(v -> dataActions.showBackupFiles());
         b.rowBackupReminder.setOnClickListener(v -> dataActions.manualBackup());
         b.btnBackupReminderClose.setOnClickListener(v -> dataActions.snoozeBackupReminder());
+        // 上手任务清单（v5.8.1）
+        b.rowTaskBackup.setOnClickListener(v -> {
+            if (!BackupManager.isEnabled(requireContext())) {
+                BackupManager.setEnabled(requireContext(), true);
+                BackupManager.autoBackupIfEnabled(requireContext());
+                Toast.makeText(requireContext(), "自动备份已开启（每天最多一次）",
+                        Toast.LENGTH_SHORT).show();
+            }
+            dataActions.refreshRows();
+            refreshTasks();
+        });
+        b.rowTaskFolder.setOnClickListener(v -> dataActions.pickBackupFolder());
+        b.rowTaskGoal.setOnClickListener(v ->
+                com.bai.bookshelf.ui.stats.ReadingGoalDialog.show(requireContext(), this::refreshTasks));
+        b.rowTaskInfo.setOnClickListener(v -> startActivity(new android.content.Intent(
+                requireContext(), IncompleteBooksActivity.class)));
         dataActions.attach(b);
         dataActions.refreshRows();
         // 应用更新（v4.7）：启动检查开关 + 手动检查
@@ -252,6 +272,49 @@ public class MineFragment extends Fragment {
         refreshStateRows();
     }
 
+    /** 缺封面 / 分类 / 存放地点的藏书数（与「书籍信息补全」页同一口径） */
+    private static int countIncomplete(List<Book> books) {
+        int n = 0;
+        for (Book bk : books) {
+            if (!BookFlags.countsAsOwned(bk)) {
+                continue;
+            }
+            if (bk.coverUrl.trim().isEmpty() || bk.category.trim().isEmpty()
+                    || bk.locationId == null) {
+                n++;
+            }
+        }
+        return n;
+    }
+
+    /** 顶部任务清单（v5.8.1）：开备份 / 选文件夹 / 设目标 / 补信息，全做完卡片消失 */
+    private void refreshTasks() {
+        if (b == null) {
+            return;
+        }
+        android.content.Context ctx = requireContext();
+        boolean backup = BackupManager.isEnabled(ctx);
+        boolean folder = BackupManager.getTreeUri(ctx) != null;
+        boolean goal = ctx.getSharedPreferences("ui_prefs", 0)
+                .getBoolean("reading_goal_set", false);
+        boolean info = incompleteCount == 0;
+        int done = (backup ? 1 : 0) + (folder ? 1 : 0) + (goal ? 1 : 0) + (info ? 1 : 0);
+        b.tvTaskProgress.setText(done + " / 4");
+        bindTask(b.ivTaskBackup, backup);
+        bindTask(b.ivTaskFolder, folder);
+        bindTask(b.ivTaskGoal, goal);
+        bindTask(b.ivTaskInfo, info);
+        b.tvTaskInfo.setText(info
+                ? "封面 / 分类 / 存放地点都齐了"
+                : "补全书的封面 / 分类 / 存放地点（还差 " + incompleteCount + " 种）");
+        b.cardTasks.setVisibility(done >= 4 ? View.GONE : View.VISIBLE);
+    }
+
+    private static void bindTask(android.widget.ImageView icon, boolean done) {
+        icon.setAlpha(done ? 1f : 0.25f);
+        icon.setContentDescription(done ? "已完成" : "待完成");
+    }
+
     /** 概览：藏书 / 已读 / 在读 + 已读比例 + 地点/来源/标签数量（v4.24 hero 区） */
     private void loadSummary() {
         BookshelfApp app = BookshelfApp.get();
@@ -288,6 +351,7 @@ public class MineFragment extends Fragment {
                     }
                 }
                 channelUsedCount = used.size();
+                incompleteCount = countIncomplete(books);
             } catch (Exception ignored) {
                 // 单项查询失败时保持 0，概览不阻塞其它入口
             }
@@ -308,6 +372,7 @@ public class MineFragment extends Fragment {
                 b.tvHeroLocations.setText(String.valueOf(fLoc));
                 b.tvHeroChannels.setText(String.valueOf(fChannelUsed));
                 b.tvHeroTags.setText(String.valueOf(fTag));
+                refreshTasks();
             });
         });
     }

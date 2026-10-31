@@ -100,7 +100,7 @@
                 android:lineSpacingMultiplier="1.4"
                 android:text="两处使用不同的密钥：扫码查书用的是「云市场网关密钥」，用量查询用的是「腾讯云账号密钥」（访问管理 → API 密钥管理），详细说明见各自页面。"
                 android:textColor="?attr/on_surface_variant"
-                android:textSize="12sp" />
+                android:textSize="@dimen/text_caption_large" />
         </LinearLayout>
         </androidx.constraintlayout.widget.ConstraintLayout>
     </ScrollView>

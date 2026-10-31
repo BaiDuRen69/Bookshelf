@@ -173,6 +173,27 @@
             </FrameLayout>
         </LinearLayout>
 
+        <!-- 最近搜索（v5.8.1）：输入框聚焦且为空时出现 -->
+        <HorizontalScrollView
+            android:id="@+id/hsv_recent"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:clipToPadding="false"
+            android:paddingStart="@dimen/page_padding"
+            android:paddingEnd="@dimen/page_padding"
+            android:scrollbars="none"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:id="@+id/ll_recent_searches"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingTop="@dimen/space_xs"
+                android:paddingBottom="@dimen/space_xs" />
+        </HorizontalScrollView>
+
         <!-- 筛选条：一行横滑胶囊 + 行尾排序/倒序/视图图标 -->
         <LinearLayout
             android:layout_width="match_parent"
@@ -294,7 +315,7 @@
                                 android:includeFontPadding="false"
                                 android:text="1"
                                 android:textColor="@color/white"
-                                android:textSize="9sp"
+                                android:textSize="@dimen/text_micro"
                                 android:visibility="gone" />
                         </FrameLayout>
                     </LinearLayout>
@@ -485,7 +506,7 @@
                             android:layout_marginTop="2dp"
                             android:text="书已入库，再花 1 分钟把书房用起来"
                             android:textColor="?attr/on_surface_variant"
-                            android:textSize="12sp" />
+                            android:textSize="@dimen/text_caption_large" />
                     </LinearLayout>
 
                     <ImageView
@@ -505,7 +526,7 @@
                     android:layout_marginTop="8dp"
                     android:text="本地数据只在这台手机，建议先开启自动备份。"
                     android:textColor="?attr/colorPrimary"
-                    android:textSize="12sp" />
+                    android:textSize="@dimen/text_caption_large" />
 
                 <LinearLayout
                     android:layout_width="match_parent"

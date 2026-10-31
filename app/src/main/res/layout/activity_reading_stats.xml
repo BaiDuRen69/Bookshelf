@@ -107,7 +107,7 @@
                         android:gravity="center"
                         android:text="2026年10月"
                         android:textColor="?attr/on_surface"
-                        android:textSize="17sp"
+                        android:textSize="@dimen/text_headline"
                         android:fontFamily="serif"
                         android:includeFontPadding="false" />
 
@@ -377,7 +377,7 @@
                         android:gravity="center"
                         android:text="2026年"
                         android:textColor="?attr/on_surface"
-                        android:textSize="17sp"
+                        android:textSize="@dimen/text_headline"
                         android:fontFamily="serif"
                         android:includeFontPadding="false" />
 
@@ -633,7 +633,7 @@
                             android:gravity="center"
                             android:text="--"
                             android:textColor="?attr/colorPrimary"
-                            android:textSize="20sp"
+                            android:textSize="@dimen/text_title_small"
                             android:textStyle="bold" />
 
                         <TextView

@@ -129,7 +129,7 @@
                             android:paddingLeft="4dp"
                             android:paddingRight="4dp"
                             android:text="拍照"
-                            android:textSize="13sp" />
+                            android:textSize="@dimen/text_body_small" />
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/btn_pick_image"
@@ -144,7 +144,7 @@
                             android:paddingRight="4dp"
                             android:layout_marginStart="6dp"
                             android:text="相册"
-                            android:textSize="13sp" />
+                            android:textSize="@dimen/text_body_small" />
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/btn_preview_cover"
@@ -159,7 +159,7 @@
                             android:paddingRight="4dp"
                             android:layout_marginStart="6dp"
                             android:text="预览"
-                            android:textSize="13sp" />
+                            android:textSize="@dimen/text_body_small" />
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/btn_cover_link"
@@ -174,7 +174,7 @@
                             android:paddingRight="4dp"
                             android:layout_marginStart="6dp"
                             android:text="链接"
-                            android:textSize="13sp" />
+                            android:textSize="@dimen/text_body_small" />
                     </LinearLayout>
                 </LinearLayout>
             </LinearLayout>
@@ -286,7 +286,7 @@
                 android:padding="11dp"
                 android:text="展开更多出版信息"
                 android:textColor="?attr/colorPrimary"
-                android:textSize="14sp" />
+                android:textSize="@dimen/text_body_medium" />
 
             <LinearLayout
                 android:id="@+id/ll_publish_group"
@@ -488,7 +488,7 @@
                     android:paddingLeft="12dp"
                     android:paddingRight="12dp"
                     android:text="获取"
-                    android:textSize="13sp"
+                    android:textSize="@dimen/text_body_small"
                     android:visibility="gone" />
             </LinearLayout>
 
@@ -570,7 +570,7 @@
                 android:text="我的信息" />
 
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:layout_marginTop="8dp" android:text="藏书状态" android:textSize="13sp" />
+                android:layout_marginTop="8dp" android:text="藏书状态" android:textSize="@dimen/text_body_small" />
             <Spinner android:id="@+id/sp_stock" android:layout_width="match_parent"
                 android:layout_height="wrap_content" android:minHeight="44dp" />
 
@@ -581,7 +581,7 @@
                 android:orientation="vertical">
 
                 <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                    android:text="存放地点" android:textSize="13sp" />
+                    android:text="存放地点" android:textSize="@dimen/text_body_small" />
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -611,13 +611,13 @@
             </LinearLayout>
 
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:text="来源" android:textSize="13sp" />
+                android:text="来源" android:textSize="@dimen/text_body_small" />
             <Spinner android:id="@+id/sp_own" android:layout_width="match_parent"
                 android:layout_height="wrap_content" android:minHeight="44dp" />
 
             <TextView android:id="@+id/tv_channel_label" android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="购买渠道（点 + 可直接新增）" android:textSize="13sp" />
+                android:text="购买渠道（点 + 可直接新增）" android:textSize="@dimen/text_body_small" />
             <LinearLayout
                 android:id="@+id/ll_channel_row"
                 android:layout_width="match_parent"
@@ -732,7 +732,7 @@
                         android:paddingVertical="6dp"
                         android:text="＋ 添加"
                         android:textColor="?attr/colorPrimary"
-                        android:textSize="13sp" />
+                        android:textSize="@dimen/text_body_small" />
                 </LinearLayout>
 
                 <TextView
@@ -742,7 +742,7 @@
                     android:layout_marginTop="4dp"
                     android:text="还没有借书记录，点「添加」记录第 1 次借阅"
                     android:textColor="?attr/on_surface_variant"
-                    android:textSize="13sp" />
+                    android:textSize="@dimen/text_body_small" />
 
                 <LinearLayout
                     android:id="@+id/container_borrow_records"
@@ -766,7 +766,7 @@
                     android:layout_height="wrap_content"
                     android:text="套装分摊（点击填入实付）"
                     android:textColor="?attr/colorPrimary"
-                    android:textSize="12sp" />
+                    android:textSize="@dimen/text_caption_large" />
 
                 <com.google.android.material.chip.ChipGroup
                     android:id="@+id/chip_group_split"
@@ -807,7 +807,7 @@
                         android:paddingVertical="6dp"
                         android:text="＋ 添加"
                         android:textColor="?attr/colorPrimary"
-                        android:textSize="13sp" />
+                        android:textSize="@dimen/text_body_small" />
                 </LinearLayout>
 
                 <TextView
@@ -817,7 +817,7 @@
                     android:layout_marginTop="4dp"
                     android:text="还没有阅读记录，点「添加」记录第 1 次阅读"
                     android:textColor="?attr/on_surface_variant"
-                    android:textSize="13sp" />
+                    android:textSize="@dimen/text_body_small" />
 
                 <LinearLayout
                     android:id="@+id/container_reading_records"
@@ -857,7 +857,7 @@
                 android:insetTop="0dp"
                 android:insetBottom="0dp"
                 android:text="＋ 添加备注图片"
-                android:textSize="12sp" />
+                android:textSize="@dimen/text_caption_large" />
 
             <HorizontalScrollView
                 android:id="@+id/scroll_note_thumbs"
@@ -890,7 +890,7 @@
                 android:padding="11dp"
                 android:text="逐册信息"
                 android:textColor="?attr/colorPrimary"
-                android:textSize="14sp"
+                android:textSize="@dimen/text_body_medium"
                 android:visibility="gone" />
 
             <!-- 逐本信息：拥有数量 > 1 时按数量展开（第 1 本用上方主表单） -->

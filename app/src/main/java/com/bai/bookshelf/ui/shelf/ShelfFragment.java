@@ -103,7 +103,6 @@ public class ShelfFragment extends Fragment {
     private SmartShelfBar smartBar;
     private int smartShelf = -1;
     /** 新人「下一步」卡本轮是否可见 */
-    private boolean onboardingVisible;
     /** 首屏骨架屏（v5.6 从本类抽出） */
     private final ShelfLoading loading = new ShelfLoading();
     /** 未归还借出记录（v5.6 从本类抽出） */
@@ -173,6 +172,10 @@ public class ShelfFragment extends Fragment {
             // v4.39：不再走封面 shared element 过渡。实机计时显示：共享元素要和
             // 系统做一次位置握手，详情首帧被硬生生推后 90ms 左右（270ms vs 180ms），
             // 点书的手感明显发滞。改用系统默认的页面动画，首帧直接可见。
+            // 用户点开了某条结果 = 这次搜索有用，记进「最近搜索」
+            if (searchBar != null && !searchBar.text().isEmpty()) {
+                com.bai.bookshelf.util.RecentSearches.add(requireContext(), searchBar.text());
+            }
             Intent intent = new Intent(requireContext(), BookDetailActivity.class);
             intent.putExtra(BookDetailActivity.EXTRA_BOOK, book);
             startActivity(intent);
@@ -269,6 +272,7 @@ public class ShelfFragment extends Fragment {
                 smartBar.setExpanded(!smartBar.expanded()));
 
         searchBar = new ShelfSearchBar(b.etSearch, b.btnClearSearch, this::applyFilters);
+        setupRecentSearches();
         searchBar.setup();
         setupOnboarding();
 
@@ -399,7 +403,8 @@ public class ShelfFragment extends Fragment {
     /** 新人下一步卡：只在「第一本书」时出现一次，四个动作都能直达 */
     private void setupOnboarding() {
         b.btnOnboardingClose.setOnClickListener(v -> {
-            onboardingVisible = false;
+            requireContext().getSharedPreferences("ui_prefs", 0).edit()
+                    .putBoolean("onboarding_next_done", true).apply();
             updateOnboarding();
         });
         b.btnOnboardingBackup.setOnClickListener(v -> {
@@ -431,16 +436,11 @@ public class ShelfFragment extends Fragment {
             return;
         }
         int owned = com.bai.bookshelf.util.BookFlags.countOwned(allBooks);
-        if (!onboardingVisible && owned == 1) {
-            android.content.SharedPreferences prefs = requireContext()
-                    .getSharedPreferences("ui_prefs", 0);
-            if (!prefs.getBoolean("onboarding_next_done", false)) {
-                prefs.edit().putBoolean("onboarding_next_done", true).apply();
-                onboardingVisible = true;
-            }
-        }
-        b.cardOnboarding.setVisibility(onboardingVisible && owned == 1
-                ? View.VISIBLE : View.GONE);
+        // v5.8.1：只要「有书且还没关过」就一直显示。原先只在恰好 1 本时出现一次，
+        // 而且是「显示即记为已完成」，第二本书进来后想再找这张卡就没了。
+        boolean done = requireContext().getSharedPreferences("ui_prefs", 0)
+                .getBoolean("onboarding_next_done", false);
+        b.cardOnboarding.setVisibility(owned >= 1 && !done ? View.VISIBLE : View.GONE);
     }
 
     private void onBooksPushed(java.util.List<Book> pushed) {        if (b == null) {
@@ -497,6 +497,83 @@ public class ShelfFragment extends Fragment {
     private static int selPos(android.widget.Spinner sp) {
         int pos = sp.getSelectedItemPosition();
         return pos < 0 ? 0 : pos;
+    }
+
+    /** 最近搜索（v5.8.1）：输入框聚焦且为空时出现，点一条直接回填搜索 */
+    private void setupRecentSearches() {
+        b.etSearch.setOnFocusChangeListener((v, hasFocus) -> updateRecentSearches());
+        b.etSearch.addTextChangedListener(new android.text.TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int a, int c, int d) {
+            }
+
+            @Override
+            public void onTextChanged(CharSequence s, int a, int c, int d) {
+            }
+
+            @Override
+            public void afterTextChanged(android.text.Editable s) {
+                updateRecentSearches();
+            }
+        });
+        b.etSearch.setOnEditorActionListener((v, actionId, event) -> {
+            String q = searchBar == null ? "" : searchBar.text();
+            if (!q.isEmpty()) {
+                com.bai.bookshelf.util.RecentSearches.add(requireContext(), q);
+                searchBar.cancelPending();
+                applyFilters();
+                updateRecentSearches();
+            }
+            return false;
+        });
+    }
+
+    private void updateRecentSearches() {
+        if (b == null || searchBar == null) {
+            return;
+        }
+        java.util.List<String> recent =
+                com.bai.bookshelf.util.RecentSearches.list(requireContext());
+        boolean show = b.etSearch.hasFocus() && searchBar.text().isEmpty() && !recent.isEmpty();
+        b.hsvRecent.setVisibility(show ? View.VISIBLE : View.GONE);
+        if (!show) {
+            return;
+        }
+        b.llRecentSearches.removeAllViews();
+        for (String q : recent) {
+            addRecentChip(q, false);
+        }
+        addRecentChip("清除", true);
+    }
+
+    private void addRecentChip(String label, boolean clearAll) {
+        TextView chip = new TextView(requireContext());
+        chip.setText(label);
+        chip.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX,
+                getResources().getDimension(R.dimen.text_body_small));
+        chip.setTextColor(com.bai.bookshelf.util.ThemeManager.resolveColor(
+                requireContext(), R.attr.on_surface_variant));
+        chip.setBackgroundResource(R.drawable.bg_filter_pill);
+        int padH = (int) getResources().getDimension(R.dimen.space_md);
+        int padV = (int) getResources().getDimension(R.dimen.space_xs);
+        chip.setPadding(padH, padV, padH, padV);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT);
+        lp.setMarginEnd((int) getResources().getDimension(R.dimen.space_xs));
+        chip.setLayoutParams(lp);
+        chip.setOnClickListener(v -> {
+            if (clearAll) {
+                com.bai.bookshelf.util.RecentSearches.clear(requireContext());
+            } else {
+                searchBar.setText(label);
+                searchBar.cancelPending();
+                applyFilters();
+                b.etSearch.clearFocus();
+            }
+            updateRecentSearches();
+        });
+        b.llRecentSearches.addView(chip);
     }
 
     private void applyFilters() {

@@ -17,6 +17,12 @@
     <dimen name="radius_pill">22dp</dimen>
 
     <!-- ===== 字阶（v4.24 收敛为 28 / 22 / 17 / 15 / 13 / 11 六档；v4.25 统计 hero 40） ===== -->
+    <dimen name="text_micro">9sp</dimen>
+    <dimen name="text_caption_large">12sp</dimen>
+    <dimen name="text_body_medium">14sp</dimen>
+    <dimen name="text_body_large">16sp</dimen>
+    <dimen name="text_title_small">20sp</dimen>
+    <dimen name="text_display_large">32sp</dimen>
     <dimen name="text_hero">40sp</dimen>
     <dimen name="text_display">28sp</dimen>
     <dimen name="text_title">22sp</dimen>

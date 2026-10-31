@@ -146,7 +146,9 @@ public class BookAdapter extends RecyclerView.Adapter<BookAdapter.VH> {
         // 地点与藏书状态标签
         String locName = book.locationId == null ? "未设置地点"
                 : locNames.getOrDefault(book.locationId, "未设置地点");
-        h.b.tvLocation.setText(locName);
+        // 搜「书房」「客厅」这类地点词时，命中的地点也要高亮
+        h.b.tvLocation.setText(com.bai.bookshelf.util.SearchText.highlight(
+                locName, keyword, hlColor, hlBg));
         h.b.tvStock.setText(StatusText.stock(book.stockStatus) + " · " + StatusText.read(book.readStatus));
 
         // 评分（0 分不显示；展示多次阅读的平均分，0.5 步进）

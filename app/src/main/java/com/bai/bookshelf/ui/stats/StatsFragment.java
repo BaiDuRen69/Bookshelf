@@ -40,6 +40,7 @@ public class StatsFragment extends Fragment {
     private static final int TAB_BOOKS = 0;
     private static final int TAB_READING = 1;
     private static final int TAB_PURCHASE = 2;
+    private static final int TAB_LOAN = 3;
 
     private FragmentStatsBinding b;
     private int lastFinishedThisYear;
@@ -54,6 +55,7 @@ public class StatsFragment extends Fragment {
     private String insightBooks = "";
     private String insightReading = "";
     private String insightPurchase = "";
+    private String insightLend = "";
 
     @Nullable
     @Override
@@ -114,6 +116,7 @@ public class StatsFragment extends Fragment {
         b.tabBooks.setOnClickListener(v -> selectStatsTab(TAB_BOOKS));
         b.tabReading.setOnClickListener(v -> selectStatsTab(TAB_READING));
         b.tabPurchase.setOnClickListener(v -> selectStatsTab(TAB_PURCHASE));
+        b.tabLoan.setOnClickListener(v -> selectStatsTab(TAB_LOAN));
         applyStatsTab();
     }
 
@@ -138,6 +141,7 @@ public class StatsFragment extends Fragment {
         boolean books = !empty && statsTab == TAB_BOOKS;
         boolean reading = !empty && statsTab == TAB_READING;
         boolean purchase = !empty && statsTab == TAB_PURCHASE;
+        boolean loan = !empty && statsTab == TAB_LOAN;
         setCardVisible(b.cardStatsHero, books);
         setCardVisible(b.cardTreemap, books);
         setCardVisible(b.cardCohort, books);
@@ -155,20 +159,33 @@ public class StatsFragment extends Fragment {
         setCardVisible(b.cardReading, purchase);
         setCardVisible(b.cardChannel, purchase);
         setCardVisible(b.cardTrend, purchase);
+        setCardVisible(b.cardBorrowers, loan);
         // 洞察卡跟着分栏走：藏书看健康/结构，阅读看书债/速度，购书看花费/渠道
         setCardVisible(b.cardInsight, !empty);
         applyInsightForTab();
         styleStatsTab(b.tabBooks, statsTab == TAB_BOOKS);
         styleStatsTab(b.tabReading, statsTab == TAB_READING);
         styleStatsTab(b.tabPurchase, statsTab == TAB_PURCHASE);
+        styleStatsTab(b.tabLoan, statsTab == TAB_LOAN);
     }
 
     private void applyInsightForTab() {
         if (b == null) {
             return;
         }
-        b.tvInsight.setText(statsTab == TAB_READING ? insightReading
-                : statsTab == TAB_PURCHASE ? insightPurchase : insightBooks);
+        switch (statsTab) {
+            case TAB_READING:
+                b.tvInsight.setText(insightReading);
+                break;
+            case TAB_PURCHASE:
+                b.tvInsight.setText(insightPurchase);
+                break;
+            case TAB_LOAN:
+                b.tvInsight.setText(insightLend);
+                break;
+            default:
+                b.tvInsight.setText(insightBooks);
+        }
     }
 
     private static void setCardVisible(View view, boolean visible) {
@@ -491,6 +508,8 @@ public class StatsFragment extends Fragment {
                         rating, anomalies);
                 insightReading = readingInsight(pace, noteStat);
                 insightPurchase = purchaseInsight(spend, relation, periods, wishStat);
+                insightLend = lendInsight(lend, lenders, lendByCategory);
+                renderBorrowers(lenders);
                 applyInsightForTab();
                 b.tvHabit.setText(habitText(habit, stale, buyRead));
                 renderChannels(channels);
@@ -622,13 +641,23 @@ public class StatsFragment extends Fragment {
         b.tvStructureHint.setText("口径：占比按种数算，「已读」是读完的种数；只看一级分类");
     }
 
-    /** 盘点与借出结构：在架/在外/遗失 + 借得最多的分类（藏书栏） */
-    private static String stocktakeLine(com.bai.bookshelf.util.StatsHoldings.Holdings h,
-                                        java.util.List<com.bai.bookshelf.util.StatsHoldings.Group> lends) {
+    /** 盘点：在架 / 在外 / 遗失（藏书栏；借出结构已移到借阅栏） */
+    private static String stocktakeLine(com.bai.bookshelf.util.StatsHoldings.Holdings h) {
         StringBuilder sb = new StringBuilder("盘点：在架 ").append(h.copiesInStore()).append(" 册 · 在外 ")
                 .append(h.copiesLent).append(" · 遗失 ").append(h.copiesLost);
         if (h.lossRate() > 0) {
             sb.append("（损耗 ").append(Math.round(h.lossRate() * 100)).append("%）");
+        }
+        return sb.toString();
+    }
+
+    /** 借阅栏洞察（v5.8.1 第 4 栏）：在途与按时归还、借得最多的人、借出结构 */
+    private static String lendInsight(com.bai.bookshelf.util.StatsLend.Lend l,
+                                      java.util.List<com.bai.bookshelf.util.StatsLend.Lender> lenders,
+                                      java.util.List<com.bai.bookshelf.util.StatsHoldings.Group> lends) {
+        StringBuilder sb = new StringBuilder(lendLine(l));
+        if (lenders != null && !lenders.isEmpty()) {
+            sb.append('\n').append(lenderLine(lenders.get(0)));
         }
         if (lends != null && !lends.isEmpty()) {
             com.bai.bookshelf.util.StatsHoldings.Group top = lends.get(0);
@@ -882,12 +911,35 @@ public class StatsFragment extends Fragment {
             sb.append('\n').append("损耗：遗失 ").append(h.copiesLost).append(" 册、")
                     .append(money(h.lostValue));
         }
-        sb.append('\n').append(lendLine(l));
-        if (lenders != null && !lenders.isEmpty()) {
-            sb.append('\n').append(lenderLine(lenders.get(0)));
-        }
-        sb.append('\n').append(stocktakeLine(h, lends));
+        sb.append('\n').append(stocktakeLine(h));
         return sb.toString();
+    }
+
+    /** 借阅人榜（第 4 栏）：借出笔数、还在手上的册数、超期笔数 */
+    private void renderBorrowers(
+            java.util.List<com.bai.bookshelf.util.StatsLend.Lender> lenders) {
+        b.llBorrowers.removeAllViews();
+        if (lenders == null || lenders.isEmpty()) {
+            addRow(b.llBorrowers, "还没有借出记录；在书架里长按一本书就能登记借出", 13, true);
+            b.tvBorrowersHint.setText("借阅记录在书详情页的「借出记录」里管理");
+            return;
+        }
+        int shown = 0;
+        for (com.bai.bookshelf.util.StatsLend.Lender l : lenders) {
+            if (shown++ >= 6) {
+                break;
+            }
+            StringBuilder line = new StringBuilder(l.name)
+                    .append(" · 借出 ").append(l.loans).append(" 笔");
+            if (l.outNow > 0) {
+                line.append(" · 还在手上 ").append(l.outNow).append(" 册");
+            }
+            if (l.overdue > 0) {
+                line.append(" · 超期 ").append(l.overdue).append(" 笔");
+            }
+            addRow(b.llBorrowers, line.toString(), 13, false);
+        }
+        b.tvBorrowersHint.setText("口径：按借出笔数排序；按时归还率见上方洞察");
     }
 
     /** 阅读栏洞察：速度、书债与摘抄覆盖（习惯卡单独成卡，这里不重复） */

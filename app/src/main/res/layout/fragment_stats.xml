@@ -35,7 +35,7 @@
             android:paddingVertical="8dp"
             android:text="藏书"
             android:textColor="?attr/on_surface_variant"
-            android:textSize="13sp" />
+            android:textSize="@dimen/text_body_small" />
 
         <TextView
             android:id="@+id/tab_reading"
@@ -48,7 +48,7 @@
             android:paddingVertical="8dp"
             android:text="阅读"
             android:textColor="?attr/on_surface_variant"
-            android:textSize="13sp" />
+            android:textSize="@dimen/text_body_small" />
 
         <TextView
             android:id="@+id/tab_purchase"
@@ -61,7 +61,19 @@
             android:paddingVertical="8dp"
             android:text="购书"
             android:textColor="?attr/on_surface_variant"
-            android:textSize="13sp" />
+            android:textSize="@dimen/text_body_small" />
+        <TextView
+            android:id="@+id/tab_loan"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:foreground="?attr/selectableItemBackground"
+            android:gravity="center"
+            android:minHeight="48dp"
+            android:paddingVertical="8dp"
+            android:text="借阅"
+            android:textColor="?attr/on_surface_variant"
+            android:textSize="@dimen/text_body_small" />
     </LinearLayout>
 
     <androidx.core.widget.NestedScrollView
@@ -1033,6 +1045,43 @@
                             android:lineSpacingMultiplier="1.35"
                             android:textColor="?attr/on_surface_variant"
                             android:textSize="@dimen/text_body_small" />
+                    </LinearLayout>
+                </androidx.cardview.widget.CardView>
+
+                <!-- ==================== 借阅人（v5.8.1 第 4 栏） ==================== -->
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/card_borrowers"
+                    style="@style/Widget.Bookshelf.Card"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/space_md">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="@dimen/space_lg">
+
+                        <TextView
+                            style="@style/CardTitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="借阅人"
+                            android:textColor="?attr/on_surface" />
+
+                        <LinearLayout
+                            android:id="@+id/ll_borrowers"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical" />
+
+                        <TextView
+                            android:id="@+id/tv_borrowers_hint"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="@dimen/space_sm"
+                            android:textColor="?attr/on_surface_variant"
+                            android:textSize="@dimen/text_caption_large" />
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
 

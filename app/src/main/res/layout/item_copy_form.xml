@@ -21,7 +21,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="6dp"
         android:text="藏书状态"
-        android:textSize="13sp" />
+        android:textSize="@dimen/text_body_small" />
 
     <Spinner
         android:id="@+id/sp_copy_stock"
@@ -33,7 +33,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="存放位置"
-        android:textSize="13sp" />
+        android:textSize="@dimen/text_body_small" />
 
     <Spinner
         android:id="@+id/sp_copy_location"
@@ -45,7 +45,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="来源"
-        android:textSize="13sp" />
+        android:textSize="@dimen/text_body_small" />
 
     <Spinner
         android:id="@+id/sp_copy_own"
@@ -58,7 +58,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="购买渠道"
-        android:textSize="13sp" />
+        android:textSize="@dimen/text_body_small" />
 
     <Spinner
         android:id="@+id/sp_copy_channel"
@@ -130,7 +130,7 @@
         android:insetTop="0dp"
         android:insetBottom="0dp"
         android:text="＋ 添加备注图片"
-        android:textSize="12sp" />
+        android:textSize="@dimen/text_caption_large" />
 
     <HorizontalScrollView
         android:id="@+id/scroll_copy_note_thumbs"

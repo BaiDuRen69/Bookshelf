@@ -226,7 +226,7 @@
                         android:ellipsize="end"
                         android:maxLines="2"
                         android:textColor="?attr/on_surface"
-                        android:textSize="14sp" />
+                        android:textSize="@dimen/text_body_medium" />
 
                     <TextView
                         android:id="@+id/tv_series_link"
@@ -235,7 +235,7 @@
                         android:layout_marginStart="8dp"
                         android:text="查看系列 ›"
                         android:textColor="?attr/colorPrimary"
-                        android:textSize="12sp" />
+                        android:textSize="@dimen/text_caption_large" />
                 </LinearLayout>
 
                 <!-- ==================== 书目信息 ==================== -->
@@ -540,7 +540,7 @@
                                 android:paddingVertical="6dp"
                                 android:text="日历 ›"
                                 android:textColor="?attr/colorPrimary"
-                                android:textSize="12sp" />
+                                android:textSize="@dimen/text_caption_large" />
 
                             <ImageView
                                 android:id="@+id/iv_toggle_records"
