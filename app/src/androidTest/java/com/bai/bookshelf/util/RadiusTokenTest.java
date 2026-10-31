@@ -7,10 +7,16 @@ import static org.junit.Assert.assertTrue;
 import android.content.Context;
 import android.graphics.drawable.GradientDrawable;
 import android.util.TypedValue;
+import android.view.ContextThemeWrapper;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
 
 import androidx.appcompat.content.res.AppCompatResources;
+import androidx.cardview.widget.CardView;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.bai.bookshelf.R;
 
@@ -80,5 +86,39 @@ public class RadiusTokenTest {
                 ctx.getResources().getDimension(R.dimen.card_corner), TOLERANCE_PX);
         assertEquals("扫码大胶囊保持 26dp", dp(26),
                 cornerOf(R.drawable.bg_scan_capsule), TOLERANCE_PX);
+    }
+
+    @Test
+    public void 换令牌后各处仍是规定档位() {
+        assertEquals(dp(8), cornerOf(R.drawable.bg_icon_container), TOLERANCE_PX);
+        assertEquals(dp(8), cornerOf(R.drawable.bg_excerpt_thumb), TOLERANCE_PX);
+        assertEquals(dp(20), cornerOf(R.drawable.bg_float_card), TOLERANCE_PX);
+        assertEquals("小组件兜底底", dp(20), cornerOf(R.drawable.bg_widget), TOLERANCE_PX);
+        for (int id : new int[]{R.drawable.bg_widget_blue, R.drawable.bg_widget_graphite,
+                R.drawable.bg_widget_green, R.drawable.bg_widget_night,
+                R.drawable.bg_widget_orange, R.drawable.bg_widget_purple,
+                R.drawable.bg_widget_red}) {
+            assertEquals("主题小组件底半径不一致", dp(20), cornerOf(id), TOLERANCE_PX);
+        }
+    }
+
+    /** 布局里的 CardView：只有统计页两张 hero 卡升到 20dp，其余统计卡保持 16dp 形成层级 */
+    @Test
+    public void 布局卡片半径按层级走() {
+        final float[] r = new float[4];
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+            Context themed = new ContextThemeWrapper(ctx,
+                    ThemeManager.styleRes(ThemeManager.current(ctx)));
+            View series = LayoutInflater.from(themed).inflate(R.layout.item_series_book, null);
+            r[0] = ((CardView) ((ViewGroup) series).getChildAt(0)).getRadius();
+            View stats = LayoutInflater.from(themed).inflate(R.layout.fragment_stats, null);
+            r[1] = ((CardView) stats.findViewById(R.id.card_stats_hero)).getRadius();
+            r[2] = ((CardView) stats.findViewById(R.id.card_year_report)).getRadius();
+            r[3] = ((CardView) stats.findViewById(R.id.card_reading)).getRadius();
+        });
+        assertEquals("系列内封面卡应为 radius_sm", dp(8), r[0], TOLERANCE_PX);
+        assertEquals("统计 hero 卡应为 radius_xl", dp(20), r[1], TOLERANCE_PX);
+        assertEquals("书房年报卡应为 radius_xl", dp(20), r[2], TOLERANCE_PX);
+        assertEquals("普通统计卡必须还是 16dp（层级差）", dp(16), r[3], TOLERANCE_PX);
     }
 }

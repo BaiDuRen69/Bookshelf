@@ -106,7 +106,8 @@
                     android:id="@+id/card_stats_hero"
                     style="@style/Widget.Bookshelf.Card"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content">
+                    android:layout_height="wrap_content"
+                    app:cardCornerRadius="@dimen/radius_xl">
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -638,7 +639,8 @@
                     style="@style/Widget.Bookshelf.Card"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="@dimen/space_md">
+                    android:layout_marginTop="@dimen/space_md"
+                    app:cardCornerRadius="@dimen/radius_xl">
 
                     <LinearLayout
                         android:layout_width="match_parent"
