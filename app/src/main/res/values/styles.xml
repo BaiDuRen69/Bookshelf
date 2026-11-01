@@ -107,7 +107,8 @@
     <style name="SearchGroupTitle">
         <item name="android:layout_width">match_parent</item>
         <item name="android:layout_height">wrap_content</item>
-        <item name="android:paddingHorizontal">@dimen/page_padding</item>
+        <item name="android:paddingLeft">@dimen/page_padding</item>
+        <item name="android:paddingRight">@dimen/page_padding</item>
         <item name="android:paddingTop">@dimen/space_md</item>
         <item name="android:paddingBottom">2dp</item>
         <item name="android:textSize">@dimen/text_caption</item>
@@ -169,17 +170,6 @@
 
     <style name="Text.Bookshelf.Metric.Hero">
         <item name="android:textSize">@dimen/text_metric_hero</item>
-    </style>
-
-    <style name="Text.Bookshelf.Metric.Unit">
-        <item name="android:textSize">@dimen/text_metric_unit</item>
-        <item name="android:letterSpacing">0.02</item>
-    </style>
-
-    <style name="Text.Bookshelf.Metric.Overline">
-        <item name="android:fontFamily">sans-serif-medium</item>
-        <item name="android:textSize">@dimen/text_metric_overline</item>
-        <item name="android:letterSpacing">0.08</item>
     </style>
 
     <!-- 11–13sp 小标题统一走 sans-serif-medium（见 MineSectionTitle / DialogSectionTitle） -->
