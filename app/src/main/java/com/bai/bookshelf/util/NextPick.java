@@ -106,10 +106,30 @@ public final class NextPick {
 
     /** 从已经排好序的候选里抽（统计页缓存了 rank 结果，「换一本」不必重算） */
     public static Pick chooseFrom(List<Pick> ranked, long seed) {
+        return chooseFrom(ranked, seed, -1L);
+    }
+
+    /**
+     * 加权抽一本，可排除「现在这本」。
+     *
+     * <p>换一本若只是换种子，仍可能抽回同一本（候选少、分数悬殊时很容易），
+     * 用户看到的就是「点了没反应」，所以点「换一本」时要把当前 id 传进来。
+     *
+     * @param excludeId 不再抽中的书 id；传负数表示不排除
+     */
+    public static Pick chooseFrom(List<Pick> ranked, long seed, long excludeId) {
         if (ranked == null || ranked.isEmpty()) {
             return null;
         }
-        List<Pick> pool = ranked.subList(0, Math.min(POOL, ranked.size()));
+        List<Pick> pool = new ArrayList<>(ranked.subList(0, Math.min(POOL, ranked.size())));
+        if (excludeId >= 0 && pool.size() > 1) {
+            for (int i = 0; i < pool.size(); i++) {
+                if (pool.get(i).book.id == excludeId) {
+                    pool.remove(i);
+                    break;
+                }
+            }
+        }
         double total = 0;
         for (Pick pick : pool) {
             total += pick.score + 1; // +1：低分的也留一点机会

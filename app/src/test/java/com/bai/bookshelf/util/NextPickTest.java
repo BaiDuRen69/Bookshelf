@@ -1,6 +1,7 @@
 package com.bai.bookshelf.util;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
@@ -101,6 +102,35 @@ public class NextPickTest {
         }
         assertTrue("换 60 次种子只见到 " + seen.size() + " 本，抽签没起作用", seen.size() > 1);
         assertTrue("不该跳出前 " + NextPick.POOL + " 名的候选池", seen.size() <= NextPick.POOL);
+    }
+
+    @Test
+    public void 换一本不会再抽到当前这本() {
+        List<Book> books = new ArrayList<>();
+        for (int i = 0; i < 6; i++) {
+            Book book = unread("样本" + i);
+            book.id = 100 + i;                    // 排除是按 id 认的，夹具必须各不相同
+            book.pages = 200;
+            books.add(book);
+        }
+        List<NextPick.Pick> ranked = NextPick.rank(books, TODAY);
+        ranked.get(0).score = 999;                 // 分数悬殊：不排除时几乎总抽到同一本
+        final long topId = ranked.get(0).book.id;
+
+        java.util.Random seeds = new java.util.Random(7);
+        Set<String> others = new HashSet<>();
+        for (int i = 0; i < 30; i++) {
+            NextPick.Pick pick = NextPick.chooseFrom(ranked, seeds.nextLong(), topId);
+            assertNotEquals("点了「换一本」还给出同一本", topId, pick.book.id);
+            others.add(pick.book.title);
+        }
+        assertTrue("排除高分那本后应当在其余候选里换着抽，实测只有 " + others.size() + " 本",
+                others.size() > 1);
+        // 候选只剩一本：不能为了排除把自己排空
+        List<NextPick.Pick> single = ranked.subList(0, 1);
+        assertEquals("只剩一本时仍要给出结果",
+                single.get(0).book.title,
+                NextPick.chooseFrom(single, 3L, single.get(0).book.id).book.title);
     }
 
     @Test

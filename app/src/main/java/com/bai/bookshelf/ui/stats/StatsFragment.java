@@ -140,8 +140,11 @@ public class StatsFragment extends Fragment {
         b.tvGoalSet.setOnClickListener(v -> showReadingGoalDialog());
         // v5.8.19：「下一本读什么」。换一本只重抽（候选已缓存），开始读直接改状态
         b.btnNextPickReroll.setOnClickListener(v -> {
+            // 必须清掉缓存：renderNextPick 只在没结果时才重抽，否则换了种子也显示同一本
+            long currentId = nextPick == null ? -1L : nextPick.book.id;
             nextPickSeed = System.nanoTime();
-            renderNextPick();
+            nextPick = null;
+            renderNextPick(currentId);
             v.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP);
         });
         b.btnNextPickStart.setOnClickListener(v -> startPickedBook());
@@ -744,12 +747,19 @@ public class StatsFragment extends Fragment {
 
     /** 「下一本读什么」卡片（v5.8.19）：抽中的书 + 为什么是它 + 一键开读 */
     private void renderNextPick() {
+        renderNextPick(-1L);
+    }
+
+    /**
+     * @param excludeId 「换一本」时要避开的当前这本；负数表示不排除
+     */
+    private void renderNextPick(long excludeId) {
         if (b == null) {
             return;
         }
         com.bai.bookshelf.util.NextPick.Pick pick = nextPick;
         if (pick == null && !nextRanked.isEmpty()) {
-            pick = com.bai.bookshelf.util.NextPick.chooseFrom(nextRanked, nextPickSeed);
+            pick = com.bai.bookshelf.util.NextPick.chooseFrom(nextRanked, nextPickSeed, excludeId);
             nextPick = pick;
         }
         boolean has = pick != null;
