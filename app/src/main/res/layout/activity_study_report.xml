@@ -77,6 +77,7 @@
 
                         <ImageView
                             android:id="@+id/iv_report_1"
+                            android:contentDescription="书籍封面"
                             android:layout_width="64dp"
                             android:layout_height="86dp"
                             android:background="@drawable/bg_cover"
@@ -88,6 +89,7 @@
 
                         <ImageView
                             android:id="@+id/iv_report_2"
+                            android:contentDescription="书籍封面"
                             android:layout_width="64dp"
                             android:layout_height="86dp"
                             android:layout_marginStart="-10dp"
@@ -100,6 +102,7 @@
 
                         <ImageView
                             android:id="@+id/iv_report_3"
+                            android:contentDescription="书籍封面"
                             android:layout_width="64dp"
                             android:layout_height="86dp"
                             android:layout_marginStart="-10dp"
@@ -112,6 +115,7 @@
 
                         <ImageView
                             android:id="@+id/iv_report_4"
+                            android:contentDescription="书籍封面"
                             android:layout_width="64dp"
                             android:layout_height="86dp"
                             android:layout_marginStart="-10dp"

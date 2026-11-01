@@ -309,6 +309,8 @@
         <item name="android:scaleType">centerInside</item>
         <item name="android:src">@drawable/ic_chevron_right_line</item>
         <item name="android:tint">?attr/on_surface_variant</item>
+        <!-- 「›」只是视觉提示，整行才是可点的：读屏再念一遍等于噪音 -->
+        <item name="android:importantForAccessibility">no</item>
     </style>
 
     <!-- 行内主标题 -->

@@ -83,6 +83,7 @@
 
                 <ImageView
                     android:id="@+id/iv_cover"
+                    android:contentDescription="书籍封面"
                     android:layout_width="72dp"
                     android:layout_height="96dp"
                     android:background="@drawable/bg_cover"
