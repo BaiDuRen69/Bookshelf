@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 胶囊水波（v5.8.25）：筛选 pill / 统计分段 tab 用，半径与 bg_filter_pill 一致 -->
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="?attr/colorControlHighlight">
+    <item android:id="@android:id/mask">
+        <shape android:shape="rectangle">
+            <corners android:radius="@dimen/radius_pill" />
+            <solid android:color="#FFFFFFFF" />
+        </shape>
+    </item>
+</ripple>

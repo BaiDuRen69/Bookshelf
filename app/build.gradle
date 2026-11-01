@@ -10,8 +10,8 @@ android {
         applicationId "com.bai.bookshelf"
         minSdk 24
         targetSdk 36
-        versionCode 126
-        versionName "5.8.24"
+        versionCode 127
+        versionName "5.8.25"
 
         // v5.8.4：真机（androidTest）跑数据库修复流程
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"

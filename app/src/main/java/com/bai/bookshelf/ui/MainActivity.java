@@ -1,8 +1,9 @@
 package com.bai.bookshelf.ui;
 
 import com.bai.bookshelf.app.BookshelfApp;
-import android.content.res.ColorStateList;
 import android.os.Bundle;
+import android.view.View;
+import android.view.animation.PathInterpolator;
 import android.widget.ImageView;
 import android.widget.TextView;
 
@@ -17,7 +18,6 @@ import com.bai.bookshelf.ui.mine.MineFragment;
 import com.bai.bookshelf.ui.shelf.ShelfFragment;
 import com.bai.bookshelf.ui.stats.StatsFragment;
 import com.bai.bookshelf.util.InsetsHelper;
-import com.bai.bookshelf.util.ThemeManager;
 
 /**
  * 主界面：承载底部三 Tab（书架 / 统计 / 我的）。
@@ -67,6 +67,8 @@ public class MainActivity extends BaseActivity {
         // v4.18：Android 15+ 强制 edge-to-edge，底部导航会被系统手势条压住，
         // 给它加导航栏内边距，让三个 Tab 上移到手势条上方
         InsetsHelper.applyBottomInset(binding.bottomNav);
+        // v5.8.25：dock 重新布局时把圆形指示器无动画归位（首次落位也走这里）
+        bindNavIndicator();
 
         // v4.5：优先复用 FragmentManager 还原的实例（带 tag 找回），没有才新建
         if (savedInstanceState != null) {
@@ -161,7 +163,11 @@ public class MainActivity extends BaseActivity {
         refreshTabBadges();
     }
 
-    private int lastPillIndex = -1;
+    /**
+     * v5.8.25：dock 首次布局完成后才允许指示器做滑动动画。
+     * 首帧（含 onCreate 恢复上次 Tab）必须直接落位，否则开机能看到指示器从左边飞过来。
+     */
+    private boolean navAnimated = false;
 
     private void selectTab(int index) {
         int previousTab = currentTab;
@@ -204,17 +210,14 @@ public class MainActivity extends BaseActivity {
             tx.commit();
         }
 
-        int active = ThemeManager.resolveColor(this, ThemeManager.ATTR_COLOR_PRIMARY);
-        int inactive = ThemeManager.resolveColor(this, R.attr.on_surface_variant);
         // v4.24：未选中用线性图标，只有选中的 Tab 换成填充图标
-        setTab(binding.ivTabShelf, binding.tvTabShelf, 0, index == 0, active, inactive);
-        setTab(binding.ivTabStats, binding.tvTabStats, 1, index == 1, active, inactive);
-        setTab(binding.ivTabMine, binding.tvTabMine, 2, index == 2, active, inactive);
-        // v4.16：选中项加胶囊底，未选中透明
-        setTabPill(binding.tabShelfPill, index == 0);
-        setTabPill(binding.tabStatsPill, index == 1);
-        setTabPill(binding.tabMinePill, index == 2);
-        lastPillIndex = index;
+        // v5.8.25：配色交给 res/color/nav_icon_tint 选择器，代码只负责 setSelected
+        setTab(binding.ivTabShelf, 0, index == 0);
+        setTab(binding.ivTabStats, 1, index == 1);
+        setTab(binding.ivTabMine, 2, index == 2);
+        // 圆形指示器：首帧直接落位，之后滑动跟随
+        moveNavIndicator(index, navAnimated);
+        navAnimated = true;
         // v4.30：真交叉淡入——旧页 110ms 淡出后再把新页 180ms 淡入，
         // 避免「瞬间换页 + 新页淡入」看起来像硬切
         if (previousTab != index) {
@@ -226,16 +229,36 @@ public class MainActivity extends BaseActivity {
         }
     }
 
-    /** 底部导航选中态：胶囊底色淡入淡出，图标与文字不参与透明度动画 */
-    private void setTabPill(android.widget.LinearLayout pill, boolean selected) {
-        if (selected) {
-            // v5.8.7：胶囊从上一个 Tab 的方向滑 14dp 进来
-            float from = lastPillIndex >= 0 && lastPillIndex > currentTab ? 14f : -14f;
-            com.bai.bookshelf.util.NavPill.show(pill,
-                    from * getResources().getDisplayMetrics().density);
-        } else {
-            com.bai.bookshelf.util.NavPill.hide(pill);
+    /**
+     * v5.8.25：dock 每次重新布局（含首次测量、手势条内边距变化）都把指示器无动画归位，
+     * 避免指示器停在旧坐标上。
+     */
+    private void bindNavIndicator() {
+        binding.navDock.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) ->
+                moveNavIndicator(currentTab, false));
+    }
+
+    /** 把圆形指示器移到第 index 个 tab 的中心；animate=false 用于首次布局 */
+    private void moveNavIndicator(int index, boolean animate) {
+        View[] items = {binding.tabShelf, binding.tabStats, binding.tabMine};
+        View target = items[index];
+        if (target.getWidth() == 0) {
+            target.post(() -> moveNavIndicator(index, false));
+            return;
         }
+        float to = target.getX() + target.getWidth() / 2f
+                - binding.navIndicator.getWidth() / 2f;
+        if (!animate) {
+            binding.navIndicator.animate().cancel();
+            binding.navIndicator.setTranslationX(to);
+            return;
+        }
+        binding.navIndicator.animate().cancel();
+        binding.navIndicator.animate()
+                .translationX(to)
+                .setDuration(240)
+                .setInterpolator(new PathInterpolator(0.4f, 0f, 0.2f, 1f))
+                .start();
     }
 
     @Override
@@ -245,9 +268,8 @@ public class MainActivity extends BaseActivity {
         outState.putInt(KEY_TAB, currentTab);
     }
 
-    /** 单个 Tab 的图标与文字统一着色（v4.24：选中填充 / 未选中线性） */
-    private void setTab(ImageView icon, TextView label, int tabIndex,
-                        boolean selected, int active, int inactive) {
+    /** 单个 Tab 的图标：选中换填充图形 + setSelected 走 nav_icon_tint 配色 */
+    private void setTab(ImageView icon, int tabIndex, boolean selected) {
         int res;
         if (tabIndex == 0) {
             res = selected ? R.drawable.ic_book_filled : R.drawable.ic_book_line;
@@ -257,8 +279,8 @@ public class MainActivity extends BaseActivity {
             res = selected ? R.drawable.ic_person : R.drawable.ic_person_line;
         }
         icon.setImageResource(res);
-        icon.setImageTintList(ColorStateList.valueOf(selected ? active : inactive));
-        label.setTextColor(selected ? active : inactive);
+        // v5.8.25：颜色由 res/color/nav_icon_tint.xml 的状态选择器负责
+        icon.setSelected(selected);
         // v5.8.7：选中图标 0.9 → 1，未选中回落
         icon.animate().scaleX(selected ? 1f : 0.92f).scaleY(selected ? 1f : 0.92f)
                 .setDuration(120).start();
@@ -292,7 +314,7 @@ public class MainActivity extends BaseActivity {
         });
     }
 
-    private void bindBadge(android.widget.TextView badge, int count) {
+    private void bindBadge(TextView badge, int count) {
         if (badge == null) {
             return;
         }

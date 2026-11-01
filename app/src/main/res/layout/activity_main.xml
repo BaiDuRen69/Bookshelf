@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 主界面：Fragment 容器 + 自定义底部三 Tab 导航（v4.16：选中项加胶囊底 + 加大图标） -->
+<!-- 主界面：Fragment 容器 + 底部浮动胶囊导航（v5.8.25）。
+     dock 是浮在内容上的一枚胶囊：圆形指示器画在图标下面，三个 tab 纯图标 +
+     圆形水波（ripple_circle），不再用整条底栏 + 文字 + 胶囊底。 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical">
@@ -11,159 +14,145 @@
         android:layout_height="0dp"
         android:layout_weight="1" />
 
-    <!-- 自定义底部导航：白底 + 细分隔线 -->
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:background="?attr/outline" />
-
+    <!-- 承接系统手势条内边距（InsetsHelper 依赖这个 id）。必须填 surface：
+         透明会让 windowBackground（浅色）在夜读下露成一条奶油白带。 -->
     <LinearLayout
         android:id="@+id/bottom_nav"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="?attr/surface"
         android:orientation="horizontal"
-        android:paddingVertical="2dp">
+        android:paddingVertical="0dp">
 
-        <LinearLayout
-            android:id="@+id/tab_shelf"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:background="?attr/selectableItemBackground"
-            android:clickable="true"
-            android:focusable="true"
-            android:gravity="center"
-            android:orientation="vertical"
-            android:paddingVertical="4dp">
+        <FrameLayout
+            android:id="@+id/nav_dock"
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/dock_h"
+            android:layout_marginHorizontal="@dimen/dock_margin_h"
+            android:layout_marginBottom="@dimen/dock_margin_bottom"
+            android:background="@drawable/bg_dock"
+            android:elevation="@dimen/dock_elevation"
+            android:outlineAmbientShadowColor="#1F3A3228"
+            android:outlineSpotShadowColor="#1F3A3228">
 
-            <LinearLayout
-                android:id="@+id/tab_shelf_pill"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:background="@drawable/bg_nav_selected"
-                android:gravity="center"
-                android:orientation="vertical"
-                android:paddingHorizontal="14dp"
-                android:paddingVertical="3dp">
-
-                <ImageView
-                    android:id="@+id/iv_tab_shelf"
-                    android:layout_width="22dp"
-                    android:layout_height="22dp"
-                    android:contentDescription="书架"
-                    android:src="@drawable/ic_book_line" />
-
-                <TextView
-                    android:id="@+id/tv_tab_shelf"
-                    style="@style/BottomNavText"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="1dp"
-                    android:text="书架" />
-            </LinearLayout>
-        </LinearLayout>
-
-        <LinearLayout
-            android:id="@+id/tab_stats"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:background="?attr/selectableItemBackground"
-            android:clickable="true"
-            android:focusable="true"
-            android:gravity="center"
-            android:orientation="vertical"
-            android:paddingVertical="4dp">
+            <!-- 指示器先添加：画在图标下面 -->
+            <View
+                android:id="@+id/nav_indicator"
+                android:layout_width="@dimen/nav_indicator_size"
+                android:layout_height="@dimen/nav_indicator_size"
+                android:layout_gravity="start|center_vertical"
+                android:background="@drawable/bg_nav_indicator" />
 
             <LinearLayout
-                android:id="@+id/tab_stats_pill"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:background="@drawable/bg_nav_selected"
-                android:gravity="center"
-                android:orientation="vertical"
-                android:paddingHorizontal="14dp"
-                android:paddingVertical="3dp">
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="horizontal">
 
                 <FrameLayout
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content">
+                    android:id="@+id/tab_shelf"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:tooltipText="书架">
 
-                    <ImageView
-                        android:id="@+id/iv_tab_stats"
-                        android:layout_width="22dp"
-                        android:layout_height="22dp"
-                        android:contentDescription="统计"
-                        android:src="@drawable/ic_chart_line" />
+                    <FrameLayout
+                        android:id="@+id/touch_shelf"
+                        android:layout_width="@dimen/nav_touch_size"
+                        android:layout_height="@dimen/nav_touch_size"
+                        android:layout_gravity="center"
+                        android:foreground="@drawable/ripple_circle">
 
-                    <TextView
-                        android:id="@+id/tv_badge_stats"
-                        style="@style/BottomNavBadge"
-                        android:layout_gravity="top|end"
-                        android:layout_marginStart="14dp"
-                        android:visibility="gone" />
+                        <ImageView
+                            android:id="@+id/iv_tab_shelf"
+                            android:layout_width="@dimen/nav_icon_size"
+                            android:layout_height="@dimen/nav_icon_size"
+                            android:layout_gravity="center"
+                            android:contentDescription="书架"
+                            android:src="@drawable/ic_book_line"
+                            app:tint="@color/nav_icon_tint" />
+
+                        <TextView
+                            android:id="@+id/tv_badge_shelf"
+                            style="@style/BottomNavBadge"
+                            android:layout_gravity="top|end"
+                            android:layout_marginTop="-2dp"
+                            android:layout_marginEnd="-2dp"
+                            android:visibility="gone" />
+                    </FrameLayout>
                 </FrameLayout>
-
-                <TextView
-                    android:id="@+id/tv_tab_stats"
-                    style="@style/BottomNavText"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="1dp"
-                    android:text="统计" />
-            </LinearLayout>
-        </LinearLayout>
-
-        <LinearLayout
-            android:id="@+id/tab_mine"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:background="?attr/selectableItemBackground"
-            android:clickable="true"
-            android:focusable="true"
-            android:gravity="center"
-            android:orientation="vertical"
-            android:paddingVertical="4dp">
-
-            <LinearLayout
-                android:id="@+id/tab_mine_pill"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:background="@drawable/bg_nav_selected"
-                android:gravity="center"
-                android:orientation="vertical"
-                android:paddingHorizontal="14dp"
-                android:paddingVertical="3dp">
 
                 <FrameLayout
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content">
+                    android:id="@+id/tab_stats"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:tooltipText="统计">
 
-                    <ImageView
-                        android:id="@+id/iv_tab_mine"
-                        android:layout_width="22dp"
-                        android:layout_height="22dp"
-                        android:contentDescription="我的"
-                        android:src="@drawable/ic_person_line" />
+                    <FrameLayout
+                        android:id="@+id/touch_stats"
+                        android:layout_width="@dimen/nav_touch_size"
+                        android:layout_height="@dimen/nav_touch_size"
+                        android:layout_gravity="center"
+                        android:foreground="@drawable/ripple_circle">
 
-                    <TextView
-                        android:id="@+id/tv_badge_mine"
-                        style="@style/BottomNavBadge"
-                        android:layout_gravity="top|end"
-                        android:layout_marginStart="14dp"
-                        android:visibility="gone" />
+                        <ImageView
+                            android:id="@+id/iv_tab_stats"
+                            android:layout_width="@dimen/nav_icon_size"
+                            android:layout_height="@dimen/nav_icon_size"
+                            android:layout_gravity="center"
+                            android:contentDescription="统计"
+                            android:src="@drawable/ic_chart_line"
+                            app:tint="@color/nav_icon_tint" />
+
+                        <TextView
+                            android:id="@+id/tv_badge_stats"
+                            style="@style/BottomNavBadge"
+                            android:layout_gravity="top|end"
+                            android:layout_marginTop="-2dp"
+                            android:layout_marginEnd="-2dp"
+                            android:visibility="gone" />
+                    </FrameLayout>
                 </FrameLayout>
 
-                <TextView
-                    android:id="@+id/tv_tab_mine"
-                    style="@style/BottomNavText"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="1dp"
-                    android:text="我的" />
+                <FrameLayout
+                    android:id="@+id/tab_mine"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:tooltipText="我的">
+
+                    <FrameLayout
+                        android:id="@+id/touch_mine"
+                        android:layout_width="@dimen/nav_touch_size"
+                        android:layout_height="@dimen/nav_touch_size"
+                        android:layout_gravity="center"
+                        android:foreground="@drawable/ripple_circle">
+
+                        <ImageView
+                            android:id="@+id/iv_tab_mine"
+                            android:layout_width="@dimen/nav_icon_size"
+                            android:layout_height="@dimen/nav_icon_size"
+                            android:layout_gravity="center"
+                            android:contentDescription="我的"
+                            android:src="@drawable/ic_person_line"
+                            app:tint="@color/nav_icon_tint" />
+
+                        <TextView
+                            android:id="@+id/tv_badge_mine"
+                            style="@style/BottomNavBadge"
+                            android:layout_gravity="top|end"
+                            android:layout_marginTop="-2dp"
+                            android:layout_marginEnd="-2dp"
+                            android:visibility="gone" />
+                    </FrameLayout>
+                </FrameLayout>
             </LinearLayout>
-        </LinearLayout>
+        </FrameLayout>
     </LinearLayout>
 </LinearLayout>

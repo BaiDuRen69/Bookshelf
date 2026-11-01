@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 底部导航图标着色（v5.8.25）：选中主色、未选中次级色。
+     颜色不再由 MainActivity 逐次 setImageTintList，改成 selector + View.setSelected -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_selected="true" android:color="?attr/colorPrimary" />
+    <item android:color="?attr/on_surface_variant" />
+</selector>
