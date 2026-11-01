@@ -1,6 +1,7 @@
 package com.bai.bookshelf.ui;
 
 import com.bai.bookshelf.app.BookshelfApp;
+import android.animation.ValueAnimator;
 import android.os.Bundle;
 import android.view.View;
 import android.view.animation.PathInterpolator;
@@ -238,6 +239,9 @@ public class MainActivity extends BaseActivity {
                 moveNavIndicator(currentTab, false));
     }
 
+    /** 指示器滑动动画：同一个 ValueAnimator 同时驱动 translationX 与 scaleX */
+    private ValueAnimator navSlide;
+
     /** 把圆形指示器移到第 index 个 tab 的中心；animate=false 用于首次布局 */
     private void moveNavIndicator(int index, boolean animate) {
         View[] items = {binding.tabShelf, binding.tabStats, binding.tabMine};
@@ -246,19 +250,32 @@ public class MainActivity extends BaseActivity {
             target.post(() -> moveNavIndicator(index, false));
             return;
         }
-        float to = target.getX() + target.getWidth() / 2f
-                - binding.navIndicator.getWidth() / 2f;
+        View pill = binding.navIndicator;
+        float to = target.getX() + target.getWidth() / 2f - pill.getWidth() / 2f;
+        if (navSlide != null && navSlide.isRunning()) {
+            navSlide.cancel();
+        }
+        // 首次定位（含 onCreate 恢复、重新布局）直接落位，不带任何拉伸
         if (!animate) {
-            binding.navIndicator.animate().cancel();
-            binding.navIndicator.setTranslationX(to);
+            pill.setTranslationX(to);
+            pill.setScaleX(1f);
             return;
         }
-        binding.navIndicator.animate().cancel();
-        binding.navIndicator.animate()
-                .translationX(to)
-                .setDuration(240)
-                .setInterpolator(new PathInterpolator(0.4f, 0f, 0.2f, 1f))
-                .start();
+        float from = pill.getTranslationX();
+        if (from == to) {
+            pill.setScaleX(1f);
+            return;
+        }
+        navSlide = ValueAnimator.ofFloat(0f, 1f);
+        navSlide.setDuration(260);
+        navSlide.setInterpolator(new PathInterpolator(0.4f, 0f, 0.2f, 1f));
+        navSlide.addUpdateListener(a -> {
+            float f = (float) a.getAnimatedValue();
+            pill.setTranslationX(from + (to - from) * f);
+            // sin(πf) 两端自然为 0：起步与落点都是 1.0，半途鼓到 1.12，省掉第二段动画
+            pill.setScaleX(1f + 0.12f * (float) Math.sin(Math.PI * f));
+        });
+        navSlide.start();
     }
 
     @Override
@@ -281,9 +298,9 @@ public class MainActivity extends BaseActivity {
         icon.setImageResource(res);
         // v5.8.25：颜色由 res/color/nav_icon_tint.xml 的状态选择器负责
         icon.setSelected(selected);
-        // v5.8.7：选中图标 0.9 → 1，未选中回落
+        // v5.8.7：选中图标 0.92 → 1；v5.8.26：未选中再压一档透明度，缩放与淡入一起走完
         icon.animate().scaleX(selected ? 1f : 0.92f).scaleY(selected ? 1f : 0.92f)
-                .setDuration(120).start();
+                .alpha(selected ? 1f : 0.85f).setDuration(200).start();
     }
 
     /** 底部角标（v5.8.7）：统计 = 逾期笔数，我的 = 想读本数 */

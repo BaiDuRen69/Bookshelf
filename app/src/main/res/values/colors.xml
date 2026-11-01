@@ -88,7 +88,10 @@
     <color name="outline_strong">#CFC5B4</color>
     <!-- 封面占位底色（替代写死的 #EEE） -->
     <color name="cover_placeholder_bg">#E9E3D8</color>
-    <!-- 底部导航条面（白底 + 上描边） -->
+    <!-- 浮动 dock 专用面（v5.8.26）：比 surface 更亮一档，去掉描边后靠底色与阴影分层；
+         走 ?attr/dock_bg，夜读主题覆盖成 dock_surface_night -->
+    <color name="dock_surface">#FFFFFF</color>
+    <color name="dock_surface_night">#221F1C</color>
 
     <!-- ===== 分割线 / 遮罩等半透明中性色（v3.0 收拢，避免各布局散落魔法值） ===== -->
     <!-- 极弱分割线：书脊下方阴影、卡片描边等 -->

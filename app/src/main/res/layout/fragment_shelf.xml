@@ -595,7 +595,7 @@
                 android:layout_height="match_parent"
                 android:clipToPadding="false"
                 android:paddingTop="@dimen/space_sm"
-                android:paddingBottom="96dp" />
+                android:paddingBottom="@dimen/dock_reserve" />
 
             <!-- v5.8.16：A–Z 索引条与拖动气泡（结果够长且按书名/作者排序时才出现） -->
             <TextView
@@ -629,6 +629,7 @@
                 android:gravity="center"
                 android:orientation="vertical"
                 android:padding="32dp"
+                android:paddingBottom="@dimen/dock_reserve"
                 android:visibility="gone">
 
                 <ImageView
@@ -687,7 +688,10 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom|end"
-        android:layout_margin="20dp"
+        android:layout_marginLeft="20dp"
+        android:layout_marginTop="20dp"
+        android:layout_marginRight="20dp"
+        android:layout_marginBottom="@dimen/dock_reserve"
         android:contentDescription="扫码录入"
         android:src="@drawable/ic_scan_line"
         app:backgroundTint="?attr/colorPrimary"
@@ -701,7 +705,7 @@
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"
         android:layout_marginHorizontal="@dimen/space_lg"
-        android:layout_marginBottom="@dimen/space_lg"
+        android:layout_marginBottom="@dimen/dock_reserve"
         android:background="@drawable/bg_float_card"
         android:elevation="10dp"
         android:orientation="vertical"

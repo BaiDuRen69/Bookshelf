@@ -1,39 +1,48 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 主界面：Fragment 容器 + 底部浮动胶囊导航（v5.8.25）。
-     dock 是浮在内容上的一枚胶囊：圆形指示器画在图标下面，三个 tab 纯图标 +
-     圆形水波（ripple_circle），不再用整条底栏 + 文字 + 胶囊底。 -->
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- 主界面（v5.8.26 真浮动）：内容铺满到屏幕底，dock 悬在内容之上。
+     三层：container（全屏）→ nav_scrim（底部渐隐，压在内容上、dock 下）→ bottom_nav（透明、
+     只承接手势条内边距，dock 是 wrap_content 短胶囊居中）。
+     外层一律不加 clickable，否则 dock 两侧空白处的点击会被吃掉。 -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="vertical">
+    android:layout_height="match_parent">
 
     <FrameLayout
         android:id="@+id/container"
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1" />
+        android:layout_height="match_parent" />
 
-    <!-- 承接系统手势条内边距（InsetsHelper 依赖这个 id）。必须填 surface：
-         透明会让 windowBackground（浅色）在夜读下露成一条奶油白带。 -->
+    <!-- 必须在 bottom_nav 之前添加：画在 dock 下面、内容上面 -->
+    <View
+        android:id="@+id/nav_scrim"
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/dock_scrim_h"
+        android:layout_gravity="bottom"
+        android:background="@drawable/bg_dock_scrim" />
+
+    <!-- 只负责承接系统手势条的内边距（InsetsHelper 依赖这个 id），本身透明 -->
     <LinearLayout
         android:id="@+id/bottom_nav"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="?attr/surface"
-        android:orientation="horizontal"
-        android:paddingVertical="0dp">
+        android:layout_gravity="bottom"
+        android:background="@android:color/transparent"
+        android:gravity="center_horizontal"
+        android:orientation="horizontal">
 
         <FrameLayout
             android:id="@+id/nav_dock"
-            android:layout_width="match_parent"
+            android:layout_width="wrap_content"
             android:layout_height="@dimen/dock_h"
-            android:layout_marginHorizontal="@dimen/dock_margin_h"
             android:layout_marginBottom="@dimen/dock_margin_bottom"
+            android:alpha="0.95"
             android:background="@drawable/bg_dock"
             android:elevation="@dimen/dock_elevation"
-            android:outlineAmbientShadowColor="#1F3A3228"
-            android:outlineSpotShadowColor="#1F3A3228">
+            android:outlineAmbientShadowColor="#143A3228"
+            android:outlineSpotShadowColor="#243A3228"
+            android:paddingLeft="@dimen/dock_padding_h"
+            android:paddingRight="@dimen/dock_padding_h">
 
             <!-- 指示器先添加：画在图标下面 -->
             <View
@@ -44,25 +53,23 @@
                 android:background="@drawable/bg_nav_indicator" />
 
             <LinearLayout
-                android:layout_width="match_parent"
+                android:layout_width="wrap_content"
                 android:layout_height="match_parent"
                 android:orientation="horizontal">
 
                 <FrameLayout
                     android:id="@+id/tab_shelf"
-                    android:layout_width="0dp"
+                    android:layout_width="@dimen/dock_item_w"
                     android:layout_height="match_parent"
-                    android:layout_weight="1"
                     android:clickable="true"
                     android:focusable="true"
+                    android:foreground="@drawable/ripple_circle"
                     android:tooltipText="书架">
 
                     <FrameLayout
-                        android:id="@+id/touch_shelf"
                         android:layout_width="@dimen/nav_touch_size"
                         android:layout_height="@dimen/nav_touch_size"
-                        android:layout_gravity="center"
-                        android:foreground="@drawable/ripple_circle">
+                        android:layout_gravity="center">
 
                         <ImageView
                             android:id="@+id/iv_tab_shelf"
@@ -85,19 +92,17 @@
 
                 <FrameLayout
                     android:id="@+id/tab_stats"
-                    android:layout_width="0dp"
+                    android:layout_width="@dimen/dock_item_w"
                     android:layout_height="match_parent"
-                    android:layout_weight="1"
                     android:clickable="true"
                     android:focusable="true"
+                    android:foreground="@drawable/ripple_circle"
                     android:tooltipText="统计">
 
                     <FrameLayout
-                        android:id="@+id/touch_stats"
                         android:layout_width="@dimen/nav_touch_size"
                         android:layout_height="@dimen/nav_touch_size"
-                        android:layout_gravity="center"
-                        android:foreground="@drawable/ripple_circle">
+                        android:layout_gravity="center">
 
                         <ImageView
                             android:id="@+id/iv_tab_stats"
@@ -120,19 +125,17 @@
 
                 <FrameLayout
                     android:id="@+id/tab_mine"
-                    android:layout_width="0dp"
+                    android:layout_width="@dimen/dock_item_w"
                     android:layout_height="match_parent"
-                    android:layout_weight="1"
                     android:clickable="true"
                     android:focusable="true"
+                    android:foreground="@drawable/ripple_circle"
                     android:tooltipText="我的">
 
                     <FrameLayout
-                        android:id="@+id/touch_mine"
                         android:layout_width="@dimen/nav_touch_size"
                         android:layout_height="@dimen/nav_touch_size"
-                        android:layout_gravity="center"
-                        android:foreground="@drawable/ripple_circle">
+                        android:layout_gravity="center">
 
                         <ImageView
                             android:id="@+id/iv_tab_mine"
@@ -155,4 +158,4 @@
             </LinearLayout>
         </FrameLayout>
     </LinearLayout>
-</LinearLayout>
+</FrameLayout>

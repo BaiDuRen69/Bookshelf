@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- dock 下方的渐隐遮罩（v5.8.26）：内容滚到 dock 后面时淡出到页面底色，而不是硬切一条边。
+     angle=90 = 从下往上，底部有色、顶部透明。
+     startColor 用 ?android:attr/colorBackground（各主题自己的「纸」）：
+     · 夜读 surface_dim #262220(38,34,32) 比 dock #221F1C(34,31,28) 还亮，遮罩会把 dock 压成背景；
+     · surface #1E1B18(30,27,24) 又比夜读页底 #151311 亮，底部会出现一层灰洗；
+     · 页底色永远比卡面和 dock 暗，7 套主题都是「内容淡进页面」，dock 保持最亮一层。 -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <gradient
+        android:angle="90"
+        android:endColor="@android:color/transparent"
+        android:startColor="?android:attr/colorBackground" />
+</shape>

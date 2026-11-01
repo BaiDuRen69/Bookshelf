@@ -27,6 +27,9 @@
         <item name="chip_bg">@color/chip_bg</item>
         <!-- v4.24：黄铜文字色（colorSecondary 只用于填充，白字对比度不足） -->
         <item name="accent_text">@color/accent_text</item>
+        <!-- v5.8.26：浮动 dock 的面色。六套浅色主题都继承本基线，只有夜读覆盖成
+             dock_surface_night，所以这里给一次即等于「7 个主题各自指向」 -->
+        <item name="dock_bg">@color/dock_surface</item>
         <!-- v4.19：把 Material3 的「表面色系」对齐到应用的暖白语义色。
              M3 默认 colorSurfaceContainerHigh 是淡紫色 #ECE6F0，弹窗底色会与
              应用整体的米白/白卡片风格打架，这里统一到 surface / surface_dim。 -->
@@ -148,6 +151,8 @@
         <item name="on_primary_container">@color/night_on_container</item>
         <item name="android:colorBackground">@color/night_page</item>
         <item name="surface">@color/night_surface</item>
+        <!-- v5.8.26：夜读的 dock 要比炭黑卡面亮一档，否则去掉描边后与内容糊在一起 -->
+        <item name="dock_bg">@color/dock_surface_night</item>
         <item name="surface_dim">@color/night_surface_dim</item>
         <item name="outline">@color/night_outline</item>
         <item name="outline_strong">@color/night_outline_strong</item>

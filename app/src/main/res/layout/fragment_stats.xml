@@ -81,6 +81,7 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
+        android:clipToPadding="false"
         android:fillViewport="true">
 
         <androidx.constraintlayout.widget.ConstraintLayout
@@ -93,7 +94,7 @@
                 android:orientation="vertical"
                 android:paddingHorizontal="@dimen/page_padding"
                 android:paddingTop="@dimen/space_sm"
-                android:paddingBottom="@dimen/space_xl"
+                android:paddingBottom="@dimen/dock_reserve"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintHorizontal_bias="0.5"

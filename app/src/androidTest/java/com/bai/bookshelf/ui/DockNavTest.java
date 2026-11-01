@@ -1,18 +1,16 @@
 package com.bai.bookshelf.ui;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import android.content.Context;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
-import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.RippleDrawable;
-import android.util.TypedValue;
 import android.view.ContextThemeWrapper;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -65,24 +63,27 @@ public class DockNavTest {
         return root;
     }
 
-    private float dp(float value) {
-        Context ctx = ApplicationProvider.getApplicationContext();
-        return TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, value,
-                ctx.getResources().getDisplayMetrics());
+    /** 直接取 @dimen 的真实像素值：几何断言要跟着令牌走，不要写死数字 */
+    private int px(int dimenRes) {
+        // 用 round 而不是强转：平台解析尺寸是四舍五入的，26dp 在 2.75 密度下是 71.5px
+        return Math.round(ApplicationProvider.getApplicationContext()
+                .getResources().getDimension(dimenRes));
     }
 
     @Test
     public void dock是胶囊且指示器压在图标下面() {
         FrameLayout dock = root().findViewById(R.id.nav_dock);
         assertNotNull("dock 不见了", dock);
-        assertEquals("dock 高度应为 dock_h", (int) dp(64), dock.getLayoutParams().height);
+        assertEquals("dock 高度应取 @dimen/dock_h", px(R.dimen.dock_h),
+                dock.getLayoutParams().height);
         GradientDrawable bg = (GradientDrawable) dock.getBackground();
-        assertEquals("dock 圆角应等于高度的一半（真胶囊）", dp(32), bg.getCornerRadius(), 0.6f);
+        assertEquals("圆角必须等于高度的一半（真胶囊）",
+                dock.getLayoutParams().height / 2f, bg.getCornerRadius(), 0.6f);
         assertEquals("指示器必须是 dock 的第一个子节点，否则会把图标盖住",
                 R.id.nav_indicator, dock.getChildAt(0).getId());
         View indicator = dock.findViewById(R.id.nav_indicator);
-        assertEquals((int) dp(44), indicator.getLayoutParams().width);
-        assertEquals((int) dp(44), indicator.getLayoutParams().height);
+        assertEquals(px(R.dimen.nav_indicator_size), indicator.getLayoutParams().width);
+        assertEquals(px(R.dimen.nav_indicator_size), indicator.getLayoutParams().height);
         // 第二层才是三个 tab 的横排容器
         assertTrue("dock 的第二个子节点应是 tab 容器",
                 dock.getChildAt(1) instanceof ViewGroup);
@@ -90,24 +91,46 @@ public class DockNavTest {
     }
 
     @Test
-    public void 水波是圆形且不溢出胶囊() {
-        int[][] pairs = {{R.id.tab_shelf, R.id.touch_shelf},
-                {R.id.tab_stats, R.id.touch_stats}, {R.id.tab_mine, R.id.touch_mine}};
-        for (int[] pair : pairs) {
-            View tab = root().findViewById(pair[0]);
-            View touch = root().findViewById(pair[1]);
-            // 水波挂在 48dp 的居中层上：正方形边界 → 真圆，且离 dock 圆角还有 36dp
-            assertNull("tab 上不该再有前景水波（会把灰印涂到胶囊外）", tab.getForeground());
-            Drawable fg = touch.getForeground();
-            assertTrue("内层触控块的前景不是 RippleDrawable：" + fg,
-                    fg instanceof RippleDrawable);
+    public void 水波贴合tab且不涂出胶囊端头() {
+        FrameLayout dock = root().findViewById(R.id.nav_dock);
+        for (int id : new int[]{R.id.tab_shelf, R.id.tab_stats, R.id.tab_mine}) {
+            View tab = root().findViewById(id);
+            Drawable fg = tab.getForeground();
+            assertTrue("tab 的前景不是 RippleDrawable：" + fg, fg instanceof RippleDrawable);
             assertNotNull("ripple 少了 mask，水波就是方的",
                     ((RippleDrawable) fg).findDrawableByLayerId(android.R.id.mask));
-            assertEquals("触控块应为 48dp 见方", (int) dp(48), touch.getWidth() > 0
-                    ? touch.getWidth() : touch.getLayoutParams().width);
-            assertEquals((int) dp(48), touch.getLayoutParams().height);
             assertTrue("tab 必须可点可聚焦", tab.isClickable() && tab.isFocusable());
+            assertEquals("tab 宽应取 @dimen/dock_item_w", px(R.dimen.dock_item_w),
+                    tab.getLayoutParams().width);
+            // mask 是椭圆，会被拉成宿主 View 的宽高比。上一代水波挂在 120×64dp 的 tab 上
+            // （比例 0.53）灰印就顶到了胶囊端头外面——这里守形状比例，而不是守某个 id 存在。
+            float ratio = dock.getLayoutParams().height / (float) tab.getLayoutParams().width;
+            assertTrue("tab 宽高比 " + ratio + " 太扁，椭圆水波会贴到胶囊圆角外", ratio >= 0.75f);
+            assertTrue("dock 左右内边距不足，最外侧水波会压在胶囊端头上",
+                    dock.getPaddingLeft() >= px(R.dimen.dock_padding_h));
         }
+    }
+
+    @Test
+    public void 内容铺到底且dock两侧点击不被吃掉() {
+        View root = root();
+        View container = root.findViewById(R.id.container);
+        assertEquals("container 必须铺满整屏（内容要能滚到 dock 下面）",
+                ViewGroup.LayoutParams.MATCH_PARENT, container.getLayoutParams().height);
+        View bar = root.findViewById(R.id.bottom_nav);
+        assertFalse("外层容器加了 clickable 会吃掉 dock 两侧空白处的点击", bar.isClickable());
+        assertFalse("dock 本身不是按钮，不该拦点击",
+                ((View) root.findViewById(R.id.nav_dock)).isClickable());
+        assertEquals("bottom_nav 必须贴在底部", android.view.Gravity.BOTTOM,
+                ((FrameLayout.LayoutParams) bar.getLayoutParams()).gravity
+                        & android.view.Gravity.BOTTOM);
+        View scrim = root.findViewById(R.id.nav_scrim);
+        assertNotNull("少了底部渐隐遮罩", scrim);
+        assertEquals(px(R.dimen.dock_scrim_h), scrim.getLayoutParams().height);
+        ViewGroup decor = (ViewGroup) container.getParent();
+        assertEquals("遮罩必须排在 container 之后、bottom_nav 之前（压在内容上、dock 下面）",
+                R.id.nav_scrim, decor.getChildAt(1).getId());
+        assertEquals(R.id.bottom_nav, decor.getChildAt(2).getId());
     }
 
     @Test
@@ -122,7 +145,7 @@ public class DockNavTest {
             assertEquals("纯图标：tab 里不该再有文字标签（角标除外）", 1, texts.size());
             assertEquals(1, icons.size());
             ImageView icon = icons.get(0);
-            assertEquals((int) dp(24), icon.getLayoutParams().width);
+            assertEquals(px(R.dimen.nav_icon_size), icon.getLayoutParams().width);
             assertNotNull("图标丢了 contentDescription，TalkBack 念不出来",
                     icon.getContentDescription());
         }
@@ -144,19 +167,46 @@ public class DockNavTest {
     }
 
     @Test
-    public void 底栏容器与dock同色不能透窗底() {
-        // 真机踩过的坑：容器改成 transparent 后，夜读下 dock 下方露出浅色 windowBackground，
-        // 拉出一条奶油白带。容器必须和 dock 一样吃 ?attr/surface。
-        View bar = root().findViewById(R.id.bottom_nav);
+    public void dock面色走dock_bg且夜读比卡面亮一档() {
         FrameLayout dock = root().findViewById(R.id.nav_dock);
-        Drawable barBg = bar.getBackground();
-        assertTrue("bottom_nav 背景不是纯色：" + barBg, barBg instanceof ColorDrawable);
-        int barColor = ((ColorDrawable) barBg).getColor();
-        assertTrue("bottom_nav 背景透明，会露出 windowBackground", Color.alpha(barColor) != 0);
-        ColorStateList dockFill = ((GradientDrawable) dock.getBackground()).getColor();
-        assertNotNull("dock 填充色取不到，断言失去意义", dockFill);
-        assertEquals("容器色必须等于 dock 填充色（surface），否则底栏会出现断层",
-                dockFill.getDefaultColor(), barColor);
+        ColorStateList fill = ((GradientDrawable) dock.getBackground()).getColor();
+        assertNotNull("dock 填充色取不到，断言失去意义", fill);
+        Context themed = new ContextThemeWrapper(ApplicationProvider.getApplicationContext(),
+                ThemeManager.styleRes(ThemeManager.current(
+                        ApplicationProvider.getApplicationContext())));
+        assertEquals("dock 底色必须取 ?attr/dock_bg",
+                ThemeManager.resolveColor(themed, R.attr.dock_bg), fill.getDefaultColor());
+        assertTrue("?attr/dock_bg 解析成透明，说明有主题漏配这个属性",
+                Color.alpha(fill.getDefaultColor()) != 0);
+        // 夜读单独核一遍：dock 必须与炭黑卡面分得开（描边已不是分层手段）
+        Context night = new ContextThemeWrapper(ApplicationProvider.getApplicationContext(),
+                ThemeManager.styleRes(ThemeManager.THEME_NIGHT));
+        assertEquals("夜读 dock 应指向 dock_surface_night", 0xFF221F1C,
+                ThemeManager.resolveColor(night, R.attr.dock_bg));
+        assertTrue("夜读 dock 与卡面同色，去掉描边后分不出层",
+                ThemeManager.resolveColor(night, R.attr.dock_bg)
+                        != ThemeManager.resolveColor(night, R.attr.surface));
+    }
+
+    @Test
+    public void 底部锚定控件按dock_reserve避让() {
+        // MarginLayoutParams 有个坑：只要写了 layout_margin，四个 layout_marginXxx 全被忽略。
+        // fab_scan 当初就是「XML 里明明加了 marginBottom、真机仍压在 dock 上」，所以这里读运行时
+        // 真实的 bottomMargin，而不是看 XML 有没有那行。
+        Context ctx = ApplicationProvider.getApplicationContext();
+        Context themed = new ContextThemeWrapper(ctx,
+                ThemeManager.styleRes(ThemeManager.current(ctx)));
+        View shelf = LayoutInflater.from(themed).inflate(R.layout.fragment_shelf, null);
+        int reserve = px(R.dimen.dock_reserve);
+        View fab = shelf.findViewById(R.id.fab_scan);
+        assertEquals("FAB 的底部外边距没吃到 dock_reserve（可能被 layout_margin 覆盖了）",
+                reserve, ((ViewGroup.MarginLayoutParams) fab.getLayoutParams()).bottomMargin);
+        View bar = shelf.findViewById(R.id.selection_bar);
+        assertEquals("选择模式条没按 dock_reserve 避让",
+                reserve, ((ViewGroup.MarginLayoutParams) bar.getLayoutParams()).bottomMargin);
+        View recycler = shelf.findViewById(R.id.recycler);
+        assertEquals("列表底部留白不是 dock_reserve，最后一本会被 dock 压住",
+                reserve, recycler.getPaddingBottom());
     }
 
     private void collect(View v, List<TextView> texts, List<ImageView> icons) {

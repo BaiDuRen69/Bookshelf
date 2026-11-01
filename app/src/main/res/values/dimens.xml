@@ -19,15 +19,20 @@
     <!-- 胶囊值 = 控件高度的一半；控件高度变了要同步改，不要写 50%（shape XML 不支持） -->
     <dimen name="radius_pill">22dp</dimen>
 
-    <!-- ===== 底部导航浮动 dock（v5.8.25）===== -->
-    <dimen name="dock_h">64dp</dimen>
-    <dimen name="dock_radius">32dp</dimen>
-    <dimen name="dock_margin_h">16dp</dimen>
-    <dimen name="dock_margin_bottom">8dp</dimen>
-    <dimen name="dock_elevation">8dp</dimen>
-    <dimen name="nav_indicator_size">44dp</dimen>
-    <dimen name="nav_icon_size">24dp</dimen>
-    <dimen name="nav_touch_size">48dp</dimen>
+    <!-- ===== 底部导航浮动 dock（v5.8.25 起，v5.8.26 真浮动）===== -->
+    <dimen name="dock_h">68dp</dimen>
+    <dimen name="dock_radius">34dp</dimen>
+    <dimen name="dock_padding_h">8dp</dimen>
+    <dimen name="dock_margin_bottom">12dp</dimen>
+    <dimen name="dock_elevation">14dp</dimen>
+    <dimen name="dock_item_w">84dp</dimen>
+    <dimen name="nav_indicator_size">56dp</dimen>
+    <dimen name="nav_icon_size">26dp</dimen>
+    <dimen name="nav_touch_size">56dp</dimen>
+    <!-- 内容避让：dock_h 68 + dock_margin_bottom 12 + 8dp 呼吸 -->
+    <dimen name="dock_reserve">88dp</dimen>
+    <!-- dock 下方那层渐隐遮罩的高度，让内容滚到 dock 底下时不生硬 -->
+    <dimen name="dock_scrim_h">120dp</dimen>
 
     <!-- ===== 字阶（v4.24 收敛为 28 / 22 / 17 / 15 / 13 / 11 六档；v4.25 统计 hero 40） ===== -->
     <dimen name="text_micro">9sp</dimen>
