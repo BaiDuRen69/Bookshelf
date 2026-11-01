@@ -146,7 +146,9 @@ public final class DateKeys {
     public static int[] presetRange(int which, Calendar now) {
         int today = keyOf(now.get(Calendar.YEAR), now.get(Calendar.MONTH) + 1,
                 now.get(Calendar.DAY_OF_MONTH));
-        Calendar c = Calendar.getInstance();
+        // 必须从传进来的 now 派生：以前这里是 Calendar.getInstance()，
+        // 于是「近 3 个月 / 去年」跟着设备时钟走，与 now 无关（跨月时测试结果会跳一天）
+        Calendar c = (Calendar) now.clone();
         switch (which) {
             case 0:
                 return new int[]{keyOf(now.get(Calendar.YEAR), now.get(Calendar.MONTH) + 1, 1), today};
