@@ -1,10 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Android 12+ 系统启动页（v4.28）：纸色底 + 自适应书本图标 + 字标品牌图 -->
+    <!-- v5.8.28：这一版才是 31+ 真机实际生效的启动主题（parent 是 Base，不是
+         Theme.SplashScreen）。两处坑一起补：
+         1) windowBackground 原先写死 @color/bg_page，夜读下页面留白会退回米白，
+            改成跟随主题的 colorBackground；
+         2) 原先没声明 postSplashScreenTheme，退场后 Activity 一直挂在启动主题上，
+            与 31 以下的行为不一致，这里对齐成同一个具体主题。 -->
     <style name="Theme.Bookshelf.Splash" parent="Theme.Bookshelf.Base">
-        <item name="android:windowBackground">@color/bg_page</item>
+        <item name="android:windowBackground">?android:attr/colorBackground</item>
         <item name="android:windowSplashScreenBackground">@color/bg_page</item>
         <item name="android:windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
         <item name="android:windowSplashScreenBrandingImage">@drawable/splash_brand</item>
+        <item name="postSplashScreenTheme">@style/Theme.Bookshelf</item>
     </style>
 </resources>

@@ -52,23 +52,61 @@ public class BaseActivity extends AppCompatActivity {
     @Override
     public void onContentChanged() {
         super.onContentChanged();
+        ThemeManager.refreshWindowBackground(this);
         applyToolbarInset();
+        applySystemBarColors();
         applyStatusBarIcons();
     }
 
     /**
-     * 状态栏图标统一用浅色（白）。
+     * v5.8.28：状态栏 / 导航栏颜色**在代码里按当前主题算**，不再只靠主题 XML 解析。
      *
-     * <p>页头在所有主题下都是主色，夜读是炭黑——都需要白图标。主题 XML 里已经写了
-     * {@code windowLightStatusBar=false}，但少数 ROM 在 Activity recreate 后会沿用
-     * 系统栏外观缓存，所以这里再用 {@link WindowInsetsControllerCompat} 兜一次。
+     * <p>原因：core-splashscreen 在启动页退场时会把 Activity 主题重设成
+     * {@code postSplashScreenTheme}，切主题走 {@code recreate()} 也会重跑这条链，
+     * 于是 XML 里 {@code ?attr/colorPrimary} 有几率解析成基线主题的色（Material 紫
+     * #6750A4），表现为「状态栏紫一条」。这里在内容变化后主动覆写一次，绕开缓存。
+     *
+     * <p>页头色目前取 colorPrimary（第三步引入 {@code ?attr/header_bg} 后换成它）。
+     */
+    private void applySystemBarColors() {
+        try {
+            int header = ThemeManager.resolveColor(this, ThemeManager.ATTR_COLOR_PRIMARY);
+            getWindow().setStatusBarColor(header);
+            getWindow().setNavigationBarColor(ThemeManager.resolveColor(this, R.attr.surface));
+        } catch (RuntimeException ignored) {
+            // API 35+ 上系统会忽略 setStatusBarColor（强制 edge-to-edge），属正常，不能因此崩
+        }
+    }
+
+    /**
+     * 状态栏 / 导航栏图标的明暗**按各自底色亮度决定**。
+     *
+     * <p>原先写死白图标（页头在六套浅色主题下都是深主色，炭黑夜读也需要白字），
+     * 但夜读的 colorPrimary 是亮金 #C9A66B：白字压在亮金上对比度只有约 1.9:1，
+     * 暖橙 #C2701E 同样偏亮。现在统一走 {@link #isLightColor(int)}。
      */
     private void applyStatusBarIcons() {
+        int header = ThemeManager.resolveColor(this, ThemeManager.ATTR_COLOR_PRIMARY);
         androidx.core.view.WindowInsetsControllerCompat controller =
                 androidx.core.view.WindowCompat.getInsetsController(
                         getWindow(), getWindow().getDecorView());
-        controller.setAppearanceLightStatusBars(false);
-        controller.setAppearanceLightNavigationBars(false);
+        controller.setAppearanceLightStatusBars(isLightColor(header));
+        controller.setAppearanceLightNavigationBars(
+                isLightColor(ThemeManager.resolveColor(this, R.attr.surface)));
+    }
+
+    /**
+     * 相对亮度（WCAG 系数）>0.55 视为浅底，配深色图标。
+     *
+     * <p>包内可见是为了让 {@code ThemeColorBaselineTest} 直接对七套主题的页头色断言，
+     * 不靠肉眼看截图。
+     */
+    static boolean isLightColor(int color) {
+        double r = ((color >> 16) & 0xFF) / 255.0;
+        double g = ((color >> 8) & 0xFF) / 255.0;
+        double b = (color & 0xFF) / 255.0;
+        return 0.2126 * Math.pow(r, 2.2) + 0.7152 * Math.pow(g, 2.2)
+                + 0.0722 * Math.pow(b, 2.2) > 0.55;
     }
 
     /**

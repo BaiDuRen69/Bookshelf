@@ -19,6 +19,7 @@ import com.bai.bookshelf.ui.mine.MineFragment;
 import com.bai.bookshelf.ui.shelf.ShelfFragment;
 import com.bai.bookshelf.ui.stats.StatsFragment;
 import com.bai.bookshelf.util.InsetsHelper;
+import com.bai.bookshelf.util.ThemeManager;
 
 /**
  * 主界面：承载底部三 Tab（书架 / 统计 / 我的）。
@@ -62,6 +63,10 @@ public class MainActivity extends BaseActivity {
         // v5.8.7：冷启动一镜到底 —— 字标淡出、内容淡入（compat 库，24+ 统一行为）
         installSplashExit();
         super.onCreate(savedInstanceState);
+        // v5.8.28：把可能被 splash 退场流程覆盖掉的用户主题抢回来。
+        // core-splashscreen 会把主题重设为 postSplashScreenTheme，切主题走 recreate()
+        // 时这条链会重跑，导致状态栏解析成基线色；这里在 setContentView 之前再挂一次。
+        ThemeManager.applyTheme(this);
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
 

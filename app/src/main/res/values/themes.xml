@@ -8,6 +8,14 @@
     <style name="Theme.Bookshelf.Base" parent="Theme.Material3.Light.NoActionBar">
         <!-- 页面底色 -->
         <item name="android:colorBackground">@color/bg_page</item>
+        <!-- v5.8.28：主色兜底。下面 statusBarColor 吃 ?attr/colorPrimary，而本基线
+             原先没定义 colorPrimary，父级 Theme.Material3.Light.NoActionBar 的基线主色
+             是紫 #6750A4 —— 一旦有页面只挂到 Base（splash 的 postSplashScreenTheme 就是），
+             状态栏立刻变紫。七套主题各自都覆盖这四个属性，所以补兜底不改变任何一套的观感。 -->
+        <item name="colorPrimary">@color/primary</item>
+        <item name="colorPrimaryVariant">@color/primary_dark</item>
+        <item name="colorSecondary">@color/accent</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
         <!-- 状态栏与工具栏同色，视觉连成一体 -->
         <item name="android:statusBarColor">?attr/colorPrimary</item>
         <item name="android:windowLightStatusBar">false</item>
@@ -134,7 +142,19 @@
     <style name="Theme.Bookshelf.Splash" parent="Theme.SplashScreen">
         <item name="windowSplashScreenBackground">@color/bg_page</item>
         <item name="windowSplashScreenAnimatedIcon">@drawable/splash_brand</item>
-        <item name="postSplashScreenTheme">@style/Theme.Bookshelf.Base</item>
+        <!-- v5.8.28：本 style 在 values-v31 里另有一版（parent 换成 Theme.Bookshelf.Base），
+             所以 31+ 走的是那条链；31 以下才是这里的 Theme.SplashScreen
+             （→ android:Theme.DeviceDefault，它的基线主色正是紫 #6750A4）。
+             MainActivity 必须在 super.onCreate 之前 installSplashScreen()，那段时间
+             窗口挂的就是本主题，任何 ?attr/colorPrimary 解析都会拿到紫，兜底要补一遍。 -->
+        <item name="colorPrimary">@color/primary</item>
+        <item name="colorPrimaryVariant">@color/primary_dark</item>
+        <item name="colorSecondary">@color/accent</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+        <!-- v5.8.28：必须指向具体的默认主题（墨绿），不能指 Base。
+             core-splashscreen 退场时会把 Activity 主题重设成这个值，指 Base 等于
+             把用户主题整个覆盖掉，状态栏色回落到基线紫 #6750A4。 -->
+        <item name="postSplashScreenTheme">@style/Theme.Bookshelf</item>
     </style>
 
     <style name="Theme.Bookshelf.Night" parent="Theme.Bookshelf.Base">

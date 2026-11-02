@@ -58,6 +58,27 @@ public final class ThemeManager {
         activity.setTheme(styleRes(current(activity)));
     }
 
+    /**
+     * v5.8.28：按当前主题重设窗口背景。
+     *
+     * <p>splash 的 {@code postSplashScreenTheme} 是在 {@code installSplashScreen()}
+     * 的构造阶段就 {@code setTheme} 的，那一刻 decor 已经按「默认主题的纸色」算好了
+     * 窗口背景；之后再 {@code setTheme} 只会影响新 inflate 的视图，换不掉窗口背景。
+     * 夜读下表现为卡片之间的页面留白仍是米白（实测每行左右各约 33px、约占整屏 10%）。
+     */
+    public static void refreshWindowBackground(Activity activity) {
+        TypedValue tv = new TypedValue();
+        if (!activity.getTheme().resolveAttribute(android.R.attr.windowBackground, tv, true)) {
+            return;
+        }
+        if (tv.type >= TypedValue.TYPE_FIRST_COLOR_INT && tv.type <= TypedValue.TYPE_LAST_COLOR_INT) {
+            activity.getWindow().setBackgroundDrawable(
+                    new android.graphics.drawable.ColorDrawable(tv.data));
+        } else if (tv.resourceId != 0) {
+            activity.getWindow().setBackgroundDrawableResource(tv.resourceId);
+        }
+    }
+
     /** 主题 id → style 资源 */
     public static int styleRes(int themeId) {
         switch (themeId) {
