@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 系统深色模式下的启动页兜底（v5.8.29 第五步）。
+     与 values-night/widget_colors.xml 同一套路：只给「首帧」用，运行时各页仍按
+     App 内选定的主题重新解析颜色，两者互不冲突。
+
+     限制（已知取舍）：Android 12+ 的系统启动页背景取自 manifest 里的主题
+     （Theme.Bookshelf.Splash → windowSplashScreenBackground），系统画那一帧时
+     App 还没跑代码，拿不到用户在设置里选的配色，只能跟着「系统深/浅」走。
+     所以这里覆盖 bg_page 之后：
+       · 系统深色 + App 夜读 → 首帧与页面同色，闪奶油带消失（本轮目标）；
+       · 系统深色 + App 其它六套浅色主题 → 首帧变成炭黑、随后才是浅色页，
+         等于把原来「浅色首帧 + 深色页面」的错位反过来了一遍。
+     bg_page 只被三处引用（Base 的 android:colorBackground、values 与 values-v31
+     两个启动主题的 windowSplashScreenBackground），影响面就是启动那一帧。 -->
+<resources>
+    <color name="bg_page">#151311</color>
+</resources>

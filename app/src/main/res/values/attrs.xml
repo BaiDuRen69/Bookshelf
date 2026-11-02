@@ -19,4 +19,9 @@
     <attr name="accent_text" format="color" />
     <!-- v5.8.26：浮动 dock 的面色（比 surface 亮一档，六套浅色主题共用，夜读单独覆盖） -->
     <attr name="dock_bg" format="color" />
+    <!-- v5.8.29：页头这一层单独成对，不再借用 colorPrimary/colorOnPrimary。
+         夜读的 colorPrimary 必须是暗金（按钮/链接/大数字要它亮），可页头底色不能是暗金
+         （白字压暗金只有 2.13:1），所以底色与前景色要能各自独立指定。 -->
+    <attr name="header_bg" format="color" />
+    <attr name="header_fg" format="color" />
 </resources>

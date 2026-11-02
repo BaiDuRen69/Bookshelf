@@ -16,8 +16,12 @@
         <item name="colorPrimaryVariant">@color/primary_dark</item>
         <item name="colorSecondary">@color/accent</item>
         <item name="colorOnPrimary">#FFFFFF</item>
-        <!-- 状态栏与工具栏同色，视觉连成一体 -->
-        <item name="android:statusBarColor">?attr/colorPrimary</item>
+        <!-- v5.8.29：页头这一层单独成对。六套浅色主题页头 = 各自主色 + 白字，
+             所以默认值就按墨绿写；夜读在自已那版里换成暗墨绿底 + 暗金字。 -->
+        <item name="header_bg">@color/primary</item>
+        <item name="header_fg">#FFFFFF</item>
+        <!-- 状态栏与页头同色，视觉连成一体 -->
+        <item name="android:statusBarColor">?attr/header_bg</item>
         <item name="android:windowLightStatusBar">false</item>
         <!-- v4.25：书架 → 详情封面共享元素过渡 -->
         <item name="android:windowActivityTransitions">true</item>
@@ -163,7 +167,14 @@
         <item name="colorPrimaryVariant">@color/night_primary_dark</item>
         <item name="colorSecondary">@color/night_accent</item>
         <item name="colorOnPrimary">@color/night_ink</item>
-        <!-- v5.8.5：夜读页头是炭黑，状态栏必须用浅色（白）图标；运行时还会再兜一次 -->
+        <!-- v5.8.29：页头不再用亮金底。暗墨绿 #26302C 上放暗金 #D8B77E，
+             实测对比 7.13:1（原来白字压亮金 #C9A66B 只有 2.13:1）。
+             colorPrimary 仍是 night_accent：按钮/链接/大数字要那个亮度。 -->
+        <item name="header_bg">@color/night_container</item>
+        <item name="header_fg">@color/night_accent_text</item>
+        <!-- v5.8.29 改注：夜读页头现在是暗墨绿 header_bg（#26302C），不再是炭黑页面色；
+             状态栏取 header_bg 后仍是深底 → 浅色（白）图标，false 没变。
+             运行时 BaseActivity 还会按 isLightColor() 再兜一次。 -->
         <item name="android:windowLightStatusBar">false</item>
         <item name="chip_bg">@color/night_chip_bg</item>
         <item name="accent_text">@color/night_accent_text</item>
@@ -222,6 +233,7 @@
         <item name="colorPrimary">@color/blue_primary</item>
         <item name="colorPrimaryVariant">@color/blue_primary_dark</item>
         <item name="colorSecondary">@color/blue_accent</item>
+        <item name="header_bg">@color/blue_primary</item>
         <item name="chip_bg">@color/blue_chip_bg</item>
         <item name="accent_text">@color/accent_text_brass</item>
         <item name="primary_container">@color/blue_container</item>
@@ -247,6 +259,7 @@
         <item name="colorPrimary">@color/red_primary</item>
         <item name="colorPrimaryVariant">@color/red_primary_dark</item>
         <item name="colorSecondary">@color/red_accent</item>
+        <item name="header_bg">@color/red_primary</item>
         <item name="chip_bg">@color/red_chip_bg</item>
         <item name="accent_text">@color/accent_text_brass</item>
         <item name="primary_container">@color/red_container</item>
@@ -272,6 +285,7 @@
         <item name="colorPrimary">@color/orange_primary</item>
         <item name="colorPrimaryVariant">@color/orange_primary_dark</item>
         <item name="colorSecondary">@color/orange_accent</item>
+        <item name="header_bg">@color/orange_primary</item>
         <item name="chip_bg">@color/orange_chip_bg</item>
         <item name="accent_text">@color/accent_text_olive</item>
         <item name="primary_container">@color/orange_container</item>
@@ -297,6 +311,7 @@
         <item name="colorPrimary">@color/purple_primary</item>
         <item name="colorPrimaryVariant">@color/purple_primary_dark</item>
         <item name="colorSecondary">@color/purple_accent</item>
+        <item name="header_bg">@color/purple_primary</item>
         <item name="chip_bg">@color/purple_chip_bg</item>
         <item name="accent_text">@color/accent_text_brass</item>
         <item name="primary_container">@color/purple_container</item>
@@ -322,6 +337,7 @@
         <item name="colorPrimary">@color/graphite_primary</item>
         <item name="colorPrimaryVariant">@color/graphite_primary_dark</item>
         <item name="colorSecondary">@color/graphite_accent</item>
+        <item name="header_bg">@color/graphite_primary</item>
         <item name="chip_bg">@color/graphite_chip_bg</item>
         <item name="accent_text">@color/accent_text_graphite</item>
         <item name="primary_container">@color/graphite_container</item>

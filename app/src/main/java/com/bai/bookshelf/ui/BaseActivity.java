@@ -23,10 +23,27 @@ import com.bai.bookshelf.util.ThemeManager;
  */
 public class BaseActivity extends AppCompatActivity {
 
+    /**
+     * v5.8.29：本页面 onCreate 时生效的主题 id。{@code ThemePickerDialog} 只 recreate
+     * 当前 Activity，返回栈里更早的页面仍是旧主题旧栏色；这里在 onResume 比对，
+     * 让回到前台的旧页自己重建一次，不维护 Activity 登记表。
+     */
+    private int themedAt;
+
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         ThemeManager.applyTheme(this);
+        themedAt = ThemeManager.current(this);
         super.onCreate(savedInstanceState);
+    }
+
+    /** v5.8.29：主题在别处被换过时，回到本页即重建，不留旧色 */
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (themedAt != ThemeManager.current(this) && !isFinishing()) {
+            recreate();
+        }
     }
 
     /**
@@ -66,31 +83,34 @@ public class BaseActivity extends AppCompatActivity {
      * 于是 XML 里 {@code ?attr/colorPrimary} 有几率解析成基线主题的色（Material 紫
      * #6750A4），表现为「状态栏紫一条」。这里在内容变化后主动覆写一次，绕开缓存。
      *
-     * <p>页头色目前取 colorPrimary（第三步引入 {@code ?attr/header_bg} 后换成它）。
+     * <p>v5.8.29：页头色改取 {@code ?attr/header_bg}——夜读的 colorPrimary 是暗金
+     * （按钮/链接要它亮），但页头底色是暗墨绿，两者不再同一个属性。
      */
     private void applySystemBarColors() {
         try {
-            int header = ThemeManager.resolveColor(this, ThemeManager.ATTR_COLOR_PRIMARY);
-            getWindow().setStatusBarColor(header);
+            getWindow().setStatusBarColor(headerColor());
             getWindow().setNavigationBarColor(ThemeManager.resolveColor(this, R.attr.surface));
         } catch (RuntimeException ignored) {
             // API 35+ 上系统会忽略 setStatusBarColor（强制 edge-to-edge），属正常，不能因此崩
         }
     }
 
+    /** 当前主题的页头底色（工具栏背景、状态栏底色、页头文字都从它派生） */
+    private int headerColor() {
+        return ThemeManager.resolveColor(this, R.attr.header_bg);
+    }
+
     /**
      * 状态栏 / 导航栏图标的明暗**按各自底色亮度决定**。
      *
-     * <p>原先写死白图标（页头在六套浅色主题下都是深主色，炭黑夜读也需要白字），
-     * 但夜读的 colorPrimary 是亮金 #C9A66B：白字压在亮金上对比度只有约 1.9:1，
-     * 暖橙 #C2701E 同样偏亮。现在统一走 {@link #isLightColor(int)}。
+     * <p>原先写死白图标；但页头底色并不永远够深（夜读曾把亮金 #C9A66B 当页头，
+     * 白字压上去只有 2.13:1）。统一走 {@link #isLightColor(int)}，浅底配深色图标。
      */
     private void applyStatusBarIcons() {
-        int header = ThemeManager.resolveColor(this, ThemeManager.ATTR_COLOR_PRIMARY);
         androidx.core.view.WindowInsetsControllerCompat controller =
                 androidx.core.view.WindowCompat.getInsetsController(
                         getWindow(), getWindow().getDecorView());
-        controller.setAppearanceLightStatusBars(isLightColor(header));
+        controller.setAppearanceLightStatusBars(isLightColor(headerColor()));
         controller.setAppearanceLightNavigationBars(
                 isLightColor(ThemeManager.resolveColor(this, R.attr.surface)));
     }

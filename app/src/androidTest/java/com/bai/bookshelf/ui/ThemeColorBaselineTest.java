@@ -45,7 +45,7 @@ public class ThemeColorBaselineTest {
         return new ContextThemeWrapper(ctx, ThemeManager.styleRes(themeId));
     }
 
-    /** 解析 android:statusBarColor（Base 里写的是 ?attr/colorPrimary，会跟着主题走） */
+    /** 解析 android:statusBarColor（v5.8.29 起 Base 里写的是 ?attr/header_bg） */
     private int statusBarColor(Context ctx) {
         TypedValue tv = new TypedValue();
         ctx.getTheme().resolveAttribute(android.R.attr.statusBarColor, tv, true);
@@ -77,12 +77,70 @@ public class ThemeColorBaselineTest {
         }
     }
 
+    /** 各主题页头底色（v5.8.29 新增 header_bg）：六套浅色 = 各自主色，夜读 = 暗墨绿 */
+    private static final int[] HEADER_BG_BASELINE = {
+            0xFF2E6E5C,      // primary
+            0xFF3A5BA0,      // blue_primary
+            0xFFA34A3A,      // red_primary
+            0xFFC2701E,      // orange_primary
+            0xFF6B4E9E,      // purple_primary
+            0xFF4A6B70,      // graphite_primary
+            0xFF26302C,      // night_container（不再是 night_accent 亮金）
+    };
+
+    /** 各主题页头前景（header_fg）：六套浅色仍是白，夜读换暗金 */
+    private static final int[] HEADER_FG_BASELINE = {
+            0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF,
+            0xFFD8B77E,  // night_accent_text
+    };
+
     @Test
-    public void 每套主题的状态栏色等于自己的主色() {
+    public void 每套主题的状态栏色等于自己的页头底色() {
         for (int[] row : PRIMARY_BASELINE) {
-            assertEquals("主题 " + row[0] + " 的状态栏应与 colorPrimary 同色",
-                    row[1], statusBarColor(themed(row[0])));
+            assertEquals("主题 " + row[0] + " 的状态栏应与 header_bg 同色",
+                    HEADER_BG_BASELINE[row[0]], statusBarColor(themed(row[0])));
         }
+    }
+
+    /**
+     * 页头这一层单独成对之后，两个约束都要钉住：
+     * ① header_bg / header_fg 解析值等于设计意图；
+     * ② 页头文字对比度——夜读是本轮要修的那个（≥4.5:1），六套浅色主题按
+     *    「观感与改动前一致」的约束不能动配色，只能守住 WCAG 大字底线 3.0:1。
+     *    实测暖橙白字压 #C2701E 只有 3.73:1，是本轮之前就存在的值，改它不属本批。
+     * colorPrimary 不参与这两条——它仍是按钮/链接/大数字的取色点。
+     */
+    @Test
+    public void 页头底色与前景色成对且对比达标() {
+        for (int[] row : PRIMARY_BASELINE) {
+            Context ctx = themed(row[0]);
+            int bg = ThemeManager.resolveColor(ctx, R.attr.header_bg);
+            int fg = ThemeManager.resolveColor(ctx, R.attr.header_fg);
+            assertEquals("主题 " + row[0] + " 的 header_bg 变了", HEADER_BG_BASELINE[row[0]], bg);
+            assertEquals("主题 " + row[0] + " 的 header_fg 变了", HEADER_FG_BASELINE[row[0]], fg);
+            double ratio = contrast(bg, fg);
+            boolean night = row[0] == ThemeManager.THEME_NIGHT;
+            System.out.println(String.format("[header] theme=%d bg=#%06X fg=#%06X 对比 %.2f:1 (%s)",
+                    row[0], bg & 0xFFFFFF, fg & 0xFFFFFF, ratio, night ? "夜读，门槛 4.5" : "浅色，门槛 3.0"));
+            assertTrueMsg(ratio >= (night ? 4.5 : 3.0), "主题 " + row[0] + " 页头文字对比只有 "
+                    + String.format("%.2f", ratio) + ":1");
+        }
+    }
+
+    /** 相对亮度（WCAG）与对比度，和 BaseActivity.isLightColor 用同一套换算 */
+    private static double luminance(int color) {
+        double[] c = new double[3];
+        for (int i = 0; i < 3; i++) {
+            double v = ((color >> (16 - 8 * i)) & 0xFF) / 255.0;
+            c[i] = v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+        }
+        return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+    }
+
+    private static double contrast(int a, int b) {
+        double la = luminance(a);
+        double lb = luminance(b);
+        return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
     }
 
     @Test
@@ -156,8 +214,7 @@ public class ThemeColorBaselineTest {
         //   墨绿 .125 / 黛蓝 .108 / 赭红 .129 / 暖橙 .234 / 紫罗兰 .110 / 石墨 .132 / 夜读 .415
         // 阈值 0.55 之下全部判为「深底 → 白图标」，所以本轮不会有任何主题的图标翻色。
         for (int[] row : PRIMARY_BASELINE) {
-            int header = ThemeManager.resolveColor(themed(row[0]),
-                    ThemeManager.ATTR_COLOR_PRIMARY);
+            int header = ThemeManager.resolveColor(themed(row[0]), R.attr.header_bg);
             assertEquals("主题 " + row[0] + " 页头不该被判成浅底",
                     false, BaseActivity.isLightColor(header));
         }
@@ -165,9 +222,11 @@ public class ThemeColorBaselineTest {
         assertEquals(true, BaseActivity.isLightColor(0xFFFFFFFF));
         assertEquals(true, BaseActivity.isLightColor(0xFFF5F0E6));
         assertEquals(false, BaseActivity.isLightColor(0xFF243D36));   // night_primary_dark
-        // 夜读亮金页头配白图标只有约 2.3:1，靠第三步换暗页头解决（换完 Y≈0.036 → 12:1）
-        System.out.println("[night] Y-based light=" + BaseActivity.isLightColor(0xFFC9A66B)
-                + "（阈值 0.55，夜读亮金 0.415 仍判深底）");
+        // 夜读页头已从亮金 #C9A66B（Y 0.415）换成暗墨绿 #26302C（Y 0.027）→ 白图标 13.6:1
+        System.out.println("[night] header_bg light="
+                + BaseActivity.isLightColor(HEADER_BG_BASELINE[ThemeManager.THEME_NIGHT])
+                + "，白图标对比 " + String.format("%.2f",
+                        contrast(HEADER_BG_BASELINE[ThemeManager.THEME_NIGHT], 0xFFFFFFFF)) + ":1");
     }
 
     /**

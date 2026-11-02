@@ -84,6 +84,12 @@ public class ThemePickerDialog {
                 if (holder[0] != null) {
                     holder[0].dismiss();
                 }
+                // v5.8.29：淡入淡出要跑两百来毫秒，期间露出的还是旧窗口色（页头 + 状态栏）。
+                // 先按新主题的 header_bg 把当前窗口的状态栏刷掉，过渡期就不闪旧色。
+                int newHeader = ThemeManager.resolveColor(
+                        new android.view.ContextThemeWrapper(ctx, ThemeManager.styleRes(idx)),
+                        R.attr.header_bg);
+                fragment.requireActivity().getWindow().setStatusBarColor(newHeader);
                 // v4.30：不再弹 Toast（色卡已有勾选），用淡入淡出代替硬重建的闪屏
                 fragment.requireActivity().recreate();
                 fragment.requireActivity().overridePendingTransition(

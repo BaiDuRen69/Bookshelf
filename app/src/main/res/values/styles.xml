@@ -84,22 +84,26 @@
     </style>
 
     <!-- 工具栏：主色底 + 白色标题 + 无阴影 -->
+    <!-- v5.8.29：工具栏这一层改吃 header_bg / header_fg（页头底色与前景色），
+         不再吃 colorPrimary / colorOnPrimary —— 夜读那两个值是「暗金主色 + 深墨字」，
+         用在页头上会变成亮金底白字（2.13:1）。按钮、正文文字色不受影响。 -->
     <style name="Widget.Bookshelf.Toolbar" parent="Widget.Material3.Toolbar">
-        <item name="android:background">?attr/colorPrimary</item>
-        <item name="titleTextColor">?attr/colorOnPrimary</item>
+        <item name="android:background">?attr/header_bg</item>
+        <item name="titleTextColor">?attr/header_fg</item>
         <item name="titleTextAppearance">@style/TextAppearance.Bookshelf.ToolbarTitle</item>
-        <item name="navigationIconTint">?attr/colorOnPrimary</item>
+        <item name="navigationIconTint">?attr/header_fg</item>
         <item name="android:elevation">0dp</item>
     </style>
 
     <style name="TextAppearance.Bookshelf.ToolbarTitle" parent="TextAppearance.Material3.TitleLarge">
         <!-- v5.7 收口：页头统一 17sp（text_headline）；文字色跟随主题，
-             夜读主题主色是暗金，写死白色只有约 2:1 对比度 -->
+             夜读主题主色是暗金，写死白色只有约 2:1 对比度
+             v5.8.29：这里也换成 header_fg（详情页标题另有显式 textColor，不受影响） -->
         <item name="android:textSize">@dimen/text_headline</item>
         <item name="android:fontFamily">serif</item>
         <item name="android:textStyle">normal</item>
         <item name="android:letterSpacing">0.04</item>
-        <item name="android:textColor">?attr/colorOnPrimary</item>
+        <item name="android:textColor">?attr/header_fg</item>
     </style>
 
     <!-- 两级标题：CardTitle（独立卡片 17sp 衬线）/ SectionTitle（卡内小标题 13sp sans-medium 次级色） -->
