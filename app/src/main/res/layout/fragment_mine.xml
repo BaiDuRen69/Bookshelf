@@ -491,7 +491,7 @@
                             </LinearLayout>
 
                             <LinearLayout
-                                android:id="@+id/row_incomplete"
+                                android:id="@+id/row_split"
                                 android:layout_width="0dp"
                                 android:layout_height="wrap_content"
                                 android:layout_weight="1"
@@ -506,18 +506,18 @@
                                     android:layout_width="@dimen/mine_icon_box"
                                     android:layout_height="@dimen/mine_icon_box"
                                     android:background="@drawable/bg_icon_container"
-                                    android:contentDescription="书籍信息补全"
+                                    android:contentDescription="套装购入价分摊"
                                     android:padding="8dp"
-                                    android:src="@drawable/ic_edit"
+                                    android:src="@drawable/ic_split_line"
                                     app:tint="?attr/colorPrimary" />
 
                                 <TextView
                                     style="@style/MineToolTitle"
-                                    android:text="信息补全" />
+                                    android:text="套装分摊" />
 
                                 <TextView
                                     style="@style/MineToolSubtitle"
-                                    android:text="补封面/分类/地点" />
+                                    android:text="总价拆到每册" />
                             </LinearLayout>
                         </LinearLayout>
                     </LinearLayout>

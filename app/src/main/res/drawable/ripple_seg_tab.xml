@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 统计页分段 tab 的水波（v5.8.27）：inset 与 bg_seg_selected_inset 完全相同，
+     所以按下去的高亮与选中白框边界重合；mask 半径 18 = 36dp 胶囊高度的一半。 -->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:insetBottom="6dp"
+    android:insetLeft="6dp"
+    android:insetRight="6dp"
+    android:insetTop="6dp">
+    <ripple android:color="?attr/colorControlHighlight">
+        <item android:id="@android:id/mask">
+            <shape android:shape="rectangle">
+                <corners android:radius="18dp" />
+                <solid android:color="#FFFFFFFF" />
+            </shape>
+        </item>
+    </ripple>
+</inset>

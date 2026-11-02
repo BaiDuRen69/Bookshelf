@@ -30,6 +30,7 @@
             android:layout_width="0dp"
             android:layout_height="40dp"
             android:layout_weight="1"
+            android:foreground="@drawable/ripple_seg_tab_sm"
             android:gravity="center"
             android:text="月"
             android:textColor="?attr/on_surface"
@@ -40,6 +41,7 @@
             android:layout_width="0dp"
             android:layout_height="40dp"
             android:layout_weight="1"
+            android:foreground="@drawable/ripple_seg_tab_sm"
             android:gravity="center"
             android:text="年"
             android:textColor="?attr/on_surface"
@@ -50,6 +52,7 @@
             android:layout_width="0dp"
             android:layout_height="40dp"
             android:layout_weight="1"
+            android:foreground="@drawable/ripple_seg_tab_sm"
             android:gravity="center"
             android:text="总"
             android:textColor="?attr/on_surface"
@@ -236,7 +239,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="每日购买（种）"
+                        android:text="每日购买（本）"
                         android:textColor="?attr/on_surface_variant"
                         android:textSize="@dimen/text_body_small" />
 
@@ -289,6 +292,14 @@
                         android:textColor="?attr/on_surface_variant"
                         android:textSize="@dimen/text_body_small" />
 
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="@string/stats_purchase_calendar_note"
+                        android:textColor="?attr/on_surface_variant"
+                        android:textSize="@dimen/text_caption" />
+
                     <com.bai.bookshelf.ui.stats.PurchaseHeatmapView
                         android:id="@+id/heatmap_month"
                         android:layout_width="match_parent"
@@ -303,6 +314,17 @@
                         android:text="@string/stats_click_day_hint"
                         android:textColor="?attr/on_surface_variant"
                         android:textSize="@dimen/text_body_small" />
+
+                    <!-- 点某天后列出当天买的书（与日历面板里的书目同源同样式） -->
+                    <TextView
+                        android:id="@+id/tv_month_day_books"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:lineSpacingMultiplier="1.25"
+                        android:textColor="?attr/on_surface_variant"
+                        android:textSize="@dimen/text_body_small"
+                        android:visibility="gone" />
 
                     <LinearLayout
                         android:id="@+id/ll_month_legend"
@@ -505,7 +527,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="每月购买（种）"
+                        android:text="每月购买（本）"
                         android:textColor="?attr/on_surface_variant"
                         android:textSize="@dimen/text_body_small" />
 
@@ -550,6 +572,14 @@
                         android:textColor="?attr/on_surface_variant"
                         android:textSize="@dimen/text_body_small" />
 
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="@string/stats_purchase_calendar_note"
+                        android:textColor="?attr/on_surface_variant"
+                        android:textSize="@dimen/text_caption" />
+
                     <HorizontalScrollView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
@@ -570,6 +600,17 @@
                         android:text="@string/stats_click_day_hint"
                         android:textColor="?attr/on_surface_variant"
                         android:textSize="@dimen/text_body_small" />
+
+                    <!-- 点某天后列出当天买的书（与日历面板里的书目同源同样式） -->
+                    <TextView
+                        android:id="@+id/tv_year_day_books"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:lineSpacingMultiplier="1.25"
+                        android:textColor="?attr/on_surface_variant"
+                        android:textSize="@dimen/text_body_small"
+                        android:visibility="gone" />
 
                     <LinearLayout
                         android:id="@+id/ll_year_legend"
@@ -864,7 +905,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="每年购买（种）"
+                            android:text="每年购买（本）"
                             android:textColor="?attr/on_surface_variant"
                             android:textSize="@dimen/text_body_small" />
 

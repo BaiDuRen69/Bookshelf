@@ -11,7 +11,8 @@ import com.bai.bookshelf.ui.location.SourceChannelActivity;
 import com.bai.bookshelf.ui.location.TagActivity;
 
 /**
- * 书目管理二级页（v5.7）：把地点/来源/标签/分类/套装分摊从「我的」首屏收进来。
+ * 书目管理二级页（v5.7）：把地点/来源/标签/分类/借阅人档案/信息补全从「我的」首屏收进来。
+ * v5.8.27：「套装分摊」上移到「我的 · 常用工具」，这里换成「信息补全」。
  */
 public class LibraryManageActivity extends BaseActivity {
 
@@ -32,7 +33,7 @@ public class LibraryManageActivity extends BaseActivity {
         // v5.8.18：借阅人档案（借过几本 / 有没有逾期 / 手上还剩几本）
         b.rowBorrower.setOnClickListener(v ->
                 startActivity(new Intent(this, com.bai.bookshelf.ui.lend.BorrowerActivity.class)));
-        b.rowSplit.setOnClickListener(v ->
-                startActivity(new Intent(this, SplitActivity.class)));
+        b.rowIncomplete.setOnClickListener(v ->
+                startActivity(new Intent(this, IncompleteBooksActivity.class)));
     }
 }

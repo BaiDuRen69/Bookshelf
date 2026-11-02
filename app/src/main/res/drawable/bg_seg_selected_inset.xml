@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 分段控件选中块（内缩版，v5.8.27）：统计页四个 tab 格高 48dp，上下左右各内缩 6dp
+     → 选中胶囊 36dp 高，半径 18 = 高度一半（胶囊公式）。
+     与 ripple_seg_tab 用同一组 inset，所以「水波边界」和「选中白框」完全重合。
+     bg_seg_selected（13dp 半径、铺满整格）保留给购买日历面板的分段控件用。 -->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:insetBottom="6dp"
+    android:insetLeft="6dp"
+    android:insetRight="6dp"
+    android:insetTop="6dp">
+    <shape android:shape="rectangle">
+        <solid android:color="?attr/surface" />
+        <corners android:radius="18dp" />
+        <stroke
+            android:width="1dp"
+            android:color="?attr/outline" />
+    </shape>
+</inset>

@@ -155,9 +155,11 @@ public class ReadingStatsActivity extends BaseActivity {
         // v4.20：点击日历某天，下方显示当天买了几本
         b.heatmapMonth.setOnDayClickListener((year, month, day, count) -> {
             b.tvMonthDayDetail.setText(StatsText.dayDetailText(year, month, day, count));
+            bindDayBooks(b.tvMonthDayBooks, year, month, day);
         });
         b.heatmapYear.setOnDayClickListener((year, month, day, count) -> {
             b.tvYearDayDetail.setText(StatsText.dayDetailText(year, month, day, count));
+            bindDayBooks(b.tvYearDayBooks, year, month, day);
         });
 
         // v4.21：柱状图右上角「全部记录」按钮 —— 从底部升起半屏面板，列出完整记录
@@ -246,7 +248,7 @@ public class ReadingStatsActivity extends BaseActivity {
 
     /** 选中态：白底胶囊 + 主题色 medium；未选中：次级文字色 */
     private void styleTab(TextView tv, boolean selected) {
-        tv.setBackgroundResource(selected ? R.drawable.bg_seg_selected : 0);
+        tv.setBackgroundResource(selected ? R.drawable.bg_seg_selected_inset_sm : 0);
         tv.setTextColor(selected
                 ? ThemeManager.resolveColor(this, ThemeManager.ATTR_COLOR_PRIMARY)
                 : ThemeManager.resolveColor(this, R.attr.on_surface_variant));
@@ -314,6 +316,7 @@ public class ReadingStatsActivity extends BaseActivity {
         b.chartMonth.setHighlightedIndex(secondHalf ? -1 : index);
         b.chartMonth2.setHighlightedIndex(secondHalf ? index : -1);
         b.tvMonthDayDetail.setText(StatsText.dayDetailText(year, month, day, daily[day - 1]));
+        bindDayBooks(b.tvMonthDayBooks, year, month, day);
     }
 
     /** 年视图柱状图点击：联动下方的当月详情 */
@@ -322,7 +325,63 @@ public class ReadingStatsActivity extends BaseActivity {
         int[] monthly = StatsAggregator.monthlyCounts(books, year);
         b.chartYear.setHighlightedIndex(index);
         b.tvYearDayDetail.setText(String.format(Locale.getDefault(),
-                "%d年%d月 · 购买 %d 种", year, index + 1, monthly[index]));
+                "%d年%d月 · 购买 %d 本", year, index + 1, monthly[index]));
+        // 柱子是「整月」不是某一天，没有对应的单日书目
+        clearDayBooks(b.tvYearDayBooks);
+    }
+
+    /** 「当天买了哪几本」最多列几条，超出折叠成「…共 N 本」 */
+    private static final int DAY_BOOKS_MAX = 8;
+
+    /**
+     * 某天的书名列表拼成多行「· 书名」。
+     *
+     * @param dayKey yyyy-MM-dd
+     * @return 无记录时返回空串（调用方负责收起控件）
+     */
+    private String dayBooksText(String dayKey) {
+        List<String> books = allDailyBooks.get(dayKey);
+        if (books == null || books.isEmpty()) {
+            return "";
+        }
+        int shown = Math.min(books.size(), DAY_BOOKS_MAX);
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < shown; i++) {
+            if (i > 0) {
+                sb.append('\n');
+            }
+            sb.append("· ").append(books.get(i));
+        }
+        if (books.size() > shown) {
+            sb.append('\n').append("…共 ").append(books.size()).append(" 本");
+        }
+        return sb.toString();
+    }
+
+    /** 热力图回调给的 month 是 0-based，键里的月要补 1 */
+    private static String dayKey(int year, int month0, int day) {
+        return String.format(Locale.ROOT, "%04d-%02d-%02d", year, month0 + 1, day);
+    }
+
+    private void bindDayBooks(TextView target, int year, int month0, int day) {
+        String text = dayBooksText(dayKey(year, month0, day));
+        if (text.isEmpty()) {
+            clearDayBooks(target);
+            return;
+        }
+        target.setText(text);
+        target.setVisibility(View.VISIBLE);
+    }
+
+    private static void clearDayBooks(TextView target) {
+        target.setText("");
+        target.setVisibility(View.GONE);
+    }
+
+    /** 「全部记录」面板里点了某天：页面两处书目跟着一起更新，保证两边结果一致 */
+    void syncDayBooksFromSheet(int year, int month0, int day) {
+        bindDayBooks(b.tvMonthDayBooks, year, month0, day);
+        bindDayBooks(b.tvYearDayBooks, year, month0, day);
     }
 
     /** 某年某月每天的购买数量（下标 0 = 1 日） */
@@ -356,7 +415,7 @@ public class ReadingStatsActivity extends BaseActivity {
             values1.add(daily[d - 1]);
         }
         // v4.20：两行共用全局刻度，柱子高度才有可比性
-        b.chartMonth.setUnit("种");
+        b.chartMonth.setUnit("本");
         b.chartMonth.setData(labels1, values1, globalMaxPerDay);
 
         if (half < days) {
@@ -367,7 +426,7 @@ public class ReadingStatsActivity extends BaseActivity {
                 values2.add(daily[d - 1]);
             }
             b.chartMonth2.setVisibility(View.VISIBLE);
-            b.chartMonth2.setUnit("种");
+            b.chartMonth2.setUnit("本");
             b.chartMonth2.setData(labels2, values2, globalMaxPerDay);
         } else {
             b.chartMonth2.setVisibility(View.GONE);
@@ -379,6 +438,7 @@ public class ReadingStatsActivity extends BaseActivity {
         renderHeatmapLegend(b.llMonthLegend);
         // 切换月份后重置上一次的「日详情」，避免残留上一个月的点击结果
         b.tvMonthDayDetail.setText(R.string.stats_click_day_hint);
+        clearDayBooks(b.tvMonthDayBooks);
         // v4.21：切换月份后清掉柱状图高亮
         b.chartMonth.setHighlightedIndex(-1);
         b.chartMonth2.setHighlightedIndex(-1);
@@ -410,7 +470,7 @@ public class ReadingStatsActivity extends BaseActivity {
             labels.add(String.valueOf(m + 1));
             values.add(monthly[m]);
         }
-        b.chartYear.setUnit("种");
+        b.chartYear.setUnit("本");
         // v4.20：年图用「每月最多买几本」的全局刻度，跨年份也能比
         b.chartYear.setData(labels, values, globalMaxPerMonth);
 
@@ -421,6 +481,7 @@ public class ReadingStatsActivity extends BaseActivity {
         renderHeatmapLegend(b.llYearLegend);
         // 切换年份后重置上一次的「日详情」
         b.tvYearDayDetail.setText(R.string.stats_click_day_hint);
+        clearDayBooks(b.tvYearDayBooks);
         // v4.21：切换年份后清掉柱状图高亮
         b.chartYear.setHighlightedIndex(-1);
 

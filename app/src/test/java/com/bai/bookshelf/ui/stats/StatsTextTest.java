@@ -42,7 +42,7 @@ public class StatsTextTest {
 
     @Test
     public void dayDetailTextIncludesCountOrEmptyHint() {
-        assertEquals("2026年10月29日 周四 · 购买 3 种",
+        assertEquals("2026年10月29日 周四 · 购买 3 本",
                 StatsText.dayDetailText(2026, 9, 29, 3));
         assertEquals("2026年10月29日 周四 · 没有购买记录",
                 StatsText.dayDetailText(2026, 9, 29, 0));

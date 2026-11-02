@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 「购书统计」页 月/年/总 三个 tab 的水波（v5.8.27）：inset 与
+     bg_seg_selected_inset_sm 一致（格高 40dp → 胶囊 28dp，mask 半径 14 = 高度一半）。 -->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:insetBottom="6dp"
+    android:insetLeft="6dp"
+    android:insetRight="6dp"
+    android:insetTop="6dp">
+    <ripple android:color="?attr/colorControlHighlight">
+        <item android:id="@android:id/mask">
+            <shape android:shape="rectangle">
+                <corners android:radius="14dp" />
+                <solid android:color="#FFFFFFFF" />
+            </shape>
+        </item>
+    </ripple>
+</inset>

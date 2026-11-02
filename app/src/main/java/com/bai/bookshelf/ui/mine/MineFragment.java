@@ -146,8 +146,8 @@ public class MineFragment extends Fragment {
         // v4.15：API 设置从弹窗改为二级页（API 配置 / 用量查询 分开）
         b.rowApi.setOnClickListener(v -> startActivity(new Intent(requireContext(),
                 ApiSettingsActivity.class)));
-        b.rowIncomplete.setOnClickListener(v -> startActivity(new Intent(requireContext(),
-                IncompleteBooksActivity.class)));
+        b.rowSplit.setOnClickListener(v -> startActivity(new Intent(requireContext(),
+                SplitActivity.class)));
         b.rowAppLock.setOnClickListener(v -> toggleAppLock());
         b.rowAbout.setOnClickListener(v ->
                 startActivity(new Intent(requireContext(), AboutActivity.class)));

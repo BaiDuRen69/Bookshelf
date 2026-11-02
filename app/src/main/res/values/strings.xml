@@ -26,6 +26,8 @@
     <!-- 购书统计 · 「全部记录」日历面板（v4.22） -->
     <!-- 日历区标题（后面会拼上当前聚焦周期，如「购买日历 · 2026/10」） -->
     <string name="stats_calendar_title">购买日历</string>
+    <!-- 购买日历的口径说明：事件计数用「本」，套装不分摊 -->
+    <string name="stats_purchase_calendar_note">按书籍的购买日期统计；一套多册按 1 本计</string>
     <!-- 视图切换：按月 / 按年 -->
     <string name="stats_calendar_by_month">按月</string>
     <string name="stats_calendar_by_year">按年</string>

@@ -1,7 +1,5 @@
 package com.bai.bookshelf.ui.stats;
 
-import android.app.Activity;
-
 import com.bai.bookshelf.R;
 import com.bai.bookshelf.databinding.ActivityReadingStatsBinding;
 
@@ -15,10 +13,10 @@ import java.util.Map;
  */
 public class StatsCalendarLauncher {
 
-    private final Activity activity;
+    private final ReadingStatsActivity activity;
     private final ActivityReadingStatsBinding b;
 
-    public StatsCalendarLauncher(Activity activity, ActivityReadingStatsBinding b) {
+    public StatsCalendarLauncher(ReadingStatsActivity activity, ActivityReadingStatsBinding b) {
         this.activity = activity;
         this.b = b;
     }
@@ -57,6 +55,7 @@ public class StatsCalendarLauncher {
                     String text = StatsText.dayDetailText(y, m, d, count);
                     b.tvMonthDayDetail.setText(text);
                     b.tvYearDayDetail.setText(text);
+                    activity.syncDayBooksFromSheet(y, m, d);
                 });
     }
 

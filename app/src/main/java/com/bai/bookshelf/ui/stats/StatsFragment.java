@@ -299,7 +299,7 @@ public class StatsFragment extends Fragment {
                 requireContext(), com.bai.bookshelf.util.ThemeManager.ATTR_COLOR_PRIMARY);
         int normal = com.bai.bookshelf.util.ThemeManager.resolveColor(
                 requireContext(), R.attr.on_surface_variant);
-        tv.setBackgroundResource(selected ? R.drawable.bg_seg_selected : 0);
+        tv.setBackgroundResource(selected ? R.drawable.bg_seg_selected_inset : 0);
         tv.setTextColor(selected ? primary : normal);
         tv.setTypeface(null, selected
                 ? android.graphics.Typeface.BOLD : android.graphics.Typeface.NORMAL);

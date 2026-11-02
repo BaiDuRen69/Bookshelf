@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 分段控件选中块（内缩版 · 小）：「购书统计」页顶部 月/年/总 三个 tab 格高 40dp，
+     同样上下左右内缩 6dp → 胶囊 28dp 高，半径 14 = 高度一半。
+     半径不照抄 18dp：18 > 28/2 会把两端削成过圆，胶囊公式必须跟着高度走。 -->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:insetBottom="6dp"
+    android:insetLeft="6dp"
+    android:insetRight="6dp"
+    android:insetTop="6dp">
+    <shape android:shape="rectangle">
+        <solid android:color="?attr/surface" />
+        <corners android:radius="14dp" />
+        <stroke
+            android:width="1dp"
+            android:color="?attr/outline" />
+    </shape>
+</inset>

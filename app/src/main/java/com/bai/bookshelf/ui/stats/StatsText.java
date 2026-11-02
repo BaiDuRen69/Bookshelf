@@ -28,7 +28,7 @@ public final class StatsText {
     public static String dayDetailText(int year, int month0, int day, int count) {
         String week = weekLabel(year, month0, day);
         if (count > 0) {
-            return String.format(Locale.getDefault(), "%d年%d月%d日 %s · 购买 %d 种",
+            return String.format(Locale.getDefault(), "%d年%d月%d日 %s · 购买 %d 本",
                     year, month0 + 1, day, week, count);
         }
         return String.format(Locale.getDefault(), "%d年%d月%d日 %s · 没有购买记录",

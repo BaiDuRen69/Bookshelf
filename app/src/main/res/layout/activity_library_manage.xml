@@ -188,13 +188,13 @@
                     <View style="@style/MineRowDivider" />
 
                     <LinearLayout
-                        android:id="@+id/row_split"
+                        android:id="@+id/row_incomplete"
                         style="@style/MineRow">
 
                         <ImageView
                             style="@style/MineRowIcon"
-                            android:contentDescription="购入价分摊"
-                            android:src="@drawable/ic_split_line" />
+                            android:contentDescription="书籍信息补全"
+                            android:src="@drawable/ic_edit" />
 
                         <LinearLayout
                             android:layout_width="0dp"
@@ -205,11 +205,11 @@
 
                             <TextView
                                 style="@style/MineRowTitle"
-                                android:text="套装书籍购入价分摊" />
+                                android:text="信息补全" />
 
                             <TextView
                                 style="@style/MineRowSubtitle"
-                                android:text="按册数把套装总价拆分到每一册" />
+                                android:text="补封面 / 分类 / 存放地点" />
                         </LinearLayout>
 
                         <ImageView style="@style/MineRowChevron" />
