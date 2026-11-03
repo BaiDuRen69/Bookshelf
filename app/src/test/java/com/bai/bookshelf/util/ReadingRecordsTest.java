@@ -76,11 +76,14 @@ public class ReadingRecordsTest {
         records.add(record(1, Book.READ_DONE, "2024-01-01", "2024-01-03", 3));
         records.add(record(2, Book.READING, "2026-10-01", "", 4));
         ReadingRecords.syncTo(book, records);
+        // v5.8.31 口径变更：状态看在读会话，日期看「最后一场 DONE」，
+        // 平均值只算已读会话——再读中的书不再把上一轮的读完日期抹掉。
         assertEquals(Book.READING, book.readStatus);
         assertEquals("2026-10-01", book.readingStartDate);
-        assertEquals("", book.readingFinishDate);
-        assertEquals(3.5, book.ratingAvg, 0.001);
-        assertEquals(4, book.rating);
+        assertEquals("2024-01-03", book.readingFinishDate);
+        assertEquals(3.0, book.ratingAvg, 0.001);
+        assertEquals(3, book.rating);
+        assertEquals(0, book.readingProgress);   // 进行中的会话没进度 → 0
         assertEquals(2, ReadingRecords.parse(book.readingRecords).size());
     }
 
@@ -176,7 +179,11 @@ public class ReadingRecordsTest {
         Book book = new Book();
         ReadingRecords.applyStatus(book, Book.READ_DROPPED, "2026-10-30");
         assertEquals(Book.READ_DROPPED, book.readStatus);
-        assertEquals("2026-10-30", book.readingFinishDate);
+        // v5.8.31：弃读日期只留在会话的 endDate 上，不再冒充「读完日期」
+        // （旧实现给 DONE/DROPPED 都补 endDate，再无条件抄进 readingFinishDate）
+        assertEquals("", book.readingFinishDate);
+        assertEquals("2026-10-30", ReadingRecords.lastOf(
+                ReadingRecords.parse(book.readingRecords)).endDate);
     }
 
     @Test
