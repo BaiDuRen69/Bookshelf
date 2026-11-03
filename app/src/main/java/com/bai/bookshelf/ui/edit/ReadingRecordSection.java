@@ -53,14 +53,10 @@ public class ReadingRecordSection {
     }
 
     private void add() {
-        renumber();
-        showDialog(new ReadingRecords.Record(records.size() + 1));
-    }
-
-    private void renumber() {
-        for (int i = 0; i < records.size(); i++) {
-            records.get(i).seq = i + 1;
-        }
+        // v5.8.31：取号统一走 ReadingFlow.nextSeq（max+1）。
+        // 旧实现按 List 下标重排全部 seq，删过中间一场后会与状态机的取号规则错位，
+        // 把「最后一场」指错对象。
+        showDialog(new ReadingRecords.Record(com.bai.bookshelf.util.ReadingFlow.nextSeq(records)));
     }
 
     private void render() {
@@ -90,6 +86,10 @@ public class ReadingRecordSection {
         }
     }
 
+    /**
+     * 会话行（v5.8.31）：状态标签、这一场自己的起止与进度都要显示出来，
+     * 弃读那场的评分额外标「不计入平均分」——汇总分只平均已读会话。
+     */
     private String line(ReadingRecords.Record r) {
         StringBuilder sb = new StringBuilder("第 ").append(r.seq).append(" 次 · ")
                 .append(StatusText.read(r.status));
@@ -98,13 +98,22 @@ public class ReadingRecordSection {
             if (!r.endDate.isEmpty()) {
                 sb.append(" — ").append(r.endDate);
             }
+        } else if (!r.endDate.isEmpty()) {
+            sb.append(" · — — ").append(r.endDate);
         }
         int days = ReadingRecords.days(r);
         if (days > 0) {
             sb.append(" · ").append(days).append(" 天");
         }
+        // 每场显示自己的进度（缺字段的老记录由 parse 补齐：已读 100、其余 0）
+        if (r.status == Book.READING || r.status == Book.READ_DROPPED) {
+            sb.append(" · 读到 ").append(ReadingRecords.progressOf(r)).append("%");
+        }
         if (r.rating > 0) {
             sb.append(" · ★").append(ReadingRecords.formatRating(r.rating));
+            if (r.status == Book.READ_DROPPED) {
+                sb.append("（不计入平均分）");
+            }
         }
         return sb.toString();
     }
@@ -115,6 +124,9 @@ public class ReadingRecordSection {
         final boolean isNew = !records.contains(editing);
         final int[] status = {editing.status};
         final boolean[] suppress = {false};
+        // v5.8.31：这一场是否被**显式**选成弃读。选过之后，后面无论怎么改日期
+        // 都不允许 suggestedStatus 把它推断回在读/已读（弃读没有「读完日期」可言）
+        final boolean[] droppedPicked = {editing.status == Book.READ_DROPPED};
 
         db.etRecStart.setText(editing.startDate);
         db.etRecEnd.setText(editing.endDate);
@@ -175,6 +187,9 @@ public class ReadingRecordSection {
                         .show();
                 return;
             }
+            if (next == Book.READ_DROPPED) {
+                droppedPicked[0] = true;
+            }
             if (next == Book.READ_DROPPED
                     && !text(db.etRecStart).isEmpty() && !text(db.etRecEnd).isEmpty()) {
                 new MaterialAlertDialogBuilder(activity)
@@ -216,7 +231,7 @@ public class ReadingRecordSection {
                 "开始阅读", DateKeys.parseKey(text(db.etRecStart)),
                 key -> {
                     db.etRecStart.setText(DateKeys.formatKey(key));
-                    if (status[0] != Book.READ_DROPPED) {
+                    if (status[0] != Book.READ_DROPPED && !droppedPicked[0]) {
                         status[0] = ReadingRecords.suggestedStatus(text(db.etRecStart),
                                 text(db.etRecEnd));
                         syncChip.run();
@@ -225,7 +240,7 @@ public class ReadingRecordSection {
                 },
                 () -> {
                     db.etRecStart.setText("");
-                    if (status[0] != Book.READ_DROPPED) {
+                    if (status[0] != Book.READ_DROPPED && !droppedPicked[0]) {
                         status[0] = ReadingRecords.suggestedStatus("", text(db.etRecEnd));
                         syncChip.run();
                     }
@@ -235,7 +250,7 @@ public class ReadingRecordSection {
                 "结束阅读", DateKeys.parseKey(text(db.etRecEnd)),
                 key -> {
                     db.etRecEnd.setText(DateKeys.formatKey(key));
-                    if (status[0] != Book.READ_DROPPED) {
+                    if (status[0] != Book.READ_DROPPED && !droppedPicked[0]) {
                         status[0] = ReadingRecords.suggestedStatus(text(db.etRecStart),
                                 text(db.etRecEnd));
                         syncChip.run();
@@ -244,7 +259,7 @@ public class ReadingRecordSection {
                 },
                 () -> {
                     db.etRecEnd.setText("");
-                    if (status[0] != Book.READ_DROPPED) {
+                    if (status[0] != Book.READ_DROPPED && !droppedPicked[0]) {
                         status[0] = ReadingRecords.suggestedStatus(text(db.etRecStart), "");
                         syncChip.run();
                     }
@@ -291,7 +306,8 @@ public class ReadingRecordSection {
                 .setMessage("删除第 " + record.seq + " 次阅读记录？")
                 .setPositiveButton("删除", (d, w) -> {
                     records.remove(record);
-                    renumber();
+                    // v5.8.31：不再把剩下的会话重新编号——重排 seq 会让状态机认错的
+                    // 「最后一场」，删掉的那场也不该把后面的历史整体往前挪一位
                     syncToBook();
                     render();
                     if (dialogHolder[0] != null) {

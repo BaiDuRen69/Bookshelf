@@ -81,6 +81,8 @@ public class StatsFragment extends Fragment {
     private com.bai.bookshelf.util.StatsSpend.Relation relation;
     private com.bai.bookshelf.util.StatsHealth.NoteStat noteStat;
     private com.bai.bookshelf.util.StatsHealth.WishStat wishStat;
+    /** v5.8.31：弃读后重读 / 弃读后读完（种口径，从会话序列推） */
+    private com.bai.bookshelf.util.StatsPace.DropRecovery dropRecovery;
     private com.bai.bookshelf.util.StatsSpend.Trend trend;
     private java.util.List<com.bai.bookshelf.util.StatsHoldings.Group> channels;
     private java.util.List<com.bai.bookshelf.util.StatsHoldings.Group> costByCategory;
@@ -610,6 +612,8 @@ public class StatsFragment extends Fragment {
                     com.bai.bookshelf.util.StatsHealth.notes(books, excerptAll);
             final com.bai.bookshelf.util.StatsHealth.WishStat wishStat =
                     com.bai.bookshelf.util.StatsHealth.wishes(wishAll, books);
+            final com.bai.bookshelf.util.StatsPace.DropRecovery dropRecovery =
+                    com.bai.bookshelf.util.StatsPace.dropRecovery(books);
             final java.util.List<com.bai.bookshelf.util.StatsHoldings.Group> lendByCategory =
                     com.bai.bookshelf.util.StatsLend.lendStructure(books, loanRecords,
                             book -> book.category, "未分类");
@@ -635,6 +639,7 @@ public class StatsFragment extends Fragment {
             this.relation = relation;
             this.noteStat = noteStat;
             this.wishStat = wishStat;
+            this.dropRecovery = dropRecovery;
             this.channels = channels;
             this.costByCategory = costByCategory;
             this.structure = structure;
@@ -739,7 +744,7 @@ public class StatsFragment extends Fragment {
         if (pace == null) {
             return;
         }
-        insightReading = readingInsight(pace, backlog, noteStat);
+        insightReading = readingInsight(pace, backlog, noteStat, dropRecovery);
         b.tvHabit.setText(habitText(habit, stale, buyRead));
         renderNextPick();
         renderStructure(structure);
@@ -785,7 +790,8 @@ public class StatsFragment extends Fragment {
         final BookshelfApp app = BookshelfApp.get();
         final android.view.View anchor = b.getRoot();
         app.io(() -> {
-            com.bai.bookshelf.util.ReadingRecords.applyStatus(book, Book.READING,
+            // v5.8.31：「开始阅读」走会话状态机——已经在读就幂等返回，不再改写别场记录
+            com.bai.bookshelf.util.ReadingFlow.start(book,
                     com.bai.bookshelf.util.DateKeys.formatKey(
                             com.bai.bookshelf.util.DateKeys.todayKey()));
             book.updatedAt = System.currentTimeMillis();
@@ -1229,7 +1235,11 @@ public class StatsFragment extends Fragment {
                 + a.duplicateIsbn.size() + "、同名 " + a.duplicateTitle.size()
                 + "、负价 " + a.negativePrice + "、未来日期 "
                 + a.futureDate + "、价格离群 " + a.overpriced
-                + "、页数异常 " + a.oddPages;
+                + "、页数异常 " + a.oddPages
+                // v5.8.31：旧单会话模型把「弃读→再读→读完」压成一条，时长会跨掉弃读空窗
+                + (a.longReadWithDrop == 0 ? ""
+                : "、阅读时长超 " + com.bai.bookshelf.util.StatsHealth.LONG_READ_DAYS
+                + " 天且中途有弃读 " + a.longReadWithDrop + " 本");
     }
 
     /**
@@ -1393,9 +1403,12 @@ public class StatsFragment extends Fragment {
     /** 阅读栏洞察：速度、书债、在读剩余页数与摘抄覆盖（习惯卡单独成卡，这里不重复） */
     private static String readingInsight(com.bai.bookshelf.util.StatsPace.Pace p,
                                          com.bai.bookshelf.util.StatsPace.Backlog backlog,
-                                         com.bai.bookshelf.util.StatsHealth.NoteStat n) {
-        return speedLine(p) + "\n" + debtLine(p) + "\n" + backlog.line() + "\n" + n.line();
+                                         com.bai.bookshelf.util.StatsHealth.NoteStat n,
+                                         com.bai.bookshelf.util.StatsPace.DropRecovery drops) {
+        return speedLine(p) + "\n" + debtLine(p) + "\n" + backlog.line()
+                + "\n" + drops.line() + "\n" + n.line();
     }
+
 
     /** 购书栏洞察：花费、单位成本、同比环比、价格相关性与想读转化 */
     private static String purchaseInsight(com.bai.bookshelf.util.StatsSpend.Spend s,

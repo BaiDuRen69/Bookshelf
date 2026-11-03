@@ -435,13 +435,36 @@ public final class ShelfBatchActions {
         new MaterialAlertDialogBuilder(activity)
                 .setTitle("设置阅读状态")
                 .setItems(names, (d, which) ->
-                        applyBatch(book -> com.bai.bookshelf.util.ReadingRecords.applyStatus(
-                                        book, which, com.bai.bookshelf.util.DateKeys
-                                                .formatKey(com.bai.bookshelf.util.DateKeys
-                                                        .todayKey())),
+                        applyBatch(book -> applyReadFlow(book, which),
                                 "已把 " + selectedIds.get().size() + " 种设为「" + names[which] + "」"))
                 .setNegativeButton(R.string.action_cancel, null)
                 .show();
+    }
+
+    /**
+     * v5.8.31：批量改状态也走会话状态机，不再就地改写最后一场。
+     * 「设为未读」= 逐场撤销直到清空（与旧 applyStatus(READ_NONE) 一样会清掉历史，
+     * 语义没变，只是改成用 ReadingFlow 的动作表达）。
+     */
+    private static void applyReadFlow(Book book, int which) {
+        String today = com.bai.bookshelf.util.DateKeys.formatKey(
+                com.bai.bookshelf.util.DateKeys.todayKey());
+        switch (which) {
+            case Book.READ_NONE:
+                while (com.bai.bookshelf.util.ReadingFlow.undoToNone(book)) {
+                    // 一场一场撤，撤空即未读
+                }
+                break;
+            case Book.READING:
+                com.bai.bookshelf.util.ReadingFlow.start(book, today);
+                break;
+            case Book.READ_DONE:
+                com.bai.bookshelf.util.ReadingFlow.finish(book, today);
+                break;
+            default:
+                com.bai.bookshelf.util.ReadingFlow.drop(book, today);
+                break;
+        }
     }
 
     private void ensureTagInLibrary(String tag) {

@@ -201,6 +201,15 @@ public class BookDetailActivity extends BaseActivity {
         b.btnLend.setOnClickListener(v -> lending.toggleLend());
         b.btnReturnSource.setOnClickListener(v -> confirmReturnToSource());
         b.btnMore.setOnClickListener(v -> showMoreActions());
+        // v5.8.31：状态主按钮 + 弃读（触感与书架 Tab 一致）
+        b.btnReadAction.setOnClickListener(v -> {
+            v.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP);
+            onReadAction();
+        });
+        b.btnReadDrop.setOnClickListener(v -> {
+            v.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP);
+            onReadDrop();
+        });
         b.rowBorrowHistory.setOnClickListener(v -> {
             Intent intent = new Intent(this, BorrowHistoryActivity.class);
             intent.putExtra(BorrowHistoryActivity.EXTRA_BOOK_ID, book.id);
@@ -280,25 +289,168 @@ public class BookDetailActivity extends BaseActivity {
     }
 
     /** 重新从数据库读取最新数据（含地点名、借出记录、逐本信息、备注图片） */
-    /** 阅读进度（v5.8.9）：只对「在读」显示，点按用滑杆改百分比 */
+    /**
+     * 阅读状态行（v5.8.9 进度滑杆 / v5.8.31 副文案）：
+     * 在读 →「读到 N% · 点按修改」；已读 →「M月D日读完 · 第 K 次」；
+     * 弃读 →「停在 N% · M月D日弃读」；未读 → 整行隐藏。
+     */
     private void bindReadingProgress() {
-        boolean reading = book != null && book.readStatus == Book.READING;
-        b.tvReadingProgress.setVisibility(reading ? View.VISIBLE : View.GONE);
-        if (!reading) {
-            b.pbReadingProgress.setVisibility(View.GONE);
-            return;
+        final int status = book == null ? Book.READ_NONE : book.readStatus;
+        final boolean reading = status == Book.READING;
+        final int p = Math.max(0, Math.min(100, book == null ? 0 : book.readingProgress));
+        List<ReadingRecords.Record> records =
+                book == null ? new ArrayList<>() : ReadingRecords.load(book);
+        String text;
+        if (reading) {
+            text = p > 0 ? "读到 " + p + "% · 点按修改" : "记录阅读进度（点按设置）";
+        } else if (status == Book.READ_DONE) {
+            ReadingRecords.Record done = ReadingRecords.lastDone(records);
+            int times = 0;
+            for (ReadingRecords.Record r : records) {
+                if (r.status == Book.READ_DONE) {
+                    times++;
+                }
+            }
+            String day = mdLabel(done == null ? book.readingFinishDate : done.endDate);
+            text = day.isEmpty() ? "已读完 · 第 " + times + " 次"
+                    : day + "读完 · 第 " + times + " 次";
+        } else if (status == Book.READ_DROPPED) {
+            ReadingRecords.Record last = records.isEmpty()
+                    ? null : ReadingRecords.lastOf(records);
+            String day = mdLabel(last == null ? "" : last.endDate);
+            text = day.isEmpty() ? "读了一半就放下了"
+                    : "停在 " + p + "% · " + day + "弃读";
+        } else {
+            text = "";
         }
-        final int p = Math.max(0, Math.min(100, book.readingProgress));
-        b.tvReadingProgress.setText(p > 0
-                ? "阅读进度 " + p + "% · 点按修改"
-                : "记录阅读进度（点按设置）");
-        b.tvReadingProgress.setOnClickListener(v -> showProgressDialog(p));
+        b.tvReadingProgress.setVisibility(text.isEmpty() ? View.GONE : View.VISIBLE);
+        b.tvReadingProgress.setText(text);
+        b.tvReadingProgress.setOnClickListener(reading ? v -> showProgressDialog(p) : null);
         // v5.8.14：进度条跟着封面主色走（未取到色时先用主题主色）
-        b.pbReadingProgress.setVisibility(p > 0 ? View.VISIBLE : View.GONE);
+        b.pbReadingProgress.setVisibility(reading && p > 0 ? View.VISIBLE : View.GONE);
         b.pbReadingProgress.setProgress(p);
         b.pbReadingProgress.setProgressTintList(ColorStateList.valueOf(
                 coverAccent != 0 ? coverAccent
                         : ThemeManager.resolveColor(this, ThemeManager.ATTR_COLOR_PRIMARY)));
+    }
+
+    /** yyyy-MM-dd → 「M月d日」；缺日期返回空串让上层决定怎么措辞 */
+    private static String mdLabel(String date) {
+        int key = com.bai.bookshelf.util.DateKeys.parseKey(date);
+        return key <= 0 ? "" : (key / 100 % 100) + "月" + (key % 100) + "日";
+    }
+
+    /** v5.8.31：底栏状态主按钮的文案 + 弃读按钮只在「在读」时出现 */
+    private void bindReadAction() {
+        // 借来的书不进状态机（借阅逻辑保持原样），底栏让给「归还 / 借出」
+        final boolean borrowed = book != null && book.ownType == Book.OWN_BORROW;
+        b.btnReadAction.setVisibility(borrowed ? View.GONE : View.VISIBLE);
+        String label;
+        switch (book == null ? Book.READ_NONE : book.readStatus) {
+            case Book.READING:
+                label = "读完";
+                break;
+            case Book.READ_DROPPED:
+                label = "再次阅读";
+                break;
+            case Book.READ_DONE:
+                label = "再读一遍";
+                break;
+            default:
+                label = "开始阅读";
+                break;
+        }
+        b.btnReadAction.setText(label);
+        b.btnReadAction.setContentDescription(label);
+        b.btnReadDrop.setVisibility(!borrowed
+                && book != null && book.readStatus == Book.READING
+                ? View.VISIBLE : View.GONE);
+    }
+
+    /** v5.8.31：状态主按钮按当前状态分派到 ReadingFlow；在读没读满先问一句，不静默记完 */
+    private void onReadAction() {
+        final int status = book.readStatus;
+        if (status == Book.READING && book.readingProgress < 100) {
+            offerFinish();
+            return;
+        }
+        switch (status) {
+            case Book.READING:
+                applyFlow(null, b -> com.bai.bookshelf.util.ReadingFlow.finish(b, today()),
+                        "已标记为「已读」");
+                break;
+            case Book.READ_DROPPED:
+            case Book.READ_DONE:
+                applyFlow("这本书已经在读了",
+                        b -> com.bai.bookshelf.util.ReadingFlow.restart(b, today()),
+                        status == Book.READ_DONE ? "已开始重读，这是新一轮" : "重新开始阅读");
+                break;
+            case Book.READ_NONE:
+            default:
+                applyFlow("这本书已经在读了",
+                        b -> com.bai.bookshelf.util.ReadingFlow.start(b, today()),
+                        "已开始阅读");
+                break;
+        }
+    }
+
+    /** v5.8.31：弃读——保留停在百分之几，不写「读完日期」 */
+    private void onReadDrop() {
+        applyFlow(null, b -> com.bai.bookshelf.util.ReadingFlow.drop(b, today()),
+                "已标记为「弃读」");
+    }
+
+    private interface FlowOp {
+        boolean run(Book book);
+    }
+
+    /** 跑一个会话动作：写库 → reload → 8 秒撤销（撤销 = 还原动作前的整本书） */
+    private void applyFlow(String alreadyMessage, FlowOp op, String doneMessage) {
+        BookshelfApp app = BookshelfApp.get();
+        final Book before = com.bai.bookshelf.util.BookSnapshot.copy(book);
+        app.io(() -> {
+            boolean changed;
+            try {
+                changed = op.run(book);
+            } catch (Exception e) {
+                changed = false;
+            }
+            if (!changed) {
+                app.ui(() -> {
+                    if (alreadyMessage != null) {
+                        android.widget.Toast.makeText(this, alreadyMessage,
+                                android.widget.Toast.LENGTH_SHORT).show();
+                    }
+                });
+                return;
+            }
+            try {
+                app.db().bookDao().update(book);
+            } catch (Exception e) {
+                app.ui(() -> android.widget.Toast.makeText(this,
+                        "保存失败：" + e.getMessage(),
+                        android.widget.Toast.LENGTH_SHORT).show());
+                return;
+            }
+            app.ui(() -> {
+                reload();
+                com.bai.bookshelf.util.UndoBar.offer(
+                        findViewById(android.R.id.content), doneMessage,
+                        before == null ? null : () -> app.io(() -> {
+                            try {
+                                app.db().bookDao().update(before);
+                            } catch (Exception ignored) {
+                                // 撤销失败只丢这次撤销，不影响已落库的状态
+                            }
+                            app.ui(this::reload);
+                        }), null);
+            });
+        });
+    }
+
+    private static String today() {
+        return com.bai.bookshelf.util.DateKeys.formatKey(
+                com.bai.bookshelf.util.DateKeys.todayKey());
     }
 
     /** 封面主色 → hero 晕染 + 底部细线 + 阅读进度条；取色在后台，失败按主题色 */
@@ -496,6 +648,14 @@ public class BookDetailActivity extends BaseActivity {
         app.io(() -> {
             try {
                 book.readingProgress = value;
+                // v5.8.31：进度同时写进「进行中的那一场」会话——汇总字段现在由
+                // syncTo 从会话推导，不落进会话的话下一次状态动作就会把它冲回 0
+                java.util.List<ReadingRecords.Record> recs = ReadingRecords.load(book);
+                ReadingRecords.Record ongoing = ReadingRecords.ongoingReading(recs);
+                if (ongoing != null) {
+                    ongoing.progress = value;
+                    ReadingRecords.syncTo(book, recs);
+                }
                 book.updatedAt = System.currentTimeMillis();
                 app.db().bookDao().update(book);
             } catch (Exception e) {
@@ -528,7 +688,9 @@ public class BookDetailActivity extends BaseActivity {
         BookshelfApp app = BookshelfApp.get();
         final Book before = com.bai.bookshelf.util.BookSnapshot.copy(book);
         app.io(() -> {
-            com.bai.bookshelf.util.ReadingRecords.applyStatus(book, Book.READ_DONE,
+            // v5.8.31：改走会话状态机——有进行中的会话就收尾，没有则新开一场已读，
+            // 不再就地改写别场的状态与日期
+            com.bai.bookshelf.util.ReadingFlow.finish(book,
                     com.bai.bookshelf.util.DateKeys.formatKey(
                             com.bai.bookshelf.util.DateKeys.todayKey()));
             book.readingProgress = 100;
@@ -661,6 +823,7 @@ public class BookDetailActivity extends BaseActivity {
         View.OnClickListener readingCalendar = v -> showReadingCalendar();
         b.tvReadingRecordsTitle.setOnClickListener(readingCalendar);
         bindReadingProgress();
+        bindReadAction();
         b.btnReadingCalendar.setOnClickListener(readingCalendar);
         b.containerReadingRecordsDetail.setOnClickListener(readingCalendar);
         bindSectionChips();

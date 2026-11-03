@@ -834,12 +834,43 @@
             android:paddingHorizontal="@dimen/page_padding"
             android:paddingVertical="@dimen/space_sm">
 
+            <!-- v5.8.31：状态主按钮（未读「开始阅读」/ 在读「读完」/ 弃读「再次阅读」/
+                 已读「再读一遍」）。它是底栏唯一的 filled，文案与 contentDescription 同步。 -->
             <com.google.android.material.button.MaterialButton
-                android:id="@+id/btn_edit"
+                android:id="@+id/btn_read_action"
                 style="@style/Widget.Bookshelf.Button"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
+                android:layout_weight="1.15"
+                android:maxLines="1"
+                android:minWidth="0dp"
+                android:paddingHorizontal="8dp"
+                android:text="开始阅读" />
+
+            <!-- 只有「在读」才出现的弃读按钮（其余状态 View.GONE） -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_read_drop"
+                style="@style/Widget.Bookshelf.Button.Outlined"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="@dimen/space_xs"
                 android:layout_weight="1"
+                android:maxLines="1"
+                android:minWidth="0dp"
+                android:paddingHorizontal="8dp"
+                android:text="弃读"
+                android:visibility="gone" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_edit"
+                style="@style/Widget.Bookshelf.Button.Outlined"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="@dimen/space_xs"
+                android:layout_weight="1"
+                android:maxLines="1"
+                android:minWidth="0dp"
+                android:paddingHorizontal="8dp"
                 android:text="@string/action_edit" />
 
             <com.google.android.material.button.MaterialButton
@@ -847,8 +878,11 @@
                 style="@style/Widget.Bookshelf.Button.Outlined"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="@dimen/space_sm"
+                android:layout_marginStart="@dimen/space_xs"
                 android:layout_weight="1"
+                android:maxLines="1"
+                android:minWidth="0dp"
+                android:paddingHorizontal="8dp"
                 android:text="归还"
                 android:visibility="gone" />
 
@@ -857,8 +891,11 @@
                 style="@style/Widget.Bookshelf.Button.Outlined"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="@dimen/space_sm"
+                android:layout_marginStart="@dimen/space_xs"
                 android:layout_weight="1"
+                android:maxLines="1"
+                android:minWidth="0dp"
+                android:paddingHorizontal="8dp"
                 android:text="借出" />
 
             <ImageButton
