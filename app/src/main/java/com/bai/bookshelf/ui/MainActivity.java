@@ -308,12 +308,11 @@ public class MainActivity extends BaseActivity {
                 .alpha(selected ? 1f : 0.85f).setDuration(200).start();
     }
 
-    /** 底部角标（v5.8.7）：统计 = 逾期笔数，我的 = 想读本数 */
+    /** 底部角标（v5.8.7）：统计 = 逾期笔数。v5.8.30 摘掉「我的 = 想读本数」，条数改在想读清单页头显示 */
     private void refreshTabBadges() {
         BookshelfApp app = BookshelfApp.get();
         app.io(() -> {
             int overdue = 0;
-            int wish = 0;
             try {
                 int today = com.bai.bookshelf.util.DateKeys.todayKey();
                 for (com.bai.bookshelf.data.entity.BorrowRecord r
@@ -323,16 +322,11 @@ public class MainActivity extends BaseActivity {
                         overdue++;
                     }
                 }
-                wish = app.db().wishBookDao().getAll().size();
             } catch (Exception ignored) {
                 // 库还没就绪时先不显示角标
             }
             final int fOverdue = overdue;
-            final int fWish = wish;
-            app.ui(() -> {
-                bindBadge(binding.tvBadgeStats, fOverdue);
-                bindBadge(binding.tvBadgeMine, fWish);
-            });
+            app.ui(() -> bindBadge(binding.tvBadgeStats, fOverdue));
         });
     }
 

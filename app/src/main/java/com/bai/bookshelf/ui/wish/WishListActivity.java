@@ -175,6 +175,7 @@ public class WishListActivity extends BaseActivity {
                 selectedIds.clear();
                 adapter.notifyDataSetChanged();
                 updateSortLabel();
+                updateCountLabel();
                 refreshSelectionUi();
                 updateEmptyState();
                 if (pendingAddWish) {
@@ -211,6 +212,11 @@ public class WishListActivity extends BaseActivity {
                 break;
         }
         b.tvWishSort.setText("排序：" + name + " ▾");
+    }
+
+    /** v5.8.30：想读总数从底部「我的」角标挪到页头副标题；空清单不写「共 0 本」，让空态自己说话 */
+    private void updateCountLabel() {
+        b.toolbar.setSubtitle(items.isEmpty() ? null : "共 " + items.size() + " 本");
     }
 
     private void updateEmptyState() {

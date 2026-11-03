@@ -92,6 +92,9 @@
         <item name="titleTextColor">?attr/header_fg</item>
         <item name="titleTextAppearance">@style/TextAppearance.Bookshelf.ToolbarTitle</item>
         <item name="navigationIconTint">?attr/header_fg</item>
+        <!-- v5.8.30：副标题（想读清单的「共 N 本」）也要吃页头前景；
+             Material3 默认给的是 colorOnSurfaceVariant，压在深页头上几乎看不见。 -->
+        <item name="subtitleTextColor">?attr/header_fg</item>
         <item name="android:elevation">0dp</item>
     </style>
 

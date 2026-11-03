@@ -145,14 +145,6 @@
                             android:contentDescription="我的"
                             android:src="@drawable/ic_person_line"
                             app:tint="@color/nav_icon_tint" />
-
-                        <TextView
-                            android:id="@+id/tv_badge_mine"
-                            style="@style/BottomNavBadge"
-                            android:layout_gravity="top|end"
-                            android:layout_marginTop="-2dp"
-                            android:layout_marginEnd="-2dp"
-                            android:visibility="gone" />
                     </FrameLayout>
                 </FrameLayout>
             </LinearLayout>
