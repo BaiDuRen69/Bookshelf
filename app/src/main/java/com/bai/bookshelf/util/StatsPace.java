@@ -33,6 +33,71 @@ public final class StatsPace {
     }
 
     /** 完成率、阅读速度与未读资产 */
+    /**
+     * 弃读之后的走向（v5.8.31，种口径）：从 readingRecords 的会话序列推。
+     * 弃读不是终点——先把「有多少书弃过」摆出来，再看其中多少本后来重读、最终读完。
+     */
+    public static class DropRecovery {
+        public int droppedTitles;
+        public int rereadAfterDrop;
+        public int finishedAfterDrop;
+
+        public boolean enoughSample() {
+            return droppedTitles >= MIN_SAMPLE;
+        }
+
+        public String line() {
+            if (droppedTitles == 0) {
+                return "弃读后走向：没有弃读记录";
+            }
+            if (!enoughSample()) {
+                return "弃读后走向：弃读 " + droppedTitles + " 种，样本不足 "
+                        + MIN_SAMPLE + " 本，先不下结论";
+            }
+            return "弃读后走向：弃读 " + droppedTitles + " 种 · 之后重读 "
+                    + rereadAfterDrop + " 种 · 最终读完 " + finishedAfterDrop + " 种";
+        }
+    }
+
+    /** 按会话 seq 判断「弃读之后还有没有下一场 / 有没有读完」 */
+    public static DropRecovery dropRecovery(List<Book> books) {
+        DropRecovery d = new DropRecovery();
+        if (books == null) {
+            return d;
+        }
+        for (Book book : books) {
+            List<ReadingRecords.Record> records = ReadingRecords.load(book);
+            int firstDropSeq = 0;
+            for (ReadingRecords.Record r : records) {
+                if (r.status == Book.READ_DROPPED
+                        && (firstDropSeq == 0 || r.seq < firstDropSeq)) {
+                    firstDropSeq = r.seq;
+                }
+            }
+            if (firstDropSeq == 0) {
+                continue;
+            }
+            d.droppedTitles++;
+            boolean reread = false;
+            boolean finished = false;
+            for (ReadingRecords.Record r : records) {
+                if (r.seq > firstDropSeq) {
+                    reread = true;
+                    if (r.status == Book.READ_DONE) {
+                        finished = true;
+                    }
+                }
+            }
+            if (reread) {
+                d.rereadAfterDrop++;
+            }
+            if (finished) {
+                d.finishedAfterDrop++;
+            }
+        }
+        return d;
+    }
+
     public static class Pace {
         /** 已读 / 总种 */
         public double finishRate;

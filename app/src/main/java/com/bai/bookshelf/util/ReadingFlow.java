@@ -146,14 +146,24 @@ public final class ReadingFlow {
         return true;
     }
 
+    /**
+     * 新会话取号：max(seq)+1。编辑页手工添加一场时也用它，
+     * 免得两边各写一套规则（旧实现按 List 下标 +1，删过中间一场就会与这里错位）。
+     */
+    public static int nextSeq(List<ReadingRecords.Record> records) {
+        int maxSeq = 0;
+        if (records != null) {
+            for (ReadingRecords.Record r : records) {
+                maxSeq = Math.max(maxSeq, r.seq);
+            }
+        }
+        return maxSeq + 1;
+    }
+
     /** 新会话：seq 取最大值 +1，开始日 = 今天，结束日与评分留空 */
     private static ReadingRecords.Record newRecord(List<ReadingRecords.Record> records,
                                                    String today) {
-        int maxSeq = 0;
-        for (ReadingRecords.Record r : records) {
-            maxSeq = Math.max(maxSeq, r.seq);
-        }
-        ReadingRecords.Record r = new ReadingRecords.Record(maxSeq + 1);
+        ReadingRecords.Record r = new ReadingRecords.Record(nextSeq(records));
         r.startDate = nz(today);
         return r;
     }

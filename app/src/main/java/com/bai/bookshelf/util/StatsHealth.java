@@ -146,10 +146,12 @@ public final class StatsHealth {
         public int futureDate;
         public int overpriced;
         public int oddPages;
+        /** v5.8.31：阅读时长 >365 天且中途有弃读的书（旧单会话模型留下的跨空窗时长） */
+        public int longReadWithDrop;
 
         public int total() {
             return duplicateIsbn.size() + duplicateTitle.size() + negativePrice
-                    + futureDate + overpriced + oddPages;
+                    + futureDate + overpriced + oddPages + longReadWithDrop;
         }
     }
 
@@ -342,7 +344,26 @@ public final class StatsHealth {
                 }
             }
         }
+        a.longReadWithDrop = longReadsWithDrop(books, LONG_READ_DAYS).size();
         return a;
+    }
+
+    /** v5.8.31：体检阈值——单场阅读超过一年就算跨弃读空窗的嫌疑时长 */
+    public static final int LONG_READ_DAYS = 365;
+
+    /**
+     * 找出「单场阅读 >{@code thresholdDays} 天且中途有弃读」的书。
+     * 体检计数与一次性修复页共用这一个判定，避免两处口径不一致。
+     */
+    public static List<Book> longReadsWithDrop(List<Book> raw, int thresholdDays) {
+        List<Book> out = new ArrayList<>();
+        for (Book book : BookSanitizer.normalizeAll(raw)) {
+            if (ReadingRecords.isLongReadAfterDrop(
+                    ReadingRecords.load(book), thresholdDays)) {
+                out.add(book);
+            }
+        }
+        return out;
     }
 
     /** 评分分布（平均分按 {@code ratingAvg}，没有平均分的退回整数星） */

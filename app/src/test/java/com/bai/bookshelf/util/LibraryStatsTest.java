@@ -968,4 +968,77 @@ public class LibraryStatsTest {
         assertFalse(LibraryStats.isPartialPeriod(2026, 9, 2026, 10));
         assertFalse(LibraryStats.isPartialPeriod(2025, 10, 2026, 10));
     }
+
+    /**
+     * 验收口径 7（v5.8.31）：弃读后重读并读完的书，状态是「已读」——
+     * 进 readDone、不进 dropped。汇总状态由 syncTo 的优先级保证，不靠调用方记着。
+     */
+    @Test
+    public void droppedThenFinishedCountsAsReadDoneNotDropped() {
+        Book b = book(71, "弃读又读完");
+        ReadingFlow.start(b, "2026-01-01");
+        ReadingFlow.drop(b, "2026-01-05");
+        ReadingFlow.restart(b, "2026-02-01");
+        ReadingFlow.finish(b, "2026-02-20");
+        assertEquals(Book.READ_DONE, b.readStatus);
+
+        List<Book> books = new ArrayList<>();
+        books.add(b);
+        StatsHoldings.Holdings h = StatsHoldings.holdings(books, null);
+        assertEquals(1, h.readDone);
+        assertEquals("弃读后又读完的不该记在弃读头上", 0, h.dropped);
+
+        StatsPace.DropRecovery d = StatsPace.dropRecovery(books);
+        assertEquals(1, d.droppedTitles);
+        assertEquals(1, d.rereadAfterDrop);
+        assertEquals(1, d.finishedAfterDrop);
+        assertTrue("样本不足时不给结论", !d.enoughSample()
+                && d.line().contains("样本不足"));
+    }
+
+    /** 弃读后再没开第二场：算弃读，不算重读 */
+    @Test
+    public void dropRecoveryDistinguishesAbandonedFromReread() {
+        Book abandoned = book(72, "弃读没回头");
+        ReadingFlow.start(abandoned, "2026-01-01");
+        ReadingFlow.drop(abandoned, "2026-01-05");
+        Book reread = book(73, "弃读后重读");
+        ReadingFlow.start(reread, "2026-01-01");
+        ReadingFlow.drop(reread, "2026-01-05");
+        ReadingFlow.restart(reread, "2026-03-01");
+        List<Book> books = new ArrayList<>();
+        books.add(abandoned);
+        books.add(reread);
+        StatsPace.DropRecovery d = StatsPace.dropRecovery(books);
+        assertEquals(2, d.droppedTitles);
+        assertEquals(1, d.rereadAfterDrop);
+        assertEquals(0, d.finishedAfterDrop);
+    }
+
+    /** 一次性修复：把跨弃读空窗的超长 DONE 拆成弃读 + 新 DONE */
+    @Test
+    public void splitLongReadAfterDropRepairsIntoTwoSessions() {
+        Book b = book(74, "跨空窗的长时长");
+        b.readingRecords = "[{\"seq\":1,\"status\":3,\"startDate\":\"2025-01-01\","
+                + "\"endDate\":\"2025-01-10\"},"
+                + "{\"seq\":2,\"status\":2,\"startDate\":\"2025-01-11\","
+                + "\"endDate\":\"2026-06-01\"}]";
+        b.readStatus = Book.READ_DONE;
+        b.readingStartDate = "2025-01-11";
+        b.readingFinishDate = "2026-06-01";
+        List<Book> books = new ArrayList<>();
+        books.add(b);
+        assertEquals(1, StatsHealth.longReadsWithDrop(books, 365).size());
+        assertEquals(1, StatsHealth.anomalies(books, 20260601).longReadWithDrop);
+
+        assertTrue(ReadingRecords.splitLongReadAfterDrop(b, 365));
+        List<ReadingRecords.Record> recs = ReadingRecords.parse(b.readingRecords);
+        assertEquals(3, recs.size());
+        assertEquals(Book.READ_DROPPED, recs.get(1).status);
+        assertEquals(Book.READ_DONE, recs.get(2).status);
+        assertEquals("读完日期交给新的一场", "2026-06-01", recs.get(2).endDate);
+        assertEquals("", recs.get(2).startDate);
+        assertEquals(Book.READ_DONE, b.readStatus);
+        assertEquals("2026-06-01", b.readingFinishDate);
+    }
 }

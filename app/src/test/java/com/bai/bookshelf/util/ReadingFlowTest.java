@@ -272,4 +272,46 @@ public class ReadingFlowTest {
         assertEquals("2026-01-09", b.readingFinishDate);
         assertEquals("按优先级：有 DONE 会话就是已读", Book.READ_DONE, b.readStatus);
     }
+
+    /** 验收口径 4：已读→再读→读完 两条 DONE 会话，平均分只算已读会话 */
+    @Test
+    public void rereadAfterDoneKeepsTwoDoneSessions() {
+        Book b = book();
+        ReadingFlow.start(b, "2026-01-01");
+        ReadingFlow.finish(b, "2026-01-10");
+        java.util.List<ReadingRecords.Record> recs = ReadingRecords.load(b);
+        recs.get(0).rating = 5;
+        ReadingRecords.syncTo(b, recs);
+        ReadingFlow.restart(b, "2026-03-01");
+        ReadingFlow.finish(b, "2026-03-05");
+        recs = ReadingRecords.load(b);
+        recs.get(1).rating = 3;
+        ReadingRecords.syncTo(b, recs);
+
+        recs = ReadingRecords.parse(b.readingRecords);
+        assertEquals(2, recs.size());
+        assertEquals(Book.READ_DONE, recs.get(0).status);
+        assertEquals(Book.READ_DONE, recs.get(1).status);
+        assertEquals(4.0, b.ratingAvg, 0.001);
+        assertEquals(4, b.rating);
+        assertEquals("2026-03-05", b.readingFinishDate);
+    }
+
+    /** 验收口径 5：旧脏数据（单条 DONE 跨 400 天）自愈不许算成负数或抛异常 */
+    @Test
+    public void legacyFourHundredDayDoneSessionSurvives() {
+        Book b = book();
+        b.readStatus = Book.READ_DONE;
+        b.readingStartDate = "2025-01-01";
+        b.readingFinishDate = "2026-02-05";
+        java.util.List<ReadingRecords.Record> recs = ReadingRecords.derive(b);
+        assertEquals(1, recs.size());
+        assertEquals(401, ReadingRecords.days(recs.get(0)));   // 含首尾：2025-01-01 → 2026-02-05
+        assertTrue(ReadingRecords.days(recs.get(0)) > 0);
+        assertEquals(Book.READ_DONE, b.readStatus);
+        assertEquals("2026-02-05", b.readingFinishDate);
+        assertFalse("没有弃读会话就不该拆", ReadingRecords.splitLongReadAfterDrop(b, 365));
+        // 自愈只在内存生效：没调用 syncTo 就不该把会话写回 JSON
+        assertEquals("", b.readingRecords);
+    }
 }

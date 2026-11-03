@@ -263,6 +263,70 @@ public final class ReadingRecords {
     }
 
     /**
+     * 判定（v5.8.31 体检用）：有一场已读会话时长 > {@code thresholdDays} 天，
+     * 且它之前出现过弃读会话——这是旧单会话模型「弃读→再读→读完压成一条」留下的跨空窗时长。
+     */
+    public static boolean isLongReadAfterDrop(List<Record> records, int thresholdDays) {
+        if (records == null) {
+            return false;
+        }
+        boolean droppedBefore = false;
+        for (Record r : records) {
+            if (r.status == Book.READ_DROPPED) {
+                droppedBefore = true;
+                continue;
+            }
+            if (r.status == Book.READ_DONE && droppedBefore && days(r) > thresholdDays) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * 一次性修复（v5.8.31 体检页触发，**绝不自动跑**）：
+     * 把跨弃读空窗的超长已读会话拆成「弃读 + 新已读」——原会话降为弃读
+     * （结束日期取不到就置空），再新增一场已读承接原来的结束日期。
+     *
+     * <p>与「历史会话不得就地改写」的张力：这条确实会把一场 DONE 改成 DROPPED，
+     * 所以只在用户点「修复」时执行，且一次只处理这一场。
+     */
+    public static boolean splitLongReadAfterDrop(Book book, int thresholdDays) {
+        if (book == null) {
+            return false;
+        }
+        List<Record> records = load(book);
+        boolean droppedBefore = false;
+        Record target = null;
+        for (Record r : records) {
+            if (r.status == Book.READ_DROPPED) {
+                droppedBefore = true;
+                continue;
+            }
+            if (target == null && r.status == Book.READ_DONE && droppedBefore
+                    && days(r) > thresholdDays) {
+                target = r;
+            }
+        }
+        if (target == null) {
+            return false;
+        }
+        String finishDate = nz(target.endDate);
+        target.status = Book.READ_DROPPED;
+        // 弃读那场不该是「读完了」的进度，夹到 99 以内
+        target.progress = Math.max(0, Math.min(target.progress, 99));
+        Record fresh = new Record(lastOf(records).seq + 1);
+        fresh.status = Book.READ_DONE;
+        // 拆不出合理的第二轮开始日就留空，宁可少一个日期也不编一个
+        fresh.startDate = "";
+        fresh.endDate = finishDate;
+        fresh.progress = 100;
+        records.add(fresh);
+        syncTo(book, records);
+        return true;
+    }
+
+    /**
      * v5.8.31：读取路径的内存自愈。把「书上的汇总」与「会话列表」对不上账的旧数据
      * 在内存里纠正一遍并返回修好的会话，**不直接写库**——真正落盘发生在调用方保存时
      * 由 {@link #syncTo} 写回。
