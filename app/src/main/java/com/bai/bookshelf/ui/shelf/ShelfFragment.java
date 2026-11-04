@@ -965,12 +965,15 @@ public class ShelfFragment extends Fragment {
                     b.fabScan.show();
                 }
                 Map<Long, String> locMap = locationNameMap(); // 只构造一次（原本构造了两次）
+                // v5.8.33：组合态「在读 · 借给 谁」用的在外人名，来自 ShelfLoans 已有的那次查询，不额外查库
+                Map<Long, java.util.List<String>> lenderMap = loans.lenders();
                 if (viewMode == 1) {
+                    gridAdapter.setLenders(lenderMap);
                     gridAdapter.submit(result);
                 } else if (viewMode == 2) {
-                    textAdapter.submit(result, locMap);
+                    textAdapter.submit(result, locMap, lenderMap);
                 } else {
-                    adapter.submit(result, locMap);
+                    adapter.submit(result, locMap, lenderMap);
                 }
                 statusView.updateEmptyState(result.isEmpty(), fKeyword, filtered);
             });

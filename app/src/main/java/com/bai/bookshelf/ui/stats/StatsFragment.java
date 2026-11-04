@@ -117,6 +117,10 @@ public class StatsFragment extends Fragment {
     private int treemapDrill = -1;
     /** 三个分栏各自的洞察文案（v5.8.1：不再三栏复读同一段） */
     private String insightBooks = "";
+
+    /** v5.8.33：体检那行要用——「在读但全部册在外」的书名与日期残缺的借出记录条数 */
+    private java.util.List<String> readingOutNames = new ArrayList<>();
+    private int lendDateUnparsable;
     private String insightReading = "";
     private String insightPurchase = "";
     private String insightLend = "";
@@ -463,8 +467,33 @@ public class StatsFragment extends Fragment {
             } catch (Exception e) {
                 copiesByBook = new java.util.HashMap<>();
             }
+            // v5.8.33：借出数据一次建好——阅读天数要扣掉「书在别人手上」的日子。
+            // 这里把 loanRecords 的查询提前，下面的借阅栏仍复用同一份，不重复查库。
+            java.util.List<com.bai.bookshelf.data.entity.BorrowRecord> loanRecords;
+            try {
+                loanRecords = BookshelfApp.get().db().borrowRecordDao().getAll();
+            } catch (Exception e) {
+                loanRecords = new ArrayList<>();
+            }
+            final java.util.Map<Long, List<int[]>> lendSpans =
+                    com.bai.bookshelf.util.LendSpans.byBook(loanRecords);
+            final java.util.Map<Long, java.util.Set<Integer>> openCopiesByBook =
+                    new java.util.HashMap<>();
+            for (com.bai.bookshelf.data.entity.BorrowRecord r : loanRecords) {
+                if (r == null || r.status != com.bai.bookshelf.data.entity.BorrowRecord.STATUS_OUT) {
+                    continue;
+                }
+                java.util.Set<Integer> set = openCopiesByBook.get(r.bookId);
+                if (set == null) {
+                    set = new java.util.HashSet<>();
+                    openCopiesByBook.put(r.bookId, set);
+                }
+                set.add(Math.max(1, r.copyIndex));
+            }
+            lendDateUnparsable = com.bai.bookshelf.util.LendSpans.countUnparsable(loanRecords);
             final com.bai.bookshelf.util.StatsHoldings.Holdings hold =
-                    com.bai.bookshelf.util.StatsHoldings.holdings(books, copiesByBook);
+                    com.bai.bookshelf.util.StatsHoldings.holdings(
+                            books, copiesByBook, openCopiesByBook);
 
             // ---- v5.8 洞察卡：花费 / 单位成本 / 阅读速度 / 书债 / 归还率 / 健康分 ----
             final com.bai.bookshelf.util.StatsSpend.Spend spend =
@@ -481,7 +510,8 @@ public class StatsFragment extends Fragment {
                 }
             }
             final com.bai.bookshelf.util.StatsPace.Pace pace =
-                    com.bai.bookshelf.util.StatsPace.pace(books, copiesByBook, hold, readingDays);
+                    com.bai.bookshelf.util.StatsPace.pace(
+                            books, copiesByBook, hold, readingDays, lendSpans);
             // v5.8.19：在读剩余页数与预计读完日，速度沿用上面的中位页/天
             final com.bai.bookshelf.util.StatsPace.Backlog backlog =
                     com.bai.bookshelf.util.StatsPace.backlog(books,
@@ -489,12 +519,6 @@ public class StatsFragment extends Fragment {
             // v5.8.19：「下一本读什么」的候选（加权排序，抽哪一本在 UI 侧按种子决定）
             final java.util.List<com.bai.bookshelf.util.NextPick.Pick> nextRanked =
                     com.bai.bookshelf.util.NextPick.rank(books, todayKey);
-            java.util.List<com.bai.bookshelf.data.entity.BorrowRecord> loanRecords;
-            try {
-                loanRecords = BookshelfApp.get().db().borrowRecordDao().getAll();
-            } catch (Exception e) {
-                loanRecords = new ArrayList<>();
-            }
             final com.bai.bookshelf.util.StatsLend.Lend lend =
                     com.bai.bookshelf.util.StatsLend.lend(loanRecords, todayKey);
 
@@ -776,6 +800,10 @@ public class StatsFragment extends Fragment {
         }
         b.tvStatsReadDone.setText(String.valueOf(hold.readDone));
         b.tvStatsReading.setText(String.valueOf(hold.reading));
+        // v5.8.33：在读里有多少本正借在别人手上（M=0 时整段不显示）
+        b.tvStatsReadingOut.setVisibility(hold.readingOut > 0 ? View.VISIBLE : View.GONE);
+        b.tvStatsReadingOut.setText("其中 " + hold.readingOut + " 种在外借中");
+        readingOutNames = hold.readingFullyOutNames;
         b.tvStatsUnread.setText(String.valueOf(hold.unread));
         b.tvStatsDropped.setText(String.valueOf(hold.dropped));
         // 种是主数字，册 / 在外 / 遗失按册另说，避免「19 册」这种既错又没信息量
@@ -788,7 +816,8 @@ public class StatsFragment extends Fragment {
             copies.append(" · 遗失 ").append(hold.copiesLost);
         }
         b.tvStatsCopies.setText(copies);
-        insightBooks = booksInsight(hold, health, rating, anomalies);
+        insightBooks = booksInsight(hold, health, rating, anomalies,
+                readingOutNames, lendDateUnparsable);
         renderTreemap();
         renderCohort(cohorts);
         renderSeries(seriesGroups, books);
@@ -1338,9 +1367,18 @@ public class StatsFragment extends Fragment {
     }
 
     /** 数据体检：重复/负价/未来日期这类记录问题（藏书栏） */
-    private static String anomalyLine(com.bai.bookshelf.util.StatsHealth.Anomalies a) {
-        if (a.total() == 0) {
+    private static String anomalyLine(com.bai.bookshelf.util.StatsHealth.Anomalies a,
+                                      java.util.List<String> readingOutNames,
+                                      int lendDateUnparsable) {
+        // v5.8.33：借阅相关的两项单独算，凑不齐全 0 才算「没发现异常」
+        int extra = (readingOutNames == null ? 0 : readingOutNames.size())
+                + lendDateUnparsable;
+        if (a.total() == 0 && extra == 0) {
             return "数据体检：没发现重复或异常记录";
+        }
+        if (a.total() == 0) {
+            return "数据体检 " + extra + " 处要看看" + lendingAnomalyTail(
+                    readingOutNames, lendDateUnparsable);
         }
         return "数据体检 " + a.total() + " 处要看看：重复 ISBN "
                 + a.duplicateIsbn.size() + "、同名 " + a.duplicateTitle.size()
@@ -1350,7 +1388,31 @@ public class StatsFragment extends Fragment {
                 // v5.8.31：旧单会话模型把「弃读→再读→读完」压成一条，时长会跨掉弃读空窗
                 + (a.longReadWithDrop == 0 ? ""
                 : "、阅读时长超 " + com.bai.bookshelf.util.StatsHealth.LONG_READ_DAYS
-                + " 天且中途有弃读 " + a.longReadWithDrop + " 本");
+                + " 天且中途有弃读 " + a.longReadWithDrop + " 本")
+                + lendingAnomalyTail(readingOutNames, lendDateUnparsable);
+    }
+
+    /** 体检里借阅那两项：只列清单与说明，不给自动修复（改了等于改借阅数据） */
+    private static String lendingAnomalyTail(java.util.List<String> readingOutNames,
+                                             int lendDateUnparsable) {
+        StringBuilder sb = new StringBuilder();
+        int n = readingOutNames == null ? 0 : readingOutNames.size();
+        if (n > 0) {
+            sb.append("、在读但全部册在外 ").append(n).append(" 本（这些天不算阅读时长）");
+            StringBuilder names = new StringBuilder();
+            for (String name : readingOutNames) {
+                if (names.length() > 0) {
+                    names.append("、");
+                }
+                names.append('《').append(name).append('》');
+            }
+            sb.append("：").append(names);
+        }
+        if (lendDateUnparsable > 0) {
+            sb.append("、借出/归还日期残缺 ").append(lendDateUnparsable)
+                    .append(" 条（借出区间算不出来，这段没扣）");
+        }
+        return sb.toString();
     }
 
     /**
@@ -1471,11 +1533,13 @@ public class StatsFragment extends Fragment {
     private static String booksInsight(com.bai.bookshelf.util.StatsHoldings.Holdings h,
                                        com.bai.bookshelf.util.StatsHealth.Health g,
                                        com.bai.bookshelf.util.StatsHealth.Rating r,
-                                       com.bai.bookshelf.util.StatsHealth.Anomalies a) {
+                                       com.bai.bookshelf.util.StatsHealth.Anomalies a,
+                                       java.util.List<String> readingOutNames,
+                                       int lendDateUnparsable) {
         StringBuilder sb = new StringBuilder(holdingsLine(h)).append('\n');
         sb.append(healthLine(g)).append('\n');
         sb.append(ratingLine(r)).append('\n');
-        sb.append(anomalyLine(a));
+        sb.append(anomalyLine(a, readingOutNames, lendDateUnparsable));
         if (h.copiesLost > 0) {
             sb.append('\n').append("损耗：遗失 ").append(h.copiesLost).append(" 册、")
                     .append(money(h.lostValue));

@@ -14,7 +14,9 @@ import com.bai.bookshelf.databinding.ItemBookGridBinding;
 import com.bai.bookshelf.util.ThemeManager;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -83,6 +85,13 @@ public class BookGridAdapter extends RecyclerView.Adapter<BookGridAdapter.VH> {
     }
 
     /** 整体替换数据（v4.55：DiffUtil 增量刷新） */
+    /** 每本书当前在外的人名（v5.8.33）；网格卡只有书脊色条，所以进读屏文案 */
+    private Map<Long, List<String>> lenders = new HashMap<>();
+
+    public void setLenders(Map<Long, List<String>> lenderNames) {
+        lenders = lenderNames == null ? new HashMap<>() : lenderNames;
+    }
+
     public void submit(List<Book> books) {
         boolean forceRebind = !keyword.equals(lastDiffKeyword);
         lastDiffKeyword = keyword;
@@ -181,8 +190,17 @@ public class BookGridAdapter extends RecyclerView.Adapter<BookGridAdapter.VH> {
         }
         android.content.Context ctx = h.itemView.getContext();
         h.b.vStatusAccent.setVisibility(View.VISIBLE);
-        h.b.vStatusAccent.setContentDescription(
-                lost ? "遗失" : borrowed ? "借出" : dropped ? "弃读" : "在读");
+        // 网格卡没有状态文字行（v4.30 只留书脊色条），组合态写进读屏文案与长按提示
+        String who = book.readStatus == Book.READING
+                ? com.bai.bookshelf.util.StatusText.lentTo(lenders.get(book.id)) : null;
+        String label = lost ? "遗失" : borrowed ? "借出" : dropped ? "弃读" : "在读";
+        if (who != null) {
+            label = label + " · " + who;
+        }
+        h.b.vStatusAccent.setContentDescription(label);
+        if (android.os.Build.VERSION.SDK_INT >= 26) {
+            h.b.vStatusAccent.setTooltipText(label);
+        }
         h.b.vStatusAccent.setBackgroundTintList(ColorStateList.valueOf(
                 com.bai.bookshelf.util.ShelfAccent.statusColor(ctx, book)));
     }

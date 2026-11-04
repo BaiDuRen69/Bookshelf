@@ -806,7 +806,7 @@ public class BookDetailActivity extends BaseActivity {
         // ===== 书目 / 藏书 / 我的书房（v5.6 抽到 DetailInfoBlocks） =====
         DetailInfoBlocks.bind(b, book, multi, hasLent, locationName, categoryDisplay,
                 copies, openRecords);
-        DetailRecordLists.bindReading(this, b, book);
+        DetailRecordLists.bindReading(this, b, book, openRecords);
         DetailRecordLists.bindBorrow(this, b, book);
         // v5.7：四个分区可折叠，折叠状态跨书沿用
         DetailSectionCollapse.bind(this, b.ivToggleInfo, b.llInfoGrid,

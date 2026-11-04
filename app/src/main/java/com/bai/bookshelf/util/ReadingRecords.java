@@ -378,6 +378,15 @@ public final class ReadingRecords {
 
     /** 阅读天数（含首尾）；在读只有开始日期时算到今天，缺日期返回 0 */
     public static int days(Record r) {
+        return days(r, null);
+    }
+
+    /**
+     * 会话天数（含首尾），扣掉这本书借在外的日子（v5.8.33）。
+     * 在读会话以今天为结束日、已读用 endDate；{@code spans} 传 null/空 = 不扣减，
+     * 保留单参版本就是为了让其它调用点不用一起改。
+     */
+    public static int days(Record r, List<int[]> spans) {
         if (r == null) {
             return 0;
         }
@@ -393,7 +402,10 @@ public final class ReadingRecords {
                 return 0;
             }
         }
-        return Math.max(0, BorrowReminder.daysBetween(start, end) + 1);
+        if (spans == null || spans.isEmpty()) {
+            return Math.max(0, BorrowReminder.daysBetween(start, end) + 1);
+        }
+        return LendSpans.minusDays(start, end, spans);
     }
 
     /** 根据日期推断状态：有始有终=已读，只有开始=在读，都没有=未读 */

@@ -24,12 +24,23 @@ public final class DetailRecordLists {
     }
 
     public static void bindReading(Activity activity, ActivityBookDetailBinding b, Book book) {
+        bindReading(activity, b, book, null);
+    }
+
+    /**
+     * @param loans 该书当前的借出记录（详情页已查过，直接递进来）；
+     *              给了就把每场阅读天数里「书在外面」的日子扣掉，并在行尾标一句扣了几天（v5.8.33）
+     */
+    public static void bindReading(Activity activity, ActivityBookDetailBinding b, Book book,
+                                   java.util.List<com.bai.bookshelf.data.entity.BorrowRecord> loans) {
         java.util.List<ReadingRecords.Record> records = ReadingRecords.load(book);
         b.containerReadingRecordsDetail.removeAllViews();
         b.cardReadingRecords.setVisibility(records.isEmpty()
                 ? android.view.View.GONE : android.view.View.VISIBLE);
+        java.util.List<int[]> spans = loans == null
+                ? null : com.bai.bookshelf.util.LendSpans.of(loans, book.id);
         for (ReadingRecords.Record r : records) {
-            addRow(activity, b.containerReadingRecordsDetail, readingLine(r));
+            addRow(activity, b.containerReadingRecordsDetail, readingLine(r, spans));
         }
     }
 
@@ -48,6 +59,10 @@ public final class DetailRecordLists {
     }
 
     private static String readingLine(ReadingRecords.Record r) {
+        return readingLine(r, null);
+    }
+
+    private static String readingLine(ReadingRecords.Record r, java.util.List<int[]> spans) {
         StringBuilder sb = new StringBuilder("第 ").append(r.seq).append(" 次 · ")
                 .append(StatusText.read(r.status));
         if (!r.startDate.isEmpty()) {
@@ -56,9 +71,13 @@ public final class DetailRecordLists {
                 sb.append(" — ").append(r.endDate);
             }
         }
-        int days = ReadingRecords.days(r);
+        int days = ReadingRecords.days(r, spans);
         if (days > 0) {
             sb.append(" · ").append(days).append(" 天");
+            int raw = ReadingRecords.days(r);
+            if (raw > days) {
+                sb.append("（扣掉借出 ").append(raw - days).append(" 天）");
+            }
         }
         if (r.rating > 0) {
             sb.append(" · ★").append(ReadingRecords.formatRating(r.rating));

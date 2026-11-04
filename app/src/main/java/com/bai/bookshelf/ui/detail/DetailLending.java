@@ -73,8 +73,9 @@ public class DetailLending {
 
     /** 单本书底部的借出 ⇄ 收回 切换（操作第 1 本/主记录） */
     public void toggleLend() {
-        if (sourceReturned()) {
-            Toast.makeText(activity, "已归还给借阅来源，不能再借出", Toast.LENGTH_SHORT).show();
+        String block = lendBlockReason();
+        if (block != null) {
+            Toast.makeText(activity, block, Toast.LENGTH_SHORT).show();
             return;
         }
         BorrowRecord open = DetailCopyInfo.openRecordForCopy(host.openRecords(), 1);
@@ -124,7 +125,8 @@ public class DetailLending {
                 host.reload();
                 host.refreshReminders();
                 UndoBar.offer(activity.findViewById(android.R.id.content),
-                        "第 " + index + " 册已收回",
+                        "第 " + index + " 册已收回"
+                                + (book.readStatus == Book.READING ? " · 继续阅读" : ""),
                         () -> app.io(() -> {
                             undoReturn(recordId, oldRecordStatus, oldReturnDate,
                                     bookId, index, oldBookStock, savedCopy, oldCopyStock);
@@ -171,8 +173,9 @@ public class DetailLending {
 
     /** 借出登记对话框：常用借阅人 Chip 单选（可新建/长按管理）+ 借出备注 + 备注图片 */
     public void showLendDialog(int copyIndex) {
-        if (sourceReturned()) {
-            Toast.makeText(activity, "已归还给借阅来源，不能再借出", Toast.LENGTH_SHORT).show();
+        String block = lendBlockReason();
+        if (block != null) {
+            Toast.makeText(activity, block, Toast.LENGTH_SHORT).show();
             return;
         }
         lendCopyIndex = copyIndex;
@@ -189,6 +192,19 @@ public class DetailLending {
     /** 来源为借阅且已归还：不能再借出 */
     private boolean sourceReturned() {
         return com.bai.bookshelf.util.BookFlags.isReturnedBorrow(host.book());
+    }
+
+    /**
+     * 借来的书不能转借（v5.8.33）。原来只拦「已归还给借阅来源」这一种，
+     * 借期内的书照样能登记借给别人——现在两种都在这一个方法里判，
+     * 两个借出入口共用，不再各写一套。可以借出时返回 null。
+     */
+    private String lendBlockReason() {
+        if (!com.bai.bookshelf.util.BookFlags.isBorrowSource(host.book())) {
+            return null;
+        }
+        return sourceReturned() ? "已归还给借阅来源，不能再借出"
+                : "这本书是从别人那借来的，不能转借";
     }
 
     /** 在副本表里找第 index 本（没录过则返回 null，借出时会新增一行） */
@@ -605,7 +621,10 @@ public class DetailLending {
                 }
                 // v5.8.16：借出登记 8 秒内可撤销（删记录 + 收回状态 + 回收本次新建的行）
                 UndoBar.offer(activity.findViewById(android.R.id.content),
-                        "第 " + copyIndex + " 册已借出给 " + borrower,
+                        "第 " + copyIndex + " 册已借出给 " + borrower
+                                // v5.8.33：这本书还在读，说清借出去的日子不算阅读时长
+                                + (host.book().readStatus == Book.READING
+                                ? "，这本书还在读，借出期间不计入阅读时长" : ""),
                         () -> app.io(() -> {
                             undoLend(recordId, copyIndex, bookId, oldBookStock,
                                     oldCopy, oldCopyStock, newCopyId);

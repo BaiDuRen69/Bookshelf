@@ -127,10 +127,22 @@ public final class StatsPace {
      */
     public static Pace pace(List<Book> raw, java.util.Map<Long, List<BookCopy>> copiesByBook,
                             Holdings h, int readingDaysLastYear) {
+        return pace(raw, copiesByBook, h, readingDaysLastYear, null);
+    }
+
+    /**
+     * @param lendSpans 每本书的借出区间（{@link LendSpans#byBook} 建一次传进来）。
+     *                  读完天数与速度都要扣掉「书在别人手上」的日子；
+     *                  activeFinishRate 的分母再把「全部册都在外」的在读书剔掉——
+     *                  那几本此刻没法推进，算进分母会把完成率压低。
+     */
+    public static Pace pace(List<Book> raw, java.util.Map<Long, List<BookCopy>> copiesByBook,
+                            Holdings h, int readingDaysLastYear,
+                            java.util.Map<Long, List<int[]>> lendSpans) {
         List<Book> books = BookSanitizer.normalizeAll(raw);
         Pace p = new Pace();
         p.finishRate = h.readRate();
-        int inPlay = h.readDone + h.reading;
+        int inPlay = h.readDone + Math.max(0, h.reading - h.readingFullyOut);
         p.activeFinishRate = inPlay == 0 ? -1 : (double) h.readDone / inPlay;
 
         List<Double> days = new ArrayList<>();
@@ -144,9 +156,12 @@ public final class StatsPace {
             if (finishKey <= 0 || startKey <= 0 || finishKey < startKey) {
                 continue; // 没有完整起止日期的书不参与速度统计
             }
-            double d = BorrowReminder.daysBetween(startKey, finishKey) + 1;
+            List<int[]> spans = lendSpans == null ? null : lendSpans.get(book.id);
+            double d = spans == null || spans.isEmpty()
+                    ? BorrowReminder.daysBetween(startKey, finishKey) + 1
+                    : LendSpans.minusDays(startKey, finishKey, spans);
             if (d <= 0) {
-                continue;
+                continue; // 整段阅读时间都借在外面：没有可算的本地阅读天数
             }
             days.add(d);
             if (book.pages > 0) {

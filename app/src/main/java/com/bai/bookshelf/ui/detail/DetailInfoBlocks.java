@@ -85,7 +85,20 @@ public final class DetailInfoBlocks {
 
         // ===== 我的书房 =====
         List<String[]> manage = new ArrayList<>();
-        add(manage, "阅读状态", com.bai.bookshelf.util.StatusText.read(book.readStatus));
+        // v5.8.33：在读同时又借在外面时合成一行「在读 · 借给 张三」，进度那行照旧不受影响
+        java.util.List<String> outNames = new ArrayList<>();
+        if (openRecords != null) {
+            for (BorrowRecord r : openRecords) {
+                if (r != null && r.borrower != null && !r.borrower.trim().isEmpty()
+                        && !outNames.contains(r.borrower.trim())) {
+                    outNames.add(r.borrower.trim());
+                }
+            }
+        }
+        String readLine = com.bai.bookshelf.util.StatusText.read(book.readStatus);
+        String lentPart = book.readStatus == Book.READING
+                ? com.bai.bookshelf.util.StatusText.lentTo(outNames) : null;
+        add(manage, "阅读状态", lentPart == null ? readLine : readLine + " · " + lentPart);
         if (!book.readingStartDate.isEmpty()) {
             add(manage, "开始阅读", book.readingStartDate);
         }

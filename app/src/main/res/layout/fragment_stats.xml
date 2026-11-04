@@ -291,6 +291,17 @@
                                     android:text="在读"
                                     android:textColor="?attr/on_surface_variant"
                                     android:textSize="@dimen/text_caption" />
+
+                                <!-- v5.8.33：在读里有多少本正借在外面（0 时整行隐藏） -->
+                                <TextView
+                                    android:id="@+id/tv_stats_reading_out"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="2dp"
+                                    android:text="其中 0 种在外借中"
+                                    android:textColor="?attr/on_surface_variant"
+                                    android:textSize="@dimen/text_caption"
+                                    android:visibility="gone" />
                             </LinearLayout>
 
                             <LinearLayout

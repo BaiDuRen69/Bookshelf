@@ -108,6 +108,8 @@ public class BorrowBatchActions {
             return;
         }
         app.io(() -> {
+            // v5.8.33：这一页只有一个 bookId，读一次主记录看它是不是在读
+            final boolean anyReading = readingNow(app, targets);
             for (BorrowRecord r : targets) {
                 com.bai.bookshelf.util.BorrowLedger.markReturned(app, r);
             }
@@ -115,11 +117,23 @@ public class BorrowBatchActions {
             com.bai.bookshelf.util.BorrowLedger.afterChange(activity);
             app.ui(() -> {
                 toggle();
-                Toast.makeText(activity, "已收回 " + targets.size() + " 条",
+                Toast.makeText(activity, "已收回 " + targets.size() + " 条"
+                        + (anyReading ? " · 继续阅读" : ""),
                         Toast.LENGTH_SHORT).show();
                 host.reload();
             });
         });
+    }
+
+    /** 这批记录所属的书当前是否在读（收回文案用）；一页只有一个 bookId，读一次就够 */
+    private static boolean readingNow(BookshelfApp app, List<BorrowRecord> targets) {
+        if (targets.isEmpty()) {
+            return false;
+        }
+        com.bai.bookshelf.data.entity.Book bk = com.bai.bookshelf.util.BookSanitizer
+                .normalize(app.db().bookDao().getById(targets.get(0).bookId));
+        return bk != null
+                && bk.readStatus == com.bai.bookshelf.data.entity.Book.READING;
     }
 
     /** 批量删除（带确认） */

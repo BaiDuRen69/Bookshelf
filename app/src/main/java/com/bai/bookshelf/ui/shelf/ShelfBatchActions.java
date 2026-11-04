@@ -336,8 +336,14 @@ public final class ShelfBatchActions {
             final List<Long> recordIds = new ArrayList<>();
             final List<Book> before = new ArrayList<>();
             int skipped = 0;
+            int readingOut = 0;
             for (Book book : targets) {
                 if (!app.db().borrowRecordDao().findOpenListByBook(book.id).isEmpty()) {
+                    skipped++;
+                    continue;
+                }
+                // v5.8.33：借来的书不能转借，批量这里一起拦（与详情页同一判断）
+                if (com.bai.bookshelf.util.BookFlags.isBorrowSource(book)) {
                     skipped++;
                     continue;
                 }
@@ -360,6 +366,9 @@ public final class ShelfBatchActions {
                 }
                 recordIds.add(recordId);
                 before.add(snapshot);
+                if (book.readStatus == Book.READING) {
+                    readingOut++;
+                }
                 book.stockStatus = Book.STOCK_LENT;
                 book.updatedAt = now;
                 book.dirty = true;
@@ -367,6 +376,7 @@ public final class ShelfBatchActions {
             }
             final int lent = recordIds.size();
             final int fSkipped = skipped;
+            final int fReadingOut = readingOut;
             app.ui(() -> {
                 exitSelection.run();
                 if (lent == 0) {
@@ -375,7 +385,10 @@ public final class ShelfBatchActions {
                     return;
                 }
                 String message = "已把 " + lent + " 本借给 " + borrower
-                        + (fSkipped > 0 ? "（" + fSkipped + " 本已在外面，跳过）" : "");
+                        + (fSkipped > 0 ? "（" + fSkipped + " 本已在外面或借来的书，跳过）" : "")
+                        // v5.8.33：借出的那几本里有多少还在读，说清这段时间不计入阅读时长
+                        + (fReadingOut > 0
+                        ? "，其中 " + fReadingOut + " 本在读，借出期间不计入阅读时长" : "");
                 UndoBar.offer(anchorView(), message, () -> app.io(() -> {
                     long revertAt = System.currentTimeMillis();
                     for (long recordId : recordIds) {

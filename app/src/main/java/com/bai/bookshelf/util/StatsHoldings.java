@@ -44,6 +44,12 @@ public final class StatsHoldings {
         public int dropped;
         /** 借出在外的册数 */
         public int copiesLent;
+        /** 在读且至少有一册借在外的种数（v5.8.33，hero 的「其中 M 种在外借中」） */
+        public int readingOut;
+        /** 在读且全部册都借在外的种数：这些书手上没人能推进，不进 activeFinishRate 分母 */
+        public int readingFullyOut;
+        /** 上一项的书名（体检那行只列清单，不做自动修复），最多 6 个 */
+        public final List<String> readingFullyOutNames = new ArrayList<>();
         /** 遗失的册数 */
         public int copiesLost;
         /** 遗失册的自购实付合计（损耗率） */
@@ -86,8 +92,21 @@ public final class StatsHoldings {
         }
     }
 
-    /** 藏书总量：种 / 册 / 花费一次算清 */
+    /** 藏书总量：种 / 册 / 花费一次算清（不看借出，readingOut 恒为 0） */
     public static Holdings holdings(List<Book> books, java.util.Map<Long, List<BookCopy>> copiesByBook) {
+        return holdings(books, copiesByBook, null);
+    }
+
+    /**
+     * 藏书总量 + 在外借中（v5.8.33）。
+     *
+     * @param openCopiesByBook 每本书「未归还借出记录」覆盖到的 copyIndex 集合，
+     *                         由调用方用已有的 borrow_records 与 {@code groupCopies} 结果构建，
+     *                         这里不再查库。册的集合沿用 {@link LibraryStats#copiesOf}：
+     *                         第 1 册是主记录本身，第 2 册起是副本表行数，取声明数与实录数的较大者。
+     */
+    public static Holdings holdings(List<Book> books, java.util.Map<Long, List<BookCopy>> copiesByBook,
+                                    java.util.Map<Long, java.util.Set<Integer>> openCopiesByBook) {
         Holdings h = new Holdings();
         if (books == null) {
             return h;
@@ -98,6 +117,26 @@ public final class StatsHoldings {
             List<BookCopy> copies = copiesByBook == null
                     ? null : copiesByBook.get(book.id);
             int n = copiesOf(book, copies);
+            if (owned && book.readStatus == Book.READING && openCopiesByBook != null) {
+                java.util.Set<Integer> open = openCopiesByBook.get(book.id);
+                if (open != null && !open.isEmpty()) {
+                    h.readingOut++;
+                    boolean allOut = true;
+                    for (int i = 1; i <= n; i++) {
+                        if (!open.contains(i)) {
+                            allOut = false;
+                            break;
+                        }
+                    }
+                    if (allOut) {
+                        h.readingFullyOut++;
+                        if (h.readingFullyOutNames.size() < 6) {
+                            h.readingFullyOutNames.add(
+                                    com.bai.bookshelf.util.BookText.bareTitle(book.title));
+                        }
+                    }
+                }
+            }
             if (owned) {
                 h.titles++;
                 h.copies += n;

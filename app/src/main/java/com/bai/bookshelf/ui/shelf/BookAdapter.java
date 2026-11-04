@@ -45,6 +45,8 @@ public class BookAdapter extends RecyclerView.Adapter<BookAdapter.VH> {
     /** v5.8.7：首屏前 12 项 20ms stagger 淡入（每本书只跑一次） */
     private final java.util.Set<Long> entranceAnimated = new java.util.HashSet<>();
     private Map<Long, String> locNames = new HashMap<>();
+    /** 每本书当前在外的人名（v5.8.33 组合态），没有就是空表 */
+    private Map<Long, List<String>> lenders = new HashMap<>();
     /** v4.41：当前搜索词，用于书名/作者的命中高亮 */
     private String keyword = "";
     /** v4.55：上一次提交时的关键词，用于判断是否需要整体重绑高亮 */
@@ -95,6 +97,13 @@ public class BookAdapter extends RecyclerView.Adapter<BookAdapter.VH> {
     }
 
     /** 整体替换数据（v4.55：DiffUtil 增量刷新，只重绑真正变化的行） */
+    /** 带借阅人的提交（v5.8.33）：书架刷新时把 ShelfLoans 的映射递进来 */
+    public void submit(List<Book> books, Map<Long, String> locationNames,
+                       Map<Long, List<String>> lenderNames) {
+        lenders = lenderNames == null ? new HashMap<>() : lenderNames;
+        submit(books, locationNames);
+    }
+
     public void submit(List<Book> books, Map<Long, String> locationNames) {
         boolean forceRebind = !keyword.equals(lastDiffKeyword)
                 || !Objects.equals(locNames, locationNames);
@@ -182,7 +191,8 @@ public class BookAdapter extends RecyclerView.Adapter<BookAdapter.VH> {
         // 搜「书房」「客厅」这类地点词时，命中的地点也要高亮
         h.b.tvLocation.setText(com.bai.bookshelf.util.SearchText.highlight(
                 locName, keyword, hlColor, hlBg));
-        h.b.tvStock.setText(StatusText.stock(book.stockStatus) + " · " + StatusText.read(book.readStatus));
+        h.b.tvStock.setText(StatusText.stockReadLine(book.stockStatus, book.readStatus,
+                lenders.get(book.id)));
 
         // 评分（0 分不显示；展示多次阅读的平均分，0.5 步进）
         double avgRating = book.ratingAvg > 0 ? book.ratingAvg : book.rating;
