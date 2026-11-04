@@ -819,8 +819,39 @@
                         android:layout_height="wrap_content"
                         android:orientation="vertical">
 
-                        <!-- v5.8.32：「启动时检查应用更新」开关挪到「提醒与角标」页，
-                             这里只留手动检查入口，避免同一个开关出现在两处 -->
+                        <!-- v5.8.33：启动检查开关归回本组，与手动检查成对；
+                             「通知与提醒」页放的是另一件事（发现新版本要不要提示我） -->
+                        <LinearLayout
+                            android:id="@+id/row_update_toggle"
+                            style="@style/MineRow">
+
+                            <ImageView
+                                style="@style/MineRowIcon"
+                                android:contentDescription="启动时检查应用更新"
+                                android:src="@drawable/ic_sync_line" />
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="@dimen/space_md"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    style="@style/MineRowTitle"
+                                    android:text="启动时检查应用更新" />
+
+                                <TextView
+                                    android:id="@+id/tv_update_toggle_state"
+                                    style="@style/MineRowSubtitle"
+                                    android:text="冷启动时静默检查一次，有新版才提示" />
+                            </LinearLayout>
+
+                            <ImageView style="@style/MineRowChevron" />
+                        </LinearLayout>
+
+                        <View style="@style/MineRowDivider" />
+
                         <LinearLayout
                             android:id="@+id/row_check_update"
                             style="@style/MineRow">

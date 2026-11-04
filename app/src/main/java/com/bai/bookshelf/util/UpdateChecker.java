@@ -67,6 +67,19 @@ public final class UpdateChecker {
         prefs(ctx).edit().putBoolean(KEY_START_CHECK, enabled).apply();
     }
 
+    /**
+     * 「永不提示」= 发现新版本时不再提示我（v5.8.33 开放读写）：
+     * 「通知与提醒」页的「发现新版本时提示我」是它的取反，两处必须走同一对方法，
+     * 否则弹窗里按了「永不提示」、设置页还显示着开。
+     */
+    public static boolean isNeverPrompt(Context ctx) {
+        return prefs(ctx).getBoolean(KEY_NEVER, false);
+    }
+
+    public static void setNeverPrompt(Context ctx, boolean never) {
+        prefs(ctx).edit().putBoolean(KEY_NEVER, never).apply();
+    }
+
     // ======================= 入口 =======================
 
     /**
@@ -168,7 +181,8 @@ public final class UpdateChecker {
                     + "，该版本的启动提醒不再出现", Toast.LENGTH_SHORT).show();
         });
         b.btnNever.setOnClickListener(v -> {
-            prefs(act).edit().putBoolean(KEY_NEVER, true).apply();
+            // v5.8.33：走公共 setter，与「通知与提醒 → 发现新版本时提示我」同一个键，永远一致
+            setNeverPrompt(act, true);
             dialog.dismiss();
             Toast.makeText(act, "已关闭启动更新提醒，可随时在「我的 → 检查应用更新」手动检查",
                     Toast.LENGTH_LONG).show();

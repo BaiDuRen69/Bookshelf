@@ -137,7 +137,8 @@ public class MineFragment extends Fragment {
         });
         dataActions.attach(b);
         dataActions.refreshRows();
-        // 应用更新（v4.7）：手动检查；「启动时检查」开关 v5.8.32 挪进「提醒与角标」页
+        // 应用更新（v4.7）：启动检查开关 + 手动检查（v5.8.33 开关归回本组）
+        b.rowUpdateToggle.setOnClickListener(v -> toggleUpdateCheck());
         b.rowCheckUpdate.setOnClickListener(v -> {
             Toast.makeText(requireContext(), "正在检查更新…", Toast.LENGTH_SHORT).show();
             com.bai.bookshelf.util.UpdateChecker.checkManually(requireActivity());
@@ -158,6 +159,7 @@ public class MineFragment extends Fragment {
         b.rowGithub.setOnClickListener(v -> supportActions.openGitHubRepo());
         b.rowReward.setOnClickListener(v -> supportActions.showSupportDialog());
         b.rowCrashLog.setOnClickListener(v -> showCrashLog());
+        refreshUpdateToggleRow();
         refreshStateRows();
     }
 
@@ -502,7 +504,26 @@ public class MineFragment extends Fragment {
         });
     }
 
-    /** 「启动时检查应用更新」开关已挪到 ui/settings/ReminderSettingsActivity（v5.8.32） */
+    /** 开关「启动时检查应用更新」（v4.7；v5.8.32 曾挪走，v5.8.33 归回应用更新分组） */
+    private void toggleUpdateCheck() {
+        boolean nowEnabled = !com.bai.bookshelf.util.UpdateChecker
+                .isStartCheckEnabled(requireContext());
+        com.bai.bookshelf.util.UpdateChecker.setStartCheckEnabled(requireContext(), nowEnabled);
+        refreshUpdateToggleRow();
+        Toast.makeText(requireContext(),
+                nowEnabled ? "已开启：打开 App 时自动检查新版本" : "已关闭：不再自动检查，可手动检查",
+                Toast.LENGTH_SHORT).show();
+    }
+
+    /** 刷新「启动时检查应用更新」行副标题 */
+    private void refreshUpdateToggleRow() {
+        if (b == null) {
+            return;
+        }
+        b.tvUpdateToggleState.setText(com.bai.bookshelf.util.UpdateChecker
+                .isStartCheckEnabled(requireContext())
+                ? "冷启动时静默检查一次，有新版才提示" : "已关闭：只在手动检查时找新版本");
+    }
 
     // ======================= 主题颜色（v2.5） =======================
 

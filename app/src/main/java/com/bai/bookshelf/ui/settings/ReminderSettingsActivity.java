@@ -52,12 +52,14 @@ public class ReminderSettingsActivity extends BaseActivity {
         bindRow(b.rowBannerBorrowDue, b.swBannerBorrowDue,
                 ReminderPrefs.KEY_BANNER_BORROW_DUE);
         bindRow(b.rowWidgetEnabled, b.swWidgetEnabled, ReminderPrefs.KEY_WIDGET_ENABLED);
-        // 「启动时检查应用更新」沿用 UpdateChecker 的 update_check/start_check，不另立键
-        b.rowCheckUpdateOnLaunch.setOnClickListener(v -> {
-            boolean now = !UpdateChecker.isStartCheckEnabled(this);
-            UpdateChecker.setStartCheckEnabled(this, now);
+        // v5.8.33：这里管的是「发现新版本要不要提示我」= UpdateChecker 的 update_check/never 取反，
+        // 与更新弹窗里的「永不提示」同一个键；「启动时检查」留在「我的 → 应用更新」分组里
+        b.rowPromptNewVersion.setOnClickListener(v -> {
+            boolean nowOn = !UpdateChecker.isNeverPrompt(this);
+            UpdateChecker.setNeverPrompt(this, !nowOn);
             refresh();
-            toast(now ? "已开启：打开 App 时自动检查新版本" : "已关闭：可在「应用更新」手动检查");
+            toast(nowOn ? "已关闭：发现新版本不再弹窗，可手动检查"
+                    : "已开启：发现新版本时提示我");
         });
         b.btnNotifySettings.setOnClickListener(v -> openNotificationSettings());
         refresh();
@@ -95,13 +97,15 @@ public class ReminderSettingsActivity extends BaseActivity {
         b.swBannerBackupStale.setChecked(ReminderPrefs.bannerBackupStale(this));
         b.swBannerBorrowDue.setChecked(ReminderPrefs.bannerBorrowDue(this));
         b.swWidgetEnabled.setChecked(ReminderPrefs.widgetEnabled(this));
-        b.swCheckUpdate.setChecked(UpdateChecker.isStartCheckEnabled(this));
+        b.swPromptNewVersion.setChecked(!UpdateChecker.isNeverPrompt(this));
         b.rowNotifyBorrowDue.setContentDescription("借阅到期通知，"
                 + state(ReminderPrefs.notifyBorrowDue(this)));
         b.rowBadgeOverdue.setContentDescription("逾期角标，"
                 + state(ReminderPrefs.badgeOverdue(this)));
         b.rowBannerBorrowDue.setContentDescription("详情页到期条，"
                 + state(ReminderPrefs.bannerBorrowDue(this)));
+        b.rowPromptNewVersion.setContentDescription("发现新版本时提示我，"
+                + state(!UpdateChecker.isNeverPrompt(this)));
         refreshPermission();
         refreshSummary();
     }

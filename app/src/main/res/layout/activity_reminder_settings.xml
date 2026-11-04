@@ -327,7 +327,7 @@
                         <View style="@style/MineRowDivider" />
 
                         <LinearLayout
-                            android:id="@+id/row_check_update_on_launch"
+                            android:id="@+id/row_prompt_new_version"
                             style="@style/MineRow">
 
                             <LinearLayout
@@ -339,16 +339,16 @@
                                 <TextView
                                     android:id="@+id/tv_update_row_title"
                                     style="@style/MineRowTitle"
-                                    android:text="启动时检查应用更新" />
+                                    android:text="发现新版本时提示我" />
 
                                 <TextView
                                     android:id="@+id/tv_update_row_note"
                                     style="@style/MineRowSubtitle"
-                                    android:text="关掉后启动时不再自动检查，可在「应用更新」手动检查" />
+                                    android:text="关掉后启动发现新版本不再弹窗，可在「应用更新」手动检查" />
                             </LinearLayout>
 
                             <com.google.android.material.materialswitch.MaterialSwitch
-                                android:id="@+id/sw_check_update"
+                                android:id="@+id/sw_prompt_new_version"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:layout_marginStart="@dimen/space_md"
