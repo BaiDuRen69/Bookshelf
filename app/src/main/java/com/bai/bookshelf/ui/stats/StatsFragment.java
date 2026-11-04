@@ -476,7 +476,7 @@ public class StatsFragment extends Fragment {
                 loanRecords = new ArrayList<>();
             }
             final java.util.Map<Long, List<int[]>> lendSpans =
-                    com.bai.bookshelf.util.LendSpans.byBook(loanRecords);
+                    com.bai.bookshelf.util.LendSpans.byBook(loanRecords, books, copiesByBook);
             final java.util.Map<Long, java.util.Set<Integer>> openCopiesByBook =
                     new java.util.HashMap<>();
             for (com.bai.bookshelf.data.entity.BorrowRecord r : loanRecords) {

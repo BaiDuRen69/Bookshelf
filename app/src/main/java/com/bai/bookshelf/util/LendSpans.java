@@ -1,5 +1,7 @@
 package com.bai.bookshelf.util;
 
+import com.bai.bookshelf.data.entity.Book;
+import com.bai.bookshelf.data.entity.BookCopy;
 import com.bai.bookshelf.data.entity.BorrowRecord;
 
 import java.util.ArrayList;
@@ -39,6 +41,68 @@ public final class LendSpans {
             }
         }
         return out;
+    }
+
+    /**
+     * 只有「整本书都在外面」时才返回这本书的借出区间，否则返回 null（v5.8.33）。
+     *
+     * <p>两册的书只借走第 2 册时，家里那册照样能读，这段日子不该从阅读时长里扣。
+     * 册数沿用 {@link LibraryStats#copiesOf}（第 1 册是主记录本身，第 2 册起是副本表行数），
+     * 判定按书整体：册号没被借出记录全覆盖就不扣——宁可少扣，
+     * 也不按天重放借出与归还去做精细交集。详情页与统计共用这一个口径。
+     */
+    public static List<int[]> ofIfFullyOut(Book book, List<BookCopy> copies,
+                                           List<BorrowRecord> records) {
+        if (book == null || records == null || records.isEmpty()) {
+            return null;
+        }
+        int today = DateKeys.todayKey();
+        java.util.Set<Integer> covered = new java.util.HashSet<>();
+        List<int[]> spans = new ArrayList<>();
+        for (BorrowRecord r : records) {
+            if (r == null || r.bookId != book.id) {
+                continue;
+            }
+            int[] span = spanOf(r, today);
+            if (span == null) {
+                continue;
+            }
+            spans.add(span);
+            covered.add(Math.max(1, r.copyIndex));
+        }
+        if (spans.isEmpty()) {
+            return null;
+        }
+        int n = LibraryStats.copiesOf(book, copies);
+        for (int i = 1; i <= n; i++) {
+            if (!covered.contains(i)) {
+                return null;    // 还有册留在家里
+            }
+        }
+        return spans;
+    }
+
+    /**
+     * 按书分组，只保留 {@link #ofIfFullyOut} 通过的书（整本都在外面的那些）。
+     * books / copiesByBook 用调用方已经查好的那份，不额外查库。
+     */
+    public static Map<Long, List<int[]>> byBook(List<BorrowRecord> records, List<Book> books,
+                                                Map<Long, List<BookCopy>> copiesByBook) {
+        Map<Long, List<int[]>> map = new HashMap<>();
+        if (records == null || records.isEmpty() || books == null) {
+            return map;
+        }
+        for (Book book : books) {
+            if (book == null) {
+                continue;
+            }
+            List<int[]> spans = ofIfFullyOut(book,
+                    copiesByBook == null ? null : copiesByBook.get(book.id), records);
+            if (spans != null && !spans.isEmpty()) {
+                map.put(book.id, spans);
+            }
+        }
+        return map;
     }
 
     /** 一次遍历把全库借出记录按书分组（调用方建一次，别每本书查库） */

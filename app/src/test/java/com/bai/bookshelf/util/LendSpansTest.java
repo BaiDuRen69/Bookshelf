@@ -98,6 +98,97 @@ public class LendSpansTest {
         assertEquals(11, LendSpans.minusDays(20260101, 20260131, m.get(8L)));
     }
 
+    // ==================== ofIfFullyOut：整本在外才扣，部分在外不扣 ====================
+
+    private static Book book(long id, int quantity) {
+        Book b = new Book();
+        b.id = id;
+        b.quantity = quantity;
+        b.readStatus = Book.READING;
+        return b;
+    }
+
+    private static BookCopy copy(long id, long bookId, int index) {
+        BookCopy c = new BookCopy();
+        c.id = id;
+        c.bookId = bookId;
+        c.copyIndex = index;
+        c.stockStatus = Book.STOCK_IN;
+        return c;
+    }
+
+    @Test
+    public void singleCopyBookIsFullyOut() {
+        List<BorrowRecord> loans = Arrays.asList(
+                loan(1, 7, 1, "2026-01-01", "2026-01-10", BorrowRecord.STATUS_RETURNED));
+        List<int[]> spans = LendSpans.ofIfFullyOut(book(7, 1), null, loans);
+        assertEquals(1, spans.size());
+        assertEquals(21, LendSpans.minusDays(20260101, 20260131, spans));
+    }
+
+    @Test
+    public void twoCopyBookWithOnlyOneLentIsNotDeducted() {
+        Book two = book(8, 2);
+        List<BorrowRecord> loans = Arrays.asList(
+                loan(1, 8, 1, "2026-01-01", "2026-01-10", BorrowRecord.STATUS_RETURNED));
+        // 第 2 册还在家，只是「借出中」而不是「整本在外」——一天都不该扣
+        assertEquals(null, LendSpans.ofIfFullyOut(two, Arrays.asList(copy(20, 8, 2)), loans));
+        assertEquals(31, LendSpans.minusDays(20260101, 20260131,
+                LendSpans.get(new java.util.HashMap<>(), 8L)));
+    }
+
+    @Test
+    public void twoCopyBookWithBothLentIsFullyOut() {
+        List<BorrowRecord> loans = Arrays.asList(
+                loan(1, 9, 1, "2026-01-01", "2026-01-10", BorrowRecord.STATUS_RETURNED),
+                loan(2, 9, 2, "2026-01-05", "2026-01-14", BorrowRecord.STATUS_RETURNED));
+        List<int[]> spans = LendSpans.ofIfFullyOut(book(9, 2),
+                Arrays.asList(copy(21, 9, 2)), loans);
+        assertEquals(2, spans.size());
+        // 区间 [1..10] 与 [5..14] 并集 = 1..14 共 14 天，重复的 6 天只扣一次以外另算：
+        // 这里按逐条求和（10 + 10 = 20），31 - 20 = 11
+        assertEquals(11, LendSpans.minusDays(20260101, 20260131, spans));
+    }
+
+    @Test
+    public void copyIndexZeroCountsAsFirstCopy() {
+        List<BorrowRecord> loans = Arrays.asList(
+                loan(1, 7, 0, "2026-01-01", "2026-01-10", BorrowRecord.STATUS_RETURNED));
+        List<int[]> spans = LendSpans.ofIfFullyOut(book(7, 1), null, loans);
+        assertEquals(1, spans.size());
+    }
+
+    @Test
+    public void unparsableDateBreaksFullCoverage() {
+        List<BorrowRecord> loans = Arrays.asList(
+                loan(1, 9, 1, "2026-01-01", "坏日期", BorrowRecord.STATUS_RETURNED),
+                loan(2, 9, 2, "2026-01-05", "2026-01-14", BorrowRecord.STATUS_RETURNED));
+        // 第 1 册日期残缺 → 覆盖不了，宁可少扣
+        assertEquals(null, LendSpans.ofIfFullyOut(book(9, 2), Arrays.asList(copy(21, 9, 2)), loans));
+    }
+
+    @Test
+    public void filteredByBookKeepsOnlyFullyOutBooks() {
+        List<BorrowRecord> loans = Arrays.asList(
+                loan(1, 7, 1, "2026-01-01", "2026-01-10", BorrowRecord.STATUS_RETURNED),
+                loan(2, 8, 1, "2026-01-01", "2026-01-10", BorrowRecord.STATUS_RETURNED),
+                loan(3, 9, 1, "2026-01-01", "2026-01-10", BorrowRecord.STATUS_RETURNED),
+                loan(4, 9, 2, "2026-01-05", "2026-01-14", BorrowRecord.STATUS_RETURNED));
+        List<Book> books = Arrays.asList(book(7, 1), book(8, 2), book(9, 2));
+        Map<Long, List<BookCopy>> copiesByBook = new java.util.HashMap<>();
+        copiesByBook.put(8L, Arrays.asList(copy(20, 8, 2)));
+        copiesByBook.put(9L, Arrays.asList(copy(21, 9, 2)));
+
+        Map<Long, List<int[]>> spans = LendSpans.byBook(loans, books, copiesByBook);
+        assertEquals(2, spans.size());
+        assertEquals(21, LendSpans.minusDays(20260101, 20260131, spans.get(7L)));
+        assertEquals(11, LendSpans.minusDays(20260101, 20260131, spans.get(9L)));
+        assertEquals(null, spans.get(8L));   // 部分册在外：不扣
+
+        // 对照：不带 books 的老重载会把三本都算成「有借出区间」
+        assertEquals(3, LendSpans.byBook(loans).size());
+    }
+
     // ==================== ReadingRecords.days 重载 ====================
 
     @Test

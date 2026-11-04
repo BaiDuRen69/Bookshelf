@@ -24,21 +24,24 @@ public final class DetailRecordLists {
     }
 
     public static void bindReading(Activity activity, ActivityBookDetailBinding b, Book book) {
-        bindReading(activity, b, book, null);
+        bindReading(activity, b, book, null, null);
     }
 
     /**
      * @param loans 该书当前的借出记录（详情页已查过，直接递进来）；
      *              给了就把每场阅读天数里「书在外面」的日子扣掉，并在行尾标一句扣了几天（v5.8.33）
+     * @param copies 该书的副本行，用来判断是不是「整本都在外面」；只借走一册时不扣
      */
     public static void bindReading(Activity activity, ActivityBookDetailBinding b, Book book,
-                                   java.util.List<com.bai.bookshelf.data.entity.BorrowRecord> loans) {
+                                   java.util.List<com.bai.bookshelf.data.entity.BorrowRecord> loans,
+                                   java.util.List<com.bai.bookshelf.data.entity.BookCopy> copies) {
         java.util.List<ReadingRecords.Record> records = ReadingRecords.load(book);
         b.containerReadingRecordsDetail.removeAllViews();
         b.cardReadingRecords.setVisibility(records.isEmpty()
                 ? android.view.View.GONE : android.view.View.VISIBLE);
-        java.util.List<int[]> spans = loans == null
-                ? null : com.bai.bookshelf.util.LendSpans.of(loans, book.id);
+        // 与统计同口径：只有整本书都借出去了才扣，只借走一册时家里那册照样能读
+        java.util.List<int[]> spans = com.bai.bookshelf.util.LendSpans
+                .ofIfFullyOut(book, copies, loans);
         for (ReadingRecords.Record r : records) {
             addRow(activity, b.containerReadingRecordsDetail, readingLine(r, spans));
         }
