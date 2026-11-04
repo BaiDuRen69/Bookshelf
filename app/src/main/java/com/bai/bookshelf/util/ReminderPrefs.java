@@ -18,6 +18,8 @@ public final class ReminderPrefs {
     public static final String KEY_BADGE_OVERDUE = "badge_overdue";
     public static final String KEY_BANNER_BACKUP_STALE = "banner_backup_stale";
     public static final String KEY_WIDGET_ENABLED = "widget_enabled";
+    /** v5.8.33：详情页到期/逾期横条的开关（本轮唯一新增键） */
+    public static final String KEY_BANNER_BORROW_DUE = "banner_borrow_due";
 
     private ReminderPrefs() {
     }
@@ -53,5 +55,9 @@ public final class ReminderPrefs {
 
     public static boolean widgetEnabled(Context ctx) {
         return isOn(ctx, KEY_WIDGET_ENABLED);
+    }
+
+    public static boolean bannerBorrowDue(Context ctx) {
+        return isOn(ctx, KEY_BANNER_BORROW_DUE);
     }
 }

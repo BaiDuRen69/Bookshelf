@@ -934,7 +934,7 @@
 
                             <ImageView
                                 style="@style/MineRowIcon"
-                                android:contentDescription="提醒与角标"
+                                android:contentDescription="通知与提醒"
                                 android:src="@drawable/ic_sync_line" />
 
                             <LinearLayout
@@ -946,12 +946,12 @@
 
                                 <TextView
                                     style="@style/MineRowTitle"
-                                    android:text="提醒与角标" />
+                                    android:text="通知与提醒" />
 
                                 <TextView
                                     android:id="@+id/tv_reminder_settings_state"
                                     style="@style/MineRowSubtitle"
-                                    android:text="到期通知、逾期角标、小组件刷新" />
+                                    android:text="到期通知、角标、提示条、小组件与更新提醒" />
                             </LinearLayout>
 
                             <ImageView style="@style/MineRowChevron" />

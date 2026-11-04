@@ -25,8 +25,16 @@ public final class BorrowDueBanner {
     private BorrowDueBanner() {
     }
 
+    /**
+     * v5.8.33：「详情页到期条」可以在「通知与提醒」里关掉。
+     * 只影响这条横屏的显示，不动借阅记录、到期日与任何数据。
+     */
     public static void bind(Activity activity, TextView view, Book book,
                             BorrowRecord open, Runnable reload) {
+        if (!com.bai.bookshelf.util.ReminderPrefs.bannerBorrowDue(activity)) {
+            view.setVisibility(android.view.View.GONE);
+            return;
+        }
         view.setVisibility(android.view.View.VISIBLE);
         int due = BorrowReminder.parseKey(open.dueDate);
         int today = BorrowReminder.todayKey();
