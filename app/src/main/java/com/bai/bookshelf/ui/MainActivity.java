@@ -19,6 +19,7 @@ import com.bai.bookshelf.ui.mine.MineFragment;
 import com.bai.bookshelf.ui.shelf.ShelfFragment;
 import com.bai.bookshelf.ui.stats.StatsFragment;
 import com.bai.bookshelf.util.InsetsHelper;
+import com.bai.bookshelf.util.SplashExit;
 import com.bai.bookshelf.util.ThemeManager;
 
 /**
@@ -61,7 +62,8 @@ public class MainActivity extends BaseActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         // v5.8.7：冷启动一镜到底 —— 字标淡出、内容淡入（compat 库，24+ 统一行为）
-        installSplashExit();
+        // v5.8.32：退场实现收到 util/SplashExit，31+ 交给系统，避开 1.0.1 的 getter NPE
+        SplashExit.install(this);
         super.onCreate(savedInstanceState);
         // v5.8.28：把可能被 splash 退场流程覆盖掉的用户主题抢回来。
         // core-splashscreen 会把主题重设为 postSplashScreenTheme，切主题走 recreate()
@@ -341,23 +343,6 @@ public class MainActivity extends BaseActivity {
         badge.setText(count > 99 ? "99+" : String.valueOf(count));
         badge.setContentDescription(count + " 条待处理");
         badge.setVisibility(android.view.View.VISIBLE);
-    }
-
-    /** Splash 退场：字标淡出放大，主内容随后淡入 */
-    private void installSplashExit() {
-        androidx.core.splashscreen.SplashScreen splash =
-                androidx.core.splashscreen.SplashScreen.installSplashScreen(this);
-        splash.setOnExitAnimationListener(provider -> {
-            android.view.View icon = provider.getIconView();
-            if (icon != null) {
-                icon.animate().alpha(0f).scaleX(1.08f).scaleY(1.08f)
-                        .setDuration(180)
-                        .withEndAction(provider::remove)
-                        .start();
-            } else {
-                provider.remove();
-            }
-        });
     }
 
     /**
