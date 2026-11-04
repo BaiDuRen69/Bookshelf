@@ -1,5 +1,22 @@
 package com.bai.bookshelf.ui.stats;
 
+import static com.bai.bookshelf.ui.stats.StatsInsight.stocktakeLine;
+import static com.bai.bookshelf.ui.stats.StatsInsight.lendInsight;
+import static com.bai.bookshelf.ui.stats.StatsInsight.habitText;
+import static com.bai.bookshelf.ui.stats.StatsInsight.ratingLine;
+import static com.bai.bookshelf.ui.stats.StatsInsight.anomalyLine;
+import static com.bai.bookshelf.ui.stats.StatsInsight.lendingAnomalyTail;
+import static com.bai.bookshelf.ui.stats.StatsInsight.holdingsLine;
+import static com.bai.bookshelf.ui.stats.StatsInsight.spendLine;
+import static com.bai.bookshelf.ui.stats.StatsInsight.costLine;
+import static com.bai.bookshelf.ui.stats.StatsInsight.speedLine;
+import static com.bai.bookshelf.ui.stats.StatsInsight.debtLine;
+import static com.bai.bookshelf.ui.stats.StatsInsight.lendLine;
+import static com.bai.bookshelf.ui.stats.StatsInsight.healthLine;
+import static com.bai.bookshelf.ui.stats.StatsInsight.lenderLine;
+import static com.bai.bookshelf.ui.stats.StatsInsight.booksInsight;
+import static com.bai.bookshelf.ui.stats.StatsInsight.readingInsight;
+import static com.bai.bookshelf.ui.stats.StatsInsight.purchaseInsight;
 import com.bai.bookshelf.util.Money;
 import com.bai.bookshelf.util.DateKeys;
 import android.content.Intent;
@@ -746,7 +763,7 @@ public class StatsFragment extends Fragment {
             this.topAuthors = topN(authorCount, 8);
             this.topPublishers = topN(publisherCount, 8);
             this.topCountries = topN(countryCount, 8);
-            this.openLoans = buildOpenLoans(books, loanRecords, todayKey);
+            this.openLoans = OpenLoan.build(books, loanRecords, todayKey);
 
             app.ui(() -> {
                 if (b == null) {
@@ -989,7 +1006,7 @@ public class StatsFragment extends Fragment {
             }
             line.append(" · ").append(loan.borrower);
             if (loan.dueKey > 0) {
-                line.append(" · 应还 ").append(formatKey(loan.dueKey));
+                line.append(" · 应还 ").append(OpenLoan.monthDay(loan.dueKey));
                 int overdue = com.bai.bookshelf.util.DateKeys.daysBetween(
                         loan.dueKey, today);
                 if (overdue > 0) {
@@ -1010,16 +1027,12 @@ public class StatsFragment extends Fragment {
         b.tvOpenLoansHint.setText("点一行可收回；逾期按应还日期和今天比较");
     }
 
-    private static String formatKey(int yyyyMMdd) {
-        return (yyyyMMdd / 100 % 100) + "月" + (yyyyMMdd % 100) + "日";
-    }
-
     /** 收回一本：关闭借阅记录 + 把书/副本状态改回在库（与详情页同一套规则） */
     private void confirmReturn(final OpenLoan loan) {
         new com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
                 .setTitle("收回《" + loan.title + "》？")
                 .setMessage("借阅人：" + loan.borrower
-                        + (loan.dueKey > 0 ? "\n应还日期：" + formatKey(loan.dueKey) : "")
+                        + (loan.dueKey > 0 ? "\n应还日期：" + OpenLoan.monthDay(loan.dueKey) : "")
                         + "\n\n收回后会记下归还日期，并把这一册改回在库。")
                 .setNegativeButton("取消", null)
                 .setPositiveButton("收回", (d, w) -> doReturn(loan))
@@ -1075,46 +1088,6 @@ public class StatsFragment extends Fragment {
     }
 
     /** 在借清单的一行：借阅记录 + 书 + 应还日键 */
-    private static class OpenLoan {
-        final com.bai.bookshelf.data.entity.BorrowRecord record;
-        final Book book;
-        final String title;
-        final String borrower;
-        final int dueKey;
-
-        OpenLoan(com.bai.bookshelf.data.entity.BorrowRecord r, Book book) {
-            this.record = r;
-            this.book = book;
-            this.title = book == null || book.title.isEmpty() ? "（未命名）" : book.title;
-            this.borrower = r.borrower == null || r.borrower.isEmpty() ? "未填借阅人" : r.borrower;
-            this.dueKey = com.bai.bookshelf.util.DateKeys.parseKey(r.dueDate);
-        }
-    }
-
-    private static java.util.List<OpenLoan> buildOpenLoans(List<Book> books,
-                                                           java.util.List<com.bai.bookshelf.data.entity.BorrowRecord> records,
-                                                           int todayKey) {
-        java.util.Map<Long, Book> byId = new java.util.HashMap<>();
-        for (Book bk : books) {
-            byId.put(bk.id, bk);
-        }
-        java.util.List<OpenLoan> out = new ArrayList<>();
-        for (com.bai.bookshelf.data.entity.BorrowRecord r : records) {
-            if (r.status == com.bai.bookshelf.data.entity.BorrowRecord.STATUS_OUT) {
-                out.add(new OpenLoan(r, byId.get(r.bookId)));
-            }
-        }
-        // 逾期的排最前，其余按应还日期
-        out.sort((a, b) -> {
-            boolean ao = a.dueKey > 0 && a.dueKey < todayKey;
-            boolean bo = b.dueKey > 0 && b.dueKey < todayKey;
-            if (ao != bo) {
-                return ao ? -1 : 1;
-            }
-            return Integer.compare(a.dueKey, b.dueKey);
-        });
-        return out;
-    }
 
     /** 画分类树状图：一级总览，或某个一级分类下的二级 */
     private void renderTreemap() {
@@ -1234,38 +1207,8 @@ public class StatsFragment extends Fragment {
     }
 
     /** 盘点：在架 / 在外 / 遗失（藏书栏；借出结构已移到借阅栏） */
-    private static String stocktakeLine(com.bai.bookshelf.util.StatsHoldings.Holdings h) {
-        StringBuilder sb = new StringBuilder("盘点：在架 ").append(h.copiesInStore()).append(" 册 · 在外 ")
-                .append(h.copiesLent).append(" · 遗失 ").append(h.copiesLost);
-        if (h.lossRate() > 0) {
-            sb.append("（损耗 ").append(Math.round(h.lossRate() * 100)).append("%）");
-        }
-        return sb.toString();
-    }
 
     /** 借阅栏洞察（v5.8.1 第 4 栏）：在途与按时归还、借得最多的人、借出结构 */
-    private static String lendInsight(com.bai.bookshelf.util.StatsLend.Lend l,
-                                      java.util.List<com.bai.bookshelf.util.StatsLend.Lender> lenders,
-                                      java.util.List<com.bai.bookshelf.util.StatsHoldings.Group> lends,
-                                      com.bai.bookshelf.util.StatsHealth.BorrowOrphans orphans) {
-        StringBuilder sb = new StringBuilder(lendLine(l));
-        if (orphans != null && !orphans.isEmpty()) {
-            sb.append('\n').append(orphans.line());
-        }
-        if (lenders != null && !lenders.isEmpty()) {
-            sb.append('\n').append(lenderLine(lenders.get(0)));
-        }
-        if (lends != null && !lends.isEmpty()) {
-            com.bai.bookshelf.util.StatsHoldings.Group top = lends.get(0);
-            sb.append('\n').append("借出最多的是「").append(top.name).append("」（")
-                    .append(top.titles).append(" 笔");
-            if (top.readDone > 0) {
-                sb.append(" · 其中读完 ").append(top.readDone);
-            }
-            sb.append("）");
-        }
-        return sb.toString();
-    }
 
     /** 逐月花费柱状图 + 外推与移动平均（复用统计页已有的柱状图组件） */
     private void renderTrend(com.bai.bookshelf.util.StatsSpend.Trend t) {
@@ -1308,111 +1251,12 @@ public class StatsFragment extends Fragment {
     }
 
     /** 阅读习惯卡：连续天数、最勤的月份与星期、买读比、该处理的书 */
-    private static String habitText(com.bai.bookshelf.util.StatsPace.Habit h,
-                                    com.bai.bookshelf.util.StatsPace.Stale s,
-                                    com.bai.bookshelf.util.StatsPace.BuyRead b) {
-        StringBuilder sb = new StringBuilder("今年读过 ").append(h.daysReadThisYear).append(" 天");
-        if (h.longestStreak > 0) {
-            sb.append(" · 最长连续 ").append(h.longestStreak).append(" 天");
-        }
-        if (h.currentStreak > 0) {
-            sb.append(" · 当前连着 ").append(h.currentStreak).append(" 天");
-        }
-        sb.append('\n').append("（按阅读记录的起止区间推算，在读且没填结束日期的书算每天在读）");
-        if (h.bestMonth > 0) {
-            sb.append('\n').append("最勤的是 ").append(h.bestMonth).append(" 月（")
-                    .append(h.bestMonthDays).append(" 天）");
-            if (h.bestWeekdayName != null) {
-                sb.append(" · 一周里 ").append(h.bestWeekdayName).append(" 读得最多");
-            }
-        }
-        sb.append('\n').append("买读比 ").append(b.ratioText());
-        if (b.hoardIndex >= 0) {
-            sb.append(" · 囤书指数 ").append(Math.round(b.hoardIndex * 100))
-                    .append("%（未读 / 在架）");
-        }
-        if (s.readingOver90 > 0 || s.boughtUnreadCount > 0) {
-            sb.append('\n').append("在读超 90 天 ").append(s.readingOver90)
-                    .append(" 种 · 买来一年没读 ").append(s.boughtUnreadCount).append(" 种");
-            StringBuilder names = new StringBuilder();
-            for (String[] row : s.boughtUnread) {
-                if (names.length() > 0) {
-                    names.append("、");
-                }
-                names.append('《').append(row[0]).append('》').append(row[1]).append(" 天");
-            }
-            if (names.length() > 0) {
-                sb.append("：").append(names);
-            }
-        }
-        return sb.toString();
-    }
 
     /** 评分与未评比例（藏书栏） */
-    private static String ratingLine(com.bai.bookshelf.util.StatsHealth.Rating r) {
-        StringBuilder sb = new StringBuilder();
-        if (r.average > 0) {
-            sb.append("平均评分 ")
-                    .append(String.format(Locale.getDefault(), "%.1f", r.average))
-                    .append("（").append(r.rated).append(" 种已打分）");
-            if (r.bestCategory != null) {
-                sb.append("，最偏爱「").append(r.bestCategory).append("」");
-            }
-            sb.append(" · 还有 ").append(Math.round(r.unratedRate() * 100)).append("% 没打分");
-        } else {
-            sb.append("还没开始打分（").append(r.total).append(" 种都没评分）");
-        }
-        return sb.toString();
-    }
 
     /** 数据体检：重复/负价/未来日期这类记录问题（藏书栏） */
-    private static String anomalyLine(com.bai.bookshelf.util.StatsHealth.Anomalies a,
-                                      java.util.List<String> readingOutNames,
-                                      int lendDateUnparsable) {
-        // v5.8.33：借阅相关的两项单独算，凑不齐全 0 才算「没发现异常」
-        int extra = (readingOutNames == null ? 0 : readingOutNames.size())
-                + lendDateUnparsable;
-        if (a.total() == 0 && extra == 0) {
-            return "数据体检：没发现重复或异常记录";
-        }
-        if (a.total() == 0) {
-            return "数据体检 " + extra + " 处要看看" + lendingAnomalyTail(
-                    readingOutNames, lendDateUnparsable);
-        }
-        return "数据体检 " + a.total() + " 处要看看：重复 ISBN "
-                + a.duplicateIsbn.size() + "、同名 " + a.duplicateTitle.size()
-                + "、负价 " + a.negativePrice + "、未来日期 "
-                + a.futureDate + "、价格离群 " + a.overpriced
-                + "、页数异常 " + a.oddPages
-                // v5.8.31：旧单会话模型把「弃读→再读→读完」压成一条，时长会跨掉弃读空窗
-                + (a.longReadWithDrop == 0 ? ""
-                : "、阅读时长超 " + com.bai.bookshelf.util.StatsHealth.LONG_READ_DAYS
-                + " 天且中途有弃读 " + a.longReadWithDrop + " 本")
-                + lendingAnomalyTail(readingOutNames, lendDateUnparsable);
-    }
 
     /** 体检里借阅那两项：只列清单与说明，不给自动修复（改了等于改借阅数据） */
-    private static String lendingAnomalyTail(java.util.List<String> readingOutNames,
-                                             int lendDateUnparsable) {
-        StringBuilder sb = new StringBuilder();
-        int n = readingOutNames == null ? 0 : readingOutNames.size();
-        if (n > 0) {
-            sb.append("、在读但全部册在外 ").append(n).append(" 本（这些天不算阅读时长）");
-            StringBuilder names = new StringBuilder();
-            for (String name : readingOutNames) {
-                if (names.length() > 0) {
-                    names.append("、");
-                }
-                names.append('《').append(name).append('》');
-            }
-            sb.append("：").append(names);
-        }
-        if (lendDateUnparsable > 0) {
-            sb.append("、借出/归还日期残缺 ").append(lendDateUnparsable)
-                    .append(" 条（借出区间算不出来，这段没扣）");
-        }
-        return sb.toString();
-    }
 
     /**
      * 洞察卡文案（v5.8）：一行一个结论，都带口径与样本数。
@@ -1420,108 +1264,8 @@ public class StatsFragment extends Fragment {
      * <p>算不出来的行写「数据不足」并说明原因，绝不显示 0 或 NaN——
      * 对个人藏书来说，「只有 6 笔归还记录」本身就是有用的信息。
      */
-    private static String holdingsLine(com.bai.bookshelf.util.StatsHoldings.Holdings h) {
-        StringBuilder sb = new StringBuilder("藏书 ");
-        sb.append(com.bai.bookshelf.util.Units.holdings(h.titles, h.copies));
-        sb.append("；已读 ").append(h.readDone).append(" 种");
-        if (h.readRate() >= 0) {
-            sb.append("（").append(Math.round(h.readRate() * 100)).append("%）");
-        }
-        return sb.toString();
-    }
 
-    private static String spendLine(com.bai.bookshelf.util.StatsSpend.Spend s) {
-        StringBuilder sb = new StringBuilder("累计花费 ").append(Money.compact(s.paid))
-                .append("（全部自购，不看购买日期），定价合计 ").append(Money.compact(s.listValue));
-        if (s.discount >= 0) {
-            sb.append("，平均 ").append(s.discountText()).append("，累计省下 ").append(Money.compact(s.saved));
-        } else {
-            sb.append("，折扣数据不足（仅 ").append(s.discountSample).append(" 种同时有定价与实付）");
-        }
-        return sb.toString();
-    }
 
-    private static String costLine(com.bai.bookshelf.util.StatsSpend.Spend s) {
-        StringBuilder sb = new StringBuilder();
-        if (s.perPage >= 0 || s.per10kWords >= 0) {
-            sb.append("单位成本：");
-            if (s.perPage >= 0) {
-                sb.append("每页 ").append(Money.compact(s.perPage));
-            }
-            if (s.perPage >= 0 && s.per10kWords >= 0) {
-                sb.append(" · ");
-            }
-            if (s.per10kWords >= 0) {
-                sb.append("每一万字 ").append(Money.compact(s.per10kWords));
-            }
-            sb.append("（按册，样本 ").append(Math.max(s.pageSample, s.wordSample)).append(" 种）");
-        } else {
-            sb.append("单位成本数据不足（每页 ").append(s.pageSample)
-                    .append(" 种 / 每万字 ").append(s.wordSample).append(" 种）");
-        }
-        return sb.toString();
-    }
-
-    private static String speedLine(com.bai.bookshelf.util.StatsPace.Pace p) {
-        if (p.medianDays <= 0) {
-            return "阅读速度数据不足（没有起止日期都齐全的书）";
-        }
-        StringBuilder sb = new StringBuilder("阅读速度：中位读完 ")
-                .append(Math.round(p.medianDays)).append(" 天");
-        if (p.medianPagesPerDay > 0) {
-            sb.append("，").append(Math.round(p.medianPagesPerDay)).append(" 页/天");
-        }
-        sb.append("（样本 ").append(p.daySample).append(" 种）");
-        return sb.toString();
-    }
-
-    private static String debtLine(com.bai.bookshelf.util.StatsPace.Pace p) {
-        StringBuilder sb = new StringBuilder("书债：未读 ")
-                .append(com.bai.bookshelf.util.Units.holdings(p.unreadTitles, p.unreadCopies));
-        sb.append("，约 ").append(p.unreadPages).append(" 页、实付 ").append(Money.compact(p.unreadPaid));
-        if (p.monthsToClear >= 0) {
-            sb.append("，按当前速度约 ").append(Math.max(1, Math.round(p.monthsToClear))).append(" 个月清完");
-        } else if (p.unknownReason != null) {
-            sb.append("；清完时间算不出：").append(p.unknownReason);
-        }
-        return sb.toString();
-    }
-
-    private static String lendLine(com.bai.bookshelf.util.StatsLend.Lend l) {
-        StringBuilder sb = new StringBuilder("借阅：在外 ").append(l.out).append(" 笔");
-        if (l.overdue > 0) {
-            sb.append("，").append(l.overdue).append(" 笔已超期");
-        }
-        sb.append("；按时归还率 ")
-                .append(l.onTimeRate >= 0 ? Math.round(l.onTimeRate * 100) + "%" : "数据不足")
-                .append("（样本 ").append(l.onTimeSample).append(" 笔）");
-        return sb.toString();
-    }
-
-    private static String healthLine(com.bai.bookshelf.util.StatsHealth.Health g) {
-        if (g.score < 0) {
-            return "书房健康分数据不足";
-        }
-        StringBuilder sb = new StringBuilder("书房健康分 ").append(g.score).append("/100");
-        if (g.weakest != null) {
-            sb.append("，最该补的是").append(g.weakest)
-                    .append("（").append(g.weakestMissing).append(" 种缺）");
-        }
-        return sb.toString();
-    }
-
-    private static String lenderLine(com.bai.bookshelf.util.StatsLend.Lender top) {
-        StringBuilder sb = new StringBuilder("借得最多的是 ").append(top.name)
-                .append("（").append(top.loans).append(" 笔");
-        if (top.outNow > 0) {
-            sb.append(" · 还在他手上 ").append(top.outNow).append(" 册");
-        }
-        if (top.overdue > 0) {
-            sb.append(" · ").append(top.overdue).append(" 笔超期");
-        }
-        sb.append("）");
-        return sb.toString();
-    }
 
     /**
      * 藏书栏洞察：规模、健康、评分、体检、借阅与盘点。
@@ -1529,23 +1273,6 @@ public class StatsFragment extends Fragment {
      * <p>v5.8.1 起洞察卡按分栏拆开——以前三个分栏显示的是同一段十几行，
      * 在「阅读」栏里读花费、在「购书」栏里读健康分，翻来翻去全是重复。
      */
-    private static String booksInsight(com.bai.bookshelf.util.StatsHoldings.Holdings h,
-                                       com.bai.bookshelf.util.StatsHealth.Health g,
-                                       com.bai.bookshelf.util.StatsHealth.Rating r,
-                                       com.bai.bookshelf.util.StatsHealth.Anomalies a,
-                                       java.util.List<String> readingOutNames,
-                                       int lendDateUnparsable) {
-        StringBuilder sb = new StringBuilder(holdingsLine(h)).append('\n');
-        sb.append(healthLine(g)).append('\n');
-        sb.append(ratingLine(r)).append('\n');
-        sb.append(anomalyLine(a, readingOutNames, lendDateUnparsable));
-        if (h.copiesLost > 0) {
-            sb.append('\n').append("损耗：遗失 ").append(h.copiesLost).append(" 册、")
-                    .append(Money.compact(h.lostValue));
-        }
-        sb.append('\n').append(stocktakeLine(h));
-        return sb.toString();
-    }
 
     /** 借阅人榜（第 4 栏）：借出笔数、还在手上的册数、超期笔数 */
     private void renderBorrowers(
@@ -1575,28 +1302,8 @@ public class StatsFragment extends Fragment {
     }
 
     /** 阅读栏洞察：速度、书债、在读剩余页数与摘抄覆盖（习惯卡单独成卡，这里不重复） */
-    private static String readingInsight(com.bai.bookshelf.util.StatsPace.Pace p,
-                                         com.bai.bookshelf.util.StatsPace.Backlog backlog,
-                                         com.bai.bookshelf.util.StatsHealth.NoteStat n,
-                                         com.bai.bookshelf.util.StatsPace.DropRecovery drops) {
-        return speedLine(p) + "\n" + debtLine(p) + "\n" + backlog.line()
-                + "\n" + drops.line() + "\n" + n.line();
-    }
 
     /** 购书栏洞察：花费、单位成本、同比环比、价格相关性与想读转化 */
-    private static String purchaseInsight(com.bai.bookshelf.util.StatsSpend.Spend s,
-                                          com.bai.bookshelf.util.StatsSpend.Relation r,
-                                          java.util.List<com.bai.bookshelf.util.StatsSpend.PeriodDelta> periods,
-                                          com.bai.bookshelf.util.StatsHealth.WishStat w) {
-        StringBuilder sb = new StringBuilder(spendLine(s)).append('\n');
-        sb.append(costLine(s)).append('\n');
-        for (com.bai.bookshelf.util.StatsSpend.PeriodDelta p : periods) {
-            sb.append(p.line()).append('\n');
-        }
-        sb.append(r.line()).append('\n');
-        sb.append(w.line());
-        return sb.toString();
-    }
 
     /**
      * 金额自适应精度：每页成本这类几分钱一位的数，用 0 位小数会被抹成「¥0」，
