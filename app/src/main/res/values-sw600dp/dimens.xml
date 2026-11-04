@@ -6,6 +6,5 @@
     <dimen name="content_max_width">720dp</dimen>
     <dimen name="space_lg">20dp</dimen>
     <dimen name="space_xl">24dp</dimen>
-    <dimen name="tab_label_size">12sp</dimen>
     <dimen name="toolbar_h">56dp</dimen>
 </resources>

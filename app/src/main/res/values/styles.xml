@@ -407,11 +407,6 @@
         <item name="android:letterSpacing">0.04</item>
     </style>
 
-    <!-- 底部导航小字号（配合低高度导航栏） -->
-    <style name="BottomNavText">
-        <item name="android:textSize">@dimen/tab_label_size</item>
-    </style>
-
     <!-- 底部面板窗口动画（v4.27）：只做淡入淡出，不位移、不缩放 -->
     <style name="Animation.Bookshelf.Sheet" parent="@android:style/Animation.Dialog">
         <item name="android:windowEnterAnimation">@anim/sheet_fade_in</item>

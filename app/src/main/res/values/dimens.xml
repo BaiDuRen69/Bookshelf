@@ -60,7 +60,6 @@
     <!-- 内容最大宽度：手机端不限制（9999dp），sw600dp 起收窄，避免大屏行长过长 -->
     <dimen name="content_max_width">9999dp</dimen>
     <dimen name="card_corner">16dp</dimen>
-    <dimen name="tab_label_size">11sp</dimen>
     <!-- 工具栏：紧凑高度（v4.17 压缩上下留白） -->
     <dimen name="toolbar_h">48dp</dimen>
     <dimen name="text_title_toolbar">16sp</dimen>
