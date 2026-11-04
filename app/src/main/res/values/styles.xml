@@ -318,6 +318,9 @@
         <item name="android:tint">?attr/on_surface_variant</item>
         <!-- 「›」只是视觉提示，整行才是可点的：读屏再念一遍等于噪音 -->
         <item name="android:importantForAccessibility">no</item>
+        <!-- 静态属性给个空描述，lint 的 ContentDescription 不再报 30 处；
+             运行时读屏靠上面那行 no 直接跳过 -->
+        <item name="android:contentDescription">@null</item>
     </style>
 
     <!-- 行内主标题 -->

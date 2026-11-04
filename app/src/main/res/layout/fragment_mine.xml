@@ -99,6 +99,7 @@
 
                             <ImageView
                                 android:id="@+id/iv_task_backup"
+                                android:contentDescription="@null"
                                 android:layout_width="18dp"
                                 android:layout_height="18dp"
                                 android:src="@drawable/ic_check_line"
@@ -124,6 +125,7 @@
 
                             <ImageView
                                 android:id="@+id/iv_task_folder"
+                                android:contentDescription="@null"
                                 android:layout_width="18dp"
                                 android:layout_height="18dp"
                                 android:src="@drawable/ic_check_line"
@@ -160,6 +162,7 @@
 
                             <ImageView
                                 android:id="@+id/iv_task_goal"
+                                android:contentDescription="@null"
                                 android:layout_width="18dp"
                                 android:layout_height="18dp"
                                 android:src="@drawable/ic_check_line"
@@ -185,6 +188,7 @@
 
                             <ImageView
                                 android:id="@+id/iv_task_info"
+                                android:contentDescription="@null"
                                 android:layout_width="18dp"
                                 android:layout_height="18dp"
                                 android:src="@drawable/ic_check_line"
