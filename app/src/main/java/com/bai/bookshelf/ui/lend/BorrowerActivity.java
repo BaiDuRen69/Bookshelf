@@ -1,5 +1,6 @@
 package com.bai.bookshelf.ui.lend;
 
+import com.bai.bookshelf.util.DateKeys;
 import android.content.Intent;
 import android.os.Bundle;
 import android.text.InputType;
@@ -99,7 +100,7 @@ public class BorrowerActivity extends BaseActivity {
             final List<Borrower> fPeople = people;
             final List<BorrowRecord> fRecords = records;
             final Map<String, StatsLend.Lender> byName = new HashMap<>();
-            for (StatsLend.Lender lender : StatsLend.lenders(records, BorrowReminder.todayKey())) {
+            for (StatsLend.Lender lender : StatsLend.lenders(records, DateKeys.todayKey())) {
                 byName.put(lender.name, lender);
             }
             final Map<Long, Book> fBooks = new HashMap<>();
@@ -187,12 +188,12 @@ public class BorrowerActivity extends BaseActivity {
             Book book = booksById.get(record.bookId);
             String title = book == null ? "（书已删除）"
                     : "《" + BookText.bareTitle(book.title) + "》";
-            int due = BorrowReminder.parseKey(record.dueDate);
+            int due = DateKeys.parseKey(record.dueDate);
             String tail;
             if (due == 0) {
                 tail = "未约定应还";
-            } else if (due < BorrowReminder.todayKey()) {
-                tail = "逾期 " + BorrowReminder.daysBetween(due, BorrowReminder.todayKey()) + " 天";
+            } else if (due < DateKeys.todayKey()) {
+                tail = "逾期 " + DateKeys.daysBetween(due, DateKeys.todayKey()) + " 天";
             } else {
                 tail = "应还 " + record.dueDate;
             }
@@ -203,15 +204,15 @@ public class BorrowerActivity extends BaseActivity {
                 .setItems(lines, null)
                 .setPositiveButton("发借阅条", (d, w) -> {
                     List<DetailShare.Slip> slips = new ArrayList<>();
-                    int today = BorrowReminder.todayKey();
+                    int today = DateKeys.todayKey();
                     for (BorrowRecord record : row.open) {
                         Book book = booksById.get(record.bookId);
                         if (book == null) {
                             continue;
                         }
-                        int due = BorrowReminder.parseKey(record.dueDate);
+                        int due = DateKeys.parseKey(record.dueDate);
                         int overdue = due > 0 && due < today
-                                ? BorrowReminder.daysBetween(due, today) : 0;
+                                ? DateKeys.daysBetween(due, today) : 0;
                         slips.add(new DetailShare.Slip(book, record, overdue));
                     }
                     slips.sort((x, y) -> y.overdueDays - x.overdueDays);

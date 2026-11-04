@@ -1,5 +1,6 @@
 package com.bai.bookshelf.ui.shelf;
 
+import com.bai.bookshelf.util.DateKeys;
 import androidx.appcompat.app.AlertDialog;
 import android.content.Intent;
 import android.os.Bundle;
@@ -866,7 +867,7 @@ public class ShelfFragment extends Fragment {
         }
         if (smartBar != null) {
             boolean smartAny = smartBar.update(allBooks, loans.map(),
-                    com.bai.bookshelf.util.BorrowReminder.todayKey());
+                    com.bai.bookshelf.util.DateKeys.todayKey());
             b.tvSmartToggle.setVisibility(smartAny ? View.VISIBLE : View.GONE);
             if (!smartAny) {
                 smartBar.setExpanded(false);
@@ -925,7 +926,7 @@ public class ShelfFragment extends Fragment {
         final List<Book> fSnapshot = new ArrayList<>(allBooks);
         final Map<Long, String> fIndex = searchIndex;
         final Map<Long, com.bai.bookshelf.data.entity.BorrowRecord> fLoans = loans.map();
-        final int fToday = com.bai.bookshelf.util.BorrowReminder.todayKey();
+        final int fToday = com.bai.bookshelf.util.DateKeys.todayKey();
         final int fSmart = smartShelf;
         final int fActive = activeFilterCount(stockFilter, readFilter, locFilter, tagFilter,
                 catFilter, countryFilter);

@@ -1,5 +1,7 @@
 package com.bai.bookshelf.ui.detail;
 
+import com.bai.bookshelf.util.Money;
+import com.bai.bookshelf.util.DateKeys;
 import android.view.View;
 
 import com.bai.bookshelf.data.entity.Book;
@@ -33,7 +35,7 @@ public final class DetailInfoBlocks {
         }
         add(info, "字数", book.wordCount);
         if (book.listPrice > 0) {
-            add(info, "定价", money(book.listPrice));
+            add(info, "定价", Money.fixed(book.listPrice));
         }
         if (multi) {
             add(info, book.ownType == Book.OWN_BORROW ? "借阅数量" : "拥有数量",
@@ -104,13 +106,10 @@ public final class DetailInfoBlocks {
         }
         if (!book.readingFinishDate.isEmpty()) {
             String finish = book.readingFinishDate;
-            int startKey = com.bai.bookshelf.util.BorrowReminder
-                    .parseKey(book.readingStartDate);
-            int finishKey = com.bai.bookshelf.util.BorrowReminder
-                    .parseKey(book.readingFinishDate);
+            int startKey = DateKeys.parseKey(book.readingStartDate);
+            int finishKey = DateKeys.parseKey(book.readingFinishDate);
             if (startKey > 0 && finishKey >= startKey) {
-                finish += "（" + com.bai.bookshelf.util.BorrowReminder
-                        .daysBetween(startKey, finishKey) + " 天）";
+                finish += "（" + DateKeys.daysBetween(startKey, finishKey) + " 天）";
             }
             add(manage, book.readStatus == Book.READ_DROPPED ? "弃读日期" : "读完日期", finish);
         }
@@ -129,13 +128,12 @@ public final class DetailInfoBlocks {
             }
             if (book.borrowDueDate != null && !book.borrowDueDate.trim().isEmpty()) {
                 String due = book.borrowDueDate.trim();
-                int dueKey = com.bai.bookshelf.util.BorrowReminder.parseKey(due);
+                int dueKey = com.bai.bookshelf.util.DateKeys.parseKey(due);
                 if (dueKey > 0) {
                     if (borrowReturned) {
                         due += "（已归还）";
                     } else {
-                        int left = com.bai.bookshelf.util.BorrowReminder
-                                .daysBetween(com.bai.bookshelf.util.DateKeys.todayKey(), dueKey);
+                        int left = DateKeys.daysBetween(com.bai.bookshelf.util.DateKeys.todayKey(), dueKey);
                         if (left > 0) {
                             due += "（还剩 " + left + " 天）";
                         } else if (left == 0) {
@@ -155,7 +153,7 @@ public final class DetailInfoBlocks {
         if (book.ownType == Book.OWN_BUY) {
             add(manage, "购买日期", book.purchaseDate);
             if (book.purchasePrice > 0) {
-                String paid = money(book.purchasePrice);
+                String paid = Money.fixed(book.purchasePrice);
                 if (book.listPrice > 0) {
                     paid += String.format(Locale.getDefault(), "（%.2f折）",
                             book.purchasePrice / book.listPrice * 10);
@@ -169,10 +167,6 @@ public final class DetailInfoBlocks {
 
     private static void add(List<String[]> items, String label, String value) {
         InfoCell.add(items, label, value);
-    }
-
-    private static String money(double value) {
-        return "¥" + String.format(Locale.getDefault(), "%.2f", value);
     }
 
     /** 印次存储格式 yyyy-mm|N：能解析出 N 时展示「第 N 次印刷」，否则原样显示 */

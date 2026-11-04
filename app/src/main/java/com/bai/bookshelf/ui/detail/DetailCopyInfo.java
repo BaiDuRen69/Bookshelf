@@ -1,5 +1,6 @@
 package com.bai.bookshelf.ui.detail;
 
+import com.bai.bookshelf.util.DateKeys;
 import com.bai.bookshelf.data.entity.Book;
 import com.bai.bookshelf.data.entity.BookCopy;
 import com.bai.bookshelf.data.entity.BorrowRecord;
@@ -102,10 +103,10 @@ public final class DetailCopyInfo {
         if (open != null) {
             line.append("｜借给 ").append(open.borrower)
                     .append("（").append(open.lendDate).append("）");
-            int due = BorrowReminder.parseKey(open.dueDate);
+            int due = DateKeys.parseKey(open.dueDate);
             if (due > 0) {
                 line.append("｜应还 ").append(open.dueDate);
-                if (due < BorrowReminder.todayKey()) {
+                if (due < DateKeys.todayKey()) {
                     line.append("（逾期）");
                 }
             }

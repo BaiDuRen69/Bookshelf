@@ -1,5 +1,6 @@
 package com.bai.bookshelf.ui.series;
 
+import com.bai.bookshelf.util.Money;
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
@@ -25,7 +26,6 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 
 /**
  * 系列详情（v4.53）：一个系列内的全部藏书，按阅读顺序 / 卷号排好。
@@ -124,10 +124,10 @@ public class SeriesActivity extends BaseActivity {
                 meta.append(" · 在读 ").append(reading);
             }
             if (paid > 0) {
-                meta.append(" · 实付 ¥").append(money(paid));
+                meta.append(" · 实付 ¥").append(Money.plain(paid));
             }
             if (listPrice > 0) {
-                meta.append(" · 定价 ¥").append(money(listPrice));
+                meta.append(" · 定价 ¥").append(Money.plain(listPrice));
             }
         }
         b.tvSeriesMeta.setText(meta);
@@ -169,7 +169,7 @@ public class SeriesActivity extends BaseActivity {
         appendPart(meta, book.author);
         appendPart(meta, book.publisher);
         if (book.purchasePrice > 0) {
-            appendPart(meta, "¥" + money(book.purchasePrice));
+            appendPart(meta, "¥" + Money.plain(book.purchasePrice));
         }
         row.tvSeriesMeta.setText(meta);
         row.tvSeriesMeta.setVisibility(meta.length() == 0 ? View.GONE : View.VISIBLE);
@@ -282,10 +282,4 @@ public class SeriesActivity extends BaseActivity {
         sb.append(value.trim());
     }
 
-    private static String money(double value) {
-        if (value == Math.floor(value) && !Double.isInfinite(value)) {
-            return String.valueOf((long) value);
-        }
-        return String.format(Locale.getDefault(), "%.2f", value);
-    }
 }

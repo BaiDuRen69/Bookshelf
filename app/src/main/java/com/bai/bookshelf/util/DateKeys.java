@@ -139,6 +139,11 @@ public final class DateKeys {
         return (int) Math.round(diff / 86400000.0) + 1;
     }
 
+    /** 两个日键之间的天数（不含结束日）；与含首尾口径差 1 天 */
+    public static int daysBetween(int fromKey, int toKey) {
+        return daysBetweenInclusive(fromKey, toKey) - 1;
+    }
+
     /**
      * 日期区间预设（日历面板）：0=本月，1=近 3 个月（含本月），2=今年，其他=去年。
      * 返回 {起始日键, 结束日键}。

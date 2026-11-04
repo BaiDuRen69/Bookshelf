@@ -170,7 +170,7 @@ public final class LendSpans {
         if (startKey <= 0 || endKey <= 0 || endKey < startKey) {
             return 0;
         }
-        int total = BorrowReminder.daysBetween(startKey, endKey) + 1;
+        int total = DateKeys.daysBetween(startKey, endKey) + 1;
         if (spans == null || spans.isEmpty()) {
             return Math.max(0, total);
         }
@@ -184,7 +184,7 @@ public final class LendSpans {
             if (to < from) {
                 continue;
             }
-            cut += BorrowReminder.daysBetween(from, to) + 1;
+            cut += DateKeys.daysBetween(from, to) + 1;
         }
         return Math.max(0, total - cut);
     }

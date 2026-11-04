@@ -1,5 +1,6 @@
 package com.bai.bookshelf.ui.detail;
 
+import com.bai.bookshelf.util.DateKeys;
 import android.app.Activity;
 import android.content.ClipData;
 import android.content.ClipboardManager;
@@ -36,20 +37,20 @@ public final class BorrowDueBanner {
             return;
         }
         view.setVisibility(android.view.View.VISIBLE);
-        int due = BorrowReminder.parseKey(open.dueDate);
-        int today = BorrowReminder.todayKey();
+        int due = DateKeys.parseKey(open.dueDate);
+        int today = DateKeys.todayKey();
         boolean overdue = due > 0 && due < today;
         String text;
         if (due == 0) {
             text = "借出中 · 未设置应还日期（点按设置）";
         } else if (overdue) {
-            text = "已逾期 " + BorrowReminder.daysBetween(due, today)
+            text = "已逾期 " + DateKeys.daysBetween(due, today)
                     + " 天 · 应还 " + open.dueDate + " · 点按复制催还文案";
         } else if (due == today) {
             text = "今天到期 · 点按复制催还文案";
         } else {
             text = "应还 " + open.dueDate + " · 还有 "
-                    + BorrowReminder.daysBetween(today, due)
+                    + DateKeys.daysBetween(today, due)
                     + " 天 · 点按复制催还文案";
         }
         view.setText(text);
@@ -65,7 +66,7 @@ public final class BorrowDueBanner {
         });
         view.setOnLongClickListener(v -> {
             showActions(activity, view, book, open,
-                    overdue ? BorrowReminder.daysBetween(due, today) : 0, reload);
+                    overdue ? DateKeys.daysBetween(due, today) : 0, reload);
             return true;
         });
     }
@@ -100,10 +101,10 @@ public final class BorrowDueBanner {
     }
 
     private static void showDuePicker(Activity activity, BorrowRecord open, Runnable reload) {
-        int key = BorrowReminder.parseKey(open.dueDate);
+        int key = DateKeys.parseKey(open.dueDate);
         CalendarPicker.showSingle(activity, "应还日期", key,
                 picked -> {
-                    open.dueDate = BorrowReminder.formatKey(picked);
+                    open.dueDate = DateKeys.formatKey(picked);
                     saveDueDate(activity, open, reload);
                 },
                 () -> {

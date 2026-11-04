@@ -1,5 +1,6 @@
 package com.bai.bookshelf.ui.shelf;
 
+import com.bai.bookshelf.util.DateKeys;
 import android.app.Activity;
 import android.content.Intent;
 
@@ -85,14 +86,14 @@ public final class ShelfBatchActions {
         }
         BookshelfApp app = BookshelfApp.get();
         app.io(() -> {
-            int today = com.bai.bookshelf.util.BorrowReminder.todayKey();
+            int today = com.bai.bookshelf.util.DateKeys.todayKey();
             final List<com.bai.bookshelf.ui.detail.DetailShare.Slip> slips = new ArrayList<>();
             for (Book book : chosen) {
                 for (com.bai.bookshelf.data.entity.BorrowRecord record
                         : app.db().borrowRecordDao().findOpenListByBook(book.id)) {
-                    int due = com.bai.bookshelf.util.BorrowReminder.parseKey(record.dueDate);
+                    int due = com.bai.bookshelf.util.DateKeys.parseKey(record.dueDate);
                     int overdue = due > 0 && due < today
-                            ? com.bai.bookshelf.util.BorrowReminder.daysBetween(due, today) : 0;
+                            ? com.bai.bookshelf.util.DateKeys.daysBetween(due, today) : 0;
                     slips.add(new com.bai.bookshelf.ui.detail.DetailShare.Slip(book, record, overdue));
                 }
             }
@@ -288,9 +289,9 @@ public final class ShelfBatchActions {
         row.setPadding(pad, pad, pad, pad);
         row.setOnClickListener(v -> com.bai.bookshelf.ui.widget.CalendarPicker.showSingle(
                 activity, "应还日期",
-                com.bai.bookshelf.util.BorrowReminder.parseKey(due[0]),
+                com.bai.bookshelf.util.DateKeys.parseKey(due[0]),
                 key -> {
-                    due[0] = com.bai.bookshelf.util.BorrowReminder.formatKey(key);
+                    due[0] = com.bai.bookshelf.util.DateKeys.formatKey(key);
                     row.setText("应还日期：" + due[0] + "（点按修改）");
                 },
                 () -> {
@@ -311,7 +312,7 @@ public final class ShelfBatchActions {
     private String defaultDueDate() {
         java.util.Calendar c = java.util.Calendar.getInstance();
         c.add(java.util.Calendar.DAY_OF_MONTH, 30);
-        return com.bai.bookshelf.util.BorrowReminder.formatKey(
+        return com.bai.bookshelf.util.DateKeys.formatKey(
                 c.get(java.util.Calendar.YEAR) * 10000
                         + (c.get(java.util.Calendar.MONTH) + 1) * 100
                         + c.get(java.util.Calendar.DAY_OF_MONTH));

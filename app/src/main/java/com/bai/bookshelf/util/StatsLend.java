@@ -73,11 +73,11 @@ public final class StatsLend {
                 if (due > 0 && due < todayKey) {
                     l.overdue++;
                     if (lend > 0) {
-                        overdueDays.add((double) BorrowReminder.daysBetween(due, todayKey));
+                        overdueDays.add((double) DateKeys.daysBetween(due, todayKey));
                     }
                 }
                 if (lend > 0) {
-                    outDays.add((double) BorrowReminder.daysBetween(lend, todayKey) + 1);
+                    outDays.add((double) DateKeys.daysBetween(lend, todayKey) + 1);
                 }
             }
         }

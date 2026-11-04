@@ -1,5 +1,7 @@
 package com.bai.bookshelf.ui.stats;
 
+import com.bai.bookshelf.util.Money;
+import com.bai.bookshelf.util.DateKeys;
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.LayoutInflater;
@@ -560,16 +562,13 @@ public class StatsFragment extends Fragment {
                 // 弃读的结束日期不算「读完」，也不计入年度阅读天数
                 if (book.readStatus != Book.READ_DROPPED
                         && !book.readingFinishDate.isEmpty()) {
-                    int finishKey = com.bai.bookshelf.util.BorrowReminder
-                            .parseKey(book.readingFinishDate);
+                    int finishKey = DateKeys.parseKey(book.readingFinishDate);
                     if (finishKey / 10000 == currentYear) {
                         finishedThisYear++;
                     }
-                    int startKey = com.bai.bookshelf.util.BorrowReminder
-                            .parseKey(book.readingStartDate);
+                    int startKey = DateKeys.parseKey(book.readingStartDate);
                     if (startKey > 0 && finishKey >= startKey) {
-                        readDaysSum += com.bai.bookshelf.util.BorrowReminder
-                                .daysBetween(startKey, finishKey) + 1;
+                        readDaysSum += DateKeys.daysBetween(startKey, finishKey) + 1;
                         readDaysCount++;
                     }
                 }
@@ -991,7 +990,7 @@ public class StatsFragment extends Fragment {
             line.append(" · ").append(loan.borrower);
             if (loan.dueKey > 0) {
                 line.append(" · 应还 ").append(formatKey(loan.dueKey));
-                int overdue = com.bai.bookshelf.util.BorrowReminder.daysBetween(
+                int overdue = com.bai.bookshelf.util.DateKeys.daysBetween(
                         loan.dueKey, today);
                 if (overdue > 0) {
                     line.append("（逾期 ").append(overdue).append(" 天）");
@@ -1211,8 +1210,8 @@ public class StatsFragment extends Fragment {
             if (shown++ >= 5) {
                 break;
             }
-            addRow(b.llCost, g.name + " · 每页 " + money(g.perPage())
-                    + "（" + g.titles + " 种 · 花费 " + money(g.paid) + "）", 13, false);
+            addRow(b.llCost, g.name + " · 每页 " + Money.compact(g.perPage())
+                    + "（" + g.titles + " 种 · 花费 " + Money.compact(g.paid) + "）", 13, false);
         }
     }
 
@@ -1276,11 +1275,11 @@ public class StatsFragment extends Fragment {
         }
         b.chartTrend.setUnit("元");
         b.chartTrend.setData(t.months, values);
-        StringBuilder sb = new StringBuilder("今年已花 ").append(money(t.yearSpent))
+        StringBuilder sb = new StringBuilder("今年已花 ").append(Money.compact(t.yearSpent))
                 .append(" · 买入 ").append(t.yearBought).append(" 种\n")
                 .append(t.projectedText());
         if (t.monthsElapsed >= 3) {
-            sb.append('\n').append("近三个月月均 ").append(money(t.threeMonthAvg));
+            sb.append('\n').append("近三个月月均 ").append(Money.compact(t.threeMonthAvg));
         }
         b.tvTrend.setText(sb);
     }
@@ -1300,7 +1299,7 @@ public class StatsFragment extends Fragment {
             }
             int missing = com.bai.bookshelf.util.StatsHoldings.missingVolumes(books, g.name);
             addRow(b.llSeries, g.name + " · " + g.titles + " 种 · 已读 " + g.readDone
-                    + (g.paid > 0 ? " · 花费 " + money(g.paid) : "")
+                    + (g.paid > 0 ? " · 花费 " + Money.compact(g.paid) : "")
                     + (missing > 0 ? " · 疑似缺 " + missing + " 卷" : ""), 13, false);
         }
         b.tvSeriesHint.setText(shown == 0
@@ -1432,10 +1431,10 @@ public class StatsFragment extends Fragment {
     }
 
     private static String spendLine(com.bai.bookshelf.util.StatsSpend.Spend s) {
-        StringBuilder sb = new StringBuilder("累计花费 ").append(money(s.paid))
-                .append("（全部自购，不看购买日期），定价合计 ").append(money(s.listValue));
+        StringBuilder sb = new StringBuilder("累计花费 ").append(Money.compact(s.paid))
+                .append("（全部自购，不看购买日期），定价合计 ").append(Money.compact(s.listValue));
         if (s.discount >= 0) {
-            sb.append("，平均 ").append(s.discountText()).append("，累计省下 ").append(money(s.saved));
+            sb.append("，平均 ").append(s.discountText()).append("，累计省下 ").append(Money.compact(s.saved));
         } else {
             sb.append("，折扣数据不足（仅 ").append(s.discountSample).append(" 种同时有定价与实付）");
         }
@@ -1447,13 +1446,13 @@ public class StatsFragment extends Fragment {
         if (s.perPage >= 0 || s.per10kWords >= 0) {
             sb.append("单位成本：");
             if (s.perPage >= 0) {
-                sb.append("每页 ").append(money(s.perPage));
+                sb.append("每页 ").append(Money.compact(s.perPage));
             }
             if (s.perPage >= 0 && s.per10kWords >= 0) {
                 sb.append(" · ");
             }
             if (s.per10kWords >= 0) {
-                sb.append("每一万字 ").append(money(s.per10kWords));
+                sb.append("每一万字 ").append(Money.compact(s.per10kWords));
             }
             sb.append("（按册，样本 ").append(Math.max(s.pageSample, s.wordSample)).append(" 种）");
         } else {
@@ -1479,7 +1478,7 @@ public class StatsFragment extends Fragment {
     private static String debtLine(com.bai.bookshelf.util.StatsPace.Pace p) {
         StringBuilder sb = new StringBuilder("书债：未读 ")
                 .append(com.bai.bookshelf.util.Units.holdings(p.unreadTitles, p.unreadCopies));
-        sb.append("，约 ").append(p.unreadPages).append(" 页、实付 ").append(money(p.unreadPaid));
+        sb.append("，约 ").append(p.unreadPages).append(" 页、实付 ").append(Money.compact(p.unreadPaid));
         if (p.monthsToClear >= 0) {
             sb.append("，按当前速度约 ").append(Math.max(1, Math.round(p.monthsToClear))).append(" 个月清完");
         } else if (p.unknownReason != null) {
@@ -1542,7 +1541,7 @@ public class StatsFragment extends Fragment {
         sb.append(anomalyLine(a, readingOutNames, lendDateUnparsable));
         if (h.copiesLost > 0) {
             sb.append('\n').append("损耗：遗失 ").append(h.copiesLost).append(" 册、")
-                    .append(money(h.lostValue));
+                    .append(Money.compact(h.lostValue));
         }
         sb.append('\n').append(stocktakeLine(h));
         return sb.toString();
@@ -1584,7 +1583,6 @@ public class StatsFragment extends Fragment {
                 + "\n" + drops.line() + "\n" + n.line();
     }
 
-
     /** 购书栏洞察：花费、单位成本、同比环比、价格相关性与想读转化 */
     private static String purchaseInsight(com.bai.bookshelf.util.StatsSpend.Spend s,
                                           com.bai.bookshelf.util.StatsSpend.Relation r,
@@ -1604,10 +1602,6 @@ public class StatsFragment extends Fragment {
      * 金额自适应精度：每页成本这类几分钱一位的数，用 0 位小数会被抹成「¥0」，
      * 读起来像「这书不要钱」。小额给两位，大额给整数。
      */
-    private static String money(double v) {
-        return v < 10 ? String.format(Locale.getDefault(), "¥%.2f", v)
-                : String.format(Locale.getDefault(), "¥%.0f", v);
-    }
 
     /** hero 封面拼贴：最近 4 本书的封面扇形叠放（v4.31） */
     private void bindCoverFan(List<Book> recent) {

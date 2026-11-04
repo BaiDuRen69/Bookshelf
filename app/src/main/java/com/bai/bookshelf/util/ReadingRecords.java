@@ -403,7 +403,7 @@ public final class ReadingRecords {
             }
         }
         if (spans == null || spans.isEmpty()) {
-            return Math.max(0, BorrowReminder.daysBetween(start, end) + 1);
+            return Math.max(0, DateKeys.daysBetween(start, end) + 1);
         }
         return LendSpans.minusDays(start, end, spans);
     }

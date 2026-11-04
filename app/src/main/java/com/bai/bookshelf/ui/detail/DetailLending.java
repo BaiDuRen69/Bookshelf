@@ -1,5 +1,6 @@
 package com.bai.bookshelf.ui.detail;
 
+import com.bai.bookshelf.util.DateKeys;
 import android.net.Uri;
 import android.widget.ImageView;
 import android.widget.Toast;
@@ -273,9 +274,9 @@ public class DetailLending {
                 : "应还日期：" + dueDate[0]);
         refreshDue.run();
         db.tvDueDate.setOnClickListener(v -> com.bai.bookshelf.ui.widget.CalendarPicker.showSingle(
-                activity, "应还日期", com.bai.bookshelf.util.BorrowReminder.parseKey(dueDate[0]),
+                activity, "应还日期", com.bai.bookshelf.util.DateKeys.parseKey(dueDate[0]),
                 key -> {
-                    dueDate[0] = com.bai.bookshelf.util.BorrowReminder.formatKey(key);
+                    dueDate[0] = com.bai.bookshelf.util.DateKeys.formatKey(key);
                     refreshDue.run();
                 },
                 () -> {
@@ -297,7 +298,7 @@ public class DetailLending {
     private String defaultDueDate() {
         java.util.Calendar c = java.util.Calendar.getInstance();
         c.add(java.util.Calendar.DAY_OF_MONTH, 30);
-        return com.bai.bookshelf.util.BorrowReminder.formatKey(
+        return com.bai.bookshelf.util.DateKeys.formatKey(
                 c.get(java.util.Calendar.YEAR) * 10000
                         + (c.get(java.util.Calendar.MONTH) + 1) * 100
                         + c.get(java.util.Calendar.DAY_OF_MONTH));

@@ -224,7 +224,7 @@ public final class NextPick {
         if (key <= 0 || key > todayKey) {
             return 0;
         }
-        return BorrowReminder.daysBetween(key, todayKey);
+        return DateKeys.daysBetween(key, todayKey);
     }
 
     private static double parseDouban(String value) {

@@ -158,7 +158,7 @@ public final class StatsPace {
             }
             List<int[]> spans = lendSpans == null ? null : lendSpans.get(book.id);
             double d = spans == null || spans.isEmpty()
-                    ? BorrowReminder.daysBetween(startKey, finishKey) + 1
+                    ? DateKeys.daysBetween(startKey, finishKey) + 1
                     : LendSpans.minusDays(startKey, finishKey, spans);
             if (d <= 0) {
                 continue; // 整段阅读时间都借在外面：没有可算的本地阅读天数
@@ -480,7 +480,7 @@ public final class StatsPace {
             }
             int start = DateKeys.parseKey(book.readingStartDate);
             if (book.readStatus == Book.READING && start > 0) {
-                int days = BorrowReminder.daysBetween(start, todayKey);
+                int days = DateKeys.daysBetween(start, todayKey);
                 if (days > 30) {
                     s.readingOver30++;
                 }
@@ -497,7 +497,7 @@ public final class StatsPace {
                 s.boughtUnreadCount++;
                 if (s.boughtUnread.size() < limit) {
                     s.boughtUnread.add(new String[]{book.title,
-                            String.valueOf(BorrowReminder.daysBetween(buy, todayKey))});
+                            String.valueOf(DateKeys.daysBetween(buy, todayKey))});
                 }
             }
         }

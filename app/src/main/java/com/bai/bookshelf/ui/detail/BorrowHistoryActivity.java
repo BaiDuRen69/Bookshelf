@@ -1,5 +1,6 @@
 package com.bai.bookshelf.ui.detail;
 
+import com.bai.bookshelf.util.DateKeys;
 import com.bai.bookshelf.util.Typo;
 import android.os.Bundle;
 import android.text.util.Linkify;
@@ -187,12 +188,11 @@ public class BorrowHistoryActivity extends BaseActivity {
             sb.append(" · 归还：").append(r.returnDate.isEmpty() ? "未填" : r.returnDate);
         } else {
             sb.append(" · 借出中");
-            int due = com.bai.bookshelf.util.BorrowReminder.parseKey(r.dueDate);
+            int due = com.bai.bookshelf.util.DateKeys.parseKey(r.dueDate);
             if (due > 0) {
                 sb.append(" · 应还 ").append(r.dueDate);
-                if (due < com.bai.bookshelf.util.BorrowReminder.todayKey()) {
-                    sb.append("（逾期 ").append(com.bai.bookshelf.util.BorrowReminder
-                            .daysBetween(due, com.bai.bookshelf.util.BorrowReminder.todayKey()))
+                if (due < com.bai.bookshelf.util.DateKeys.todayKey()) {
+                    sb.append("（逾期 ").append(DateKeys.daysBetween(due, com.bai.bookshelf.util.DateKeys.todayKey()))
                             .append(" 天）");
                 }
             }

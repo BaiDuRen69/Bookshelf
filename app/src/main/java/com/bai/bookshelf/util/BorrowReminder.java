@@ -19,7 +19,6 @@ import com.bai.bookshelf.ui.MainActivity;
 
 import java.util.Calendar;
 import java.util.List;
-import java.util.Locale;
 
 /**
  * 借阅到期提醒（v4.42）。
@@ -95,14 +94,14 @@ public final class BorrowReminder {
 
     /** @return {今天到期数, 逾期数} */
     public static int[] countDue(List<BorrowRecord> open) {
-        int today = todayKey();
+        int today = DateKeys.todayKey();
         int dueToday = 0;
         int overdue = 0;
         if (open == null) {
             return new int[]{0, 0};
         }
         for (BorrowRecord r : open) {
-            int key = parseKey(r.dueDate);
+            int key = DateKeys.parseKey(r.dueDate);
             if (key == 0) {
                 continue;
             }
@@ -117,14 +116,14 @@ public final class BorrowReminder {
 
     /** 来源为借阅、尚未归还的书：{今天到期数, 逾期数} */
     public static int[] countBorrowedInDue(List<Book> books) {
-        int today = todayKey();
+        int today = DateKeys.todayKey();
         int dueToday = 0;
         int overdue = 0;
         if (books == null) {
             return new int[]{0, 0};
         }
         for (Book book : books) {
-            int key = parseKey(book.borrowDueDate);
+            int key = DateKeys.parseKey(book.borrowDueDate);
             if (key == 0) {
                 continue;
             }
@@ -274,42 +273,16 @@ public final class BorrowReminder {
         String title = com.bai.bookshelf.util.BookText.bareTitle(book == null ? "" : book.title);
         StringBuilder sb = new StringBuilder();
         sb.append("《").append(title).append("》");
-        int due = parseKey(record.dueDate);
-        int today = todayKey();
+        int due = DateKeys.parseKey(record.dueDate);
+        int today = DateKeys.todayKey();
         if (due > 0 && due < today) {
-            sb.append("已经逾期 ").append(daysBetween(due, today)).append(" 天");
+            sb.append("已经逾期 ").append(DateKeys.daysBetween(due, today)).append(" 天");
         } else if (due == today) {
             sb.append("今天到期");
         } else if (due > 0) {
-            sb.append("还有 ").append(daysBetween(today, due)).append(" 天到期");
+            sb.append("还有 ").append(DateKeys.daysBetween(today, due)).append(" 天到期");
         }
         sb.append("，看完方便还给我吗？谢谢！");
         return sb.toString();
-    }
-
-    // ==================== 日期工具（yyyyMMdd 整数键） ====================
-
-    public static int todayKey() {
-        Calendar c = Calendar.getInstance();
-        return c.get(Calendar.YEAR) * 10000 + (c.get(Calendar.MONTH) + 1) * 100
-                + c.get(Calendar.DAY_OF_MONTH);
-    }
-
-    /** "yyyy-MM-dd" → yyyyMMdd；解析失败返回 0 */
-    public static int parseKey(String date) {
-        return DateKeys.parseKey(date);
-    }
-
-    public static String formatKey(int key) {
-        return String.format(Locale.ROOT, "%04d-%02d-%02d",
-                key / 10000, key / 100 % 100, key % 100);
-    }
-
-    public static int daysBetween(int fromKey, int toKey) {
-        Calendar a = Calendar.getInstance();
-        a.set(fromKey / 10000, fromKey / 100 % 100 - 1, fromKey % 100, 0, 0, 0);
-        Calendar b = Calendar.getInstance();
-        b.set(toKey / 10000, toKey / 100 % 100 - 1, toKey % 100, 0, 0, 0);
-        return (int) Math.round((b.getTimeInMillis() - a.getTimeInMillis()) / 86400000.0);
     }
 }

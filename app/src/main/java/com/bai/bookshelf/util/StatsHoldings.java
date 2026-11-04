@@ -487,7 +487,7 @@ public final class StatsHoldings {
             if (finish <= 0 || finish < buy) {
                 continue;
             }
-            int gap = BorrowReminder.daysBetween(buy, finish);
+            int gap = DateKeys.daysBetween(buy, finish);
             c.finished++;
             List<Double> list = gaps.get(year);
             if (list == null) {
