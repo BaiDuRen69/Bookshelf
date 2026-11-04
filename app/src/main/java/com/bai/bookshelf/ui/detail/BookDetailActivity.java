@@ -50,14 +50,12 @@ public class BookDetailActivity extends BaseActivity {
     public static final String EXTRA_BOOK = "book";
 
     private ActivityBookDetailBinding b;
+    private DetailHero hero;
     private Book book;
     private String locationName = "未设置地点";
     /** 已加载的封面标识（url|书名）：reload 重绘时封面没变就不重复请求 Glide */
     private String loadedCoverKey = "";
     /** v5.8.14：封面主色（0 = 还在后台取），按 地址|书名|主题 失效 */
-    private int coverAccent;
-    private String accentKey = "";
-    private boolean accentLoading;
     /** v5.8.15：共享元素转场期间不做视差，否则封面会被拽离转场路径 */
     private boolean transitionRunning;
     private int heroFadeRange = -1;
@@ -90,6 +88,7 @@ public class BookDetailActivity extends BaseActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         b = ActivityBookDetailBinding.inflate(getLayoutInflater());
+        hero = new DetailHero(this, b);
         setContentView(b.getRoot());
         setupSharedElementTransition();
         b.scrollDetail.setOnScrollChangeListener(
@@ -311,13 +310,13 @@ public class BookDetailActivity extends BaseActivity {
                     times++;
                 }
             }
-            String day = mdLabel(done == null ? book.readingFinishDate : done.endDate);
+            String day = DetailHero.mdLabel(done == null ? book.readingFinishDate : done.endDate);
             text = day.isEmpty() ? "已读完 · 第 " + times + " 次"
                     : day + "读完 · 第 " + times + " 次";
         } else if (status == Book.READ_DROPPED) {
             ReadingRecords.Record last = records.isEmpty()
                     ? null : ReadingRecords.lastOf(records);
-            String day = mdLabel(last == null ? "" : last.endDate);
+            String day = DetailHero.mdLabel(last == null ? "" : last.endDate);
             text = day.isEmpty() ? "读了一半就放下了"
                     : "停在 " + p + "% · " + day + "弃读";
         } else {
@@ -330,15 +329,10 @@ public class BookDetailActivity extends BaseActivity {
         b.pbReadingProgress.setVisibility(reading && p > 0 ? View.VISIBLE : View.GONE);
         b.pbReadingProgress.setProgress(p);
         b.pbReadingProgress.setProgressTintList(ColorStateList.valueOf(
-                coverAccent != 0 ? coverAccent
+                hero.accentColor() != 0 ? hero.accentColor()
                         : ThemeManager.resolveColor(this, ThemeManager.ATTR_COLOR_PRIMARY)));
     }
 
-    /** yyyy-MM-dd → 「M月d日」；缺日期返回空串让上层决定怎么措辞 */
-    private static String mdLabel(String date) {
-        int key = com.bai.bookshelf.util.DateKeys.parseKey(date);
-        return key <= 0 ? "" : (key / 100 % 100) + "月" + (key % 100) + "日";
-    }
 
     /** v5.8.31：底栏状态主按钮的文案 + 弃读按钮只在「在读」时出现 */
     private void bindReadAction() {
@@ -376,19 +370,19 @@ public class BookDetailActivity extends BaseActivity {
         }
         switch (status) {
             case Book.READING:
-                applyFlow(null, b -> com.bai.bookshelf.util.ReadingFlow.finish(b, today()),
+                applyFlow(null, b -> com.bai.bookshelf.util.ReadingFlow.finish(b, DetailHero.today()),
                         "已标记为「已读」");
                 break;
             case Book.READ_DROPPED:
             case Book.READ_DONE:
                 applyFlow("这本书已经在读了",
-                        b -> com.bai.bookshelf.util.ReadingFlow.restart(b, today()),
+                        b -> com.bai.bookshelf.util.ReadingFlow.restart(b, DetailHero.today()),
                         status == Book.READ_DONE ? "已开始重读，这是新一轮" : "重新开始阅读");
                 break;
             case Book.READ_NONE:
             default:
                 applyFlow("这本书已经在读了",
-                        b -> com.bai.bookshelf.util.ReadingFlow.start(b, today()),
+                        b -> com.bai.bookshelf.util.ReadingFlow.start(b, DetailHero.today()),
                         "已开始阅读");
                 break;
         }
@@ -396,7 +390,7 @@ public class BookDetailActivity extends BaseActivity {
 
     /** v5.8.31：弃读——保留停在百分之几，不写「读完日期」 */
     private void onReadDrop() {
-        applyFlow(null, b -> com.bai.bookshelf.util.ReadingFlow.drop(b, today()),
+        applyFlow(null, b -> com.bai.bookshelf.util.ReadingFlow.drop(b, DetailHero.today()),
                 "已标记为「弃读」");
     }
 
@@ -448,60 +442,8 @@ public class BookDetailActivity extends BaseActivity {
         });
     }
 
-    private static String today() {
-        return com.bai.bookshelf.util.DateKeys.formatKey(
-                com.bai.bookshelf.util.DateKeys.todayKey());
-    }
 
-    /** 封面主色 → hero 晕染 + 底部细线 + 阅读进度条；取色在后台，失败按主题色 */
-    private void bindCoverAccent() {
-        final String key = book.coverUrl + "|" + book.title + "|"
-                + ThemeManager.current(this);
-        int cached = com.bai.bookshelf.util.CoverColor.cached(this, book);
-        if (cached != 0) {
-            coverAccent = cached;
-            accentKey = key;
-        } else if (!key.equals(accentKey)) {
-            coverAccent = 0;
-            accentKey = key;
-        }
-        applyCoverAccent();
-        if (coverAccent != 0 || accentLoading) {
-            return;
-        }
-        accentLoading = true;
-        final Book target = book;
-        final String wanted = key;
-        BookshelfApp.get().io(() -> {
-            int color = com.bai.bookshelf.util.CoverColor.of(this, target);
-            runOnUiThread(() -> {
-                accentLoading = false;
-                if (book != null && wanted.equals(book.coverUrl + "|" + book.title + "|"
-                        + ThemeManager.current(this))) {
-                    coverAccent = color;
-                    applyCoverAccent();
-                }
-            });
-        });
-    }
 
-    private void applyCoverAccent() {
-        boolean night = ThemeManager.current(this) == ThemeManager.THEME_NIGHT;
-        int base = ThemeManager.resolveColor(this, R.attr.primary_container);
-        int scrim = coverAccent == 0 ? base
-                : androidx.core.graphics.ColorUtils.blendARGB(
-                        base, coverAccent, night ? 0.30f : 0.22f);
-        b.vHeroScrim.setBackgroundColor(
-                androidx.core.graphics.ColorUtils.setAlphaComponent(scrim, 217));
-        b.vHeroLine.setBackgroundColor(coverAccent == 0
-                ? ThemeManager.resolveColor(this, ThemeManager.ATTR_COLOR_SECONDARY)
-                : androidx.core.graphics.ColorUtils.setAlphaComponent(coverAccent, 180));
-        if (b.pbReadingProgress.getVisibility() == View.VISIBLE) {
-            b.pbReadingProgress.setProgressTintList(ColorStateList.valueOf(
-                    coverAccent != 0 ? coverAccent
-                            : ThemeManager.resolveColor(this, ThemeManager.ATTR_COLOR_PRIMARY)));
-        }
-    }
 
     /**
      * 滚动效果（v5.8.15）：hero 封面与模糊底按 0.9 倍速跟手（内容走 1、封面走 0.9），
@@ -745,28 +687,28 @@ public class BookDetailActivity extends BaseActivity {
 
         // hero：作者/译者/国家 + 状态 chips（书名与大信息量交给下面的两列信息块）
         List<String> authors = new ArrayList<>();
-        addIfNotEmpty(authors, book.author);
-        addIfNotEmpty(authors, book.translator);
-        addIfNotEmpty(authors, book.country);
-        String authorLine = joinWithDot(authors);
+        DetailHero.addIfNotEmpty(authors, book.author);
+        DetailHero.addIfNotEmpty(authors, book.translator);
+        DetailHero.addIfNotEmpty(authors, book.country);
+        String authorLine = DetailHero.joinWithDot(authors);
         b.tvHeroAuthor.setText(authorLine);
         b.tvHeroAuthor.setVisibility(authorLine.isEmpty() ? View.GONE : View.VISIBLE);
         // v5.7：来源借阅且已归还 → 藏书状态显示「电子书签」，来源 chip 隐藏
         boolean sourceReturned = isSourceReturned();
         if (sourceReturned) {
-            bindHeroChip(b.tvHeroStock, StatusText.stock(Book.STOCK_BOOKMARK), false);
+            hero.bindChip(b.tvHeroStock, StatusText.stock(Book.STOCK_BOOKMARK), false);
             b.tvHeroOwn.setVisibility(View.GONE);
         } else {
-            bindHeroChip(b.tvHeroStock, StatusText.stock(book.stockStatus),
+            hero.bindChip(b.tvHeroStock, StatusText.stock(book.stockStatus),
                     book.stockStatus == Book.STOCK_LENT);
-            bindHeroChip(b.tvHeroOwn, StatusText.own(book.ownType), false);
+            hero.bindChip(b.tvHeroOwn, StatusText.own(book.ownType), false);
         }
-        bindHeroChip(b.tvHeroRead, StatusText.read(book.readStatus), false);
+        hero.bindChip(b.tvHeroRead, StatusText.read(book.readStatus), false);
         // v5.7：平均评分（多次阅读记录的评分均值，0.5 步进）
         double avgRating = ReadingRecords.averageRating(ReadingRecords.load(book));
         b.tvHeroRating.setVisibility(avgRating > 0 ? View.VISIBLE : View.GONE);
         if (avgRating > 0) {
-            bindHeroChip(b.tvHeroRating,
+            hero.bindChip(b.tvHeroRating,
                     "★ " + ReadingRecords.formatRating(avgRating), false);
         }
 
@@ -781,7 +723,7 @@ public class BookDetailActivity extends BaseActivity {
             // v4.30：hero 用封面做模糊底；v5.8.14 遮罩再叠一点封面主色
             com.bai.bookshelf.util.CoverLoader.loadBlurred(b.ivHeroBg, book);
         }
-        bindCoverAccent();
+        hero.bindCoverAccent(book);
         boolean multi = book.quantity > 1;
         boolean hasLent = !openRecords.isEmpty();
 
@@ -935,38 +877,8 @@ public class BookDetailActivity extends BaseActivity {
 
     // ======================= 备注图片（默认折叠，UI 见 DetailNoteImages） =======================
 
-    private void addIfNotEmpty(List<String> list, String value) {
-        if (value != null && !value.trim().isEmpty()) {
-            list.add(value.trim());
-        }
-    }
 
-    private static String joinWithDot(List<String> parts) {
-        StringBuilder sb = new StringBuilder();
-        for (String p : parts) {
-            if (sb.length() > 0) {
-                sb.append(" · ");
-            }
-            sb.append(p);
-        }
-        return sb.toString();
-    }
 
-    /** hero 状态 chip：借出用黄铜底白字，其余用白底主色字 */
-    private void bindHeroChip(TextView tv, String text, boolean emphasize) {
-        tv.setVisibility(View.VISIBLE);
-        tv.setText(text);
-        if (emphasize) {
-            tv.setBackgroundResource(R.drawable.bg_status_chip);
-            tv.setBackgroundTintList(ColorStateList.valueOf(
-                    ContextCompat.getColor(this, R.color.badge_borrowed)));
-            tv.setTextColor(Color.WHITE);
-        } else {
-            tv.setBackgroundResource(R.drawable.bg_status_chip);
-            tv.setBackgroundTintList(null);
-            tv.setTextColor(ThemeManager.resolveColor(this, ThemeManager.ATTR_COLOR_PRIMARY));
-        }
-    }
 
     /** 底栏「更多」：删除收在这里，红字，不与编辑同权重 */
     private void showMoreActions() {

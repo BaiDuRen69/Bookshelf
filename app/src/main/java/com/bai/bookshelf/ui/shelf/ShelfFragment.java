@@ -303,15 +303,10 @@ public class ShelfFragment extends Fragment {
                 smartBar.setExpanded(!smartBar.expanded()));
 
         searchBar = new ShelfSearchBar(b.etSearch, b.btnClearSearch, this::applyFilters);
-        // v5.8.16：键盘「搜索」键打开全局搜索页（藏书 / 摘抄 / 想读 / 功能入口）
-        b.etSearch.setOnEditorActionListener((v, actionId, event) -> {
-            if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH) {
-                openGlobalSearch(searchBar.text());
-                return true;
-            }
-            return false;
-        });
-        setupRecentSearches();
+        // v5.8.1 起：键盘「搜索」键的响应统一由 ShelfRecentSearch 注册（记历史 + 就地筛选），
+        // 全局搜索页从聚焦后那枚「全局搜索 ›」胶囊进；这里不再重复注册 editorAction，
+        // 否则两处 setOnEditorActionListener 后者吃掉前者（v5.9.0 清理时发现的旧遮蔽）。
+        ShelfRecentSearch.setup(recentSearchHost());
         searchBar.setup();
         setupOnboarding();
 
@@ -704,111 +699,29 @@ public class ShelfFragment extends Fragment {
         return pos < 0 ? 0 : pos;
     }
 
-    /** 最近搜索（v5.8.1）：输入框聚焦且为空时出现，点一条直接回填搜索 */
-    private void setupRecentSearches() {
-        b.etSearch.setOnFocusChangeListener((v, hasFocus) -> updateRecentSearches());
-        b.etSearch.addTextChangedListener(new android.text.TextWatcher() {
+    /** 最近搜索胶囊的宿主接线：回填与提交都回到这里的筛选 */
+    private ShelfRecentSearch.Host recentSearchHost() {
+        return new ShelfRecentSearch.Host() {
             @Override
-            public void beforeTextChanged(CharSequence s, int a, int c, int d) {
+            public android.content.Context context() {
+                return requireContext();
             }
 
             @Override
-            public void onTextChanged(CharSequence s, int a, int c, int d) {
+            public com.bai.bookshelf.databinding.FragmentShelfBinding binding() {
+                return b;
             }
 
             @Override
-            public void afterTextChanged(android.text.Editable s) {
-                updateRecentSearches();
+            public ShelfSearchBar searchBar() {
+                return searchBar;
             }
-        });
-        b.etSearch.setOnEditorActionListener((v, actionId, event) -> {
-            String q = searchBar == null ? "" : searchBar.text();
-            if (!q.isEmpty()) {
-                com.bai.bookshelf.util.RecentSearches.add(requireContext(), q);
-                searchBar.cancelPending();
+
+            @Override
+            public void applyQuery() {
                 applyFilters();
-                updateRecentSearches();
             }
-            return false;
-        });
-    }
-
-    private void updateRecentSearches() {
-        if (b == null || searchBar == null) {
-            return;
-        }
-        java.util.List<String> recent =
-                com.bai.bookshelf.util.RecentSearches.list(requireContext());
-        boolean show = b.etSearch.hasFocus() && searchBar.text().isEmpty();
-        b.hsvRecent.setVisibility(show ? View.VISIBLE : View.GONE);
-        if (!show) {
-            return;
-        }
-        b.llRecentSearches.removeAllViews();
-        addGlobalSearchChip();
-        for (String q : recent) {
-            addRecentChip(q, false);
-        }
-        if (!recent.isEmpty()) {
-            addRecentChip("清除", true);
-        }
-    }
-
-    /** 聚焦且未输入时给一个「全局搜索」入口（v5.8.16） */
-    private void addGlobalSearchChip() {
-        TextView chip = new TextView(requireContext());
-        chip.setText("全局搜索 ›");
-        com.bai.bookshelf.util.Typo.text(chip, R.dimen.text_body_small);
-        chip.setTextColor(com.bai.bookshelf.util.ThemeManager.resolveColor(
-                requireContext(), com.bai.bookshelf.util.ThemeManager.ATTR_COLOR_PRIMARY));
-        chip.setBackgroundResource(R.drawable.bg_filter_pill);
-        int padH = (int) getResources().getDimension(R.dimen.space_md);
-        int padV = (int) getResources().getDimension(R.dimen.space_xs);
-        chip.setPadding(padH, padV, padH, padV);
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT);
-        lp.setMarginEnd((int) getResources().getDimension(R.dimen.space_xs));
-        chip.setLayoutParams(lp);
-        chip.setOnClickListener(v -> openGlobalSearch(""));
-        b.llRecentSearches.addView(chip);
-    }
-
-    private void openGlobalSearch(String keyword) {
-        android.content.Intent intent = new android.content.Intent(requireContext(),
-                com.bai.bookshelf.ui.search.GlobalSearchActivity.class);
-        intent.putExtra(com.bai.bookshelf.ui.search.GlobalSearchActivity.EXTRA_QUERY, keyword);
-        startActivity(intent);
-    }
-
-    private void addRecentChip(String label, boolean clearAll) {
-        TextView chip = new TextView(requireContext());
-        chip.setText(label);
-        chip.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX,
-                getResources().getDimension(R.dimen.text_body_small));
-        chip.setTextColor(com.bai.bookshelf.util.ThemeManager.resolveColor(
-                requireContext(), R.attr.on_surface_variant));
-        chip.setBackgroundResource(R.drawable.bg_filter_pill);
-        int padH = (int) getResources().getDimension(R.dimen.space_md);
-        int padV = (int) getResources().getDimension(R.dimen.space_xs);
-        chip.setPadding(padH, padV, padH, padV);
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT);
-        lp.setMarginEnd((int) getResources().getDimension(R.dimen.space_xs));
-        chip.setLayoutParams(lp);
-        chip.setOnClickListener(v -> {
-            if (clearAll) {
-                com.bai.bookshelf.util.RecentSearches.clear(requireContext());
-            } else {
-                searchBar.setText(label);
-                searchBar.cancelPending();
-                applyFilters();
-                b.etSearch.clearFocus();
-            }
-            updateRecentSearches();
-        });
-        b.llRecentSearches.addView(chip);
+        };
     }
 
     /** v5.8.16：右侧字母索引条——点一下或按住拖动都跳，拖动时中间显示气泡 */
