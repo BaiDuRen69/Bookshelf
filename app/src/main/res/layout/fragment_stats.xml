@@ -1144,6 +1144,34 @@
                                 android:textColor="?attr/on_surface"
                                 android:textSize="@dimen/text_body_small" />
                         </LinearLayout>
+
+                        <!-- v5.8.32：借阅孤儿（数据体检的一项）。只在真查出问题时出现，
+                             点「修复」会先逐条列出要改什么，不会静默动数据 -->
+                        <LinearLayout
+                            android:id="@+id/row_orphan_repair"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="@dimen/space_sm"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal"
+                            android:visibility="gone">
+
+                            <TextView
+                                android:id="@+id/tv_orphan_repair"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:textColor="?attr/on_surface"
+                                android:textSize="@dimen/text_body_small" />
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btn_orphan_repair"
+                                style="@style/Widget.Bookshelf.Button.Outlined"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="@dimen/space_sm"
+                                android:text="修复" />
+                        </LinearLayout>
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
 

@@ -69,6 +69,10 @@ public class ReadingWidgetProvider extends AppWidgetProvider {
 
     /** 应用侧调用：数据变化后刷新所有已添加的小组件 */
     public static void refresh(Context context) {
+        // v5.8.32：关掉开关后小组件停在最后一次刷新内容（不删除、不再跟着变）
+        if (!com.bai.bookshelf.util.ReminderPrefs.widgetEnabled(context)) {
+            return;
+        }
         try {
             AppWidgetManager manager = AppWidgetManager.getInstance(context);
             int[] ids = manager.getAppWidgetIds(

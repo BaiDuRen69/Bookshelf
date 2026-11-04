@@ -121,6 +121,9 @@ public class StatsFragment extends Fragment {
     private String insightPurchase = "";
     private String insightLend = "";
 
+    /** v5.8.32：借阅孤儿（体检文案 + 一次性修复入口共用这一份） */
+    private com.bai.bookshelf.util.StatsHealth.BorrowOrphans borrowOrphans;
+
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
@@ -214,9 +217,47 @@ public class StatsFragment extends Fragment {
             content.setTranslationY(getResources().getDisplayMetrics().density * 6);
             content.animate().alpha(1f).translationY(0f)
                     .setDuration(TAB_FADE_IN_MS)
-                    .withEndAction(() -> tabAnimating = false)
+                    .withEndAction(() -> {
+                        tabAnimating = false;
+                        // v5.8.32：角标直达要等淡入结束、卡片真的可见了再滚
+                        consumePendingOverdueFocus();
+                    })
                     .start();
         }).start();
+    }
+
+    /** 角标直达的待办：视图没就绪（冷启动/刚挂载）时先记着，等 onResume / 切栏结束再消费 */
+    private boolean pendingOverdueFocus = false;
+
+    /** MainActivity 点角标 / 点到期通知调这里：切到借阅栏并滚到在借清单（v5.8.32） */
+    public void requestOverdueFocus() {
+        pendingOverdueFocus = true;
+        if (b == null) {
+            return;
+        }
+        if (statsTab == TAB_LOAN) {
+            consumePendingOverdueFocus();
+        } else {
+            selectStatsTab(TAB_LOAN);
+        }
+    }
+
+    private void consumePendingOverdueFocus() {
+        if (!pendingOverdueFocus || b == null || statsTab != TAB_LOAN || statsEmpty) {
+            return;
+        }
+        pendingOverdueFocus = false;
+        ensureComputed();
+        final View target = b.cardOpenLoans;
+        b.scrollStats.post(() -> {
+            if (!target.isShown()) {
+                return;
+            }
+            android.graphics.Rect rect = new android.graphics.Rect();
+            b.scrollStats.offsetDescendantRectToMyCoords(target, rect);
+            int lift = (int) (getResources().getDisplayMetrics().density * 8);
+            b.scrollStats.smoothScrollTo(0, Math.max(0, rect.top - lift));
+        });
     }
 
     private void applyStatsTab() {
@@ -394,6 +435,7 @@ public class StatsFragment extends Fragment {
         statsVisible = !isHidden();
         if (statsVisible) {
             ensureComputed();
+            consumePendingOverdueFocus();
         }
     }
 
@@ -403,6 +445,7 @@ public class StatsFragment extends Fragment {
         statsVisible = !hidden;
         if (!hidden) {
             ensureComputed();
+            consumePendingOverdueFocus();
         }
     }
 
@@ -569,6 +612,23 @@ public class StatsFragment extends Fragment {
                     com.bai.bookshelf.util.StatsHealth.ratings(books);
             final com.bai.bookshelf.util.StatsHealth.Anomalies anomalies =
                     com.bai.bookshelf.util.StatsHealth.anomalies(books, todayKey);
+            // v5.8.32：借阅孤儿体检。两次全表查询跟其它派生指标一样只在这段聚合里跑
+            java.util.List<com.bai.bookshelf.data.entity.BookCopy> copyAll;
+            try {
+                copyAll = BookshelfApp.get().db().bookCopyDao().getAll();
+            } catch (Exception e) {
+                copyAll = new ArrayList<>();
+            }
+            java.util.List<com.bai.bookshelf.data.entity.NoteImage> imageAll;
+            try {
+                imageAll = BookshelfApp.get().db().noteImageDao().getAll();
+            } catch (Exception e) {
+                imageAll = new ArrayList<>();
+            }
+            final com.bai.bookshelf.util.StatsHealth.BorrowOrphans orphans =
+                    com.bai.bookshelf.util.StatsHealth.borrowOrphans(
+                            books, copyAll, loanRecords, imageAll);
+            this.borrowOrphans = orphans;
             int boughtThisYear = 0;
             for (Book book : books) {
                 int buy = com.bai.bookshelf.util.DateKeys.parseKey(book.purchaseDate);
@@ -829,9 +889,56 @@ public class StatsFragment extends Fragment {
         if (lend == null) {
             return;
         }
-        insightLend = lendInsight(lend, lenders, lendByCategory);
+        insightLend = lendInsight(lend, lenders, lendByCategory, borrowOrphans);
         renderBorrowers(lenders);
         renderOpenLoans();
+        bindOrphanRepair();
+    }
+
+    /**
+     * 借阅孤儿的修复入口（v5.8.32）：查出问题才出现，点「修复」先逐条列出要改什么，
+     * 执行后走 8 秒撤销（孤儿图片文件是删掉的垃圾，不在撤销范围内，弹窗里写明）。
+     */
+    private void bindOrphanRepair() {
+        if (b == null) {
+            return;
+        }
+        boolean has = borrowOrphans != null && !borrowOrphans.isEmpty();
+        b.rowOrphanRepair.setVisibility(has ? View.VISIBLE : View.GONE);
+        if (!has) {
+            return;
+        }
+        b.tvOrphanRepair.setText(borrowOrphans.line());
+        b.btnOrphanRepair.setOnClickListener(v -> {
+            String plan = com.bai.bookshelf.util.BorrowLedger.describePlan(borrowOrphans);
+            new com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+                    .setTitle("修复借阅数据")
+                    .setMessage(plan + "\n\n确认后立即执行，8 秒内可撤销（已删除的孤儿图片文件不恢复）。")
+                    .setPositiveButton("执行修复", (d, w) -> {
+                        BookshelfApp app = BookshelfApp.get();
+                        final com.bai.bookshelf.util.StatsHealth.BorrowOrphans target =
+                                borrowOrphans;
+                        app.io(() -> {
+                            com.bai.bookshelf.util.BorrowLedger.OrphanFix fix =
+                                    com.bai.bookshelf.util.BorrowLedger
+                                            .repairOrphans(app, target);
+                            app.ui(() -> {
+                                com.bai.bookshelf.util.BorrowLedger.afterChange(
+                                        requireContext());
+                                ensureComputed();
+                                com.bai.bookshelf.util.UndoBar.offer(
+                                        b.getRoot(), "已修复 " + fix.total() + " 处借阅数据",
+                                        () -> app.io(() -> {
+                                            com.bai.bookshelf.util.BorrowLedger
+                                                    .undoOrphanFix(app, fix);
+                                            app.ui(this::ensureComputed);
+                                        }), null);
+                            });
+                        });
+                    })
+                    .setNegativeButton(com.bai.bookshelf.R.string.action_cancel, null)
+                    .show();
+        });
     }
 
     /** 在借清单：书名 · 借阅人 · 应还日期（逾期标红），点一行可直接收回（v5.8.3） */
@@ -1111,8 +1218,12 @@ public class StatsFragment extends Fragment {
     /** 借阅栏洞察（v5.8.1 第 4 栏）：在途与按时归还、借得最多的人、借出结构 */
     private static String lendInsight(com.bai.bookshelf.util.StatsLend.Lend l,
                                       java.util.List<com.bai.bookshelf.util.StatsLend.Lender> lenders,
-                                      java.util.List<com.bai.bookshelf.util.StatsHoldings.Group> lends) {
+                                      java.util.List<com.bai.bookshelf.util.StatsHoldings.Group> lends,
+                                      com.bai.bookshelf.util.StatsHealth.BorrowOrphans orphans) {
         StringBuilder sb = new StringBuilder(lendLine(l));
+        if (orphans != null && !orphans.isEmpty()) {
+            sb.append('\n').append(orphans.line());
+        }
         if (lenders != null && !lenders.isEmpty()) {
             sb.append('\n').append(lenderLine(lenders.get(0)));
         }

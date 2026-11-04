@@ -443,19 +443,29 @@
                                 android:layout_width="0dp"
                                 android:layout_height="wrap_content"
                                 android:layout_weight="1"
-                                android:text="借书记录" />
+                                android:text="借入记录（我从别人那借的）" />
 
                             <ImageView
                                 android:id="@+id/iv_toggle_borrow_records"
                                 android:layout_width="32dp"
                                 android:layout_height="32dp"
                                 android:background="?attr/selectableItemBackgroundBorderless"
-                                android:contentDescription="收起借书记录"
+                                android:contentDescription="收起借入记录"
                                 android:padding="7dp"
                                 android:rotation="270"
                                 android:src="@drawable/ic_chevron_right_line"
                                 app:tint="?attr/on_surface_variant" />
                         </LinearLayout>
+
+                        <!-- v5.8.32：借入/借出两套数据同名容易混，各给一行说明 -->
+                        <TextView
+                            android:id="@+id/tv_borrow_records_hint"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="记的是这本书借进来的时段，与「借出记录」互不影响"
+                            android:textColor="?attr/on_surface_variant"
+                            android:textSize="@dimen/text_body_small" />
 
                         <LinearLayout
                             android:id="@+id/container_borrow_records_detail"
@@ -774,7 +784,7 @@
                     android:foreground="?attr/selectableItemBackground"
                     android:gravity="center_vertical"
                     android:padding="@dimen/space_lg"
-                    android:text="借出记录"
+                    android:text="借出记录（我借给别人）"
                     android:textColor="?attr/colorPrimary"
                     android:textSize="@dimen/text_body"
                     android:visibility="gone" />

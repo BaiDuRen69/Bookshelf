@@ -25,6 +25,10 @@ public interface BorrowRecordDao {
     @Query("SELECT * FROM borrow_records WHERE bookId = :bookId AND status = 0 ORDER BY id DESC LIMIT 1")
     BorrowRecord findOpenByBook(long bookId);
 
+    /** v5.8.32：删除入口只需要 recordId，用它反查 bookId / copyIndex */
+    @Query("SELECT * FROM borrow_records WHERE id = :id")
+    BorrowRecord getById(long id);
+
     /** 某本书全部借出中的记录（多本逐本借出后，可能同时有多条） */
     @Query("SELECT * FROM borrow_records WHERE bookId = :bookId AND status = 0 ORDER BY copyIndex ASC")
     List<BorrowRecord> findOpenListByBook(long bookId);

@@ -102,6 +102,7 @@
         <activity android:name=".ui.mine.SplitActivity" android:exported="false" />
         <activity android:name=".ui.mine.AboutActivity" android:exported="false" />
         <activity android:name=".ui.mine.ApiSettingsActivity" android:exported="false" />
+        <activity android:name=".ui.settings.ReminderSettingsActivity" android:exported="false" />
         <activity android:name=".ui.mine.ApiConfigActivity" android:exported="false" />
         <activity android:name=".ui.mine.UsageQueryActivity" android:exported="false" />
         <activity android:name=".ui.mine.IncompleteBooksActivity" android:exported="false" />

@@ -563,6 +563,8 @@ public class BookEditActivity extends BaseActivity {
         cleanupRemovedNoteImageFiles(); // 移除的旧图文件 / 未保留的新图文件落地清理
         // 借阅时间段可能刚改过：重排每日检查并立即核对一次到期
         com.bai.bookshelf.util.BorrowReminder.refresh(this);
+        // v5.8.32：借出/到期/在读书情都可能跟着变，桌面小组件一起刷
+        com.bai.bookshelf.ui.widget.ReadingWidgetProvider.refresh(this);
         // v2.8：保存提示不再额外包书名号（用户反馈），统一走 BookText 剥掉自带书名号
         Toast.makeText(this, "已保存 " + com.bai.bookshelf.util.BookText.bareTitle(book.title),
                 Toast.LENGTH_SHORT).show();

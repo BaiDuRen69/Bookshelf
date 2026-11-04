@@ -35,6 +35,8 @@ public class MainActivity extends BaseActivity {
     public static final String EXTRA_TAB = "tab_index";
     /** 扫书架二维码：切到书架并按该地点筛选（v5.8.18） */
     public static final String EXTRA_LOCATION_ID = "shelf_location_id";
+    /** 到期通知点进来：直接切到统计借阅栏的在借清单（v5.8.32） */
+    public static final String EXTRA_OPEN_LOANS = "open_loans";
 
     // v4.5：三个 Tab 挂载到 FragmentManager 时的 tag，用于 Activity 重建后找回还原实例
     private static final String TAG_SHELF = "tab_shelf";
@@ -100,7 +102,12 @@ public class MainActivity extends BaseActivity {
         });
         binding.tabStats.setOnClickListener(v -> {
             v.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP);
-            selectTab(1);
+            // v5.8.32：角标亮着时点 Tab 直接落到逾期清单，省一次翻找
+            if (badgeOverdue > 0) {
+                focusOverdueLoans();
+            } else {
+                selectTab(1);
+            }
         });
         binding.tabMine.setOnClickListener(v -> {
             v.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP);
@@ -142,6 +149,11 @@ public class MainActivity extends BaseActivity {
         if (tab >= 0 && tab <= 2) {
             intent.removeExtra(EXTRA_TAB);
             selectTab(tab);
+        }
+        // v5.8.32：到期通知的 contentIntent 带这个标记，点通知直达在借清单
+        if (intent.getBooleanExtra(EXTRA_OPEN_LOANS, false)) {
+            intent.removeExtra(EXTRA_OPEN_LOANS);
+            focusOverdueLoans();
         }
         long locationId = intent.getLongExtra(EXTRA_LOCATION_ID, -1);
         if (locationId <= 0) {
@@ -310,9 +322,15 @@ public class MainActivity extends BaseActivity {
                 .alpha(selected ? 1f : 0.85f).setDuration(200).start();
     }
 
-    /** 底部角标（v5.8.7）：统计 = 逾期笔数。v5.8.30 摘掉「我的 = 想读本数」，条数改在想读清单页头显示 */
+    /** 底部角标（v5.8.7）：统计 = 借出逾期未还本数。v5.8.30 摘掉「我的 = 想读本数」，条数改在想读清单页头显示 */
     private void refreshTabBadges() {
         BookshelfApp app = BookshelfApp.get();
+        // v5.8.32：角标可以整体关掉（关掉时连这次查库都省了）
+        if (!com.bai.bookshelf.util.ReminderPrefs.badgeOverdue(this)) {
+            badgeOverdue = 0;
+            bindBadge(binding.tvBadgeStats, 0);
+            return;
+        }
         app.io(() -> {
             int overdue = 0;
             try {
@@ -332,17 +350,47 @@ public class MainActivity extends BaseActivity {
         });
     }
 
+    /** 当前角标显示的逾期本数，决定点统计 Tab 要不要直达在借清单 */
+    private int badgeOverdue = 0;
+
     private void bindBadge(TextView badge, int count) {
         if (badge == null) {
             return;
         }
+        badgeOverdue = count;
+        setStatsTooltip(count);
         if (count <= 0) {
             badge.setVisibility(android.view.View.GONE);
             return;
         }
         badge.setText(count > 99 ? "99+" : String.valueOf(count));
-        badge.setContentDescription(count + " 条待处理");
+        // v5.8.32：口径写进文字里，「条待处理」看不出是借出还是借入
+        badge.setContentDescription("逾期 " + count + " 本");
         badge.setVisibility(android.view.View.VISIBLE);
+    }
+
+    /** setTooltipText 是 API 26 才有的，minSdk 24 要挡一下 */
+    private void setStatsTooltip(int count) {
+        if (android.os.Build.VERSION.SDK_INT < 26 || binding == null) {
+            return;
+        }
+        // 挂在可点的 tab 容器上（与 XML 里 tab_shelf/tab_mine 的 tooltipText 同一层）：
+        // 实测挂到 iv_tab_stats 图标上会让图标区域变成点击死区，点中间不切页
+        binding.tabStats.setTooltipText(count > 0
+                ? "借出逾期未还 " + count + " 本" : "统计");
+    }
+
+    /**
+     * 直达「逾期未还」：切到统计借阅栏并滚到在借清单（v5.8.32）。
+     * 与 searchOnShelf 同一套时序——commit 是异步的，必须先 executePendingTransactions
+     * 把 StatsFragment 的视图建起来，否则调用会落在尚未创建的视图上。
+     */
+    public void focusOverdueLoans() {
+        selectTab(1);
+        getSupportFragmentManager().executePendingTransactions();
+        if (statsFragment instanceof StatsFragment) {
+            ((StatsFragment) statsFragment).requestOverdueFocus();
+        }
     }
 
     /**

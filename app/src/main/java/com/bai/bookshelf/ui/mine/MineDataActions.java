@@ -113,7 +113,8 @@ public class MineDataActions {
             dirState = dirName;
         }
         b.tvBackupDirName.setText(dirState);
-        boolean stale = BackupManager.staleReminderNeeded(ctx);
+        boolean stale = com.bai.bookshelf.util.ReminderPrefs.bannerBackupStale(ctx)
+                && BackupManager.staleReminderNeeded(ctx);
         b.rowBackupReminder.setVisibility(stale ? View.VISIBLE : View.GONE);
         b.dividerBackupReminder.setVisibility(stale ? View.VISIBLE : View.GONE);
         if (stale) {

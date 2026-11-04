@@ -6,13 +6,10 @@ import android.widget.Toast;
 import com.bai.bookshelf.R;
 import com.bai.bookshelf.app.BookshelfApp;
 import com.bai.bookshelf.data.entity.BorrowRecord;
-import com.bai.bookshelf.data.entity.NoteImage;
 import com.bai.bookshelf.databinding.ActivityLocationBinding;
 import com.bai.bookshelf.ui.BaseActivity;
-import com.bai.bookshelf.util.StatusText;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -112,11 +109,10 @@ public class BorrowBatchActions {
         }
         app.io(() -> {
             for (BorrowRecord r : targets) {
-                r.status = BorrowRecord.STATUS_RETURNED;
-                r.returnDate = StatusText.today();
-                app.db().borrowRecordDao().update(r);
+                com.bai.bookshelf.util.BorrowLedger.markReturned(app, r);
             }
             host.syncStock();
+            com.bai.bookshelf.util.BorrowLedger.afterChange(activity);
             app.ui(() -> {
                 toggle();
                 Toast.makeText(activity, "已收回 " + targets.size() + " 条",
@@ -141,15 +137,11 @@ public class BorrowBatchActions {
                     Set<Long> ids = new HashSet<>(selectedIds);
                     app.io(() -> {
                         for (Long id : ids) {
-                            String ownerKey = "borrow:" + id;
-                            List<NoteImage> imgs = app.db().noteImageDao().getByOwnerKey(ownerKey);
-                            app.db().noteImageDao().deleteByOwnerKey(ownerKey);
-                            for (NoteImage img : imgs) {
-                                new File(img.path).delete();
-                            }
-                            app.db().borrowRecordDao().deleteById(id);
+                            com.bai.bookshelf.util.BorrowLedger
+                                    .deleteRecordWithImages(app, id);
                         }
                         host.syncStock();
+                        com.bai.bookshelf.util.BorrowLedger.afterChange(activity);
                         app.ui(() -> {
                             toggle();
                             Toast.makeText(activity, "已删除 " + count + " 条记录",

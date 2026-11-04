@@ -165,6 +165,8 @@ public class AppLockActivity extends BaseActivity {
 
     private void unlockAndFinish() {
         AppLock.markUnlocked(this);
+        // v5.8.32：锁屏期间可能已经还过书（别的入口），解锁后按实际数据收掉过期的到期通知
+        com.bai.bookshelf.util.BorrowReminder.cancelIfClear(this);
         setResult(RESULT_OK);
         finish();
         overridePendingTransition(0, 0);

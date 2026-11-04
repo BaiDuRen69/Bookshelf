@@ -720,7 +720,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="借书记录"
+                        android:text="借入记录（我从别人那借的）"
                         android:textColor="?attr/on_surface"
                         android:textStyle="bold" />
 
@@ -735,6 +735,15 @@
                         android:textColor="?attr/colorPrimary"
                         android:textSize="@dimen/text_body_small" />
                 </LinearLayout>
+
+                <!-- v5.8.32：与详情页「借出记录」区分开，删这边不会动那边 -->
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="只记借进来的时段；删这里不影响详情页的「借出记录」"
+                    android:textColor="?attr/on_surface_variant"
+                    android:textSize="@dimen/text_body_small" />
 
                 <TextView
                     android:id="@+id/tv_borrow_records_empty"

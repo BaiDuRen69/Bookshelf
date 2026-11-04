@@ -155,8 +155,7 @@ public final class StatsHealth {
         }
     }
 
-    /** 评分分布与偏好 */
-    public static class Rating {
+    /** 评分分布与偏好 */    public static class Rating {
         public int rated;
         public int total;
         public double average = -1;
@@ -364,6 +363,125 @@ public final class StatsHealth {
             }
         }
         return out;
+    }
+
+    // ==================== 借阅孤儿（v5.8.32） ====================
+
+    /**
+     * 借阅数据的四类孤儿。既带计数也带「要改哪些」的清单，
+     * 体检文案、修复确认弹窗与修复执行共用同一份，避免列的和改的不是一回事。
+     */
+    public static final class BorrowOrphans {
+        /** ① 标着借出（书或副本）但没有任何未归还记录 */
+        public final List<Book> lendBooks = new ArrayList<>();
+        public final List<BookCopy> lendCopies = new ArrayList<>();
+        /** ② 未归还记录指向的副本行不存在（第 2 本起才有） */
+        public final List<BorrowRecord> orphanRecords = new ArrayList<>();
+        /** ③ note_images 挂在已删除的借出记录上 */
+        public final List<com.bai.bookshelf.data.entity.NoteImage> orphanImages =
+                new ArrayList<>();
+        /** ④ 借入的 flat 汇总字段与 borrowRecords JSON 推导结果不一致 */
+        public final List<Book> outOfSyncBooks = new ArrayList<>();
+
+        public int total() {
+            return lendBooks.size() + lendCopies.size() + orphanRecords.size()
+                    + orphanImages.size() + outOfSyncBooks.size();
+        }
+
+        public boolean isEmpty() {
+            return total() == 0;
+        }
+
+        /** 体检行文案：只在有问题时给，零问题不占洞察卡一行 */
+        public String line() {
+            if (isEmpty()) {
+                return "";
+            }
+            return "借阅孤儿 " + total() + " 项（借出无记录 " + (lendBooks.size() + lendCopies.size())
+                    + " · 记录无副本 " + orphanRecords.size()
+                    + " · 图片孤儿 " + orphanImages.size()
+                    + " · 借入汇总不符 " + outOfSyncBooks.size() + "）";
+        }
+    }
+
+    /**
+     * 检测借阅孤儿。四个入参都是「全表快照」，由调用方在 io 线程取好；
+     * 本方法只读不改，方便纯逻辑单测。
+     */
+    public static BorrowOrphans borrowOrphans(List<Book> books, List<BookCopy> copies,
+                                              List<BorrowRecord> allRecords,
+                                              List<com.bai.bookshelf.data.entity.NoteImage> images) {
+        BorrowOrphans o = new BorrowOrphans();
+        List<BookCopy> copyList = copies == null ? new ArrayList<>() : copies;
+        List<BorrowRecord> recordList = allRecords == null ? new ArrayList<>() : allRecords;
+
+        java.util.Set<String> openKeys = new java.util.HashSet<>();
+        java.util.Set<String> copyKeys = new java.util.HashSet<>();
+        java.util.Set<Long> recordIds = new java.util.HashSet<>();
+        for (BookCopy c : copyList) {
+            copyKeys.add(c.bookId + ":" + c.copyIndex);
+        }
+        for (BorrowRecord r : recordList) {
+            recordIds.add(r.id);
+            if (r.status == BorrowRecord.STATUS_OUT) {
+                openKeys.add(r.bookId + ":" + r.copyIndex);
+            }
+        }
+        for (Book book : BookSanitizer.normalizeAll(books)) {
+            if (book.stockStatus == Book.STOCK_LENT && !openKeys.contains(book.id + ":1")) {
+                o.lendBooks.add(book);
+            }
+            if (book.ownType == Book.OWN_BORROW
+                    && book.borrowRecords != null && !book.borrowRecords.isEmpty()) {
+                List<BorrowSourceRecords.Record> rs =
+                        BorrowSourceRecords.parse(book.borrowRecords);
+                if (!rs.isEmpty()) {
+                    BorrowSourceRecords.Record last = rs.get(0);
+                    for (BorrowSourceRecords.Record r : rs) {
+                        if (r.seq >= last.seq) {
+                            last = r;
+                        }
+                    }
+                    if (!nz(book.borrowStartDate).equals(nz(last.startDate))
+                            || !nz(book.borrowDueDate).equals(nz(last.dueDate))
+                            || !nz(book.borrowReturnDate).equals(nz(last.returnDate))) {
+                        o.outOfSyncBooks.add(book);
+                    }
+                }
+            }
+        }
+        for (BookCopy c : copyList) {
+            if (c.stockStatus == Book.STOCK_LENT
+                    && !openKeys.contains(c.bookId + ":" + c.copyIndex)) {
+                o.lendCopies.add(c);
+            }
+        }
+        for (BorrowRecord r : recordList) {
+            if (r.status == BorrowRecord.STATUS_OUT && r.copyIndex > 1
+                    && !copyKeys.contains(r.bookId + ":" + r.copyIndex)) {
+                o.orphanRecords.add(r);
+            }
+        }
+        if (images != null) {
+            for (com.bai.bookshelf.data.entity.NoteImage img : images) {
+                String key = nz(img.ownerKey);
+                if (!key.startsWith("borrow:")) {
+                    continue;
+                }
+                try {
+                    if (!recordIds.contains(Long.parseLong(key.substring("borrow:".length())))) {
+                        o.orphanImages.add(img);
+                    }
+                } catch (NumberFormatException e) {
+                    o.orphanImages.add(img);
+                }
+            }
+        }
+        return o;
+    }
+
+    private static String nz(String s) {
+        return s == null ? "" : s;
     }
 
     /** 评分分布（平均分按 {@code ratingAvg}，没有平均分的退回整数星） */

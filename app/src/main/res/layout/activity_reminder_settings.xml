@@ -1,0 +1,242 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 提醒与角标设置页（v5.8.32）：把散在各处的提醒/角标/小组件开关收到一页，
+     开关一律「行 + 副标题显示当前状态」，沿用「我的」页 row_update_toggle 的既有形态，
+     不引入新控件（七套主题的控件配色刚定稿，动即回退）。 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/toolbar"
+        style="@style/Widget.Bookshelf.Toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/toolbar_h"
+        app:navigationIcon="@drawable/ic_back"
+        app:title="提醒与角标" />
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true">
+
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="@dimen/page_padding"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintHorizontal_bias="0.5"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintWidth_max="@dimen/content_max_width">
+
+                <!-- 系统通知权限：Android 13+ 是运行时权限，光看开关会误以为已生效 -->
+                <androidx.cardview.widget.CardView
+                    style="@style/Widget.Bookshelf.Card"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="@dimen/space_lg">
+
+                        <TextView
+                            style="@style/CardTitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="系统通知权限" />
+
+                        <TextView
+                            android:id="@+id/tv_notify_permission_state"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="@dimen/space_sm"
+                            android:lineSpacingMultiplier="1.3"
+                            android:textColor="?attr/on_surface_variant"
+                            android:textSize="@dimen/text_body_small" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btn_notify_settings"
+                            style="@style/Widget.Bookshelf.Button.Outlined"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="@dimen/space_md"
+                            android:text="去系统设置"
+                            android:visibility="gone" />
+                    </LinearLayout>
+                </androidx.cardview.widget.CardView>
+
+                <androidx.cardview.widget.CardView
+                    style="@style/Widget.Bookshelf.Card"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/space_lg">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:paddingVertical="@dimen/space_sm">
+
+                        <TextView
+                            style="@style/CardTitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:paddingHorizontal="@dimen/space_lg"
+                            android:paddingVertical="@dimen/space_sm"
+                            android:text="提醒与角标" />
+
+                        <LinearLayout
+                            android:id="@+id/row_notify_borrow_due"
+                            style="@style/MineRow">
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    style="@style/MineRowTitle"
+                                    android:text="借阅到期通知" />
+
+                                <TextView
+                                    android:id="@+id/tv_notify_borrow_due_state"
+                                    style="@style/MineRowSubtitle" />
+                            </LinearLayout>
+                        </LinearLayout>
+
+                        <View style="@style/MineRowDivider" />
+
+                        <LinearLayout
+                            android:id="@+id/row_notify_borrowed_in"
+                            style="@style/MineRow">
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    style="@style/MineRowTitle"
+                                    android:text="借入的书也提醒" />
+
+                                <TextView
+                                    android:id="@+id/tv_notify_borrowed_in_state"
+                                    style="@style/MineRowSubtitle" />
+                            </LinearLayout>
+                        </LinearLayout>
+
+                        <View style="@style/MineRowDivider" />
+
+                        <LinearLayout
+                            android:id="@+id/row_badge_overdue"
+                            style="@style/MineRow">
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    style="@style/MineRowTitle"
+                                    android:text="逾期角标" />
+
+                                <TextView
+                                    android:id="@+id/tv_badge_overdue_state"
+                                    style="@style/MineRowSubtitle" />
+                            </LinearLayout>
+                        </LinearLayout>
+
+                        <View style="@style/MineRowDivider" />
+
+                        <LinearLayout
+                            android:id="@+id/row_banner_backup_stale"
+                            style="@style/MineRow">
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    style="@style/MineRowTitle"
+                                    android:text="备份超期提示条" />
+
+                                <TextView
+                                    android:id="@+id/tv_banner_backup_stale_state"
+                                    style="@style/MineRowSubtitle" />
+                            </LinearLayout>
+                        </LinearLayout>
+
+                        <View style="@style/MineRowDivider" />
+
+                        <LinearLayout
+                            android:id="@+id/row_widget_enabled"
+                            style="@style/MineRow">
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    style="@style/MineRowTitle"
+                                    android:text="桌面小组件刷新" />
+
+                                <TextView
+                                    android:id="@+id/tv_widget_enabled_state"
+                                    style="@style/MineRowSubtitle" />
+                            </LinearLayout>
+                        </LinearLayout>
+
+                        <View style="@style/MineRowDivider" />
+
+                        <LinearLayout
+                            android:id="@+id/row_check_update_on_launch"
+                            style="@style/MineRow">
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    style="@style/MineRowTitle"
+                                    android:text="启动时检查应用更新" />
+
+                                <TextView
+                                    android:id="@+id/tv_check_update_state"
+                                    style="@style/MineRowSubtitle" />
+                            </LinearLayout>
+                        </LinearLayout>
+                    </LinearLayout>
+                </androidx.cardview.widget.CardView>
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/space_lg"
+                    android:lineSpacingMultiplier="1.4"
+                    android:text="关闭开关不会删除任何已记录的数据，只是不再提醒、不再显示角标。"
+                    android:textColor="?attr/on_surface_variant"
+                    android:textSize="@dimen/text_body_small" />
+            </LinearLayout>
+        </androidx.constraintlayout.widget.ConstraintLayout>
+    </ScrollView>
+</LinearLayout>

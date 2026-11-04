@@ -137,12 +137,13 @@ public class MineFragment extends Fragment {
         });
         dataActions.attach(b);
         dataActions.refreshRows();
-        // 应用更新（v4.7）：启动检查开关 + 手动检查
-        b.rowUpdateToggle.setOnClickListener(v -> toggleUpdateCheck());
+        // 应用更新（v4.7）：手动检查；「启动时检查」开关 v5.8.32 挪进「提醒与角标」页
         b.rowCheckUpdate.setOnClickListener(v -> {
             Toast.makeText(requireContext(), "正在检查更新…", Toast.LENGTH_SHORT).show();
             com.bai.bookshelf.util.UpdateChecker.checkManually(requireActivity());
         });
+        b.rowReminderSettings.setOnClickListener(v -> startActivity(new Intent(requireContext(),
+                com.bai.bookshelf.ui.settings.ReminderSettingsActivity.class)));
         // v4.15：API 设置从弹窗改为二级页（API 配置 / 用量查询 分开）
         b.rowApi.setOnClickListener(v -> startActivity(new Intent(requireContext(),
                 ApiSettingsActivity.class)));
@@ -157,7 +158,6 @@ public class MineFragment extends Fragment {
         b.rowGithub.setOnClickListener(v -> supportActions.openGitHubRepo());
         b.rowReward.setOnClickListener(v -> supportActions.showSupportDialog());
         b.rowCrashLog.setOnClickListener(v -> showCrashLog());
-        refreshUpdateToggleRow();
         refreshStateRows();
     }
 
@@ -502,26 +502,7 @@ public class MineFragment extends Fragment {
         });
     }
 
-    /** 开关「启动时检查应用更新」（v4.7） */
-    private void toggleUpdateCheck() {
-        boolean nowEnabled = !com.bai.bookshelf.util.UpdateChecker
-                .isStartCheckEnabled(requireContext());
-        com.bai.bookshelf.util.UpdateChecker.setStartCheckEnabled(requireContext(), nowEnabled);
-        refreshUpdateToggleRow();
-        Toast.makeText(requireContext(),
-                nowEnabled ? "已开启：打开 App 时自动检查新版本" : "已关闭：不再自动检查，可手动检查",
-                Toast.LENGTH_SHORT).show();
-    }
-
-    /** 刷新「启动时检查应用更新」行副标题 */
-    private void refreshUpdateToggleRow() {
-        if (b == null) {
-            return;
-        }
-        b.tvUpdateToggleState.setText(com.bai.bookshelf.util.UpdateChecker
-                .isStartCheckEnabled(requireContext())
-                ? "已开启（发现新版本时提醒）" : "已关闭");
-    }
+    /** 「启动时检查应用更新」开关已挪到 ui/settings/ReminderSettingsActivity（v5.8.32） */
 
     // ======================= 主题颜色（v2.5） =======================
 

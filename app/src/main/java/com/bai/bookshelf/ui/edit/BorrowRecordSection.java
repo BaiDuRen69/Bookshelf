@@ -284,9 +284,9 @@ public class BorrowRecordSection {
                 .setTitle("删除借书记录")
                 .setMessage("删除第 " + record.seq + " 次借书记录？")
                 .setPositiveButton("删除", (d, w) -> {
-                    records.remove(record);
-                    renumber();
-                    syncToBook();
+                    // v5.8.32：借入 JSON 的删除也走唯一入口（只动 JSON 与 flat 字段，不碰借出表）
+                    com.bai.bookshelf.util.BorrowLedger
+                            .deleteBorrowedIn(book, records, record.seq);
                     syncQuantityToForm();
                     render();
                     if (dialog != null) {

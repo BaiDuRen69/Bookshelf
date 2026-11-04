@@ -157,14 +157,7 @@ public class BorrowHistoryActivity extends BaseActivity {
                 .setPositiveButton("删除", (d, w) -> {
                     BookshelfApp app = BookshelfApp.get();
                     app.io(() -> {
-                        String ownerKey = "borrow:" + record.id;
-                        List<NoteImage> imgs = app.db().noteImageDao().getByOwnerKey(ownerKey);
-                        app.db().noteImageDao().deleteByOwnerKey(ownerKey);
-                        for (NoteImage img : imgs) {
-                            new File(img.path).delete();
-                        }
-                        app.db().borrowRecordDao().deleteById(record.id);
-                        syncBookStock();
+                        com.bai.bookshelf.util.BorrowLedger.deleteOpen(this, record.id);
                         app.ui(this::reload);
                     });
                 })
@@ -173,42 +166,13 @@ public class BorrowHistoryActivity extends BaseActivity {
     }
 
     /**
-     * 记录增删改后同步书籍的藏书状态：
-     * 借阅记录带 copyIndex，逐本对齐——第 1 本反映到书籍主记录 stockStatus，
-     * 第 2 本起反映到 book_copies；仍有未归还记录的本 → 借出，否则 → 在库
-     * （防止删掉借出中记录后对应的本还挂着「借出」）。遗失状态不覆盖。
+     * 记录增删改后同步书籍的藏书状态：逻辑已平移到
+     * {@link com.bai.bookshelf.util.BorrowLedger#syncStockFromRecords}（v5.8.32），
+     * 这里只保留 host.syncStock() 需要的调用壳。
      */
     private void syncBookStock() {
-        BookshelfApp app = BookshelfApp.get();
-        Book book = com.bai.bookshelf.util.BookSanitizer
-                .normalize(app.db().bookDao().getById(bookId));
-        if (book == null) {
-            return;
-        }
-        // 当前仍然借出中的记录 → 涉及的副本序号集合
-        java.util.Set<Integer> openCopies = new java.util.HashSet<>();
-        for (BorrowRecord r : app.db().borrowRecordDao().findOpenListByBook(bookId)) {
-            openCopies.add(r.copyIndex);
-        }
-        // 第 1 本：写在书籍主记录上
-        boolean open1 = openCopies.contains(1);
-        int want1 = open1 ? Book.STOCK_LENT : Book.STOCK_IN;
-        if (book.stockStatus != want1 && book.stockStatus != Book.STOCK_LOST) {
-            book.stockStatus = want1;
-            book.updatedAt = System.currentTimeMillis();
-            app.db().bookDao().update(book);
-        }
-        // 第 2 本起：写在副本表上
-        for (com.bai.bookshelf.data.entity.BookCopy c : app.db().bookCopyDao().getByBook(bookId)) {
-            if (c.stockStatus == Book.STOCK_LOST) {
-                continue; // 用户手动标了遗失，不被借出记录覆盖
-            }
-            int want = openCopies.contains(c.copyIndex) ? Book.STOCK_LENT : Book.STOCK_IN;
-            if (c.stockStatus != want) {
-                c.stockStatus = want;
-                app.db().bookCopyDao().update(c);
-            }
-        }
+        com.bai.bookshelf.util.BorrowLedger
+                .syncStockFromRecords(BookshelfApp.get(), bookId);
     }
 
     /** 单条记录的展示文案（多本时标明是第几本）；备注只展示前 20 字，图片不直接展示仅标〔图N〕 */

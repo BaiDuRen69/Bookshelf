@@ -46,6 +46,11 @@ public final class BorrowReminder {
             return;
         }
         PendingIntent pi = pendingIntent(context);
+        // v5.8.32：总开关关掉时闹钟也一并撤掉，不能只「以后不发」
+        if (!ReminderPrefs.notifyBorrowDue(context)) {
+            am.cancel(pi);
+            return;
+        }
         Calendar next = Calendar.getInstance();
         next.set(Calendar.HOUR_OF_DAY, 9);
         next.set(Calendar.MINUTE, 0);
@@ -134,6 +139,17 @@ public final class BorrowReminder {
 
     public static void notify(Context ctx, int dueToday, int overdue,
                               int borrowedInToday, int borrowedInOverdue) {
+        // v5.8.32：两个开关分别管「借出通知」与「借入那半句话」
+        if (!ReminderPrefs.notifyBorrowDue(ctx)) {
+            return;
+        }
+        if (!ReminderPrefs.notifyBorrowedIn(ctx)) {
+            borrowedInToday = 0;
+            borrowedInOverdue = 0;
+        }
+        if (dueToday + overdue + borrowedInToday + borrowedInOverdue <= 0) {
+            return;
+        }
         if (!notificationsEnabled(ctx)) {
             return;
         }
@@ -154,37 +170,30 @@ public final class BorrowReminder {
             channel.setDescription("借出/借入的书到期或逾期时提醒");
             nm.createNotificationChannel(channel);
         }
+        // v5.8.32：正文与底部角标口径对齐——角标只数「借出逾期」，这里第一行也是它
         StringBuilder text = new StringBuilder();
-        if (overdue > 0) {
-            text.append(overdue).append(" 册已逾期");
+        if (overdue > 0 || dueToday > 0) {
+            text.append("借出：逾期 ").append(overdue)
+                    .append(" · 今天到期 ").append(dueToday);
         }
-        if (dueToday > 0) {
+        if (borrowedInOverdue > 0 || borrowedInToday > 0) {
             if (text.length() > 0) {
-                text.append("，");
+                text.append('\n');
             }
-            text.append(dueToday).append(" 册今天到期");
+            text.append("借入：逾期 ").append(borrowedInOverdue)
+                    .append(" · 今天到期 ").append(borrowedInToday);
         }
-        if (borrowedInOverdue > 0) {
-            if (text.length() > 0) {
-                text.append("；");
-            }
-            text.append(borrowedInOverdue).append(" 册借阅的书已逾期未还");
-        }
-        if (borrowedInToday > 0) {
-            if (text.length() > 0) {
-                text.append("；");
-            }
-            text.append(borrowedInToday).append(" 册借阅的书今天要归还");
-        }
+        String body = text.toString();
         Intent open = new Intent(ctx, MainActivity.class)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                .putExtra(MainActivity.EXTRA_OPEN_LOANS, true);
         int flags = PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE;
         PendingIntent contentIntent = PendingIntent.getActivity(ctx, REQUEST_CODE, open, flags);
         NotificationCompat.Builder builder = new NotificationCompat.Builder(ctx, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_launcher_mono)
                 .setContentTitle("该还书了")
-                .setContentText(text.toString())
-                .setStyle(new NotificationCompat.BigTextStyle().bigText(text.toString()))
+                .setContentText(body)
+                .setStyle(new NotificationCompat.BigTextStyle().bigText(body))
                 .setPriority(NotificationCompat.PRIORITY_DEFAULT)
                 .setAutoCancel(true)
                 .setContentIntent(contentIntent);
@@ -210,6 +219,54 @@ public final class BorrowReminder {
     public static void refresh(Context ctx) {
         schedule(ctx);
         checkAndNotify(ctx);
+    }
+
+    /**
+     * 立刻收掉已发出的到期通知与每日闹钟（v5.8.32）：
+     * 关掉「借阅到期通知」不能只是「以后不发」，旧通知留在通知栏里会继续打扰。
+     */
+    public static void cancelDueReminder(Context ctx) {
+        Context app = ctx.getApplicationContext();
+        try {
+            NotificationManagerCompat.from(app).cancel(NOTIFY_ID);
+        } catch (Throwable ignored) {
+        }
+        try {
+            AlarmManager am = (AlarmManager) app.getSystemService(Context.ALARM_SERVICE);
+            if (am != null) {
+                am.cancel(pendingIntent(app));
+            }
+        } catch (Throwable ignored) {
+        }
+    }
+
+    /**
+     * 已经没有任何逾期 / 今天到期时收掉通知（删除、归还、收回、解锁之后各调一次）。
+     * 闹钟保留：后面还有别的书要到期。
+     */
+    public static void cancelIfClear(Context ctx) {
+        BookshelfApp app = BookshelfApp.get();
+        if (app == null) {
+            return;
+        }
+        Context c = ctx.getApplicationContext();
+        app.io(() -> {
+            int[] counts;
+            int[] borrowedIn;
+            try {
+                counts = countDue(app.db().borrowRecordDao().getAllOpen());
+                borrowedIn = countBorrowedInDue(app.db().bookDao()
+                        .getBorrowedInDue(DateKeys.formatKey(DateKeys.todayKey())));
+            } catch (Throwable t) {
+                return;
+            }
+            if (counts[0] + counts[1] + borrowedIn[0] + borrowedIn[1] == 0) {
+                try {
+                    NotificationManagerCompat.from(c).cancel(NOTIFY_ID);
+                } catch (Throwable ignored) {
+                }
+            }
+        });
     }
 
     /** 生成催还文案（借阅人有联系方式时附上称呼） */

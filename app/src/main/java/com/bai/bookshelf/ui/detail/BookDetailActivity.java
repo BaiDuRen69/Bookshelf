@@ -731,7 +731,7 @@ public class BookDetailActivity extends BaseActivity {
             categoryDisplay = data.categoryDisplay;
             // 借出过才显示「借出记录」入口
             b.rowBorrowHistory.setVisibility(data.recordCount > 0 ? View.VISIBLE : View.GONE);
-            b.rowBorrowHistory.setText("借出记录（" + data.recordCount + " 条）");
+            b.rowBorrowHistory.setText("借出记录（我借给别人 · " + data.recordCount + " 条）");
             bind();
         });
     }
@@ -819,7 +819,7 @@ public class BookDetailActivity extends BaseActivity {
                 DetailSectionCollapse.RECORDS, "阅读记录");
         DetailSectionCollapse.bind(this, b.ivToggleBorrowRecords,
                 b.containerBorrowRecordsDetail,
-                DetailSectionCollapse.BORROW_RECORDS, "借书记录");
+                DetailSectionCollapse.BORROW_RECORDS, "借入记录");
         View.OnClickListener readingCalendar = v -> showReadingCalendar();
         b.tvReadingRecordsTitle.setOnClickListener(readingCalendar);
         bindReadingProgress();

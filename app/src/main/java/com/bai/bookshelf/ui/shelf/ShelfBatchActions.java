@@ -379,13 +379,16 @@ public final class ShelfBatchActions {
                 UndoBar.offer(anchorView(), message, () -> app.io(() -> {
                     long revertAt = System.currentTimeMillis();
                     for (long recordId : recordIds) {
-                        app.db().borrowRecordDao().deleteById(recordId);
+                        // v5.8.32：撤销也要走唯一入口，连带清掉这条记录可能挂着的备注图
+                        com.bai.bookshelf.util.BorrowLedger
+                                .deleteRecordWithImages(app, recordId);
                     }
                     for (Book old : before) {
                         old.updatedAt = revertAt;
                         old.dirty = true;
                         app.db().bookDao().update(old);
                     }
+                    com.bai.bookshelf.util.BorrowLedger.afterChange(activity);
                 }), null);
                 com.bai.bookshelf.util.BorrowReminder.refresh(activity);
             });

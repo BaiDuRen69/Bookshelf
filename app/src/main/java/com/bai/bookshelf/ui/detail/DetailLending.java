@@ -623,17 +623,7 @@ public class DetailLending {
                           BookCopy oldCopy, int copyStock, long createdCopyId) {
         BookshelfApp app = BookshelfApp.get();
         if (recordId > 0) {
-            List<NoteImage> imgs = app.db().noteImageDao()
-                    .getByOwnerKey("borrow:" + recordId);
-            List<String> files = new ArrayList<>();
-            for (NoteImage img : imgs) {
-                if (img.path != null && !img.path.isEmpty()) {
-                    files.add(img.path);
-                }
-            }
-            app.db().noteImageDao().deleteByOwnerKey("borrow:" + recordId);
-            app.db().borrowRecordDao().deleteById(recordId);
-            com.bai.bookshelf.util.BookCascade.deleteFiles(app, files);
+            com.bai.bookshelf.util.BorrowLedger.deleteRecordWithImages(app, recordId);
         }
         if (copyIndex == 1) {
             Book fresh = app.db().bookDao().getById(bookId);

@@ -819,37 +819,8 @@
                         android:layout_height="wrap_content"
                         android:orientation="vertical">
 
-                        <LinearLayout
-                            android:id="@+id/row_update_toggle"
-                            style="@style/MineRow">
-
-                            <ImageView
-                                style="@style/MineRowIcon"
-                                android:contentDescription="启动时检查更新"
-                                android:src="@drawable/ic_sync_line" />
-
-                            <LinearLayout
-                                android:layout_width="0dp"
-                                android:layout_height="wrap_content"
-                                android:layout_marginStart="@dimen/space_md"
-                                android:layout_weight="1"
-                                android:orientation="vertical">
-
-                                <TextView
-                                    style="@style/MineRowTitle"
-                                    android:text="启动时检查应用更新" />
-
-                                <TextView
-                                    android:id="@+id/tv_update_toggle_state"
-                                    style="@style/MineRowSubtitle"
-                                    android:text="已开启（发现新版本时提醒）" />
-                            </LinearLayout>
-
-                            <ImageView style="@style/MineRowChevron" />
-                        </LinearLayout>
-
-                        <View style="@style/MineRowDivider" />
-
+                        <!-- v5.8.32：「启动时检查应用更新」开关挪到「提醒与角标」页，
+                             这里只留手动检查入口，避免同一个开关出现在两处 -->
                         <LinearLayout
                             android:id="@+id/row_check_update"
                             style="@style/MineRow">
@@ -949,6 +920,38 @@
                                     android:id="@+id/tv_app_lock_state"
                                     style="@style/MineRowSubtitle"
                                     android:text="未开启" />
+                            </LinearLayout>
+
+                            <ImageView style="@style/MineRowChevron" />
+                        </LinearLayout>
+
+                        <View style="@style/MineRowDivider" />
+
+                        <!-- v5.8.32：提醒 / 角标 / 小组件 / 启动检查更新 的开关收到一页 -->
+                        <LinearLayout
+                            android:id="@+id/row_reminder_settings"
+                            style="@style/MineRow">
+
+                            <ImageView
+                                style="@style/MineRowIcon"
+                                android:contentDescription="提醒与角标"
+                                android:src="@drawable/ic_sync_line" />
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="@dimen/space_md"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    style="@style/MineRowTitle"
+                                    android:text="提醒与角标" />
+
+                                <TextView
+                                    android:id="@+id/tv_reminder_settings_state"
+                                    style="@style/MineRowSubtitle"
+                                    android:text="到期通知、逾期角标、小组件刷新" />
                             </LinearLayout>
 
                             <ImageView style="@style/MineRowChevron" />
