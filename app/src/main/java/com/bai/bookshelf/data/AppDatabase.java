@@ -11,6 +11,7 @@ import com.bai.bookshelf.data.dao.BookDao;
 import com.bai.bookshelf.data.dao.BorrowRecordDao;
 import com.bai.bookshelf.data.dao.BorrowerDao;
 import com.bai.bookshelf.data.dao.CategoryDao;
+import com.bai.bookshelf.data.dao.CheckInDao;
 import com.bai.bookshelf.data.dao.CountryDao;
 import com.bai.bookshelf.data.dao.ExcerptDao;
 import com.bai.bookshelf.data.dao.LocationDao;
@@ -23,6 +24,7 @@ import com.bai.bookshelf.data.entity.BookCopy;
 import com.bai.bookshelf.data.entity.BorrowRecord;
 import com.bai.bookshelf.data.entity.Borrower;
 import com.bai.bookshelf.data.entity.Category;
+import com.bai.bookshelf.data.entity.CheckIn;
 import com.bai.bookshelf.data.entity.Country;
 import com.bai.bookshelf.data.entity.Excerpt;
 import com.bai.bookshelf.data.entity.Location;
@@ -58,15 +60,16 @@ import com.bai.bookshelf.data.entity.Tag;
  * v19：wish_books 加 sort，支撑想读清单手动拖动排序。
  * v20：books 加借阅时间段与归还日期（来源=借阅时使用）。
  * v21：books 加 readingRecords（多次阅读记录 JSON）与弃读状态。
+ * v25：新增 check_ins 打卡表（只加表，不给任何现有表加列/改索引/改字段语义）。
  */
 @Database(entities = {Book.class, Location.class, BorrowRecord.class, SourceChannel.class, Tag.class,
         Category.class, Borrower.class, BookCopy.class, Country.class, NoteImage.class, Publisher.class, WishBook.class,
-        Excerpt.class},
+        Excerpt.class, CheckIn.class},
         version = AppDatabase.VERSION, exportSchema = true) // v4.0：导出 schema JSON 供迁移比对与测试
 public abstract class AppDatabase extends RoomDatabase {
 
     /** Room schema 版本（v5.7：备份 meta 与升级前副本都要读到它，故提为常量） */
-    public static final int VERSION = 24;
+    public static final int VERSION = 25;
 
     /** 数据库文件名（建库与升级前副本共用） */
     public static final String DB_NAME = "bookshelf.db";
@@ -96,6 +99,9 @@ public abstract class AppDatabase extends RoomDatabase {
     public abstract NoteImageDao noteImageDao();
 
     public abstract PublisherDao publisherDao();
+
+    /** 每日阅读打卡（v25 新增表） */
+    public abstract CheckInDao checkInDao();
 
     /** v1 → v2 迁移：纯加列/加表。注意 String 字段在 Room 中是可空列，只能写 TEXT DEFAULT '' */
     public static final Migration MIGRATION_1_2 = new Migration(1, 2) {
@@ -429,6 +435,23 @@ public abstract class AppDatabase extends RoomDatabase {
         }
     };
 
+    /**
+     * v24 → v25：新增每日阅读打卡表。
+     * 列定义与索引名逐字照抄 Room 生成的 schemas/.../25.json（先跑 assembleDebug 生成，
+     * 不手写猜）；复合主键自带去重，不另建唯一索引。
+     */
+    public static final Migration MIGRATION_24_25 = new Migration(24, 25) {
+        @Override
+        public void migrate(@NonNull SupportSQLiteDatabase database) {
+            database.execSQL("CREATE TABLE IF NOT EXISTS `check_ins` ("
+                    + "`bookId` INTEGER NOT NULL, `dayKey` INTEGER NOT NULL, "
+                    + "`createdAt` INTEGER NOT NULL, `backfill` INTEGER NOT NULL, "
+                    + "`pages` INTEGER NOT NULL, PRIMARY KEY(`bookId`, `dayKey`))");
+            database.execSQL("CREATE INDEX IF NOT EXISTS `index_check_ins_dayKey` "
+                    + "ON `check_ins` (`dayKey`)");
+        }
+    };
+
     /** 全部迁移（建库与迁移冒烟测试共用一份清单，避免两处各写一遍漏掉一条） */
     public static Migration[] migrations() {
         return new Migration[]{
@@ -437,7 +460,7 @@ public abstract class AppDatabase extends RoomDatabase {
                 MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13,
                 MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17,
                 MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21,
-                MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24};
+                MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25};
     }
 
     /** 某一个旧版本对应的迁移；没有则 null（供测试逐级串起来） */
