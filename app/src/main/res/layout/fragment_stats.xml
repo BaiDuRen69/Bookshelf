@@ -844,111 +844,9 @@
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
 
-                <!-- ==================== 作者分布 ==================== -->
+                <!-- ==================== Top 分布（v5.9.1：作者/出版社/国家三榜合一） ============ -->
                 <androidx.cardview.widget.CardView
-                    android:id="@+id/card_authors"
-                    style="@style/Widget.Bookshelf.Card"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="@dimen/space_lg">
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        android:padding="@dimen/space_lg">
-
-                        <LinearLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:gravity="center_vertical"
-                            android:orientation="horizontal">
-
-                            <TextView
-                                style="@style/CardTitle"
-                                android:layout_width="0dp"
-                                android:layout_height="wrap_content"
-                                android:layout_weight="1"
-                                android:text="作者分布 Top 8"
-                                android:textColor="?attr/on_surface" />
-
-                            <TextView
-                                android:id="@+id/tv_authors_more"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:background="?attr/selectableItemBackground"
-                                android:padding="@dimen/space_xs"
-                                android:drawableEnd="@drawable/ic_chevron_right_line"
-                                android:drawablePadding="2dp"
-                                android:drawableTint="?attr/colorPrimary"
-                                android:text="全部"
-                                android:textColor="?attr/colorPrimary"
-                                android:textSize="@dimen/text_body_small" />
-                        </LinearLayout>
-
-                        <LinearLayout
-                            android:id="@+id/container_authors"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="@dimen/space_sm"
-                            android:orientation="vertical" />
-                    </LinearLayout>
-                </androidx.cardview.widget.CardView>
-
-                <!-- ==================== 出版社分布 ==================== -->
-                <androidx.cardview.widget.CardView
-                    android:id="@+id/card_publishers"
-                    style="@style/Widget.Bookshelf.Card"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="@dimen/space_md">
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        android:padding="@dimen/space_lg">
-
-                        <LinearLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:gravity="center_vertical"
-                            android:orientation="horizontal">
-
-                            <TextView
-                                style="@style/CardTitle"
-                                android:layout_width="0dp"
-                                android:layout_height="wrap_content"
-                                android:layout_weight="1"
-                                android:text="出版社分布 Top 8"
-                                android:textColor="?attr/on_surface" />
-
-                            <TextView
-                                android:id="@+id/tv_publishers_more"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:background="?attr/selectableItemBackground"
-                                android:padding="@dimen/space_xs"
-                                android:drawableEnd="@drawable/ic_chevron_right_line"
-                                android:drawablePadding="2dp"
-                                android:drawableTint="?attr/colorPrimary"
-                                android:text="全部"
-                                android:textColor="?attr/colorPrimary"
-                                android:textSize="@dimen/text_body_small" />
-                        </LinearLayout>
-
-                        <LinearLayout
-                            android:id="@+id/container_publishers"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="@dimen/space_sm"
-                            android:orientation="vertical" />
-                    </LinearLayout>
-                </androidx.cardview.widget.CardView>
-
-                <!-- ==================== 国家/地区分布 ==================== -->
-                <androidx.cardview.widget.CardView
-                    android:id="@+id/card_countries"
+                    android:id="@+id/card_dist"
                     style="@style/Widget.Bookshelf.Card"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -972,11 +870,11 @@
                                 android:layout_width="0dp"
                                 android:layout_height="wrap_content"
                                 android:layout_weight="1"
-                                android:text="国家/地区 Top 8"
+                                android:text="Top 分布"
                                 android:textColor="?attr/on_surface" />
 
                             <TextView
-                                android:id="@+id/tv_countries_more"
+                                android:id="@+id/tv_dist_more"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:background="?attr/selectableItemBackground"
@@ -990,7 +888,56 @@
                         </LinearLayout>
 
                         <LinearLayout
-                            android:id="@+id/container_countries"
+                            android:id="@+id/ll_dist_tabs"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="@dimen/space_sm"
+                            android:background="@drawable/bg_seg_track"
+                            android:orientation="horizontal"
+                            android:padding="@dimen/space_xs">
+
+                            <TextView
+                                android:id="@+id/dist_authors"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:foreground="@drawable/ripple_seg_tab"
+                                android:gravity="center"
+                                android:minHeight="48dp"
+                                android:paddingVertical="@dimen/space_sm"
+                                android:text="作者"
+                                android:textColor="?attr/on_surface_variant"
+                                android:textSize="@dimen/text_body_small" />
+
+                            <TextView
+                                android:id="@+id/dist_publishers"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:foreground="@drawable/ripple_seg_tab"
+                                android:gravity="center"
+                                android:minHeight="48dp"
+                                android:paddingVertical="@dimen/space_sm"
+                                android:text="出版社"
+                                android:textColor="?attr/on_surface_variant"
+                                android:textSize="@dimen/text_body_small" />
+
+                            <TextView
+                                android:id="@+id/dist_countries"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:foreground="@drawable/ripple_seg_tab"
+                                android:gravity="center"
+                                android:minHeight="48dp"
+                                android:paddingVertical="@dimen/space_sm"
+                                android:text="国家/地区"
+                                android:textColor="?attr/on_surface_variant"
+                                android:textSize="@dimen/text_body_small" />
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:id="@+id/container_dist"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="@dimen/space_sm"

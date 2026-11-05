@@ -60,6 +60,8 @@ public class StatsFragment extends Fragment {
     private static final int TAB_READING = 1;
     private static final int TAB_PURCHASE = 2;
     private static final int TAB_LOAN = 3;
+    /** Top 分布卡分段记忆（ui_prefs，与书架视图设置同库） */
+    private static final String PREF_DIST_SEG = "stats_dist_seg";
 
     private FragmentStatsBinding b;
     private int lastFinishedThisYear;
@@ -129,6 +131,8 @@ public class StatsFragment extends Fragment {
     private java.util.List<java.util.Map.Entry<String, Integer>> topPublishers;
     private java.util.List<java.util.Map.Entry<String, Integer>> topCountries;
     private int statsTab = TAB_BOOKS;
+    /** Top 分布卡当前分段（v5.9.1），跨启动记住 */
+    private int distSeg = DistSegment.AUTHORS;
     private boolean statsEmpty;
     /** 分类树（一级带二级），树状图下钻用 */
     private java.util.List<com.bai.bookshelf.util.StatsHoldings.Group> categoryTree;
@@ -195,15 +199,8 @@ public class StatsFragment extends Fragment {
         b.emptyState.btnEmptyCta.setOnClickListener(v ->
                 startActivity(new Intent(requireContext(),
                         com.bai.bookshelf.ui.edit.BookEditActivity.class)));
-        // 「全部 ›」进入国家分布二级页面（完整列表）
-        b.tvCountriesMore.setOnClickListener(v ->
-                startActivity(new Intent(requireContext(), CountryActivity.class)));
-        // 「全部 ›」进入出版社分布二级页面（完整列表）
-        b.tvPublishersMore.setOnClickListener(v ->
-                startActivity(new Intent(requireContext(), PublisherActivity.class)));
-        // 「全部 ›」进入作者分布二级页面（完整列表）
-        b.tvAuthorsMore.setOnClickListener(v ->
-                startActivity(new Intent(requireContext(), AuthorActivity.class)));
+        // v5.9.1 三步：三张榜合成一张 Top 分布卡，分段切换，「全部」跟着当前段走
+        setupDistCard();
         // v4.3：改为 Room 响应式观察（与 v4.2 书架页同模式）——注册即推送首次数据，
         // 之后 books 表任何变化自动重算，切 Tab 回来无需手动刷新，视图重建也不会空白
         // v5.8.3：库没就绪时排队，等开库成功再注册（冷启动时本页早于开库完成）
@@ -298,9 +295,7 @@ public class StatsFragment extends Fragment {
         setCardVisible(b.cardTreemap, books);
         setCardVisible(b.cardCohort, books);
         setCardVisible(b.sectionExtremes, books);
-        setCardVisible(b.cardAuthors, books);
-        setCardVisible(b.cardPublishers, books);
-        setCardVisible(b.cardCountries, books);
+        setCardVisible(b.cardDist, books);
         setCardVisible(b.cardSeries, books);
         setCardVisible(b.cardReadingGoal, reading);
         setCardVisible(b.cardReadingCalendar, reading);
@@ -909,10 +904,7 @@ public class StatsFragment extends Fragment {
         renderSeries(seriesGroups, books);
         buildExtremes(fMostExpensive, fMostPages, fMostWords, fEarliest, fMostPrintings);
         bindCoverFan(fRecent);
-        DistRowBuilder rows = distRows();
-        rows.fill(b.containerAuthors, topAuthors, DistRowBuilder.emptyHint("作者", null));
-        rows.fill(b.containerPublishers, topPublishers, DistRowBuilder.emptyHint("出版社", null));
-        rows.fill(b.containerCountries, topCountries, DistRowBuilder.emptyHint("国家/地区", null));
+        renderDist();
     }
 
     private void renderReadingTab() {
@@ -1527,6 +1519,68 @@ public class StatsFragment extends Fragment {
     /** 分布行渲染器（v3.0 抽出公共组件，点击行跳书架搜索） */
     private DistRowBuilder distRows() {
         return new DistRowBuilder(requireContext(), name -> ShelfNavigator.search(requireActivity(), name));
+    }
+
+    /** Top 分布卡：分段切换器 + 「全部」入口（v5.9.1 三步，三榜合一后只剩这一张卡） */
+    private void setupDistCard() {
+        distSeg = DistSegment.clamp(requireContext().getSharedPreferences("ui_prefs", 0)
+                .getInt(PREF_DIST_SEG, DistSegment.AUTHORS));
+        b.distAuthors.setOnClickListener(v -> selectDistSeg(DistSegment.AUTHORS));
+        b.distPublishers.setOnClickListener(v -> selectDistSeg(DistSegment.PUBLISHERS));
+        b.distCountries.setOnClickListener(v -> selectDistSeg(DistSegment.COUNTRIES));
+        b.tvDistMore.setOnClickListener(v ->
+                startActivity(new Intent(requireContext(), distDetailClass())));
+        styleDistSegs();
+    }
+
+    private void selectDistSeg(int seg) {
+        if (distSeg == seg) {
+            return;
+        }
+        distSeg = seg;
+        requireContext().getSharedPreferences("ui_prefs", 0).edit()
+                .putInt(PREF_DIST_SEG, seg).apply();
+        styleDistSegs();
+        renderDist();
+    }
+
+    private void styleDistSegs() {
+        styleStatsTab(b.distAuthors, distSeg == DistSegment.AUTHORS);
+        styleStatsTab(b.distPublishers, distSeg == DistSegment.PUBLISHERS);
+        styleStatsTab(b.distCountries, distSeg == DistSegment.COUNTRIES);
+        // 目标页随分段变，入口文案跟着说清楚要点去哪看
+        b.tvDistMore.setText(DistSegment.moreLabel(distSeg));
+    }
+
+    /** 只渲染当前分段；三份榜单数据都照旧算好，切换不重新查询 */
+    private void renderDist() {
+        if (b == null) {
+            return;
+        }
+        String field = DistSegment.fieldLabel(distSeg);
+        distRows().fill(b.containerDist, distList(), DistRowBuilder.emptyHint(field, null));
+    }
+
+    private List<Map.Entry<String, Integer>> distList() {
+        switch (distSeg) {
+            case DistSegment.PUBLISHERS:
+                return topPublishers;
+            case DistSegment.COUNTRIES:
+                return topCountries;
+            default:
+                return topAuthors;
+        }
+    }
+
+    private Class<? extends android.app.Activity> distDetailClass() {
+        switch (distSeg) {
+            case DistSegment.PUBLISHERS:
+                return PublisherActivity.class;
+            case DistSegment.COUNTRIES:
+                return CountryActivity.class;
+            default:
+                return AuthorActivity.class;
+        }
     }
 
     /** 计数 Map → 按数量倒序的前 N 名 */
