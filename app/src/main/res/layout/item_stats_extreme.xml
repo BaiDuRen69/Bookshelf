@@ -43,12 +43,12 @@
             android:textColor="?attr/on_surface"
             android:textSize="@dimen/text_body_small" />
 
+        <!-- v5.9.1：数值从 11sp 灰字升到 L3（15sp + tnum），与左侧名称同档不同色 -->
         <TextView
             android:id="@+id/tv_metric"
+            style="@style/Text.Bookshelf.RowValue"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="2dp"
-            android:textColor="?attr/on_surface_variant"
-            android:textSize="@dimen/text_caption" />
+            android:layout_marginTop="2dp" />
     </LinearLayout>
 </androidx.cardview.widget.CardView>

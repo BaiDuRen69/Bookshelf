@@ -993,7 +993,7 @@ public class StatsFragment extends Fragment {
     private void renderOpenLoans() {
         b.llOpenLoans.removeAllViews();
         if (openLoans == null || openLoans.isEmpty()) {
-            addRow(b.llOpenLoans, "现在没有借出去的书", 13, true);
+            addRow(b.llOpenLoans, "现在没有借出去的书", true);
             b.tvOpenLoansHint.setText("在书详情页或逐本信息里可以登记借出");
             return;
         }
@@ -1001,30 +1001,28 @@ public class StatsFragment extends Fragment {
                 Locale.getDefault());
         int today = com.bai.bookshelf.util.DateKeys.todayKey();
         for (final OpenLoan loan : openLoans) {
-            StringBuilder line = new StringBuilder();
-            if (loan.book == null) {
-                line.append("记录 #").append(loan.record.id).append("（书已删除）");
-            } else {
-                line.append("《").append(loan.title).append("》");
-            }
-            line.append(" · ").append(loan.borrower);
+            String titleCol = loan.book == null
+                    ? "记录 #" + loan.record.id + "（书已删除）"
+                    : "《" + loan.title + "》";
+            java.util.List<String> parts = new java.util.ArrayList<>();
+            parts.add(loan.borrower);
             if (loan.dueKey > 0) {
-                line.append(" · 应还 ").append(OpenLoan.monthDay(loan.dueKey));
-                int overdue = com.bai.bookshelf.util.DateKeys.daysBetween(
+                parts.add("应还 " + OpenLoan.monthDay(loan.dueKey));
+                int overdueDays = com.bai.bookshelf.util.DateKeys.daysBetween(
                         loan.dueKey, today);
-                if (overdue > 0) {
-                    line.append("（逾期 ").append(overdue).append(" 天）");
+                if (overdueDays > 0) {
+                    parts.add("（逾期 " + overdueDays + " 天）");
                 }
             } else {
-                line.append(" · 未填应还日期");
+                parts.add("未填应还日期");
             }
             boolean overdue = loan.dueKey > 0 && loan.dueKey < today;
-            android.widget.TextView row = addRow(b.llOpenLoans, line.toString(), 13, false);
-            if (overdue) {
-                // 逾期单独用错误色，别和「次要文字」的浅灰混在一起
-                row.setTextColor(com.bai.bookshelf.util.ThemeManager.resolveColor(
-                        requireContext(), com.google.android.material.R.attr.colorError));
-            }
+            // 左列书名，右列借阅人与应还；逾期整行用错误色，不跟浅灰混
+            android.view.View row = addValueRow(b.llOpenLoans, titleCol,
+                    StatsRows.join(parts.toArray(new String[0])),
+                    overdue ? com.bai.bookshelf.util.ThemeManager.resolveColor(
+                            requireContext(),
+                            com.google.android.material.R.attr.colorError) : 0);
             row.setOnClickListener(v -> confirmReturn(loan));
         }
         b.tvOpenLoansHint.setText("点一行可收回；逾期按应还日期和今天比较");
@@ -1125,26 +1123,65 @@ public class StatsFragment extends Fragment {
         }
         int todayYear = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR);
         for (com.bai.bookshelf.util.StatsHoldings.Cohort c : cohorts) {
-            addRow(b.llCohort, c.line(todayYear), 13, false);
+            addRow(b.llCohort, c.line(todayYear), false);
         }
         b.tvCohortHint.setText("口径：按买入年份分组（借阅不算买入）；窗口没满的年份不给几年内比例");
     }
 
     /** 往容器里加一行纯文字（cohort / 渠道榜共用，省掉每处重复的 TextView 拼装） */
     private android.widget.TextView addRow(android.widget.LinearLayout container, String text,
-                                            float sp, boolean secondary) {
+                                            boolean secondary) {
         android.widget.TextView tv = new android.widget.TextView(requireContext());
-        tv.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, sp);
-        tv.setTextColor(com.bai.bookshelf.util.ThemeManager.resolveColor(requireContext(),
-                secondary ? R.attr.on_surface_variant : R.attr.on_surface));
-        tv.setLineSpacing(0, 1.25f);
+        // v5.9.0：字号与行距走样式档（L4 Body = 13sp + 1.3 倍行距），不再传硬编码 sp；
+        // 行距也从令牌取，六套主题下不用再担心某一档差 2dp
+        tv.setTextAppearance(requireContext(), R.style.Text_Bookshelf_Body);
+        if (!secondary) {
+            tv.setTextColor(com.bai.bookshelf.util.ThemeManager.resolveColor(
+                    requireContext(), R.attr.on_surface));
+        }
         tv.setText(text);
         android.widget.LinearLayout.LayoutParams lp = new android.widget.LinearLayout.LayoutParams(
                 android.view.ViewGroup.LayoutParams.MATCH_PARENT,
                 android.view.ViewGroup.LayoutParams.WRAP_CONTENT);
-        lp.topMargin = Math.round(6 * getResources().getDisplayMetrics().density);
+        lp.topMargin = getResources().getDimensionPixelSize(R.dimen.space_xs);
         container.addView(tv, lp);
         return tv;
+    }
+
+    /**
+     * 榜单行：名称靠左（L3 RowName，超长省略）、数值靠右（L3 RowValue，tnum 对齐）（v5.9.0）。
+     * 行本身是一层横向 LinearLayout，加上卡片与容器仍在四层以内。
+     * colorOverride 非 0 时两列一起换色（逾期那几行用错误色，不跟浅灰混）。
+     */
+    private android.view.View addValueRow(android.widget.LinearLayout container,
+                                          String name, String value, int colorOverride) {
+        android.widget.LinearLayout row = new android.widget.LinearLayout(requireContext());
+        row.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+        android.widget.TextView left = new android.widget.TextView(requireContext());
+        left.setTextAppearance(requireContext(), R.style.Text_Bookshelf_RowName);
+        left.setText(StatsRows.name(name));
+        android.widget.TextView right = new android.widget.TextView(requireContext());
+        right.setTextAppearance(requireContext(), R.style.Text_Bookshelf_RowValue);
+        right.setText(StatsRows.value(value));
+        right.setGravity(android.view.Gravity.END);
+        if (colorOverride != 0) {
+            left.setTextColor(colorOverride);
+            right.setTextColor(colorOverride);
+        }
+        android.widget.LinearLayout.LayoutParams lpLeft =
+                new android.widget.LinearLayout.LayoutParams(0,
+                        android.view.ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        lpLeft.setMarginEnd(getResources().getDimensionPixelSize(R.dimen.space_sm));
+        row.addView(left, lpLeft);
+        row.addView(right, new android.widget.LinearLayout.LayoutParams(
+                android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
+                android.view.ViewGroup.LayoutParams.WRAP_CONTENT));
+        android.widget.LinearLayout.LayoutParams lpRow = new android.widget.LinearLayout.LayoutParams(
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                android.view.ViewGroup.LayoutParams.WRAP_CONTENT);
+        lpRow.topMargin = getResources().getDimensionPixelSize(R.dimen.space_xs);
+        container.addView(row, lpRow);
+        return row;
     }
 
     /** 渠道 ROI：每个来源一行「N 种 · 花费 · 折扣 · 每页 · 读完率」 */
@@ -1160,7 +1197,7 @@ public class StatsFragment extends Fragment {
             if (shown++ >= 6) {
                 break;
             }
-            addRow(b.llChannel, g.statLine(), 13, false);
+            addRow(b.llChannel, g.statLine(), false);
         }
         b.tvChannelHint.setText("口径：只算自购（赠书与借阅不计花费），花费按册、读完率按种");
     }
@@ -1177,7 +1214,7 @@ public class StatsFragment extends Fragment {
         }
         if (priced.isEmpty()) {
             addRow(b.llCost, "页数与花费都填齐的分类还不够多（需要至少 "
-                    + com.bai.bookshelf.util.LibraryStats.MIN_SAMPLE + " 种）", 13, true);
+                    + com.bai.bookshelf.util.LibraryStats.MIN_SAMPLE + " 种）", true);
             return;
         }
         priced.sort((x, y) -> Double.compare(y.perPage(), x.perPage()));
@@ -1186,8 +1223,9 @@ public class StatsFragment extends Fragment {
             if (shown++ >= 5) {
                 break;
             }
-            addRow(b.llCost, g.name + " · 每页 " + Money.compact(g.perPage())
-                    + "（" + g.titles + " 种 · 花费 " + Money.compact(g.paid) + "）", 13, false);
+            addValueRow(b.llCost, g.name, StatsRows.join(
+                    "每页 " + Money.compact(g.perPage()),
+                    "（" + g.titles + " 种 · 花费 " + Money.compact(g.paid) + "）"), 0);
         }
     }
 
@@ -1204,7 +1242,7 @@ public class StatsFragment extends Fragment {
             if (shown++ >= 6) {
                 break;
             }
-            addRow(b.llStructure, s.line(), 13, false);
+            addRow(b.llStructure, s.line(), false);
         }
         b.tvStructureHint.setText("口径：占比按种数算，「已读」是读完的种数；只看一级分类");
     }
@@ -1244,9 +1282,11 @@ public class StatsFragment extends Fragment {
                 break;
             }
             int missing = com.bai.bookshelf.util.StatsHoldings.missingVolumes(books, g.name);
-            addRow(b.llSeries, g.name + " · " + g.titles + " 种 · 已读 " + g.readDone
-                    + (g.paid > 0 ? " · 花费 " + Money.compact(g.paid) : "")
-                    + (missing > 0 ? " · 疑似缺 " + missing + " 卷" : ""), 13, false);
+            addValueRow(b.llSeries, g.name, StatsRows.join(
+                    g.titles + " 种",
+                    "已读 " + g.readDone,
+                    g.paid > 0 ? "花费 " + Money.compact(g.paid) : null,
+                    missing > 0 ? "疑似缺 " + missing + " 卷" : null), 0);
         }
         b.tvSeriesHint.setText(shown == 0
                 ? "还没有两个以上成系列的藏书；在编辑页填「系列名」就会归到这里"
@@ -1282,7 +1322,7 @@ public class StatsFragment extends Fragment {
             java.util.List<com.bai.bookshelf.util.StatsLend.Lender> lenders) {
         b.llBorrowers.removeAllViews();
         if (lenders == null || lenders.isEmpty()) {
-            addRow(b.llBorrowers, "还没有借出记录；在书架里长按一本书就能登记借出", 13, true);
+            addRow(b.llBorrowers, "还没有借出记录；在书架里长按一本书就能登记借出", true);
             b.tvBorrowersHint.setText("借阅记录在书详情页的「借出记录」里管理");
             return;
         }
@@ -1291,15 +1331,10 @@ public class StatsFragment extends Fragment {
             if (shown++ >= 6) {
                 break;
             }
-            StringBuilder line = new StringBuilder(l.name)
-                    .append(" · 借出 ").append(l.loans).append(" 笔");
-            if (l.outNow > 0) {
-                line.append(" · 还在手上 ").append(l.outNow).append(" 册");
-            }
-            if (l.overdue > 0) {
-                line.append(" · 超期 ").append(l.overdue).append(" 笔");
-            }
-            addRow(b.llBorrowers, line.toString(), 13, false);
+            addValueRow(b.llBorrowers, l.name, StatsRows.join(
+                    "借出 " + l.loans + " 笔",
+                    l.outNow > 0 ? "还在手上 " + l.outNow + " 册" : null,
+                    l.overdue > 0 ? "超期 " + l.overdue + " 笔" : null), 0);
         }
         b.tvBorrowersHint.setText("口径：按借出笔数排序；按时归还率见上方洞察");
     }

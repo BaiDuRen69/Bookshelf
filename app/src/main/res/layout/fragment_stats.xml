@@ -129,11 +129,10 @@
                                 android:orientation="vertical">
 
                         <TextView
+                            style="@style/Text.Bookshelf.Overline"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="藏书"
-                            android:textColor="?attr/on_surface_variant"
-                            android:textSize="@dimen/text_caption" />
+                            android:text="藏书" />
 
                         <!-- v5.9.1：数字与单位合成一个 TextView，单位的大小与颜色由 StatsText.metric 的 span 决定；
                              厘掆了这一层 LinearLayout 也少了一处硬编码 4dp/7dp -->
@@ -247,12 +246,11 @@
                                     android:textColor="?attr/on_surface" />
 
                                 <TextView
+                                    style="@style/Text.Bookshelf.Overline"
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
                                     android:layout_marginTop="2dp"
-                                    android:text="已读"
-                                    android:textColor="?attr/on_surface_variant"
-                                    android:textSize="@dimen/text_caption" />
+                                    android:text="已读" />
                             </LinearLayout>
 
                             <LinearLayout
@@ -271,22 +269,20 @@
                                     android:textColor="?attr/on_surface" />
 
                                 <TextView
+                                    style="@style/Text.Bookshelf.Overline"
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
                                     android:layout_marginTop="2dp"
-                                    android:text="在读"
-                                    android:textColor="?attr/on_surface_variant"
-                                    android:textSize="@dimen/text_caption" />
+                                    android:text="在读" />
 
                                 <!-- v5.8.33：在读里有多少本正借在外面（0 时整行隐藏） -->
                                 <TextView
                                     android:id="@+id/tv_stats_reading_out"
+                                    style="@style/Text.Bookshelf.Body"
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
                                     android:layout_marginTop="2dp"
                                     android:text="其中 0 种在外借中"
-                                    android:textColor="?attr/on_surface_variant"
-                                    android:textSize="@dimen/text_caption"
                                     android:visibility="gone" />
                             </LinearLayout>
 
@@ -306,12 +302,11 @@
                                     android:textColor="?attr/on_surface" />
 
                                 <TextView
+                                    style="@style/Text.Bookshelf.Overline"
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
                                     android:layout_marginTop="2dp"
-                                    android:text="未读"
-                                    android:textColor="?attr/on_surface_variant"
-                                    android:textSize="@dimen/text_caption" />
+                                    android:text="未读" />
                             </LinearLayout>
 
                             <LinearLayout
@@ -330,12 +325,11 @@
                                     android:textColor="?attr/on_surface" />
 
                                 <TextView
+                                    style="@style/Text.Bookshelf.Overline"
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
                                     android:layout_marginTop="2dp"
-                                    android:text="弃读"
-                                    android:textColor="?attr/on_surface_variant"
-                                    android:textSize="@dimen/text_caption" />
+                                    android:text="弃读" />
                             </LinearLayout>
                         </LinearLayout>
                     </LinearLayout>
