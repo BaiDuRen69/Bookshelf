@@ -803,16 +803,19 @@ public class StatsFragment extends Fragment {
             return;
         }
         // v4.30：藏书总数 600ms count-up，只在第一次进本页时跑
+        // v5.9.1：数字与「种」合成一段，单位靠 span 缩小并降色，不再用两段 TextView 对基线
+        final int unitColor = com.bai.bookshelf.util.ThemeManager.resolveColor(
+                requireContext(), R.attr.on_surface_variant);
         if (!heroAnimated) {
             heroAnimated = true;
             android.animation.ValueAnimator countUp =
                     android.animation.ValueAnimator.ofInt(0, fTotal);
             countUp.setDuration(600);
-            countUp.addUpdateListener(a ->
-                    b.tvStatsTotal.setText(String.valueOf(a.getAnimatedValue())));
+            countUp.addUpdateListener(a -> b.tvStatsTotal.setText(
+                    StatsText.metric(String.valueOf(a.getAnimatedValue()), "种", unitColor)));
             countUp.start();
         } else {
-            b.tvStatsTotal.setText(String.valueOf(fTotal));
+            b.tvStatsTotal.setText(StatsText.metric(String.valueOf(fTotal), "种", unitColor));
         }
         b.tvStatsReadDone.setText(String.valueOf(hold.readDone));
         b.tvStatsReading.setText(String.valueOf(hold.reading));

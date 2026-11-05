@@ -135,29 +135,15 @@
                             android:textColor="?attr/on_surface_variant"
                             android:textSize="@dimen/text_caption" />
 
-                        <LinearLayout
-                            android:layout_width="match_parent"
+                        <!-- v5.9.1：数字与单位合成一个 TextView，单位的大小与颜色由 StatsText.metric 的 span 决定；
+                             厘掆了这一层 LinearLayout 也少了一处硬编码 4dp/7dp -->
+                        <TextView
+                            android:id="@+id/tv_stats_total"
+                            style="@style/Text.Bookshelf.Metric.Hero"
+                            android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:gravity="bottom"
-                            android:orientation="horizontal">
-
-                            <TextView
-                                android:id="@+id/tv_stats_total"
-                                style="@style/Text.Bookshelf.Metric.Hero"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="0"
-                                android:textColor="?attr/colorPrimary" />
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_marginStart="4dp"
-                                android:layout_marginBottom="7dp"
-                                android:text="种"
-                                android:textColor="?attr/on_surface_variant"
-                                android:textSize="@dimen/text_body_small" />
-                        </LinearLayout>
+                            android:text="0"
+                            android:textColor="?attr/colorPrimary" />
 
                         <!-- v5.8 双口径：种是主数字，物理册数 / 在外 / 遗失按册另起一行 -->
                         <TextView

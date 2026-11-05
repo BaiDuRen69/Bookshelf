@@ -50,6 +50,10 @@
     <dimen name="text_body">15sp</dimen>
     <dimen name="text_body_small">13sp</dimen>
     <dimen name="text_caption">11sp</dimen>
+    <!-- v5.9.1 六级字阶补档：L2 次级数字 / L3 行内数值 / L5 夜读档（样式层用 ?attr 选档） -->
+    <dimen name="text_metric_small">20sp</dimen>
+    <dimen name="text_row_value">15sp</dimen>
+    <dimen name="text_caption_night">12sp</dimen>
 
     <!-- ===== 页面 ===== -->
     <dimen name="page_padding">16dp</dimen>

@@ -18,6 +18,8 @@
         <item name="colorOnPrimary">#FFFFFF</item>
         <!-- v5.8.29：页头这一层单独成对。六套浅色主题页头 = 各自主色 + 白字，
              所以默认值就按墨绿写；夜读在自已那版里换成暗墨绿底 + 暗金字。 -->
+        <!-- v5.9.1 L5 标签/单位字号档（夜读主题里覆盖成 12sp） -->
+        <item name="text_size_overline">@dimen/text_caption</item>
         <item name="header_bg">@color/primary</item>
         <item name="header_fg">#FFFFFF</item>
         <!-- 状态栏与页头同色，视觉连成一体 -->
@@ -164,6 +166,8 @@
     <style name="Theme.Bookshelf.Night" parent="Theme.Bookshelf.Base">
         <!-- 主色直接用暗金：数字/链接在炭黑上足够亮；按钮/表头文字改深墨（colorOnPrimary） -->
         <item name="colorPrimary">@color/night_accent</item>
+        <!-- v5.9.1：夜读下 L5 一律提到 12sp（炭黑上 11sp 太细） -->
+        <item name="text_size_overline">@dimen/text_caption_night</item>
         <item name="colorPrimaryVariant">@color/night_primary_dark</item>
         <item name="colorSecondary">@color/night_accent</item>
         <item name="colorOnPrimary">@color/night_ink</item>

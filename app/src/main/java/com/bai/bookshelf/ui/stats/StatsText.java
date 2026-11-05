@@ -1,9 +1,12 @@
 package com.bai.bookshelf.ui.stats;
 
+import android.text.Spannable;
 import android.text.SpannableString;
 import android.text.SpannableStringBuilder;
 import android.text.Spanned;
 import android.text.style.AbsoluteSizeSpan;
+import android.text.style.ForegroundColorSpan;
+import android.text.style.RelativeSizeSpan;
 import android.text.style.StyleSpan;
 import android.text.style.TypefaceSpan;
 import android.graphics.Typeface;
@@ -91,6 +94,66 @@ public final class StatsText {
         // Calendar.DAY_OF_WEEK：1=周日 … 7=周六 → 转成「周一为 0」
         int dow = (c.get(Calendar.DAY_OF_WEEK) + 5) % 7;
         return names[dow];
+    }
+
+    /** 数据不足时统一说的话（口径层给 -1，呈现层翻成中文） */
+    public static final String NO_DATA = "数据不足";
+
+    /** 单位相对数字的比例（v5.9.1）：0.45em，靠比例而不是靠 marginBottom 顶基线 */
+    static final float UNIT_SCALE = 0.45f;
+
+    /**
+     * 数字 + 单位排成一行（v5.9.1）：数字保持 1em（字号由样式档决定），
+     * 单位收到 {@link #UNIT_SCALE}em。unit 为空、value 为空或 -1（口径层的
+     * 「数据不足」）时返回纯文本，不加任何 span，读屏也不会念出多余结构。
+     */
+    public static CharSequence metric(String value, String unit) {
+        String[] parts = metricParts(value, unit);
+        String v = parts[0];
+        String u = parts[1];
+        if (u.isEmpty()) {
+            return v;
+        }
+        SpannableStringBuilder sb = new SpannableStringBuilder();
+        sb.append(v);
+        int from = sb.length();
+        sb.append(u);
+        sb.setSpan(new RelativeSizeSpan(UNIT_SCALE), from, sb.length(),
+                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        return sb;
+    }
+
+    /**
+     * 数字与单位的拆分（纯函数，JVM 可测）：返回 {数字段, 单位段}。
+     * 单位为空、或数字段是「数据不足」这类占位时，单位段给空串——
+     * {@link #metric} 只按这里的边界加 span，所以边界对了排版就对了。
+     */
+    static String[] metricParts(String value, String unit) {
+        String v = metricValue(value);
+        if (unit == null || unit.isEmpty() || NO_DATA.equals(v)) {
+            return new String[]{v, ""};
+        }
+        return new String[]{v, unit};
+    }
+
+    /** 带次级色的版本：颜色要 Context 解析 ?attr/on_surface_variant，只能由调用侧给 */
+    public static CharSequence metric(String value, String unit, int unitColor) {
+        CharSequence base = metric(value, unit);
+        if (!(base instanceof Spannable)) {
+            return base;
+        }
+        Spannable sp = (Spannable) base;
+        sp.setSpan(new ForegroundColorSpan(unitColor), metricValue(value).length(), sp.length(),
+                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        return sp;
+    }
+
+    /** -1 / 空 = 数据不足；其余原样（小数、千分位都不截断） */
+    private static String metricValue(String value) {
+        if (value == null || value.trim().isEmpty() || "-1".equals(value.trim())) {
+            return NO_DATA;
+        }
+        return value;
     }
 
     /** 「已阅读 X 小时 X 分钟」：单位 15sp、数字 28sp 衬线，突出但不笨重 */

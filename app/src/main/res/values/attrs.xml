@@ -6,6 +6,8 @@
 
          v4.16 视觉重构：补充 surface / outline 等语义色属性，
          布局统一用 ?attr/xxx 取值，六套主题各自覆盖，保证换肤后整体协调。 -->
+    <!-- v5.9.1 六级字阶 L5 的字号档：浅色主题 11sp，夜读主题 12sp -->
+    <attr name="text_size_overline" format="dimension|reference" />
     <attr name="chip_bg" format="color" />
     <attr name="surface" format="color" />
     <attr name="surface_dim" format="color" />
