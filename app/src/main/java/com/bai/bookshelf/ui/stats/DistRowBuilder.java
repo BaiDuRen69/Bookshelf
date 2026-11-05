@@ -102,6 +102,7 @@ public final class DistRowBuilder {
 
         // 名称：L3 RowName，吃掉剩余宽度，超长省略而不是换行
         TextView tvName = new TextView(ctx);
+        tvName.setText(name);
         tvName.setTextAppearance(ctx, R.style.Text_Bookshelf_RowName);
         tvName.setMaxLines(1);
         tvName.setEllipsize(android.text.TextUtils.TruncateAt.END);
@@ -130,6 +131,7 @@ public final class DistRowBuilder {
 
         // 数值：升到 L2（20sp serif + tnum + 主色），与条形同行右对齐
         TextView tvCount = new TextView(ctx);
+        tvCount.setText(String.valueOf(count));
         tvCount.setTextAppearance(ctx, R.style.Text_Bookshelf_Metric_Small);
         tvCount.setGravity(Gravity.END);
         row.addView(tvCount, new LinearLayout.LayoutParams(

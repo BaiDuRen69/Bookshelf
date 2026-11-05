@@ -1105,17 +1105,33 @@ public class StatsFragment extends Fragment {
             parts.add("应还 " + OpenLoan.monthDay(loan.dueKey));
             int overdueDays = com.bai.bookshelf.util.DateKeys.daysBetween(loan.dueKey, today);
             if (overdueDays > 0) {
-                parts.add("（逾期 " + overdueDays + " 天）");
+                parts.add("逾期 " + overdueDays + " 天");
             }
         } else {
             parts.add("未填应还日期");
         }
-        // 逾期整行用错误色，不跟浅灰混
-        View row = addValueRow(container, titleCol, StatsRows.join(parts.toArray(new String[0])),
-                overdue ? com.bai.bookshelf.util.ThemeManager.resolveColor(
-                        requireContext(),
-                        com.google.android.material.R.attr.colorError) : 0);
-        row.setOnClickListener(v -> confirmReturn(loan));
+        // 书名与借阅信息各占一行：借阅人 + 应还 + 逾期天数放右列会把书名挤成「《…」」
+        android.widget.LinearLayout col = new android.widget.LinearLayout(requireContext());
+        col.setOrientation(android.widget.LinearLayout.VERTICAL);
+        col.setClickable(true);
+        col.setFocusable(true);
+        col.setOnClickListener(v -> confirmReturn(loan));
+        android.widget.TextView tvTitle = addRow(col, titleCol, false);
+        tvTitle.setTextAppearance(requireContext(), R.style.Text_Bookshelf_RowName);
+        android.widget.TextView tvMeta = addRow(col, StatsRows.join(parts.toArray(new String[0])),
+                true);
+        if (overdue) {
+            // 逾期整行用错误色，不跟浅灰混
+            int error = com.bai.bookshelf.util.ThemeManager.resolveColor(
+                    requireContext(), com.google.android.material.R.attr.colorError);
+            tvTitle.setTextColor(error);
+            tvMeta.setTextColor(error);
+        }
+        android.widget.LinearLayout.LayoutParams lp = new android.widget.LinearLayout.LayoutParams(
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                android.view.ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.topMargin = getResources().getDimensionPixelSize(R.dimen.space_xs);
+        container.addView(col, lp);
     }
 
     /** 近半年归还柱状图：凑不够样本就只解释原因，不摆一排空柱 */
