@@ -350,6 +350,44 @@ public class MonthGridView extends LinearLayout {
         return scrolling || super.onTouchEvent(ev);
     }
 
+    /**
+     * 打卡/撤销后只重绑受影响的那一格（点与朗读文案），不重建整张网格。
+     * 一天多本也只画一个点，所以这里用布尔值即可。
+     */
+    public void setDayChecked(int dayKey, boolean checked) {
+        Map<Integer, Integer> copy = new HashMap<>(checkInCounts);
+        if (checked) {
+            Integer old = copy.get(dayKey);
+            copy.put(dayKey, old == null ? 1 : old + 1);
+        } else {
+            copy.remove(dayKey);
+        }
+        checkInCounts = copy;
+
+        int primary = ThemeManager.resolveColor(getContext(), ThemeManager.ATTR_COLOR_PRIMARY);
+        int container = ThemeManager.resolveColor(getContext(), R.attr.primary_container);
+        int onSurface = ThemeManager.resolveColor(getContext(), R.attr.on_surface);
+        int variant = ThemeManager.resolveColor(getContext(), R.attr.on_surface_variant);
+        int y = CheckInMonthGrid.yearOf(yearMonth);
+        int m = CheckInMonthGrid.monthOf(yearMonth);
+        for (int i = 0; i < dayKeys.length; i++) {
+            if (dayKeys[i] != dayKey) {
+                continue;
+            }
+            DayCellView cell = cells[i];
+            if (cell == null) {
+                return;
+            }
+            boolean adjacent = CheckInMonthGrid.isAdjacent(dayKey, y, m);
+            boolean today = dayKey == todayKey;
+            boolean selected = dayKey == selectedDayKey;
+            cell.bindCheckIn(dayKey % 100, primary, container, onSurface, variant,
+                    selected, today, adjacent, checked);
+            cell.setContentDescription(describe(dayKey, today, checked, adjacent, selected));
+            return;
+        }
+    }
+
     private float dp(float value) {
         return value * density;
     }

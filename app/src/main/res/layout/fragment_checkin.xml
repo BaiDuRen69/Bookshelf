@@ -45,6 +45,17 @@
             android:layout_marginTop="@dimen/space_sm"
             android:paddingHorizontal="@dimen/space_sm" />
 
+        <!-- 列表顶部固定小结：11月已打卡 12 天 · 连续 5 天 · 补卡 2 次 -->
+        <TextView
+            android:id="@+id/tv_checkin_summary"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="@dimen/page_padding"
+            android:layout_marginTop="@dimen/space_md"
+            android:gravity="center"
+            android:textColor="?attr/on_surface_variant"
+            android:textSize="@dimen/text_body_small" />
+
         <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="0dp"

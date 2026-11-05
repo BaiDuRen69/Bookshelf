@@ -218,4 +218,38 @@ public class CheckInUiInstrumentedTest {
         assertNotNull(yearRoot.findViewById(R.id.tv_year));
         assertNotNull(yearRoot.findViewById(R.id.year_grid));
     }
+
+    @Test
+    public void 列表行复用间距令牌且按钮触控区48dp() {
+        View row = inflate(R.layout.item_checkin_book);
+        float density = themed().getResources().getDisplayMetrics().density;
+        View coverBox = (View) row.findViewById(R.id.iv_cover).getParent();
+        assertEquals("封面宽 40dp", Math.round(40 * density),
+                coverBox.getLayoutParams().width);
+        View button = row.findViewById(R.id.btn_checkin);
+        assertEquals("按钮 View 高 48dp（上下 inset 各 4dp → 视觉 40dp）",
+                Math.round(48 * density), button.getLayoutParams().height);
+        View title = row.findViewById(R.id.tv_title);
+        assertNotNull(title);
+        assertNotNull(row.findViewById(R.id.tv_subtitle));
+        assertNotNull("小结行要固定在列表顶部",
+                checkin().findViewById(R.id.tv_checkin_summary));
+    }
+
+    @Test
+    public void 打卡与撤销只重绘受影响的一格() {
+        MonthGridView grid = monthGrid();
+        final int target = grid.getDayKeyAt(10);
+        CharSequence neighbourBefore = grid.getCellAt(11).getContentDescription();
+        InstrumentationRegistry.getInstrumentation()
+                .runOnMainSync(() -> grid.setDayChecked(target, true));
+        assertTrue("打过的那天要念「已打卡」",
+                grid.getCellAt(10).getContentDescription().toString().contains("已打卡"));
+        assertEquals("相邻格子不能被整表重建", neighbourBefore.toString(),
+                grid.getCellAt(11).getContentDescription().toString());
+        InstrumentationRegistry.getInstrumentation()
+                .runOnMainSync(() -> grid.setDayChecked(target, false));
+        assertTrue("撤销后回到「未打卡」",
+                grid.getCellAt(10).getContentDescription().toString().contains("未打卡"));
+    }
 }
