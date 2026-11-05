@@ -1460,10 +1460,12 @@ public class StatsFragment extends Fragment {
             if (shown++ >= 6) {
                 break;
             }
-            addValueRow(b.llBorrowers, l.name, StatsRows.join(
+            // 借阅信息放右列在大字体下会被裁掉半个字，改成一行人名 + 一行明细
+            addRow(b.llBorrowers, StatsRows.name(l.name), false);
+            addRow(b.llBorrowers, StatsRows.join(
                     "借出 " + l.loans + " 笔",
                     l.outNow > 0 ? "还在手上 " + l.outNow + " 册" : null,
-                    l.overdue > 0 ? "超期 " + l.overdue + " 笔" : null), 0);
+                    l.overdue > 0 ? "超期 " + l.overdue + " 笔" : null), true);
         }
         b.tvBorrowersHint.setText("口径：按借出笔数排序；按时归还率见上方洞察");
     }
