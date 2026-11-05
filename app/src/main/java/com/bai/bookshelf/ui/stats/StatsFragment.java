@@ -1159,6 +1159,10 @@ public class StatsFragment extends Fragment {
         row.setOrientation(android.widget.LinearLayout.HORIZONTAL);
         android.widget.TextView left = new android.widget.TextView(requireContext());
         left.setTextAppearance(requireContext(), R.style.Text_Bookshelf_RowName);
+        // setTextAppearance 只吃文字外观属性，maxLines / ellipsize 属于布局属性，
+        // 样式里写了也不会生效（真机实测「自然科学与技术」直接换行），这里显式补上
+        left.setMaxLines(1);
+        left.setEllipsize(android.text.TextUtils.TruncateAt.END);
         left.setText(StatsRows.name(name));
         android.widget.TextView right = new android.widget.TextView(requireContext());
         right.setTextAppearance(requireContext(), R.style.Text_Bookshelf_RowValue);
