@@ -44,6 +44,8 @@ public class ReminderSettingsActivity extends BaseActivity {
         b.toolbar.setNavigationOnClickListener(v -> finish());
 
         bindRow(b.rowNotifyBorrowDue, b.swNotifyBorrowDue, ReminderPrefs.KEY_NOTIFY_BORROW_DUE);
+        bindRow(b.rowNotifyCheckinDaily, b.swNotifyCheckinDaily,
+                ReminderPrefs.KEY_NOTIFY_CHECKIN_DAILY);
         bindRow(b.rowNotifyBorrowedIn, b.swNotifyBorrowedIn,
                 ReminderPrefs.KEY_NOTIFY_BORROWED_IN);
         bindRow(b.rowBadgeOverdue, b.swBadgeOverdue, ReminderPrefs.KEY_BADGE_OVERDUE);
@@ -69,11 +71,27 @@ public class ReminderSettingsActivity extends BaseActivity {
     private void bindRow(View row,
                          com.google.android.material.materialswitch.MaterialSwitch sw,
                          String key) {
-        row.setOnClickListener(v -> toggle(key, !ReminderPrefs.isOn(this, key)));
+        row.setOnClickListener(v -> {
+            // 系统通知未授权时，打卡提醒这行不切开关，直接引导去系统设置
+            if (ReminderPrefs.KEY_NOTIFY_CHECKIN_DAILY.equals(key)
+                    && !BorrowReminder.notificationsEnabled(this)) {
+                openNotificationSettings();
+                return;
+            }
+            toggle(key, !ReminderPrefs.isOn(this, key));
+        });
     }
 
     private void toggle(String key, boolean value) {
         ReminderPrefs.setOn(this, key, value);
+        if (ReminderPrefs.KEY_NOTIFY_CHECKIN_DAILY.equals(key)) {
+            // 开：立刻排 21:00 闹钟；关：撤通知 + 撤闹钟
+            if (value) {
+                com.bai.bookshelf.util.CheckInReminder.schedule(this);
+            } else {
+                com.bai.bookshelf.util.CheckInReminder.cancel(this);
+            }
+        }
         if (ReminderPrefs.KEY_NOTIFY_BORROW_DUE.equals(key)) {
             // 关掉：撤通知 + 撤闹钟；打开：立刻把闹钟排回去，别等下次借出或重启
             if (value) {
@@ -92,6 +110,7 @@ public class ReminderSettingsActivity extends BaseActivity {
 
     private void refresh() {
         b.swNotifyBorrowDue.setChecked(ReminderPrefs.notifyBorrowDue(this));
+        b.swNotifyCheckinDaily.setChecked(ReminderPrefs.checkinDaily(this));
         b.swNotifyBorrowedIn.setChecked(ReminderPrefs.notifyBorrowedIn(this));
         b.swBadgeOverdue.setChecked(ReminderPrefs.badgeOverdue(this));
         b.swBannerBackupStale.setChecked(ReminderPrefs.bannerBackupStale(this));
@@ -100,6 +119,8 @@ public class ReminderSettingsActivity extends BaseActivity {
         b.swPromptNewVersion.setChecked(!UpdateChecker.isNeverPrompt(this));
         b.rowNotifyBorrowDue.setContentDescription("借阅到期通知，"
                 + state(ReminderPrefs.notifyBorrowDue(this)));
+        b.rowNotifyCheckinDaily.setContentDescription("每日打卡提醒，"
+                + state(ReminderPrefs.checkinDaily(this)));
         b.rowBadgeOverdue.setContentDescription("逾期角标，"
                 + state(ReminderPrefs.badgeOverdue(this)));
         b.rowBannerBorrowDue.setContentDescription("详情页到期条，"
@@ -117,6 +138,10 @@ public class ReminderSettingsActivity extends BaseActivity {
     private void refreshPermission() {
         boolean granted = BorrowReminder.notificationsEnabled(this);
         b.btnNotifySettings.setVisibility(granted ? View.GONE : View.VISIBLE);
+        // 第 4.4 步：未授权时打卡提醒置灰；行仍可点，bindRow 会引导去系统设置
+        b.rowNotifyCheckinDaily.setAlpha(granted ? 1f : 0.5f);
+        b.swNotifyCheckinDaily.setEnabled(granted);
+        b.swNotifyCheckinDaily.setChecked(granted && ReminderPrefs.checkinDaily(this));
     }
 
     /** 摘要：逾期 / 今天到期 / 通知授权 / 闹钟，全部来自已有查询，不新增 DAO 方法 */

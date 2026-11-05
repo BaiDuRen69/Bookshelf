@@ -26,6 +26,8 @@ public class BackupMeta {
     public long createdAt;
     /** 藏书册数 */
     public int books;
+    /** 每日阅读打卡条数（第 4.3 步新增；旧包没有该字段，Gson 读到 0） */
+    public int checkIns;
     /** 图片文件条目数 */
     public int media;
     /** data.json + media 的原始字节数（未压缩） */

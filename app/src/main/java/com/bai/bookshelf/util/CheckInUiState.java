@@ -100,4 +100,25 @@ public final class CheckInUiState {
     public static boolean actionable(int dayKey, int todayKey) {
         return dayKey <= todayKey;
     }
+
+    /** 读屏朗读：「为《三体》打卡」/「为《三体》补卡」/「《三体》已打卡，点击撤销」 */
+    public static String actionContentDescription(String title, boolean checked,
+                                                  int dayKey, int todayKey) {
+        String safe = title == null ? "" : title;
+        if (checked) {
+            return "《" + safe + "》已打卡，点击撤销";
+        }
+        return "为《" + safe + "》" + (dayKey < todayKey ? "补卡" : "打卡");
+    }
+
+    /** 每日 21:00 提醒文案：「今天还没打卡，3 本书在读」 */
+    public static String dailyReminderText(int readingCount) {
+        return "今天还没打卡，" + readingCount + " 本书在读";
+    }
+
+    /** 只有开关打开、今天还没打卡、且确实有在读书时才发通知 */
+    public static boolean needDailyReminder(boolean enabled, boolean todayChecked,
+                                            int readingCount) {
+        return enabled && !todayChecked && readingCount > 0;
+    }
 }

@@ -78,6 +78,8 @@ public final class BackupFingerprint {
         sb.append("t|countries|").append(db.countryDao().count()).append('\n');
         sb.append("t|publishers|").append(db.publisherDao().count()).append('\n');
         sb.append("t|borrowers|").append(db.borrowerDao().count()).append('\n');
+        // 第 ④ 步：打卡变化必须触发自动备份，否则指纹相同会跳过整包
+        sb.append("t|check_ins|").append(db.checkInDao().countAll()).append('\n');
     }
 
     /** 图片目录：与 ZipBackup 打包完全同一套取文件规则，两边看到的必须是同一个集合 */

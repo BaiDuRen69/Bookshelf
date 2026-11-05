@@ -166,7 +166,19 @@ public class MainActivity extends BaseActivity {
         if (intent == null) {
             return;
         }
-        int tab = intent.getIntExtra(EXTRA_TAB, -1);
+        // 静态快捷方式「今日打卡」的 XML <extra> 值可能解析成 String 或 Integer，
+        // getIntExtra 会抛 ClassCastException；统一按 Object 做类型宽容读取。
+        int tab = -1;
+        if (intent.getExtras() != null) {
+            Object raw = intent.getExtras().get(EXTRA_TAB);
+            if (raw != null) {
+                try {
+                    tab = Integer.parseInt(String.valueOf(raw));
+                } catch (NumberFormatException ignored) {
+                    tab = -1;
+                }
+            }
+        }
         if (tab >= 0 && tab < tabs.length) {
             intent.removeExtra(EXTRA_TAB);
             selectTab(tab);

@@ -95,6 +95,9 @@ public class StatsFragment extends Fragment {
     private com.bai.bookshelf.util.StatsHealth.Rating rating;
     private com.bai.bookshelf.util.StatsHealth.Anomalies anomalies;
     private com.bai.bookshelf.util.StatsPace.Habit habit;
+    /** 第 ④ 步：阅读栏的打卡一行，今年 0 次时整行隐藏 */
+    private String checkInLine = "";
+    private boolean showCheckInLine;
     private com.bai.bookshelf.util.StatsPace.Stale stale;
     private com.bai.bookshelf.util.StatsPace.BuyRead buyRead;
     private com.bai.bookshelf.util.StatsSpend.Relation relation;
@@ -638,14 +641,36 @@ public class StatsFragment extends Fragment {
 
             // ---- v5.8 第二批：阅读习惯 / 该处理的书 / 买读比 / 评分 / 数据体检 / 渠道 ----
             java.util.List<Integer> dayKeys = new ArrayList<>();
-            for (String day : com.bai.bookshelf.util.ReadingCalendar.titlesByDay(books).keySet()) {
-                int k = com.bai.bookshelf.util.DateKeys.parseKey(day);
-                if (k > 0) {
-                    dayKeys.add(k);
+            // 第 ④ 步：有书累计打卡 ≥3 次就以打卡自然日为事实源，修掉
+            //「在读未填结束日 → 按天铺满整个区间」的虚高；不足则回退区间估算。
+            java.util.List<com.bai.bookshelf.data.entity.CheckIn> allCheckIns;
+            try {
+                allCheckIns = com.bai.bookshelf.app.BookshelfApp.get().db()
+                        .checkInDao().getInRange(0, 99999999);
+            } catch (Exception e) {
+                allCheckIns = new ArrayList<>();
+            }
+            final boolean habitByCheckIn =
+                    com.bai.bookshelf.util.CheckInHabit.useCheckIns(allCheckIns);
+            if (habitByCheckIn) {
+                dayKeys.addAll(com.bai.bookshelf.util.CheckInHabit.dayKeys(allCheckIns));
+            } else {
+                for (String day : com.bai.bookshelf.util.ReadingCalendar.titlesByDay(books).keySet()) {
+                    int k = com.bai.bookshelf.util.DateKeys.parseKey(day);
+                    if (k > 0) {
+                        dayKeys.add(k);
+                    }
                 }
             }
             final com.bai.bookshelf.util.StatsPace.Habit habit =
                     com.bai.bookshelf.util.StatsPace.Habit.of(dayKeys, currentYear, todayKey);
+            habit.fromCheckIns = habitByCheckIn;
+            final int[] yearCheckIn = com.bai.bookshelf.util.CheckInStore
+                    .yearSummary(allCheckIns, currentYear);
+            final String checkInLine = com.bai.bookshelf.util.CheckInUiState.statsLine(
+                    currentYear, yearCheckIn,
+                    com.bai.bookshelf.util.CheckInStore.streakDays(allCheckIns, todayKey));
+            final boolean showCheckInLine = yearCheckIn[1] > 0;
             final com.bai.bookshelf.util.StatsPace.Stale stale =
                     com.bai.bookshelf.util.StatsPace.stale(books, todayKey, 3);
             final com.bai.bookshelf.util.StatsHealth.Rating rating =
@@ -734,6 +759,8 @@ public class StatsFragment extends Fragment {
             this.rating = rating;
             this.anomalies = anomalies;
             this.habit = habit;
+            this.checkInLine = checkInLine;
+            this.showCheckInLine = showCheckInLine;
             this.stale = stale;
             this.buyRead = buyRead;
             this.relation = relation;
@@ -851,6 +878,10 @@ public class StatsFragment extends Fragment {
         }
         insightReading = readingInsight(pace, backlog, noteStat, dropRecovery);
         b.tvHabit.setText(habitText(habit, stale, buyRead));
+        b.tvCheckinLine.setVisibility(showCheckInLine ? View.VISIBLE : View.GONE);
+        if (showCheckInLine) {
+            b.tvCheckinLine.setText(checkInLine);
+        }
         renderNextPick();
         renderStructure(structure);
     }

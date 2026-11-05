@@ -37,6 +37,9 @@ import java.util.List;
  * <p>v5.8.14：RemoteViews 不能引用 {@code ?attr}，构建时用 {@link ThemeManager} 按当前
  * 主题解析颜色再 {@code setTextColor}；背景按主题换 drawable，进度条画成 Bitmap 塞进
  * ImageView（ProgressBar 的 progressTint 不在 RemoteViews 白名单里）。
+ *
+ * <p>第 4.4 步：小组件暂不含打卡（本期不改桌面组件，避免一次动太多），
+ * 打卡数据只在应用内第 4 个 Tab / 年视图 / 统计与备份里呈现。
  */
 public class ReadingWidgetProvider extends AppWidgetProvider {
 

@@ -62,6 +62,15 @@
             </intent-filter>
         </receiver>
 
+        <!-- 第 4.4 步：每日 21:00 打卡提醒，独立闹钟与渠道 -->
+        <receiver
+            android:name=".util.CheckInReminderReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
         <activity
             android:name=".ui.lock.AppLockActivity"
             android:exported="false"

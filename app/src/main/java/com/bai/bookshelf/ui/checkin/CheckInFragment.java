@@ -1,5 +1,6 @@
 package com.bai.bookshelf.ui.checkin;
 
+import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.LayoutInflater;
@@ -7,6 +8,8 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
@@ -44,6 +47,34 @@ public class CheckInFragment extends Fragment
     private CheckInAdapter adapter;
     private int selectedDayKey;
     private int todayKey;
+    private ActivityResultLauncher<Intent> yearLauncher;
+
+    @Override
+    public void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        // 年视图返回：点月份标题只定位月，点小日历格同时选中该日
+        yearLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(), result -> {
+                    if (result.getResultCode() != Activity.RESULT_OK
+                            || result.getData() == null || b == null) {
+                        return;
+                    }
+                    Intent data = result.getData();
+                    int ym = data.getIntExtra(
+                            CheckInYearActivity.EXTRA_RESULT_YEAR_MONTH, 0);
+                    int day = data.getIntExtra(
+                            CheckInYearActivity.EXTRA_RESULT_DAY_KEY, 0);
+                    if (ym == 0) {
+                        return;
+                    }
+                    if (day > 0) {
+                        selectedDayKey = day;
+                        b.monthGrid.setSelectedDay(day);
+                    }
+                    b.monthGrid.setYearMonth(ym);
+                    loadMonth(ym);
+                });
+    }
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
@@ -60,6 +91,7 @@ public class CheckInFragment extends Fragment
 
         b.toolbar.setTitle(CheckInMonthGrid.titleOf(b.monthGrid.getYearMonth()));
         b.toolbar.setOnClickListener(v -> openYearView());
+        b.tvYear.setOnClickListener(v -> openYearView());
         b.tvToday.setOnClickListener(v -> b.monthGrid.moveToToday());
         b.fabToday.setOnClickListener(v -> b.monthGrid.moveToToday());
 
@@ -84,7 +116,7 @@ public class CheckInFragment extends Fragment
     private void openYearView() {
         Intent intent = new Intent(requireContext(), CheckInYearActivity.class);
         intent.putExtra(CheckInYearActivity.EXTRA_YEAR_MONTH, b.monthGrid.getYearMonth());
-        startActivity(intent);
+        yearLauncher.launch(intent);
     }
 
     // ==================== 取数 ====================

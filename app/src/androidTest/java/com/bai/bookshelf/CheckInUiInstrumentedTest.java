@@ -20,6 +20,7 @@ import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.bai.bookshelf.R;
 import com.bai.bookshelf.ui.checkin.CheckInYearActivity;
+import com.bai.bookshelf.ui.checkin.CheckInYearView;
 import com.bai.bookshelf.ui.checkin.MonthGridView;
 import com.bai.bookshelf.util.CheckInMonthGrid;
 import com.bai.bookshelf.util.DateKeys;
@@ -216,7 +217,8 @@ public class CheckInUiInstrumentedTest {
         View yearRoot = inflate(R.layout.activity_checkin_year);
         assertNotNull(yearRoot.findViewById(R.id.toolbar));
         assertNotNull(yearRoot.findViewById(R.id.tv_year));
-        assertNotNull(yearRoot.findViewById(R.id.year_grid));
+        assertNotNull(yearRoot.findViewById(R.id.year_view));
+        assertNotNull(yearRoot.findViewById(R.id.tv_year_summary));
     }
 
     @Test
@@ -234,6 +236,26 @@ public class CheckInUiInstrumentedTest {
         assertNotNull(row.findViewById(R.id.tv_subtitle));
         assertNotNull("小结行要固定在列表顶部",
                 checkin().findViewById(R.id.tv_checkin_summary));
+    }
+
+    @Test
+    public void 年视图有12个月真实网格与今按钮() {
+        View yearRoot = inflate(R.layout.activity_checkin_year);
+        assertNotNull(yearRoot.findViewById(R.id.tv_year));
+        assertNotNull(yearRoot.findViewById(R.id.tv_year_summary));
+        assertNotNull("年视图里也要有悬浮「今」", yearRoot.findViewById(R.id.fab_today));
+        CheckInYearView yearView = yearRoot.findViewById(R.id.year_view);
+        assertNotNull(yearView);
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() ->
+                yearView.bind(2026, 2023, 2027,
+                        new java.util.ArrayList<>(), DateKeys.todayKey()));
+        assertEquals(2026, yearView.getYear());
+        LinearLayout rows = (LinearLayout) yearView.getChildAt(0);
+        assertEquals("一年 6 行", 6, rows.getChildCount());
+        for (int r = 0; r < 6; r++) {
+            assertEquals("每行两个月卡片", 2,
+                    ((ViewGroup) rows.getChildAt(r)).getChildCount());
+        }
     }
 
     @Test

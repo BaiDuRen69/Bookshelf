@@ -91,7 +91,8 @@ public class CheckInAdapter extends RecyclerView.Adapter<CheckInAdapter.VH> {
         h.b.btnCheckin.setText(label);
         // 未来日期不可打卡；已打卡的记录仍允许撤销
         h.b.btnCheckin.setEnabled(CheckInUiState.actionable(dayKey, todayKey) || row.checked);
-        h.b.btnCheckin.setContentDescription(label + "，" + title);
+        h.b.btnCheckin.setContentDescription(CheckInUiState.actionContentDescription(
+                title, row.checked, dayKey, todayKey));
         h.b.btnCheckin.setOnClickListener(v -> {
             if (listener != null) {
                 listener.onToggle(h.getBindingAdapterPosition(), row);

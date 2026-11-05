@@ -163,6 +163,39 @@ public class CheckInInstrumentedTest {
     }
 
     @Test
+    public void zip备份的data_json包含check_ins() throws Exception {
+        BookshelfApp app = (BookshelfApp) ApplicationProvider.getApplicationContext();
+        CheckIn c = ci(777, 20261105, false);
+        app.db().checkInDao().insert(c);
+        java.io.File out = new java.io.File(app.getCacheDir(), "checkin_backup_probe.zip");
+        try {
+            com.bai.bookshelf.util.ZipBackup.createTo(app, out);
+            try (java.util.zip.ZipFile zip = new java.util.zip.ZipFile(out)) {
+                java.util.zip.ZipEntry entry = zip.getEntry(
+                        com.bai.bookshelf.util.BackupFormat.ENTRY_DATA);
+                assertNotNull("备份里要有 data.json", entry);
+                StringBuilder sb = new StringBuilder();
+                try (java.io.BufferedReader reader = new java.io.BufferedReader(
+                        new java.io.InputStreamReader(zip.getInputStream(entry),
+                                java.nio.charset.StandardCharsets.UTF_8))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        sb.append(line);
+                    }
+                }
+                com.google.gson.JsonObject root = com.google.gson.JsonParser
+                        .parseString(sb.toString()).getAsJsonObject();
+                assertTrue("备份必须包含 check_ins 表", root.has("check_ins"));
+                assertTrue("刚插入的打卡要出现在备份里",
+                        root.getAsJsonArray("check_ins").size() >= 1);
+            }
+        } finally {
+            app.db().checkInDao().delete(c);
+            out.delete();
+        }
+    }
+
+    @Test
     public void 删书级联清理打卡且撤销能原样恢复() {
         BookshelfApp app = (BookshelfApp) ApplicationProvider.getApplicationContext();
         Book b = new Book();

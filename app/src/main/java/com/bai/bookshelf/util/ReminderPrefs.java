@@ -20,6 +20,8 @@ public final class ReminderPrefs {
     public static final String KEY_WIDGET_ENABLED = "widget_enabled";
     /** v5.8.33：详情页到期/逾期横条的开关（本轮唯一新增键） */
     public static final String KEY_BANNER_BORROW_DUE = "banner_borrow_due";
+    /** 第 4.4 步：每日打卡提醒（本轮唯一新增 SharedPreferences 键，默认关） */
+    public static final String KEY_NOTIFY_CHECKIN_DAILY = "notify_checkin_daily";
 
     private ReminderPrefs() {
     }
@@ -28,9 +30,10 @@ public final class ReminderPrefs {
         return ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
     }
 
-    /** 开关读取：缺键 = 开（保持历史行为） */
+    /** 开关读取：缺键 = 开（保持历史行为）；新加的每日打卡提醒默认关 */
     public static boolean isOn(Context ctx, String key) {
-        return prefs(ctx).getBoolean(key, true);
+        boolean def = !KEY_NOTIFY_CHECKIN_DAILY.equals(key);
+        return prefs(ctx).getBoolean(key, def);
     }
 
     public static void setOn(Context ctx, String key, boolean value) {
@@ -59,5 +62,9 @@ public final class ReminderPrefs {
 
     public static boolean bannerBorrowDue(Context ctx) {
         return isOn(ctx, KEY_BANNER_BORROW_DUE);
+    }
+
+    public static boolean checkinDaily(Context ctx) {
+        return isOn(ctx, KEY_NOTIFY_CHECKIN_DAILY);
     }
 }

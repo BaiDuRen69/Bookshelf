@@ -39,4 +39,16 @@ public interface CheckInDao {
 
     @Query("SELECT COUNT(*) FROM check_ins")
     int countAll();
+
+    /** zip 备份用：全量导出（按日期升序，包内容稳定） */
+    @Query("SELECT * FROM check_ins ORDER BY dayKey ASC, bookId ASC")
+    List<CheckIn> getAll();
+
+    /** zip 恢复用：一次事务内批量写回，重复主键按 IGNORE 跳过 */
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    void insertAll(List<CheckIn> list);
+
+    /** zip 恢复用：清空打卡表（老备份没有这个键时也要清，避免残留） */
+    @Query("DELETE FROM check_ins")
+    void deleteAll();
 }
