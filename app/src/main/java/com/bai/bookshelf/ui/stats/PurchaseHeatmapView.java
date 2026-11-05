@@ -374,6 +374,11 @@ public class PurchaseHeatmapView extends View {
         setMeasuredDimension(w, h);
     }
 
+    /** 一行日历标签的占位高度：字高 + 2sp 行距，字号与标签共用字阶令牌 */
+    private float labelLineHeight() {
+        return Typo.paintPx(getContext(), R.dimen.text_caption_large) + sp(2);
+    }
+
     private int measureMonth(int w) {
         if (w <= 0) {
             return 0;
@@ -382,7 +387,7 @@ public class PurchaseHeatmapView extends View {
         cellSize = (w - cellGap * 6) / 7f;
         headHeight = sp(14);
         rowGap = dp(8);
-        labelHeight = labelOutside ? sp(13) : 0f;
+        labelHeight = labelOutside ? labelLineHeight() : 0f;
         if (headerOnly) {
             return (int) Math.ceil(headHeight);
         }
@@ -397,7 +402,7 @@ public class PurchaseHeatmapView extends View {
         int weeks = yearWeeks();
         cellGap = dp(3);
         cellSize = dp(12);
-        headHeight = sp(13);
+        headHeight = labelLineHeight();
         rowGap = cellGap;
         float h = headHeight + 7 * cellSize + 6 * rowGap + dp(2);
         return (int) Math.ceil(h);
@@ -442,7 +447,7 @@ public class PurchaseHeatmapView extends View {
         miniColGap = dp(8);
         miniRowGap = dp(12);
         miniCellGap = dp(1.5f);
-        miniLabelH = Typo.labelPx(getContext());
+        miniLabelH = labelLineHeight();
         miniMonthW = (w - miniColGap * (MINI_COLS - 1)) / MINI_COLS;
         miniCell = (miniMonthW - miniCellGap * 6) / 7f;
         miniMonthH = miniLabelH + MINI_WEEKS * miniCell + (MINI_WEEKS - 1) * miniCellGap;
@@ -478,7 +483,7 @@ public class PurchaseHeatmapView extends View {
         cellSize = (w - cellGap * 6) / 7f;
         headHeight = sp(14);
         rowGap = dp(8);
-        labelHeight = labelOutside ? sp(13) : 0f;
+        labelHeight = labelOutside ? labelLineHeight() : 0f;
 
         // 星期表头（即使没有月数据也要画 —— 面板顶部的固定表头就是这种模式）
         if (showHeader) {
@@ -521,7 +526,7 @@ public class PurchaseHeatmapView extends View {
             }
 
             if (showNumbers) {
-                numberPaint.setTextSize(Typo.labelPx(getContext()));
+                numberPaint.setTextSize(Typo.paintPx(getContext(), R.dimen.text_caption_large));
                 if (labelOutside) {
                     // 数字画在色块上方（微信读书样式）
                     numberPaint.setColor(selected ? primary : onSurfaceVariant);
@@ -554,7 +559,7 @@ public class PurchaseHeatmapView extends View {
         int weeks = yearWeeks();
         float labelW = dp(28);
         cellSize = dp(12);
-        headHeight = sp(13);
+        headHeight = labelLineHeight();
         rowGap = cellGap;
 
         // 年初第一天下标（周一为 0）
@@ -565,7 +570,7 @@ public class PurchaseHeatmapView extends View {
 
         // 顶部月份标签：每月第一个格子处标注，与上一个标签至少间隔 4 周
         monthLabelPaint.setColor(onSurfaceVariant);
-        monthLabelPaint.setTextSize(Typo.labelPx(getContext()));
+        monthLabelPaint.setTextSize(Typo.paintPx(getContext(), R.dimen.text_caption_large));
         int lastLabelCol = -99;
         for (int m = 0; m < 12; m++) {
             int dayIdx = HeatmapMath.dayIndexOfFirstOfMonth(yearValue, m);
@@ -634,7 +639,7 @@ public class PurchaseHeatmapView extends View {
         int surfaceDim = ThemeManager.resolveColor(getContext(), R.attr.surface_dim);
 
         monthLabelPaint.setColor(onSurfaceVariant);
-        monthLabelPaint.setTextSize(Typo.labelPx(getContext()));
+        monthLabelPaint.setTextSize(Typo.paintPx(getContext(), R.dimen.text_caption_large));
         cellPaint.setColor(surfaceDim);
 
         RectF rect = tmpRect;

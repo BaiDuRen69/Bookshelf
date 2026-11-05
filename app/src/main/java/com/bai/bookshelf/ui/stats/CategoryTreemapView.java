@@ -223,33 +223,49 @@ public class CategoryTreemapView extends View {
             subPaint.setColor(label);
             subPaint.setAlpha(210);
             float scale = 1f;
-            while (scale > MIN_LABEL_SCALE && !labelFits(g.name, sub, r, pad, scale)) {
+            // 字阶下限：缩到 L5 就停，再小看不清；两行放不下退成只画分类名一行
+            float floorPx = Typo.labelPx(getContext());
+            while (scale > MIN_LABEL_SCALE && !labelFits(g.name, sub, r, pad, scale, floorPx)) {
                 scale *= 0.85f;
             }
-            if (labelFits(g.name, sub, r, pad, scale)) {
-                titlePaint.setTextSize(baseTitleSize * scale);
-                subPaint.setTextSize(baseSubSize * scale);
+            if (labelFits(g.name, sub, r, pad, scale, floorPx)) {
+                applyLabelSizes(scale, floorPx);
                 float baseY = r.top + pad + titlePaint.getTextSize();
                 canvas.drawText(ellipsize(g.name, r.width() - pad * 2, titlePaint),
                         r.left + pad, baseY, titlePaint);
                 canvas.drawText(ellipsize(sub, r.width() - pad * 2, subPaint),
                         r.left + pad, baseY + subPaint.getTextSize() * 1.35f, subPaint);
-                titlePaint.setTextSize(baseTitleSize);
-                subPaint.setTextSize(baseSubSize);
+            } else if (r.width() - pad * 2 >= floorPx * 2 && r.height() - pad * 2 >= floorPx * 1.4f) {
+                applyLabelSizes(1f, floorPx);
+                float baseY = r.top + r.height() / 2f
+                        - (titlePaint.ascent() + titlePaint.descent()) / 2f;
+                canvas.drawText(ellipsize(g.name, r.width() - pad * 2, titlePaint),
+                        r.left + pad, baseY, titlePaint);
             }
+            restoreLabelSizes();
         }
     }
 
+    /** 缩放后的两行标签字号，都不低于字阶 L5 下限 */
+    private void applyLabelSizes(float scale, float floorPx) {
+        titlePaint.setTextSize(Math.max(baseTitleSize * scale, floorPx));
+        subPaint.setTextSize(Math.max(baseSubSize * scale, floorPx));
+    }
+
+    private void restoreLabelSizes() {
+        titlePaint.setTextSize(baseTitleSize);
+        subPaint.setTextSize(baseSubSize);
+    }
+
     /** 两行标签放不放得进这一块：宽度、高度都要够 */
-    private boolean labelFits(String name, String sub, RectF r, float pad, float scale) {
+    private boolean labelFits(String name, String sub, RectF r, float pad, float scale,
+                              float floorPx) {
         float avail = r.width() - pad * 2;
-        titlePaint.setTextSize(baseTitleSize * scale);
-        subPaint.setTextSize(baseSubSize * scale);
+        applyLabelSizes(scale, floorPx);
         boolean ok = titlePaint.measureText(name) <= avail
                 && subPaint.measureText(sub) <= avail
                 && titlePaint.getTextSize() + subPaint.getTextSize() * 1.8f <= r.height() - pad * 2;
-        titlePaint.setTextSize(baseTitleSize);
-        subPaint.setTextSize(baseSubSize);
+        restoreLabelSizes();
         return ok;
     }
 
