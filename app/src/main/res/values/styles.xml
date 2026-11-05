@@ -215,6 +215,16 @@
         <item name="android:includeFontPadding">false</item>
     </style>
 
+    <!-- v5.9.1 栏首摘要行：无边框，直接坐在页面上，随分栏显隐 -->
+    <style name="StatsSummaryRow">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:orientation">horizontal</item>
+        <item name="android:paddingTop">@dimen/space_sm</item>
+        <item name="android:paddingBottom">@dimen/space_sm</item>
+        <item name="android:baselineAligned">false</item>
+    </style>
+
     <style name="CardSubTitle">
         <item name="android:textSize">@dimen/text_body_small</item>
         <item name="android:fontFamily">sans-serif-medium</item>

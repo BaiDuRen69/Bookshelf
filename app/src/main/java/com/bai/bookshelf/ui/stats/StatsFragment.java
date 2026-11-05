@@ -314,6 +314,14 @@ public class StatsFragment extends Fragment {
         setCardVisible(b.cardTrend, purchase);
         setCardVisible(b.cardOpenLoans, loan);
         setCardVisible(b.cardBorrowers, loan);
+        // v5.9.1 栏首摘要行：每栏一条，随分栏显隐（沿用 setCardVisible）
+        setCardVisible(b.llSummaryBooks, books);
+        setCardVisible(b.llSummaryReading, reading);
+        setCardVisible(b.llSummaryPurchase, purchase);
+        setCardVisible(b.llSummaryLoan, loan);
+        if (!empty && statsComputed) {
+            renderSummary();
+        }
         // 洞察卡跟着分栏走：藏书看健康/结构，阅读看书债/速度，购书看花费/渠道
         setCardVisible(b.cardInsight, !empty);
         applyInsightForTab();
@@ -327,6 +335,65 @@ public class StatsFragment extends Fragment {
         } else {
             applyInsightForTab();
         }
+    }
+
+    /**
+     * 栏首摘要行（v5.9.1）：三单元等分，第一个走 L1、其余走 L2，
+     * 数字与单位由 StatsSummary + StatsText.metric 决定，算不出显示「—」。
+     */
+    private void renderSummary() {
+        android.widget.LinearLayout container;
+        String[][] units;
+        switch (statsTab) {
+            case TAB_READING:
+                container = b.llSummaryReading;
+                units = StatsSummary.reading(hold, habit);
+                break;
+            case TAB_PURCHASE:
+                container = b.llSummaryPurchase;
+                units = StatsSummary.purchase(spend);
+                break;
+            case TAB_LOAN:
+                container = b.llSummaryLoan;
+                units = StatsSummary.loan(hold, lend);
+                break;
+            default:
+                container = b.llSummaryBooks;
+                units = StatsSummary.books(hold, spend);
+                break;
+        }
+        container.removeAllViews();
+        for (int i = 0; i < units.length; i++) {
+            container.addView(summaryUnit(units[i][0], units[i][1], units[i][2], i == 0));
+        }
+    }
+
+    private android.view.View summaryUnit(String label, String value, String suffix,
+                                          boolean lead) {
+        android.widget.LinearLayout cell = new android.widget.LinearLayout(requireContext());
+        cell.setOrientation(android.widget.LinearLayout.VERTICAL);
+        android.widget.TextView tvLabel = new android.widget.TextView(requireContext());
+        tvLabel.setTextAppearance(requireContext(), R.style.Text_Bookshelf_Overline);
+        tvLabel.setText(label);
+        tvLabel.setGravity(android.view.Gravity.CENTER_HORIZONTAL);
+        cell.addView(tvLabel, new android.widget.LinearLayout.LayoutParams(
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                android.view.ViewGroup.LayoutParams.WRAP_CONTENT));
+        android.widget.TextView tvValue = new android.widget.TextView(requireContext());
+        tvValue.setTextAppearance(requireContext(), lead
+                ? R.style.Text_Bookshelf_Metric : R.style.Text_Bookshelf_Metric_Small);
+        tvValue.setGravity(android.view.Gravity.CENTER_HORIZONTAL);
+        // 单位靠 span 缩到 0.45em，不再用第二段 TextView 对基线
+        tvValue.setText(StatsText.metric(value, suffix));
+        android.widget.LinearLayout.LayoutParams vLp = new android.widget.LinearLayout.LayoutParams(
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                android.view.ViewGroup.LayoutParams.WRAP_CONTENT);
+        vLp.topMargin = getResources().getDimensionPixelSize(R.dimen.space_xs);
+        cell.addView(tvValue, vLp);
+        android.widget.LinearLayout.LayoutParams lp = new android.widget.LinearLayout.LayoutParams(
+                0, android.view.ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        cell.setLayoutParams(lp);
+        return cell;
     }
 
     private void applyInsightForTab() {

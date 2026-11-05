@@ -102,6 +102,24 @@
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintWidth_max="@dimen/content_max_width">
 
+                <!-- v5.9.1 栏首摘要行：三单元「L5 标签 + 数字」，内容随分栏切换。
+                     「种」在 hero 大数字上，这里不重复 -->
+                <LinearLayout
+                    android:id="@+id/ll_summary_books"
+                    style="@style/StatsSummaryRow" />
+
+                <LinearLayout
+                    android:id="@+id/ll_summary_reading"
+                    style="@style/StatsSummaryRow" />
+
+                <LinearLayout
+                    android:id="@+id/ll_summary_purchase"
+                    style="@style/StatsSummaryRow" />
+
+                <LinearLayout
+                    android:id="@+id/ll_summary_loan"
+                    style="@style/StatsSummaryRow" />
+
                 <!-- ==================== Hero 总览 ==================== -->
                 <androidx.cardview.widget.CardView
                     android:id="@+id/card_stats_hero"

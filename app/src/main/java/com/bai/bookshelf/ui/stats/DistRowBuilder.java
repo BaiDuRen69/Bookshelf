@@ -27,10 +27,12 @@ import java.util.Map;
  */
 public final class DistRowBuilder {
 
-    private static final int RANK_WIDTH_DP = 20;
-    private static final int NAME_WIDTH_DP = 92;
+    private static final int RANK_WIDTH_DP = 16;
+    private static final int NAME_WIDTH_DP = 92;    // 仅作极窄屏的回退，正常走 weight=1
     private static final int COUNT_WIDTH_DP = 38;
-    private static final int BAR_HEIGHT_DP = 8;
+    private static final int BAR_HEIGHT_DP = 8;    // 规格写的 4dp 与实际不符，保持现状
+    /** 行是可点的（跳分布页），高度按全应用 48dp 触控下限，不用规格的 44dp */
+    private static final int ROW_MIN_HEIGHT_DP = 48;
 
     public interface OnRowClickListener {
         void onRowClick(String name);
@@ -52,8 +54,8 @@ public final class DistRowBuilder {
         if (entries == null || entries.isEmpty()) {
             TextView empty = new TextView(ctx);
             empty.setText(emptyText);
-            Typo.text(empty, R.dimen.text_body_small);
-            empty.setTextColor(ThemeManager.resolveColor(ctx, R.attr.on_surface_variant));
+            // 空态：L4 Body（13sp + 1.3 行距），与正文一个档，不再单独调
+            empty.setTextAppearance(ctx, R.style.Text_Bookshelf_Body);
             empty.setPadding(dp(4), dp(12), dp(4), dp(12));
             empty.setLineSpacing(dp(2), 1f);
             container.addView(empty);
@@ -76,7 +78,8 @@ public final class DistRowBuilder {
         LinearLayout row = new LinearLayout(ctx);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(dp(4), dp(8), dp(4), dp(8));
+        row.setPadding(dp(4), 0, dp(4), 0);
+        row.setMinimumHeight(dp(ROW_MIN_HEIGHT_DP));
         row.setClickable(true);
         row.setFocusable(true);
         row.setBackground(selectableBackground());
@@ -88,24 +91,22 @@ public final class DistRowBuilder {
         int primary = ThemeManager.resolveColor(ctx, ThemeManager.ATTR_COLOR_PRIMARY);
         int variant = ThemeManager.resolveColor(ctx, R.attr.on_surface_variant);
 
+        // 序号：L5 + 次级色，第一名与其余同档同色，只靠数字本身说话
         TextView tvRank = new TextView(ctx);
         tvRank.setText(String.valueOf(rank));
         Typo.text(tvRank, R.dimen.text_caption);
         tvRank.setGravity(Gravity.CENTER);
-        tvRank.setTypeface(android.graphics.Typeface.create("sans-serif-medium",
-                android.graphics.Typeface.NORMAL));
-        tvRank.setTextColor(rank <= 3 ? primary : variant);
+        tvRank.setTextColor(variant);
         row.addView(tvRank, new LinearLayout.LayoutParams(dp(RANK_WIDTH_DP),
                 ViewGroup.LayoutParams.WRAP_CONTENT));
 
+        // 名称：L3 RowName，吃掉剩余宽度，超长省略而不是换行
         TextView tvName = new TextView(ctx);
-        tvName.setText(name);
-        Typo.text(tvName, R.dimen.text_body_small);
-        tvName.setSingleLine(true);
+        tvName.setTextAppearance(ctx, R.style.Text_Bookshelf_RowName);
+        tvName.setMaxLines(1);
         tvName.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        tvName.setTextColor(ThemeManager.resolveColor(ctx, R.attr.on_surface));
-        row.addView(tvName, new LinearLayout.LayoutParams(dp(NAME_WIDTH_DP),
-                ViewGroup.LayoutParams.WRAP_CONTENT));
+        row.addView(tvName, new LinearLayout.LayoutParams(0,
+                ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
 
         LinearLayout barArea = new LinearLayout(ctx);
         barArea.setOrientation(LinearLayout.HORIZONTAL);
@@ -127,14 +128,12 @@ public final class DistRowBuilder {
                     new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, max - count));
         }
 
+        // 数值：升到 L2（20sp serif + tnum + 主色），与条形同行右对齐
         TextView tvCount = new TextView(ctx);
-        tvCount.setText(String.valueOf(count));
-        Typo.text(tvCount, R.dimen.text_body_small);
+        tvCount.setTextAppearance(ctx, R.style.Text_Bookshelf_Metric_Small);
         tvCount.setGravity(Gravity.END);
-        tvCount.setTypeface(android.graphics.Typeface.create("sans-serif-medium",
-                android.graphics.Typeface.NORMAL));
-        tvCount.setTextColor(primary);
-        row.addView(tvCount, new LinearLayout.LayoutParams(dp(COUNT_WIDTH_DP),
+        row.addView(tvCount, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT));
 
         return row;
