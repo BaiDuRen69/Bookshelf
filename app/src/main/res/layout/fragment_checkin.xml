@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 打卡页（一期第 ② 步骨架）：月份标题工具栏 → 月视图网格 → 在读书籍列表 → 悬浮「今」。
+     底部避让统一用 @dimen/dock_reserve，与书架 / 统计 / 我的三页一致。 -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+        <com.google.android.material.appbar.MaterialToolbar
+            android:id="@+id/toolbar"
+            style="@style/Widget.Bookshelf.Toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/toolbar_h"
+            android:clickable="true"
+            android:contentDescription="打开年视图"
+            android:foreground="?attr/selectableItemBackground"
+            app:title="2026年11月">
+
+            <!-- 右侧「今天」文本按钮：页头前景色跟随主题，不用硬编码 -->
+            <TextView
+                android:id="@+id/tv_today"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:layout_gravity="end|center_vertical"
+                android:background="?attr/selectableItemBackground"
+                android:clickable="true"
+                android:contentDescription="回到今天"
+                android:gravity="center"
+                android:paddingHorizontal="@dimen/space_md"
+                android:text="今天"
+                android:textColor="?attr/header_fg"
+                android:textSize="@dimen/text_body_medium" />
+        </com.google.android.material.appbar.MaterialToolbar>
+
+        <com.bai.bookshelf.ui.checkin.MonthGridView
+            android:id="@+id/month_grid"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="@dimen/page_padding"
+            android:layout_marginTop="@dimen/space_sm"
+            android:paddingHorizontal="@dimen/space_sm" />
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1">
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rv_checkin"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:clipToPadding="false"
+                android:paddingBottom="@dimen/dock_reserve" />
+
+            <include
+                android:id="@+id/empty_state"
+                layout="@layout/view_empty_state"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:visibility="gone" />
+        </FrameLayout>
+    </LinearLayout>
+
+    <!-- 56dp 圆形，主色底 + colorOnPrimary 文字「今」，与 fab_scan 同级留白/高度 -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/fab_today"
+        android:layout_width="56dp"
+        android:layout_height="56dp"
+        android:layout_gravity="bottom|end"
+        android:layout_marginEnd="20dp"
+        android:layout_marginBottom="@dimen/dock_reserve"
+        android:contentDescription="回到今天"
+        android:insetBottom="0dp"
+        android:insetLeft="0dp"
+        android:insetRight="0dp"
+        android:insetTop="0dp"
+        android:padding="0dp"
+        android:text="今"
+        android:textColor="?attr/colorOnPrimary"
+        android:textSize="@dimen/text_body_large"
+        app:backgroundTint="?attr/colorPrimary"
+        app:cornerRadius="28dp"
+        app:elevation="4dp" />
+</FrameLayout>

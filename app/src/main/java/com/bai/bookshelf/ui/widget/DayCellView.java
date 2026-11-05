@@ -17,8 +17,12 @@ import com.bai.bookshelf.util.ThemeManager;
  * {@code oval} 会被拉成椭圆，圆角块之间还留着 1dp 的缝——区间看起来是
  * 一颗颗断开的方块。自绘可以让色带整行连续、只在两端收圆角，
  * 端点则是正圆，视觉上更接近系统日历。
+ *
+ * <p>打卡页一期：新增 {@link #bindCheckIn} 独立绘制模式，原来的 {@link #bind}
+ * 一行未改，CalendarPicker 的调用点与观感完全不变；打卡页跨包复用本类，
+ * 因此可见性从包内提升为 public（不改变任何现有行为）。
  */
-final class DayCellView extends View {
+public final class DayCellView extends View {
 
     private final Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint bandPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -38,7 +42,15 @@ final class DayCellView extends View {
     private boolean inBand;
     private boolean today;
 
-    DayCellView(Context ctx) {
+    // ===== 打卡页专用状态（原 bind 不碰这些字段）=====
+    private boolean checkInMode;
+    private boolean selected;
+    private boolean adjacent;
+    private boolean dot;
+    private int primaryContainer;
+    private int onSurfaceVariant;
+
+    public DayCellView(Context ctx) {
         super(ctx);
         density = ctx.getResources().getDisplayMetrics().density;
         textSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 15,
@@ -62,13 +74,39 @@ final class DayCellView extends View {
         this.middle = middle;
         this.inBand = inBand;
         this.today = today;
+        this.checkInMode = false;
         bandPaint.setColor(ThemeManager.primaryAlpha(getContext(), 0x24));
         ringPaint.setColor(primary);
         invalidate();
     }
 
+    /**
+     * 打卡月视图的状态绑定（新增重载，不改原 bind 签名）。
+     * 选中 = primary_container 胶囊底 + 主色文字；今天 = 主色描边；
+     * 邻月 = on_surface_variant 弱化；有打卡 = 底部 4dp 实心点（1 天多本也只 1 个点）。
+     */
+    public void bindCheckIn(int day, int primary, int primaryContainer,
+                            int onSurface, int onSurfaceVariant,
+                            boolean selected, boolean today, boolean adjacent, boolean dot) {
+        this.day = day;
+        this.primary = primary;
+        this.primaryContainer = primaryContainer;
+        this.onSurface = onSurface;
+        this.onSurfaceVariant = onSurfaceVariant;
+        this.selected = selected;
+        this.today = today;
+        this.adjacent = adjacent;
+        this.dot = dot;
+        this.checkInMode = true;
+        invalidate();
+    }
+
     @Override
     protected void onDraw(Canvas canvas) {
+        if (checkInMode) {
+            drawCheckIn(canvas);
+            return;
+        }
         float w = getWidth();
         float h = getHeight();
         float radius = Math.min(w, h) / 2f - dp(1.5f);
@@ -103,6 +141,41 @@ final class DayCellView extends View {
         textPaint.setFakeBoldText(solid);
         float baseline = cy - (textPaint.descent() + textPaint.ascent()) / 2f;
         canvas.drawText(String.valueOf(day), cx, baseline, textPaint);
+    }
+
+    private void drawCheckIn(Canvas canvas) {
+        float w = getWidth();
+        float h = getHeight();
+        float radius = Math.min(w, h) / 2f - dp(1.5f);
+        float cx = w / 2f;
+        float cy = h / 2f;
+
+        if (selected) {
+            bandPaint.setColor(primaryContainer);
+            rect.set(dp(2), cy - radius, w - dp(2), cy + radius);
+            canvas.drawRoundRect(rect, radius, radius, bandPaint);
+            textPaint.setColor(primary);
+            textPaint.setFakeBoldText(true);
+        } else if (today) {
+            ringPaint.setColor(primary);
+            canvas.drawCircle(cx, cy, radius, ringPaint);
+            textPaint.setColor(primary);
+            textPaint.setFakeBoldText(false);
+        } else {
+            textPaint.setColor(adjacent ? onSurfaceVariant : onSurface);
+            textPaint.setFakeBoldText(false);
+        }
+        textPaint.setAlpha(adjacent && !selected ? 160 : 255);
+
+        // 有打卡：底部一个 4dp 实心点，颜色跟主色；一天多本也只画一点
+        if (dot) {
+            bandPaint.setColor(primary);
+            canvas.drawCircle(cx, h - dp(5), dp(2), bandPaint);
+        }
+
+        float baseline = cy - (textPaint.descent() + textPaint.ascent()) / 2f;
+        canvas.drawText(String.valueOf(day), cx, baseline, textPaint);
+        textPaint.setAlpha(255);
     }
 
     private float dp(float value) {

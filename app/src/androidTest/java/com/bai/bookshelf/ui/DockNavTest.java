@@ -17,6 +17,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.appcompat.widget.AppCompatImageView;
@@ -84,28 +85,38 @@ public class DockNavTest {
         View indicator = dock.findViewById(R.id.nav_indicator);
         assertEquals(px(R.dimen.nav_indicator_size), indicator.getLayoutParams().width);
         assertEquals(px(R.dimen.nav_indicator_size), indicator.getLayoutParams().height);
-        // 第二层才是三个 tab 的横排容器
+        // 第二层是四个 tab 的横排容器（v5.10 打卡插在第 3 格）
         assertTrue("dock 的第二个子节点应是 tab 容器",
                 dock.getChildAt(1) instanceof ViewGroup);
-        assertEquals("三个 tab 数量不对", 3, ((ViewGroup) dock.getChildAt(1)).getChildCount());
+        assertEquals("四个 tab 数量不对", 4, ((ViewGroup) dock.getChildAt(1)).getChildCount());
+        assertEquals("四格等分要求 dock 本身铺满宽度",
+                ViewGroup.LayoutParams.MATCH_PARENT, dock.getLayoutParams().width);
     }
 
     @Test
     public void 水波贴合tab且不涂出胶囊端头() {
         FrameLayout dock = root().findViewById(R.id.nav_dock);
-        for (int id : new int[]{R.id.tab_shelf, R.id.tab_stats, R.id.tab_mine}) {
+        for (int id : new int[]{R.id.tab_shelf, R.id.tab_stats,
+                R.id.tab_checkin, R.id.tab_mine}) {
             View tab = root().findViewById(id);
             Drawable fg = tab.getForeground();
             assertTrue("tab 的前景不是 RippleDrawable：" + fg, fg instanceof RippleDrawable);
             assertNotNull("ripple 少了 mask，水波就是方的",
                     ((RippleDrawable) fg).findDrawableByLayerId(android.R.id.mask));
             assertTrue("tab 必须可点可聚焦", tab.isClickable() && tab.isFocusable());
-            assertEquals("tab 宽应取 @dimen/dock_item_w", px(R.dimen.dock_item_w),
-                    tab.getLayoutParams().width);
-            // mask 是椭圆，会被拉成宿主 View 的宽高比。上一代水波挂在 120×64dp 的 tab 上
-            // （比例 0.53）灰印就顶到了胶囊端头外面——这里守形状比例，而不是守某个 id 存在。
-            float ratio = dock.getLayoutParams().height / (float) tab.getLayoutParams().width;
-            assertTrue("tab 宽高比 " + ratio + " 太扁，椭圆水波会贴到胶囊圆角外", ratio >= 0.75f);
+            // v5.10：固定 84dp×4 会超出 360dp 屏的可用宽度，改 0dp + weight=1 等分
+            LinearLayout.LayoutParams lp = (LinearLayout.LayoutParams) tab.getLayoutParams();
+            assertEquals("tab 宽应为 0dp（交给 weight 等分）", 0, lp.width);
+            assertEquals("tab 必须 weight=1 等分", 1f, lp.weight, 0.001f);
+            // v5.10：固定 84dp 时代用「宽高比 ≥ 0.75」守椭圆水波形状；等分 4 格后
+            // 每格宽度随屏宽变化（360dp 屏约 86dp、更宽的屏更大），这个比值不再恒定。
+            // 改守真正不会退化的约束：每格不得窄于 56dp 触摸目标；水波 mask 由
+            // ripple_circle 自己裁剪到 View 边界，不会画到胶囊圆角外。
+            int screenW = ApplicationProvider.getApplicationContext()
+                    .getResources().getDisplayMetrics().widthPixels;
+            int perTab = (screenW - dock.getPaddingLeft() - dock.getPaddingRight()) / 4;
+            assertTrue("等分后每格不能窄于触摸目标，实测 " + perTab + "px",
+                    perTab >= px(R.dimen.nav_touch_size));
             assertTrue("dock 左右内边距不足，最外侧水波会压在胶囊端头上",
                     dock.getPaddingLeft() >= px(R.dimen.dock_padding_h));
         }
@@ -134,15 +145,16 @@ public class DockNavTest {
     }
 
     @Test
-    public void 三个tab纯图标且图标有朗读标签() {
-        int[] tabs = {R.id.tab_shelf, R.id.tab_stats, R.id.tab_mine};
+    public void 四个tab纯图标且图标有朗读标签() {
+        int[] tabs = {R.id.tab_shelf, R.id.tab_stats, R.id.tab_checkin, R.id.tab_mine};
         for (int id : tabs) {
             View tab = root().findViewById(id);
             assertNotNull(tab);
             List<TextView> texts = new ArrayList<>();
             List<ImageView> icons = new ArrayList<>();
             collect(tab, texts, icons);
-            assertEquals("纯图标：tab 里不该再有文字标签（角标除外）", 1, texts.size());
+            assertTrue("纯图标：tab 里最多只有角标一个文字（打卡格没有角标）",
+                    texts.size() <= 1);
             assertEquals(1, icons.size());
             ImageView icon = icons.get(0);
             assertEquals(px(R.dimen.nav_icon_size), icon.getLayoutParams().width);
