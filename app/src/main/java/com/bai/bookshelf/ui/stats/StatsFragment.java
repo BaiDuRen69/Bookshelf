@@ -115,6 +115,8 @@ public class StatsFragment extends Fragment {
     private java.util.List<com.bai.bookshelf.util.StatsSpend.PeriodDelta> periods;
     private java.util.List<Book> books;
     private java.util.List<OpenLoan> openLoans;
+    /** 近半年逐月归还笔数（v5.9.1 三步：借阅栏的趋势块） */
+    private ReturnTrend.Series returnSeries;
     private int fTotal;
     private int fFinished;
     private int fAvgDays;
@@ -309,6 +311,7 @@ public class StatsFragment extends Fragment {
         setCardVisible(b.cardTrend, purchase);
         setCardVisible(b.cardOpenLoans, loan);
         setCardVisible(b.cardBorrowers, loan);
+        setCardVisible(b.cardReturnTrend, loan);
         // v5.9.1 栏首摘要行：每栏一条，随分栏显隐（沿用 setCardVisible）
         setCardVisible(b.llSummaryBooks, books);
         setCardVisible(b.llSummaryReading, reading);
@@ -826,6 +829,7 @@ public class StatsFragment extends Fragment {
             this.topPublishers = topN(publisherCount, 8);
             this.topCountries = topN(countryCount, 8);
             this.openLoans = OpenLoan.build(books, loanRecords, todayKey);
+            this.returnSeries = ReturnTrend.of(loanRecords, todayKey, ReturnTrend.MONTHS);
 
             app.ui(() -> {
                 if (b == null) {
@@ -999,6 +1003,7 @@ public class StatsFragment extends Fragment {
         insightLend = lendInsight(lend, lenders, lendByCategory, borrowOrphans);
         renderBorrowers(lenders);
         renderOpenLoans();
+        renderReturnTrend();
         bindOrphanRepair();
     }
 
@@ -1048,43 +1053,88 @@ public class StatsFragment extends Fragment {
         });
     }
 
-    /** 在借清单：书名 · 借阅人 · 应还日期（逾期标红），点一行可直接收回（v5.8.3） */
+    /** 在外清单：逾期与在借分两组（v5.9.1 三步），一行内容和原来一致，点一行可收回 */
     private void renderOpenLoans() {
-        b.llOpenLoans.removeAllViews();
+        b.llLoansOverdue.removeAllViews();
+        b.llLoansOngoing.removeAllViews();
+        int today = com.bai.bookshelf.util.DateKeys.todayKey();
         if (openLoans == null || openLoans.isEmpty()) {
-            addRow(b.llOpenLoans, "现在没有借出去的书", true);
+            b.tvLoansOverdueTitle.setVisibility(View.GONE);
+            b.tvLoansOngoingTitle.setVisibility(View.GONE);
+            addRow(b.llLoansOngoing, "现在没有借出去的书", true);
             b.tvOpenLoansHint.setText("在书详情页或逐本信息里可以登记借出");
             return;
         }
-        java.text.SimpleDateFormat md = new java.text.SimpleDateFormat("M月d日",
-                Locale.getDefault());
-        int today = com.bai.bookshelf.util.DateKeys.todayKey();
-        for (final OpenLoan loan : openLoans) {
-            String titleCol = loan.book == null
-                    ? "记录 #" + loan.record.id + "（书已删除）"
-                    : "《" + loan.title + "》";
-            java.util.List<String> parts = new java.util.ArrayList<>();
-            parts.add(loan.borrower);
-            if (loan.dueKey > 0) {
-                parts.add("应还 " + OpenLoan.monthDay(loan.dueKey));
-                int overdueDays = com.bai.bookshelf.util.DateKeys.daysBetween(
-                        loan.dueKey, today);
-                if (overdueDays > 0) {
-                    parts.add("（逾期 " + overdueDays + " 天）");
-                }
+        java.util.List<OpenLoan> overdue = new ArrayList<>();
+        java.util.List<OpenLoan> ongoing = new ArrayList<>();
+        for (OpenLoan loan : openLoans) {
+            if (loan.dueKey > 0 && loan.dueKey < today) {
+                overdue.add(loan);
             } else {
-                parts.add("未填应还日期");
+                ongoing.add(loan);
             }
-            boolean overdue = loan.dueKey > 0 && loan.dueKey < today;
-            // 左列书名，右列借阅人与应还；逾期整行用错误色，不跟浅灰混
-            android.view.View row = addValueRow(b.llOpenLoans, titleCol,
-                    StatsRows.join(parts.toArray(new String[0])),
-                    overdue ? com.bai.bookshelf.util.ThemeManager.resolveColor(
-                            requireContext(),
-                            com.google.android.material.R.attr.colorError) : 0);
-            row.setOnClickListener(v -> confirmReturn(loan));
+        }
+        b.tvLoansOverdueTitle.setVisibility(View.VISIBLE);
+        b.tvLoansOngoingTitle.setVisibility(View.VISIBLE);
+        b.tvLoansOverdueTitle.setText("逾期 " + overdue.size() + " 笔");
+        b.tvLoansOngoingTitle.setText("在借 " + ongoing.size() + " 笔");
+        for (final OpenLoan loan : overdue) {
+            addLoanRow(b.llLoansOverdue, loan, today, true);
+        }
+        for (final OpenLoan loan : ongoing) {
+            addLoanRow(b.llLoansOngoing, loan, today, false);
+        }
+        // 空的另一组也要说清是「没有」而不是「没渲染」，但不能留空块
+        if (overdue.isEmpty()) {
+            addRow(b.llLoansOverdue, "都在应还日期内", true);
+        }
+        if (ongoing.isEmpty()) {
+            addRow(b.llLoansOngoing, "没有未逾期的在借书", true);
         }
         b.tvOpenLoansHint.setText("点一行可收回；逾期按应还日期和今天比较");
+    }
+
+    private void addLoanRow(android.widget.LinearLayout container, OpenLoan loan, int today,
+                            boolean overdue) {
+        String titleCol = loan.book == null
+                ? "记录 #" + loan.record.id + "（书已删除）"
+                : "《" + loan.title + "》";
+        java.util.List<String> parts = new java.util.ArrayList<>();
+        parts.add(loan.borrower);
+        if (loan.dueKey > 0) {
+            parts.add("应还 " + OpenLoan.monthDay(loan.dueKey));
+            int overdueDays = com.bai.bookshelf.util.DateKeys.daysBetween(loan.dueKey, today);
+            if (overdueDays > 0) {
+                parts.add("（逾期 " + overdueDays + " 天）");
+            }
+        } else {
+            parts.add("未填应还日期");
+        }
+        // 逾期整行用错误色，不跟浅灰混
+        View row = addValueRow(container, titleCol, StatsRows.join(parts.toArray(new String[0])),
+                overdue ? com.bai.bookshelf.util.ThemeManager.resolveColor(
+                        requireContext(),
+                        com.google.android.material.R.attr.colorError) : 0);
+        row.setOnClickListener(v -> confirmReturn(loan));
+    }
+
+    /** 近半年归还柱状图：凑不够样本就只解释原因，不摆一排空柱 */
+    private void renderReturnTrend() {
+        b.chartReturns.setUnit("笔");
+        if (returnSeries == null || lend == null
+                || lend.returned < com.bai.bookshelf.util.LibraryStats.MIN_SAMPLE) {
+            b.chartReturns.setVisibility(View.GONE);
+            b.tvReturnsHint.setText(ReturnTrend.notEnoughText(
+                    lend == null ? 0 : lend.returned,
+                    com.bai.bookshelf.util.LibraryStats.MIN_SAMPLE,
+                    ReturnTrend.MONTHS));
+            return;
+        }
+        b.chartReturns.setVisibility(View.VISIBLE);
+        b.chartReturns.setData(returnSeries.labels, returnSeries.values);
+        b.tvReturnsHint.setText("近 " + ReturnTrend.MONTHS + " 个月收回 "
+                + returnSeries.inWindow + " 笔"
+                + (returnSeries.inWindow == 0 ? "；这半年没有归还记录" : ""));
     }
 
     /** 收回一本：关闭借阅记录 + 把书/副本状态改回在库（与详情页同一套规则） */

@@ -1149,11 +1149,32 @@
                             style="@style/CardTitle"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="在借清单"
+                            android:text="在借与逾期"
                             android:textColor="?attr/on_surface" />
 
+                        <!-- v5.9.1 三步：一份清单拆成逾期/在借两组，任一组为空也写清数量，不留空块 -->
+                        <TextView
+                            android:id="@+id/tv_loans_overdue_title"
+                            style="@style/CardSubTitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="@dimen/space_sm" />
+
                         <LinearLayout
-                            android:id="@+id/ll_open_loans"
+                            android:id="@+id/ll_loans_overdue"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical" />
+
+                        <TextView
+                            android:id="@+id/tv_loans_ongoing_title"
+                            style="@style/CardSubTitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="@dimen/space_md" />
+
+                        <LinearLayout
+                            android:id="@+id/ll_loans_ongoing"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:orientation="vertical" />
@@ -1202,6 +1223,45 @@
                             android:layout_marginTop="@dimen/space_sm"
                             android:textColor="?attr/on_surface_variant"
                             android:textSize="@dimen/text_caption_large" />
+                    </LinearLayout>
+                </androidx.cardview.widget.CardView>
+
+                <!-- ==================== 归还趋势（v5.9.1 三步） ====================
+                     样本不够时不画空柱，直接把「为什么不出图」写在卡里 -->
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/card_return_trend"
+                    style="@style/Widget.Bookshelf.Card"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/space_md">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="@dimen/space_lg">
+
+                        <TextView
+                            style="@style/CardTitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="近半年归还"
+                            android:textColor="?attr/on_surface" />
+
+                        <com.bai.bookshelf.ui.stats.MiniBarChartView
+                            android:id="@+id/chart_returns"
+                            android:layout_width="match_parent"
+                            android:layout_height="140dp"
+                            android:layout_marginTop="@dimen/space_sm" />
+
+                        <TextView
+                            android:id="@+id/tv_returns_hint"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="@dimen/space_sm"
+                            android:lineSpacingMultiplier="1.35"
+                            android:textColor="?attr/on_surface_variant"
+                            android:textSize="@dimen/text_body_small" />
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
 
