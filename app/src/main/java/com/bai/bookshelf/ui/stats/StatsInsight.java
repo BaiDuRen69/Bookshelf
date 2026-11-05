@@ -150,10 +150,12 @@ final class StatsInsight {
         return sb.toString();
     }
 
+    /**
+     * 藏书栏洞察首行。v5.9.0 合并：种/册在页头 hero 已经说过一遍
+     * （大数字 + 「共 N 册 · 在外 · 遗失」），这里不再重复，只说读完情况。
+     */
     static String holdingsLine(com.bai.bookshelf.util.StatsHoldings.Holdings h) {
-        StringBuilder sb = new StringBuilder("藏书 ");
-        sb.append(com.bai.bookshelf.util.Units.holdings(h.titles, h.copies));
-        sb.append("；已读 ").append(h.readDone).append(" 种");
+        StringBuilder sb = new StringBuilder("已读 ").append(h.readDone).append(" 种");
         if (h.readRate() >= 0) {
             sb.append("（").append(Math.round(h.readRate() * 100)).append("%）");
         }

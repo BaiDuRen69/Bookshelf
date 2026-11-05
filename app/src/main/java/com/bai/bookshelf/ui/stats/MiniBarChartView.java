@@ -1,5 +1,6 @@
 package com.bai.bookshelf.ui.stats;
 
+import com.bai.bookshelf.util.Typo;
 import android.animation.ValueAnimator;
 import android.content.Context;
 import android.graphics.Canvas;
@@ -94,13 +95,13 @@ public class MiniBarChartView extends View {
 
     public MiniBarChartView(Context context, @Nullable AttributeSet attrs) {
         super(context, attrs);
-        textPaint.setTextSize(sp(9));
+        textPaint.setTextSize(Typo.labelPx(getContext()));
         textPaint.setTextAlign(Paint.Align.CENTER);
-        valuePaint.setTextSize(sp(10));
+        valuePaint.setTextSize(Typo.labelPx(getContext()));
         valuePaint.setTextAlign(Paint.Align.CENTER);
         gridPaint.setStyle(Paint.Style.STROKE);
         gridPaint.setStrokeWidth(Math.max(1f, dp(0.5f)));
-        scalePaint.setTextSize(sp(10));
+        scalePaint.setTextSize(Typo.paintPx(getContext(), R.dimen.text_caption_large));
         scalePaint.setTextAlign(Paint.Align.RIGHT);
         setClickable(true);
     }
@@ -338,11 +339,11 @@ public class MiniBarChartView extends View {
 
     /** 无数据提示 */
     private void drawEmpty(Canvas canvas, int w, int h) {
-        textPaint.setTextSize(sp(12));
+        textPaint.setTextSize(Typo.paintPx(getContext(), R.dimen.text_caption_large));
         textPaint.setColor(ThemeManager.resolveColor(getContext(), R.attr.on_surface_variant));
         textPaint.setTextAlign(Paint.Align.CENTER);
         canvas.drawText("暂无数据", w / 2f, h / 2f - sp(4), textPaint);
-        textPaint.setTextSize(sp(9));
+        textPaint.setTextSize(Typo.labelPx(getContext()));
         textPaint.setTextAlign(Paint.Align.CENTER);
     }
 

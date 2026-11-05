@@ -22,7 +22,7 @@
         android:layout_marginTop="@dimen/space_sm"
         android:background="@drawable/bg_seg_track"
         android:orientation="horizontal"
-        android:padding="3dp">
+        android:padding="@dimen/space_xs">
 
         <TextView
             android:id="@+id/tab_books"
@@ -32,7 +32,7 @@
             android:foreground="@drawable/ripple_seg_tab"
             android:gravity="center"
             android:minHeight="48dp"
-            android:paddingVertical="8dp"
+            android:paddingVertical="@dimen/space_sm"
             android:text="藏书"
             android:textColor="?attr/on_surface_variant"
             android:textSize="@dimen/text_body_small" />
@@ -45,7 +45,7 @@
             android:foreground="@drawable/ripple_seg_tab"
             android:gravity="center"
             android:minHeight="48dp"
-            android:paddingVertical="8dp"
+            android:paddingVertical="@dimen/space_sm"
             android:text="阅读"
             android:textColor="?attr/on_surface_variant"
             android:textSize="@dimen/text_body_small" />
@@ -58,7 +58,7 @@
             android:foreground="@drawable/ripple_seg_tab"
             android:gravity="center"
             android:minHeight="48dp"
-            android:paddingVertical="8dp"
+            android:paddingVertical="@dimen/space_sm"
             android:text="购书"
             android:textColor="?attr/on_surface_variant"
             android:textSize="@dimen/text_body_small" />
@@ -70,7 +70,7 @@
             android:foreground="@drawable/ripple_seg_tab"
             android:gravity="center"
             android:minHeight="48dp"
-            android:paddingVertical="8dp"
+            android:paddingVertical="@dimen/space_sm"
             android:text="借阅"
             android:textColor="?attr/on_surface_variant"
             android:textSize="@dimen/text_body_small" />
@@ -149,7 +149,7 @@
                             android:id="@+id/tv_stats_copies"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="2dp"
+                            android:layout_marginTop="@dimen/space_xs"
                             android:textColor="?attr/on_surface_variant"
                             android:textSize="@dimen/text_caption" />
 
@@ -159,7 +159,7 @@
                             <FrameLayout
                                 android:layout_width="132dp"
                                 android:layout_height="104dp"
-                                android:layout_marginStart="8dp">
+                                android:layout_marginStart="@dimen/space_sm">
 
                                 <ImageView
                                     android:id="@+id/iv_fan_1"
@@ -221,8 +221,8 @@
                         <View
                             android:layout_width="match_parent"
                             android:layout_height="1dp"
-                            android:layout_marginTop="14dp"
-                            android:layout_marginBottom="12dp"
+                            android:layout_marginTop="@dimen/space_lg"
+                            android:layout_marginBottom="@dimen/space_md"
                             android:background="?attr/outline" />
 
                         <LinearLayout
@@ -249,7 +249,7 @@
                                     style="@style/Text.Bookshelf.Overline"
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
-                                    android:layout_marginTop="2dp"
+                                    android:layout_marginTop="@dimen/space_xs"
                                     android:text="已读" />
                             </LinearLayout>
 
@@ -272,7 +272,7 @@
                                     style="@style/Text.Bookshelf.Overline"
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
-                                    android:layout_marginTop="2dp"
+                                    android:layout_marginTop="@dimen/space_xs"
                                     android:text="在读" />
 
                                 <!-- v5.8.33：在读里有多少本正借在外面（0 时整行隐藏） -->
@@ -281,7 +281,7 @@
                                     style="@style/Text.Bookshelf.Body"
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
-                                    android:layout_marginTop="2dp"
+                                    android:layout_marginTop="@dimen/space_xs"
                                     android:text="其中 0 种在外借中"
                                     android:visibility="gone" />
                             </LinearLayout>
@@ -305,7 +305,7 @@
                                     style="@style/Text.Bookshelf.Overline"
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
-                                    android:layout_marginTop="2dp"
+                                    android:layout_marginTop="@dimen/space_xs"
                                     android:text="未读" />
                             </LinearLayout>
 
@@ -328,7 +328,7 @@
                                     style="@style/Text.Bookshelf.Overline"
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
-                                    android:layout_marginTop="2dp"
+                                    android:layout_marginTop="@dimen/space_xs"
                                     android:text="弃读" />
                             </LinearLayout>
                         </LinearLayout>
@@ -359,7 +359,7 @@
                         <LinearLayout
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="12dp"
+                            android:layout_marginTop="@dimen/space_md"
                             android:orientation="horizontal">
 
                             <LinearLayout
@@ -380,7 +380,7 @@
                                     android:id="@+id/tv_stats_price"
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
-                                    android:layout_marginTop="2dp"
+                                    android:layout_marginTop="@dimen/space_xs"
                                     android:text="¥0.00"
                                     android:textColor="?attr/on_surface"
                                     android:textSize="@dimen/text_body_small" />
@@ -404,7 +404,7 @@
                                     android:id="@+id/tv_stats_spent"
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
-                                    android:layout_marginTop="2dp"
+                                    android:layout_marginTop="@dimen/space_xs"
                                     android:text="¥0.00"
                                     android:textColor="?attr/on_surface"
                                     android:textSize="@dimen/text_body_small" />
@@ -428,7 +428,7 @@
                                     android:id="@+id/tv_stats_words"
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
-                                    android:layout_marginTop="2dp"
+                                    android:layout_marginTop="@dimen/space_xs"
                                     android:text="0 万字"
                                     android:textColor="?attr/on_surface"
                                     android:textSize="@dimen/text_body_small" />
@@ -497,7 +497,7 @@
                             android:id="@+id/tv_goal_summary"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="4dp"
+                            android:layout_marginTop="@dimen/space_xs"
                             android:textColor="?attr/on_surface_variant"
                             android:textSize="@dimen/text_body_small" />
 
@@ -506,7 +506,7 @@
                             style="?android:attr/progressBarStyleHorizontal"
                             android:layout_width="match_parent"
                             android:layout_height="6dp"
-                            android:layout_marginTop="10dp"
+                            android:layout_marginTop="@dimen/space_md"
                             android:max="100"
                             android:progressBackgroundTint="?attr/outline"
                             android:progressTint="?attr/colorPrimary" />
@@ -515,7 +515,7 @@
                             android:id="@+id/tv_goal_streak"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="8dp"
+                            android:layout_marginTop="@dimen/space_sm"
                             android:textColor="?attr/on_surface_variant"
                             android:textSize="@dimen/text_body_small" />
                     </LinearLayout>
@@ -555,7 +555,7 @@
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:layout_marginTop="2dp"
+                                android:layout_marginTop="@dimen/space_xs"
                                 android:text="按月 / 年 / 总看购入、录入与花费"
                                 android:textColor="?attr/on_surface_variant"
                                 android:textSize="@dimen/text_body_small" />
@@ -607,7 +607,7 @@
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:layout_marginTop="2dp"
+                                android:layout_marginTop="@dimen/space_xs"
                                 android:text="@string/reading_calendar_entry_sub"
                                 android:textColor="?attr/on_surface_variant"
                                 android:textSize="@dimen/text_body_small" />
@@ -646,7 +646,7 @@
                             android:layout_height="@dimen/mine_icon_box"
                             android:background="@drawable/bg_icon_container"
                             android:contentDescription="书房年报"
-                            android:padding="8dp"
+                            android:padding="@dimen/space_sm"
                             android:src="@drawable/ic_export_line"
                             app:tint="?attr/colorPrimary" />
 
@@ -782,7 +782,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="@dimen/space_sm"
                             android:background="?attr/selectableItemBackground"
-                            android:paddingVertical="2dp"
+                            android:paddingVertical="@dimen/space_xs"
                             android:textColor="?attr/on_surface_variant"
                             android:textSize="@dimen/text_caption" />
                     </LinearLayout>
@@ -859,7 +859,7 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:background="?attr/selectableItemBackground"
-                                android:padding="4dp"
+                                android:padding="@dimen/space_xs"
                                 android:drawableEnd="@drawable/ic_chevron_right_line"
                                 android:drawablePadding="2dp"
                                 android:drawableTint="?attr/colorPrimary"
@@ -910,7 +910,7 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:background="?attr/selectableItemBackground"
-                                android:padding="4dp"
+                                android:padding="@dimen/space_xs"
                                 android:drawableEnd="@drawable/ic_chevron_right_line"
                                 android:drawablePadding="2dp"
                                 android:drawableTint="?attr/colorPrimary"
@@ -962,7 +962,7 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:background="?attr/selectableItemBackground"
-                                android:padding="4dp"
+                                android:padding="@dimen/space_xs"
                                 android:drawableEnd="@drawable/ic_chevron_right_line"
                                 android:drawablePadding="2dp"
                                 android:drawableTint="?attr/colorPrimary"
@@ -1014,7 +1014,7 @@
                             android:id="@+id/tv_next_pick_reason"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="4dp"
+                            android:layout_marginTop="@dimen/space_xs"
                             android:lineSpacingMultiplier="1.3"
                             android:textColor="?attr/on_surface_variant"
                             android:textSize="@dimen/text_body_small" />

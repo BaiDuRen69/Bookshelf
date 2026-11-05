@@ -1,5 +1,6 @@
 package com.bai.bookshelf.ui.stats;
 
+import com.bai.bookshelf.util.Typo;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -82,8 +83,8 @@ public class CategoryTreemapView extends View {
         strokeWidth = 2f * density;
         minLabelW = (int) (MIN_LABEL_W_DP * density);
         minLabelH = (int) (MIN_LABEL_H_DP * density);
-        titlePaint.setTextSize(13 * sp);
-        subPaint.setTextSize(11 * sp);
+        titlePaint.setTextSize(Typo.paintPx(getContext(), R.dimen.text_body_small));
+        subPaint.setTextSize(Typo.labelPx(getContext()));
         titlePaint.setFakeBoldText(true);
         baseTitleSize = titlePaint.getTextSize();
         baseSubSize = subPaint.getTextSize();

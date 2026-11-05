@@ -1,5 +1,6 @@
 package com.bai.bookshelf.ui.stats;
 
+import com.bai.bookshelf.util.Typo;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Paint;
@@ -441,7 +442,7 @@ public class PurchaseHeatmapView extends View {
         miniColGap = dp(8);
         miniRowGap = dp(12);
         miniCellGap = dp(1.5f);
-        miniLabelH = sp(10);
+        miniLabelH = Typo.labelPx(getContext());
         miniMonthW = (w - miniColGap * (MINI_COLS - 1)) / MINI_COLS;
         miniCell = (miniMonthW - miniCellGap * 6) / 7f;
         miniMonthH = miniLabelH + MINI_WEEKS * miniCell + (MINI_WEEKS - 1) * miniCellGap;
@@ -482,7 +483,7 @@ public class PurchaseHeatmapView extends View {
         // 星期表头（即使没有月数据也要画 —— 面板顶部的固定表头就是这种模式）
         if (showHeader) {
             headPaint.setColor(onSurfaceVariant);
-            headPaint.setTextSize(sp(10));
+            headPaint.setTextSize(Typo.labelPx(getContext()));
             for (int i = 0; i < 7; i++) {
                 float cx = cellGap + cellSize * i + cellSize / 2f;
                 canvas.drawText(WEEK_HEADS[i], cx, headHeight - sp(3), headPaint);
@@ -520,7 +521,7 @@ public class PurchaseHeatmapView extends View {
             }
 
             if (showNumbers) {
-                numberPaint.setTextSize(sp(10));
+                numberPaint.setTextSize(Typo.labelPx(getContext()));
                 if (labelOutside) {
                     // 数字画在色块上方（微信读书样式）
                     numberPaint.setColor(selected ? primary : onSurfaceVariant);
@@ -564,7 +565,7 @@ public class PurchaseHeatmapView extends View {
 
         // 顶部月份标签：每月第一个格子处标注，与上一个标签至少间隔 4 周
         monthLabelPaint.setColor(onSurfaceVariant);
-        monthLabelPaint.setTextSize(sp(8));
+        monthLabelPaint.setTextSize(Typo.labelPx(getContext()));
         int lastLabelCol = -99;
         for (int m = 0; m < 12; m++) {
             int dayIdx = HeatmapMath.dayIndexOfFirstOfMonth(yearValue, m);
@@ -633,7 +634,7 @@ public class PurchaseHeatmapView extends View {
         int surfaceDim = ThemeManager.resolveColor(getContext(), R.attr.surface_dim);
 
         monthLabelPaint.setColor(onSurfaceVariant);
-        monthLabelPaint.setTextSize(sp(9));
+        monthLabelPaint.setTextSize(Typo.labelPx(getContext()));
         cellPaint.setColor(surfaceDim);
 
         RectF rect = tmpRect;

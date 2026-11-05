@@ -32,15 +32,16 @@ public class StatsInsightTest {
     }
 
     @Test
-    public void holdingsLineUsesTitlesAndCopies() {
+    public void holdingsLineNoLongerRepeatsHeroTotals() {
         StatsHoldings.Holdings h = new StatsHoldings.Holdings();
         h.titles = 121;
         h.copies = 128;
         h.readDone = 7;
         String line = StatsInsight.holdingsLine(h);
-        assertTrue(line, line.contains("121"));
-        assertTrue(line, line.contains("128"));
-        assertTrue(line, line.contains("已读 7 种（6%）"));
+        // v5.9.0 合并：种/册由页头 hero 说，这里只说读完情况（口径不变，只是不重复）
+        assertEquals("已读 7 种（6%）", line);
+        assertTrue(line, !line.contains("121"));
+        assertTrue(line, !line.contains("128"));
     }
 
     @Test
