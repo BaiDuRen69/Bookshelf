@@ -2,6 +2,7 @@ package com.bai.bookshelf.ui.checkin;
 
 import android.animation.ValueAnimator;
 import android.content.Context;
+import android.graphics.drawable.GradientDrawable;
 import android.util.AttributeSet;
 import android.view.GestureDetector;
 import android.view.Gravity;
@@ -117,7 +118,7 @@ public class CheckInYearView extends ScrollView {
         rows.removeAllViews();
         int primary = ThemeManager.resolveColor(getContext(), ThemeManager.ATTR_COLOR_PRIMARY);
         int container = ThemeManager.resolveColor(getContext(), R.attr.primary_container);
-        int onSurface = ThemeManager.resolveColor(getContext(), R.attr.on_surface);
+        int variant = ThemeManager.resolveColor(getContext(), R.attr.on_surface_variant);
         Set<Integer> checked = new HashSet<>(com.bai.bookshelf.util.CheckInHabit.dayKeys(all));
 
         for (int r = 0; r < 6; r++) {
@@ -131,7 +132,8 @@ public class CheckInYearView extends ScrollView {
                 LinearLayout card = new LinearLayout(getContext());
                 card.setOrientation(LinearLayout.VERTICAL);
                 card.setPadding(dp(8), dp(8), dp(8), dp(8));
-                card.setBackgroundColor(current ? container : 0);
+                // 当前月不只换个底色：底色太弱，加一圈主色描边才一眼认得出「现在在这」
+                card.setBackground(current ? currentCardBackground(container, primary) : null);
                 card.setClickable(true);
                 LinearLayout.LayoutParams cardLp = new LinearLayout.LayoutParams(
                         0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
@@ -140,7 +142,7 @@ public class CheckInYearView extends ScrollView {
                 TextView title = new TextView(getContext());
                 title.setText(month1 + "月");
                 Typo.text(title, R.dimen.text_body_small);
-                title.setTextColor(current ? primary : onSurface);
+                title.setTextColor(current ? primary : variant);
                 title.setGravity(Gravity.CENTER);
                 title.setPadding(0, 0, 0, dp(4));
                 title.setContentDescription(String.format(Locale.ROOT,
@@ -172,8 +174,17 @@ public class CheckInYearView extends ScrollView {
         }
     }
 
-    private void shift(int delta) {
-        if (CheckInYearGrid.boundaryHit(year, delta, minYear, maxYear)) {
+    /** 当前月卡片：primary_container 底 + 1dp 主色描边，圆角走 radius_sm */
+    private GradientDrawable currentCardBackground(int container, int primary) {
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(container);
+        bg.setCornerRadius(getResources().getDimension(R.dimen.radius_sm));
+        bg.setStroke(getResources().getDimensionPixelSize(R.dimen.checkin_year_card_stroke),
+                primary);
+        return bg;
+    }
+
+    private void shift(int delta) {        if (CheckInYearGrid.boundaryHit(year, delta, minYear, maxYear)) {
             rubberBand(delta);
             return;
         }

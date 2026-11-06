@@ -3,12 +3,9 @@ package com.bai.bookshelf.ui.checkin;
 import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
-import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.LinearLayout;
-import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
@@ -25,14 +22,12 @@ import com.bai.bookshelf.data.entity.BorrowRecord;
 import com.bai.bookshelf.data.entity.CheckIn;
 import com.bai.bookshelf.databinding.FragmentCheckinBinding;
 import com.bai.bookshelf.ui.MainActivity;
-import com.bai.bookshelf.ui.stats.StatsText;
 import com.bai.bookshelf.util.BookSanitizer;
 import com.bai.bookshelf.util.CheckInHabit;
 import com.bai.bookshelf.util.CheckInMonthGrid;
 import com.bai.bookshelf.util.CheckInStore;
 import com.bai.bookshelf.util.CheckInUiState;
 import com.bai.bookshelf.util.DateKeys;
-import com.bai.bookshelf.util.ThemeManager;
 import com.bai.bookshelf.util.UndoBar;
 
 import java.util.ArrayList;
@@ -137,62 +132,12 @@ public class CheckInFragment extends Fragment
      * span 方案，不再用两段 TextView 对基线；整句 summaryLine 留给读屏。
      */
     private void renderSummary(int[] summary, int[] streak, boolean todayChecked) {
-        b.llCheckinSummary.removeAllViews();
         int ym = b.monthGrid.getYearMonth();
         b.llCheckinSummary.setContentDescription(
                 CheckInUiState.summaryLine(ym, summary, streak));
-        int variant = ThemeManager.resolveColor(requireContext(), R.attr.on_surface_variant);
-        CheckInUiState.Unit[] units =
+        CheckInSummaryRow.fill(b.llCheckinSummary,
                 CheckInUiState.summaryUnits(summary, streak,
-                        CheckInUiState.todayNote(ym, todayKey, todayChecked));
-        for (int i = 0; i < units.length; i++) {
-            b.llCheckinSummary.addView(summaryUnitView(units[i], variant), summaryUnitLp(i));
-        }
-    }
-
-    private View summaryUnitView(CheckInUiState.Unit u, int variant) {
-        LinearLayout cell = new LinearLayout(requireContext());
-        cell.setOrientation(LinearLayout.VERTICAL);
-        cell.setGravity(Gravity.CENTER_HORIZONTAL);
-        cell.addView(overline(u.label));
-        TextView value = new TextView(requireContext());
-        value.setTextAppearance(requireContext(), R.style.Text_Bookshelf_Metric_Small);
-        value.setGravity(Gravity.CENTER_HORIZONTAL);
-        value.setText(StatsText.metric(u.value, u.unit, variant));
-        if (!u.accent) {
-            // 连续 0 天不该抢眼
-            value.setTextColor(variant);
-        }
-        cell.addView(value, wrapCenter());
-        if (u.note != null) {
-            LinearLayout.LayoutParams noteLp = wrapCenter();
-            noteLp.topMargin = getResources().getDimensionPixelSize(R.dimen.space_sm);
-            cell.addView(overline(u.note), noteLp);
-        }
-        return cell;
-    }
-
-    private TextView overline(String text) {
-        TextView tv = new TextView(requireContext());
-        tv.setTextAppearance(requireContext(), R.style.Text_Bookshelf_Overline);
-        tv.setGravity(Gravity.CENTER_HORIZONTAL);
-        tv.setText(text);
-        return tv;
-    }
-
-    private LinearLayout.LayoutParams wrapCenter() {
-        return new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-    }
-
-    /** 三单元等分，单元间 space_md */
-    private LinearLayout.LayoutParams summaryUnitLp(int index) {
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-        if (index > 0) {
-            lp.setMarginStart(getResources().getDimensionPixelSize(R.dimen.space_md));
-        }
-        return lp;
+                        CheckInUiState.todayNote(ym, todayKey, todayChecked)));
     }
 
     /** 只用那条已有的按日查询数出 {本数, 补卡本数}，不新增 DAO */

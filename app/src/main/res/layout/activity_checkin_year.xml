@@ -21,21 +21,20 @@
 
         <TextView
             android:id="@+id/tv_year"
+            style="@style/Text.Bookshelf.Metric"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/space_md"
             android:gravity="center"
-            android:textColor="?attr/on_surface"
-            android:textSize="@dimen/text_title" />
+            android:textColor="?attr/on_surface" />
 
-        <TextView
-            android:id="@+id/tv_year_summary"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+        <!-- 今年小结拆成两个单元（今年打卡 N 天 / 累计 M 次）：
+             数字是 L2、标签是 Overline，整句仍由 Activity 挂在这行的 contentDescription 上给读屏。 -->
+        <LinearLayout
+            android:id="@+id/ll_year_summary"
+            style="@style/StatsSummaryRow"
             android:layout_marginBottom="@dimen/space_sm"
-            android:gravity="center"
-            android:textColor="?attr/on_surface_variant"
-            android:textSize="@dimen/text_body_small" />
+            android:gravity="center" />
 
         <com.bai.bookshelf.ui.checkin.CheckInYearView
             android:id="@+id/year_view"

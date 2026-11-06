@@ -49,6 +49,10 @@
     <!-- 夜读选中胶囊外那一圈描边的线宽（浅色主题这圈是透明的） -->
     <dimen name="checkin_selected_stroke_w">1dp</dimen>
     <dimen name="checkin_swipe_distance">24dp</dimen>
+    <!-- 切月在横向位移之外再坠这么一点，只平移会像整块被推走 -->
+    <dimen name="checkin_swipe_lift">4dp</dimen>
+    <!-- 年视图当前月卡片那一圈主色描边的线宽 -->
+    <dimen name="checkin_year_card_stroke">1dp</dimen>
     <dimen name="fab_size">56dp</dimen>
     <dimen name="fab_corner">28dp</dimen>            <!-- = fab_size 的一半，胶囊公式 -->
     <!-- 列表行封面：40×53 ≈ 3:4，比书架的 40×56 略扁，行高更紧 -->

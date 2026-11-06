@@ -88,8 +88,10 @@ public class CheckInYearActivity extends BaseActivity {
             return;
         }
         b.tvYear.setText(String.valueOf(year));
-        b.tvYearSummary.setText(
-                CheckInUiState.yearLine(CheckInStore.yearSummary(all, year)));
+        int[] summary = CheckInStore.yearSummary(all, year);
+        // 整句留给读屏：两个单元分开念会丢「今年打卡…累计…」的连贯语义
+        b.llYearSummary.setContentDescription(CheckInUiState.yearLine(summary));
+        CheckInSummaryRow.fill(b.llYearSummary, CheckInUiState.yearUnits(summary));
     }
 
     private void finishWith(int yearMonth, int dayKey) {

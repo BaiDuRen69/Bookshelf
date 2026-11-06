@@ -99,11 +99,24 @@ public final class CheckInUiState {
                 yearSummary == null ? 0 : yearSummary[2]);
     }
 
-    /** 年视图顶部小结：「今年打卡 87 天 · 累计 214 次」 */
+    /** 年视图顶部小结：「今年打卡 87 天 · 累计 214 次」（读屏与小组件用这一句） */
     public static String yearLine(int[] yearSummary) {
         return String.format(Locale.ROOT, "今年打卡 %d 天 · 累计 %d 次",
                 yearSummary == null ? 0 : yearSummary[0],
                 yearSummary == null ? 0 : yearSummary[1]);
+    }
+
+    /**
+     * 年视图顶部两单元（{@link #yearLine} 的结构化版本，数字与量词一字不差）：
+     * 「今年打卡 N 天」「累计 M 次」；0 的时候退成次级色，别用主色喊一个零。
+     */
+    public static Unit[] yearUnits(int[] yearSummary) {
+        int days = yearSummary == null ? 0 : yearSummary[0];
+        int times = yearSummary == null ? 0 : yearSummary[1];
+        return new Unit[]{
+                new Unit("今年打卡", String.valueOf(days), "天", days > 0, null),
+                new Unit("累计", String.valueOf(times), "次", times > 0, null),
+        };
     }
 
     /** 打卡成功的撤销条文案；撤销动作单独用「已撤销打卡」 */

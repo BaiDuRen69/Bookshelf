@@ -3,6 +3,7 @@ package com.bai.bookshelf;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 import android.content.Context;
@@ -218,7 +219,7 @@ public class CheckInUiInstrumentedTest {
         assertNotNull(yearRoot.findViewById(R.id.toolbar));
         assertNotNull(yearRoot.findViewById(R.id.tv_year));
         assertNotNull(yearRoot.findViewById(R.id.year_view));
-        assertNotNull(yearRoot.findViewById(R.id.tv_year_summary));
+        assertNotNull("今年小结要拆成单元行", yearRoot.findViewById(R.id.ll_year_summary));
     }
 
     @Test
@@ -242,7 +243,7 @@ public class CheckInUiInstrumentedTest {
     public void 年视图有12个月真实网格与今按钮() {
         View yearRoot = inflate(R.layout.activity_checkin_year);
         assertNotNull(yearRoot.findViewById(R.id.tv_year));
-        assertNotNull(yearRoot.findViewById(R.id.tv_year_summary));
+        assertNotNull(yearRoot.findViewById(R.id.ll_year_summary));
         assertNotNull("年视图里也要有悬浮「今」", yearRoot.findViewById(R.id.fab_today));
         CheckInYearView yearView = yearRoot.findViewById(R.id.year_view);
         assertNotNull(yearView);
@@ -273,5 +274,42 @@ public class CheckInUiInstrumentedTest {
                 .runOnMainSync(() -> grid.setDayMarks(target, 0, 0));
         assertTrue("撤销后回到「未打卡」",
                 grid.getCellAt(10).getContentDescription().toString().contains("未打卡"));
+    }
+
+    @Test
+    public void 选中换一天不重建整张网格() {
+        MonthGridView grid = monthGrid();
+        final View keep = grid.getCellAt(10);
+        final int from = grid.getDayKeyAt(10);
+        final int to = grid.getDayKeyAt(12);
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+            grid.setSelectedDay(from);
+            grid.setSelectedDay(to);
+        });
+        assertSame("换选中日只该改两格的绘制，格子对象不能换", keep, grid.getCellAt(10));
+        assertTrue("新选中那天要念「已选中」",
+                grid.getCellAt(12).getContentDescription().toString().contains("已选中"));
+        assertFalse("旧那天要摘掉「已选中」",
+                grid.getCellAt(10).getContentDescription().toString().contains("已选中"));
+    }
+
+    @Test
+    public void 批量刷新只重绑数字变过的格子() {
+        MonthGridView grid = monthGrid();
+        final int a = grid.getDayKeyAt(10);
+        final int b = grid.getDayKeyAt(11);
+        final View cellB = grid.getCellAt(11);
+        final java.util.Map<Integer, int[]> marks = new java.util.HashMap<>();
+        marks.put(a, new int[]{1, 0});
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> grid.setCheckInMarks(marks));
+        assertTrue("变过的那天要念出本数",
+                grid.getCellAt(10).getContentDescription().toString().contains("1 本"));
+        marks.put(a, new int[]{2, 1});
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> grid.setCheckInMarks(marks));
+        assertTrue("再变一次要跟着更新",
+                grid.getCellAt(10).getContentDescription().toString().contains("2 本"));
+        assertSame("没变的那一格不该被换掉", cellB, grid.getCellAt(11));
+        assertTrue("没变的那一格仍是未打卡",
+                grid.getCellAt(11).getContentDescription().toString().contains("未打卡"));
     }
 }

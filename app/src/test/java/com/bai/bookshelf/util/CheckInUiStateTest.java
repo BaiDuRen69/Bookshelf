@@ -70,6 +70,29 @@ public class CheckInUiStateTest {
     }
 
     @Test
+    public void 年视图两单元与整句同一批数字() {
+        int[] sum = {87, 214, 2};
+        CheckInUiState.Unit[] u = CheckInUiState.yearUnits(sum);
+        assertEquals(2, u.length);
+        assertEquals("今年打卡", u[0].label);
+        assertEquals("87", u[0].value);
+        assertEquals("天", u[0].unit);
+        assertTrue(u[0].accent);
+        assertEquals("累计", u[1].label);
+        assertEquals("214", u[1].value);
+        assertEquals("次", u[1].unit);
+        String line = CheckInUiState.yearLine(sum);
+        assertTrue(line.contains(u[0].value + " 天"));
+        assertTrue(line.contains(u[1].value + " 次"));
+        // 0 天 0 次：数字照实给，但别用主色喊
+        CheckInUiState.Unit[] zero = CheckInUiState.yearUnits(new int[]{0, 0, 0});
+        assertEquals("0", zero[0].value);
+        assertFalse(zero[0].accent);
+        assertFalse(zero[1].accent);
+        assertNull(CheckInUiState.yearUnits(null)[0].note);
+    }
+
+    @Test
     public void 撤销条文案三种() {
         assertEquals("已为《三体》打卡",
                 CheckInUiState.undoMessage(true, false, "三体", TODAY));

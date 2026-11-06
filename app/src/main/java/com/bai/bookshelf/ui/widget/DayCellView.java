@@ -1,11 +1,14 @@
 package com.bai.bookshelf.ui.widget;
 
+import android.animation.ValueAnimator;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.RectF;
 import android.view.View;
+
+import androidx.annotation.Nullable;
 
 import com.bai.bookshelf.R;
 import com.bai.bookshelf.util.CheckInDots;
@@ -24,6 +27,9 @@ import com.bai.bookshelf.util.ThemeManager;
  * 因此可见性从包内提升为 public（不改变任何现有行为）。
  */
 public final class DayCellView extends View {
+
+    /** 打卡点入场时长（比切月的 110ms 略长，落点要看得见） */
+    private static final long DOT_ENTRANCE_MS = 120;
 
     private final Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint bandPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -54,6 +60,10 @@ public final class DayCellView extends View {
     private int selectedBg;
     private int selectedStroke;
     private int onSurfaceVariant;
+    /** 打卡点入场进度：1 = 已落定；<1 时点半径按 0.6→1 放大、透明度 0→255 */
+    private float dotProgress = 1f;
+    @Nullable
+    private ValueAnimator dotAnim;
 
     public DayCellView(Context ctx) {
         super(ctx);
@@ -99,6 +109,7 @@ public final class DayCellView extends View {
                             int onSurface, int onSurfaceVariant,
                             boolean selected, boolean today, boolean adjacent, boolean future,
                             int dotTotal, int dotBackfill) {
+        int before = this.dotTotal;
         this.day = day;
         this.primary = primary;
         this.selectedBg = selectedBg;
@@ -112,7 +123,26 @@ public final class DayCellView extends View {
         this.dotTotal = dotTotal;
         this.dotBackfill = dotBackfill;
         this.checkInMode = true;
+        // 只有「从无到有」才弹一下：撤销再打、切月重建都会重新走这里
+        if (dotTotal > 0 && before == 0) {
+            startDotEntrance();
+        }
         invalidate();
+    }
+
+    /** 打卡点入场：120ms 内半径 0.6→1、透明度 0→255，只改一个 progress 字段，不新建 View */
+    private void startDotEntrance() {
+        if (dotAnim != null) {
+            dotAnim.cancel();
+        }
+        dotProgress = 0f;
+        dotAnim = ValueAnimator.ofFloat(0f, 1f);
+        dotAnim.setDuration(DOT_ENTRANCE_MS);
+        dotAnim.addUpdateListener(a -> {
+            dotProgress = (float) a.getAnimatedValue();
+            invalidate();
+        });
+        dotAnim.start();
     }
 
     @Override
@@ -214,23 +244,30 @@ public final class DayCellView extends View {
         float size = px(CheckInDots.useLargeDot(dotTotal)
                 ? R.dimen.checkin_dot_size : R.dimen.checkin_dot_size_multi);
         float gap = px(R.dimen.checkin_dot_gap);
-        float r = size / 2f;
+        // 入场：半径 0.6→1、alpha 0→255；落定后 scale=1、alpha=255 与原来完全一致
+        float scale = dotProgress >= 1f ? 1f : 0.6f + 0.4f * dotProgress;
+        int dotAlpha = dotProgress >= 1f ? 255 : Math.round(255 * dotProgress);
+        float r = size / 2f * scale;
         float step = size + gap;
         float left = cx - (count * size + (count - 1) * gap) / 2f + r;
         float bottom = h - px(R.dimen.checkin_dot_bottom);
         int[] fh = CheckInDots.filledHollow(dotTotal, dotBackfill);
         bandPaint.setColor(primary);
+        bandPaint.setAlpha(dotAlpha);
         float x = left;
         for (int i = 0; i < fh[0]; i++) {
             canvas.drawCircle(x, bottom, r, bandPaint);
             x += step;
         }
         ringPaint.setColor(primary);
+        ringPaint.setAlpha(dotAlpha);
         ringPaint.setStrokeWidth(ringStroke);
         for (int i = 0; i < fh[1]; i++) {
             canvas.drawCircle(x, bottom, r, ringPaint);
             x += step;
         }
+        bandPaint.setAlpha(255);
+        ringPaint.setAlpha(255);
     }
 
     private float dp(float value) {
