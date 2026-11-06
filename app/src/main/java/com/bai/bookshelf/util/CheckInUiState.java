@@ -29,6 +29,17 @@ public final class CheckInUiState {
         return sb.toString();
     }
 
+    /**
+     * 已打卡的行把状态挂到副标题末尾，让「做过的事」在视觉上退后一层。
+     *
+     * <p>规格写的是「今天已打卡」，但选中日不一定是今天——翻到过去那天照写「今天」就是假信息。
+     * 过去那天也不能写「已补卡」：dayKey 早于今天只说明日子过了，不代表这笔是补的，
+     * 补卡标记在 CheckIn 实体上，不在这里猜。
+     */
+    public static String subtitleChecked(String base, int dayKey, int todayKey) {
+        return base + " · " + (dayKey == todayKey ? "今天已打卡" : "已打卡");
+    }
+
     /** 「11月已打卡 12 天 · 连续 5 天 · 补卡 2 次」 */
     public static String summaryLine(int yearMonth, int[] summary, int[] streak) {
         return String.format(Locale.ROOT,

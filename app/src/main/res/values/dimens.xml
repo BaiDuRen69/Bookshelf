@@ -11,6 +11,9 @@
     <dimen name="space_xl">20dp</dimen>
 
     <!-- ===== 圆角 ===== -->
+    <!-- 6dp：只给 40dp 宽的小封面用。书架/统计/编辑页的封面仍是 radius_sm(8dp)，
+         那个尺寸下 8dp 才像书脊；小格子用 8dp 会圆成方块。 -->
+    <dimen name="radius_xs">6dp</dimen>
     <dimen name="radius_sm">8dp</dimen>
     <dimen name="radius_md">12dp</dimen>
     <dimen name="radius_lg">16dp</dimen>
@@ -48,6 +51,12 @@
     <dimen name="checkin_swipe_distance">24dp</dimen>
     <dimen name="fab_size">56dp</dimen>
     <dimen name="fab_corner">28dp</dimen>            <!-- = fab_size 的一半，胶囊公式 -->
+    <!-- 列表行封面：40×53 ≈ 3:4，比书架的 40×56 略扁，行高更紧 -->
+    <dimen name="checkin_cover_w">40dp</dimen>
+    <dimen name="checkin_cover_h">53dp</dimen>
+    <dimen name="checkin_button_icon">18dp</dimen>
+    <!-- 「已打卡」描边按钮的线宽，和卡片描边同为 1dp -->
+    <dimen name="checkin_button_stroke">1dp</dimen>
 
     <!-- ===== 字阶（v4.24 收敛为 28 / 22 / 17 / 15 / 13 / 11 六档；v4.25 统计 hero 40） ===== -->
     <dimen name="text_micro">9sp</dimen>

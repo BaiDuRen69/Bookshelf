@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 打卡列表行的小封面底（v5.9.2）：与共享的 bg_cover 只差圆角一档。
+     bg_cover 被书架 / 统计 / 编辑等 7 个布局引用，不能为了 40dp 小格子去改它。 -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="@color/cover_placeholder_bg" />
+    <corners android:radius="@dimen/radius_xs" />
+</shape>

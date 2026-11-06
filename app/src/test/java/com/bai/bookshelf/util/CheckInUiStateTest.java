@@ -36,6 +36,21 @@ public class CheckInUiStateTest {
     }
 
     @Test
+    public void 已打卡行的副标题后缀分今天与往日() {
+        assertEquals("读到 43% · 今天已打卡",
+                CheckInUiState.subtitleChecked("读到 43%", TODAY, TODAY));
+        assertEquals("在读 · 已打卡",
+                CheckInUiState.subtitleChecked("在读", 20261103, TODAY));
+        // 选中日不是今天时不能写「今天」，那是假信息
+        assertFalse(CheckInUiState.subtitleChecked("在读", 20261103, TODAY).contains("今天"));
+        // 日子过了不等于这笔是补的，补卡标记在实体上，文案这里不猜
+        assertFalse(CheckInUiState.subtitleChecked("在读", 20261103, TODAY).contains("补"));
+        assertEquals("读到 12% · 借给 张三 · 今天已打卡",
+                CheckInUiState.subtitleChecked(
+                        CheckInUiState.subtitle(12, "张三"), TODAY, TODAY));
+    }
+
+    @Test
     public void 月小结固定格式() {
         assertEquals("11月已打卡 12 天 · 连续 5 天 · 补卡 2 次",
                 CheckInUiState.summaryLine(202611, new int[]{12, 20, 2}, new int[]{5, TODAY}));
