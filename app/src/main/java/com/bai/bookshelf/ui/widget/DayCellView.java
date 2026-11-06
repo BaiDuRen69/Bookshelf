@@ -5,9 +5,9 @@ import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.RectF;
-import android.util.TypedValue;
 import android.view.View;
 
+import com.bai.bookshelf.R;
 import com.bai.bookshelf.util.ThemeManager;
 
 /**
@@ -53,8 +53,8 @@ public final class DayCellView extends View {
     public DayCellView(Context ctx) {
         super(ctx);
         density = ctx.getResources().getDisplayMetrics().density;
-        textSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 15,
-                ctx.getResources().getDisplayMetrics());
+        // 日号走字阶令牌（L3 = 15sp），与布局侧同一档；CalendarPicker 的观感不变
+        textSize = ctx.getResources().getDimension(R.dimen.text_body);
         textPaint.setTextAlign(Paint.Align.CENTER);
         textPaint.setTextSize(textSize);
         bandPaint.setStyle(Paint.Style.FILL);
@@ -146,7 +146,7 @@ public final class DayCellView extends View {
     private void drawCheckIn(Canvas canvas) {
         float w = getWidth();
         float h = getHeight();
-        float radius = Math.min(w, h) / 2f - dp(1.5f);
+        float radius = Math.min(w, h) / 2f - px(R.dimen.checkin_ring_stroke);
         float cx = w / 2f;
         float cy = h / 2f;
 
@@ -170,7 +170,8 @@ public final class DayCellView extends View {
         // 有打卡：底部一个 4dp 实心点，颜色跟主色；一天多本也只画一点
         if (dot) {
             bandPaint.setColor(primary);
-            canvas.drawCircle(cx, h - dp(5), dp(2), bandPaint);
+            canvas.drawCircle(cx, h - px(R.dimen.checkin_dot_bottom),
+                    px(R.dimen.checkin_dot_size) / 2f, bandPaint);
         }
 
         float baseline = cy - (textPaint.descent() + textPaint.ascent()) / 2f;
@@ -180,5 +181,10 @@ public final class DayCellView extends View {
 
     private float dp(float value) {
         return value * density;
+    }
+
+    /** 打卡页尺寸令牌（px）：规格把点、描边这些尺寸收进了 dimens，这里按资源取 */
+    private float px(int dimenRes) {
+        return getContext().getResources().getDimension(dimenRes);
     }
 }

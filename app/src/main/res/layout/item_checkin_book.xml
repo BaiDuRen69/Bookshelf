@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- 打卡列表行（第 ③ 步）：间距/卡片/字阶沿用 item_book.xml 的同一套令牌。
-     按钮 View 高 48dp 保证触控，上下 inset 各 4dp 让视觉底色只有 40dp。 -->
+     按钮 View 高 48dp 保证触控，上下 inset 各 4dp 让视觉底色只有 40dp。
+     行间 marginVertical 2dp 是「列表行分隔密度」的选择：比 space_xs(4dp) 紧一档，
+     让一屏能多看一行；刻意保留字面量，不并进间距栅格。 -->
 <androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     style="@style/Widget.Bookshelf.Card"
@@ -14,7 +16,7 @@
         android:layout_height="wrap_content"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:padding="10dp">
+        android:padding="@dimen/space_md">
 
         <FrameLayout
             android:layout_width="40dp"

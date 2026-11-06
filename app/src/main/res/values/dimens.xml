@@ -33,6 +33,20 @@
     <!-- dock 下方那层渐隐遮罩的高度，让内容滚到 dock 底下时不生硬 -->
     <dimen name="dock_scrim_h">120dp</dimen>
 
+    <!-- ===== 打卡页专用（feature/clock-in）=====
+         月视图格子、打卡点、切月位移、悬浮按钮：整页尺寸只改这里，不散着改代码。 -->
+    <dimen name="checkin_cell_h">48dp</dimen>       <!-- 原 44dp，抬到 48dp 呼吸与触控更稳 -->
+    <dimen name="checkin_week_w">28dp</dimen>
+    <dimen name="checkin_dot_size">4dp</dimen>
+    <dimen name="checkin_dot_size_multi">3dp</dimen>
+    <dimen name="checkin_dot_gap">3dp</dimen>
+    <dimen name="checkin_dot_bottom">6dp</dimen>
+    <!-- 名字沿用规格，实际用途是描边圆的半径内缩（半径 = 半边长 - 这个值），不是线宽 -->
+    <dimen name="checkin_ring_stroke">1.5dp</dimen>
+    <dimen name="checkin_swipe_distance">24dp</dimen>
+    <dimen name="fab_size">56dp</dimen>
+    <dimen name="fab_corner">28dp</dimen>            <!-- = fab_size 的一半，胶囊公式 -->
+
     <!-- ===== 字阶（v4.24 收敛为 28 / 22 / 17 / 15 / 13 / 11 六档；v4.25 统计 hero 40） ===== -->
     <dimen name="text_micro">9sp</dimen>
     <dimen name="text_caption_large">12sp</dimen>

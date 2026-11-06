@@ -19,6 +19,7 @@ import com.bai.bookshelf.ui.widget.DayCellView;
 import com.bai.bookshelf.util.CheckInMonthGrid;
 import com.bai.bookshelf.util.DateKeys;
 import com.bai.bookshelf.util.ThemeManager;
+import com.bai.bookshelf.util.Typo;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -129,7 +130,7 @@ public class MonthGridView extends LinearLayout {
     private TextView weekLabel(String text) {
         TextView tv = new TextView(getContext());
         tv.setText(text);
-        tv.setTextSize(11); // 字阶令牌：周数/表头同档
+        Typo.text(tv, R.dimen.text_caption); // 周数与星期表头同档（L5）
         tv.setGravity(android.view.Gravity.CENTER);
         tv.setClickable(false);
         tv.setFocusable(false);
@@ -137,7 +138,9 @@ public class MonthGridView extends LinearLayout {
     }
 
     private LayoutParams weekColumnLp() {
-        LayoutParams lp = new LayoutParams(dp(28), LayoutParams.WRAP_CONTENT);
+        LayoutParams lp = new LayoutParams(
+                getResources().getDimensionPixelSize(R.dimen.checkin_week_w),
+                LayoutParams.WRAP_CONTENT);
         return lp;
     }
 
@@ -260,7 +263,8 @@ public class MonthGridView extends LinearLayout {
                     }
                 });
                 cells[index] = cell;
-                row.addView(cell, new LinearLayout.LayoutParams(0, dp(44), 1f));
+                row.addView(cell, new LinearLayout.LayoutParams(0,
+                        getResources().getDimensionPixelSize(R.dimen.checkin_cell_h), 1f));
             }
             grid.addView(row, new LayoutParams(LayoutParams.MATCH_PARENT,
                     LayoutParams.WRAP_CONTENT));
@@ -290,7 +294,7 @@ public class MonthGridView extends LinearLayout {
 
     private void animateToMonth(int target, boolean forward) {
         float dir = forward ? -1f : 1f; // 旧网格退场方向
-        float distance = dp(24);
+        float distance = getResources().getDimensionPixelSize(R.dimen.checkin_swipe_distance);
         ValueAnimator out = ValueAnimator.ofFloat(0f, 1f);
         out.setDuration(ANIM_HALF_MS);
         out.addUpdateListener(a -> {
@@ -390,9 +394,5 @@ public class MonthGridView extends LinearLayout {
 
     private float dp(float value) {
         return value * density;
-    }
-
-    private int dp(int value) {
-        return Math.round(value * density);
     }
 }

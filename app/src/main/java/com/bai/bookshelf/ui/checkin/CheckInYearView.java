@@ -19,6 +19,7 @@ import com.bai.bookshelf.util.CheckInMonthGrid;
 import com.bai.bookshelf.util.CheckInYearGrid;
 import com.bai.bookshelf.util.DateKeys;
 import com.bai.bookshelf.util.ThemeManager;
+import com.bai.bookshelf.util.Typo;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -138,7 +139,7 @@ public class CheckInYearView extends ScrollView {
 
                 TextView title = new TextView(getContext());
                 title.setText(month1 + "月");
-                title.setTextSize(13);
+                Typo.text(title, R.dimen.text_body_small);
                 title.setTextColor(current ? primary : onSurface);
                 title.setGravity(Gravity.CENTER);
                 title.setPadding(0, 0, 0, dp(4));
