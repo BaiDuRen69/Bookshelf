@@ -101,7 +101,9 @@
         </FrameLayout>
     </LinearLayout>
 
-    <!-- fab_size 圆形，主色底 + colorOnPrimary 文字「今」，与 fab_scan 同级留白/高度 -->
+    <!-- fab_size 圆形，主色底 + colorOnPrimary 文字「今」，与 fab_scan 同级留白/高度。
+         下面这组 0dp 不是间距选择，是把 MaterialButton 自带的 inset 与 padding 清零，
+         否则 56dp 的圆会被吞掉 4dp 变成 48dp 的视觉尺寸。 -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/fab_today"
         android:layout_width="@dimen/fab_size"
