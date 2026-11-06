@@ -168,14 +168,29 @@ public final class ExcelExporter {
                 }
             }
 
-            // 3. 写入 xlsx（zip 包）；确有封面时才附加 media/drawings 部件
-            boolean hasImages = !valid.isEmpty();
+        // 第 4.3 步：打卡数据独立成第二张 sheet；没有记录就不生成该 sheet
+        List<com.bai.bookshelf.data.entity.CheckIn> checkIns = loadCheckIns();
+        boolean hasCheckinSheet = CheckInSheet.needed(checkIns);
+        java.util.Map<Long, String> titles = new java.util.HashMap<>();
+        for (Book b : books) {
+            titles.put(b.id, com.bai.bookshelf.util.BookText.displayTitle(b.title));
+        }
+        List<String[]> checkinRows = CheckInSheet.rows(checkIns, titles);
+
+        // 3. 写入 xlsx（zip 包）；确有封面时才附加 media/drawings 部件
+        boolean hasImages = !valid.isEmpty();
             try (ZipOutputStream zos = new ZipOutputStream(out)) {
-                put(zos, "[Content_Types].xml", XlsxParts.contentTypesXml(hasImages));
+                put(zos, "[Content_Types].xml",
+                        XlsxParts.contentTypesXml(hasImages, hasCheckinSheet));
                 put(zos, "_rels/.rels", XlsxParts.relsXml());
-                put(zos, "xl/workbook.xml", XlsxParts.workbookXml());
-                put(zos, "xl/_rels/workbook.xml.rels", XlsxParts.workbookRelsXml());
+                put(zos, "xl/workbook.xml", XlsxParts.workbookXml(hasCheckinSheet));
+                put(zos, "xl/_rels/workbook.xml.rels",
+                        XlsxParts.workbookRelsXml(hasCheckinSheet));
                 put(zos, "xl/worksheets/sheet1.xml", XlsxParts.sheetXml(rows, hasImages));
+                if (hasCheckinSheet) {
+                    put(zos, "xl/worksheets/sheet2.xml",
+                            XlsxParts.sheetXml(checkinRows, false));
+                }
                 if (hasImages) {
                     put(zos, "xl/worksheets/_rels/sheet1.xml.rels", XlsxParts.sheetRelsXml());
                     put(zos, "xl/drawings/drawing1.xml", XlsxParts.drawingXml(Arrays.asList(slots)));
@@ -191,6 +206,18 @@ public final class ExcelExporter {
             return valid.size();
         } finally {
             deleteRecursively(stage);
+        }
+    }
+
+    /** 第 4.3 步：打卡数据直接从库取；库未就绪 / 单测无 Application 时返回空列表 */
+    private static List<com.bai.bookshelf.data.entity.CheckIn> loadCheckIns() {
+        try {
+            com.bai.bookshelf.app.BookshelfApp app =
+                    com.bai.bookshelf.app.BookshelfApp.get();
+            return app == null ? java.util.Collections.emptyList()
+                    : app.db().checkInDao().getAll();
+        } catch (Throwable t) {
+            return java.util.Collections.emptyList();
         }
     }
 

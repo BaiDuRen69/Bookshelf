@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- 主界面（v5.8.26 真浮动）：内容铺满到屏幕底，dock 悬在内容之上。
      三层：container（全屏）→ nav_scrim（底部渐隐，压在内容上、dock 下）→ bottom_nav（透明、
-     只承接手势条内边距，dock 是 wrap_content 短胶囊居中）。
+     只承接手势条内边距）。v5.10 加第 4 个打卡 tab：dock 改 match_parent 等分 4 格，
+     否则 84dp×4 + 8dp×2 = 352dp 会超出 360dp 屏的 328dp 可用宽度被裁。
+     nav_indicator_size / dock_h / ripple_circle / dock_padding_h 一律沿用。
      外层一律不加 clickable，否则 dock 两侧空白处的点击会被吃掉。 -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
@@ -33,7 +35,7 @@
 
         <FrameLayout
             android:id="@+id/nav_dock"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="@dimen/dock_h"
             android:layout_marginBottom="@dimen/dock_margin_bottom"
             android:alpha="0.95"
@@ -52,15 +54,17 @@
                 android:layout_gravity="start|center_vertical"
                 android:background="@drawable/bg_nav_indicator" />
 
+            <!-- 4 格等分：子项 0dp + weight=1，父容器必须 match_parent 才生效 -->
             <LinearLayout
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:orientation="horizontal">
 
                 <FrameLayout
                     android:id="@+id/tab_shelf"
-                    android:layout_width="@dimen/dock_item_w"
+                    android:layout_width="0dp"
                     android:layout_height="match_parent"
+                    android:layout_weight="1"
                     android:clickable="true"
                     android:focusable="true"
                     android:foreground="@drawable/ripple_circle"
@@ -84,8 +88,9 @@
 
                 <FrameLayout
                     android:id="@+id/tab_stats"
-                    android:layout_width="@dimen/dock_item_w"
+                    android:layout_width="0dp"
                     android:layout_height="match_parent"
+                    android:layout_weight="1"
                     android:clickable="true"
                     android:focusable="true"
                     android:foreground="@drawable/ripple_circle"
@@ -115,10 +120,38 @@
                     </FrameLayout>
                 </FrameLayout>
 
+                <!-- 打卡：第 3 格，纯图标不显示文字，与其余三格一致 -->
+                <FrameLayout
+                    android:id="@+id/tab_checkin"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:foreground="@drawable/ripple_circle"
+                    android:tooltipText="打卡">
+
+                    <FrameLayout
+                        android:layout_width="@dimen/nav_touch_size"
+                        android:layout_height="@dimen/nav_touch_size"
+                        android:layout_gravity="center">
+
+                        <ImageView
+                            android:id="@+id/iv_tab_checkin"
+                            android:layout_width="@dimen/nav_icon_size"
+                            android:layout_height="@dimen/nav_icon_size"
+                            android:layout_gravity="center"
+                            android:contentDescription="打卡"
+                            android:src="@drawable/ic_checkin_line"
+                            app:tint="@color/nav_icon_tint" />
+                    </FrameLayout>
+                </FrameLayout>
+
                 <FrameLayout
                     android:id="@+id/tab_mine"
-                    android:layout_width="@dimen/dock_item_w"
+                    android:layout_width="0dp"
                     android:layout_height="match_parent"
+                    android:layout_weight="1"
                     android:clickable="true"
                     android:focusable="true"
                     android:foreground="@drawable/ripple_circle"

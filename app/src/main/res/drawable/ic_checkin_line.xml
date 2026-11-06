@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 打卡 Tab 线性图标（对勾 + 日历框）：笔画 1.75 与 ic_book_line / ic_chart_line 一致。
+     实际显示颜色由 app:tint="@color/nav_icon_tint" 的 ?attr 选择器决定，
+     这里 #FF000000 只是 vector 的占位描边色，与现有 ic_*_line 完全同款写法。 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="@android:color/transparent"
+        android:pathData="M4,6h16v14H4z M4,10.5h16 M8,3v5 M16,3v5 M8.6,15.4l2.3,2.3 4.5,-4.8"
+        android:strokeColor="#FF000000"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeWidth="1.75" />
+</vector>

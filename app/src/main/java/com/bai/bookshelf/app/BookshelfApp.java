@@ -148,6 +148,8 @@ public class BookshelfApp extends Application {
             com.bai.bookshelf.ui.widget.ReadingWidgetProvider.refresh(this);
             // v4.42：每天 9:00 检查一次借阅到期（进程被杀也由闹钟拉起）
             com.bai.bookshelf.util.BorrowReminder.schedule(this);
+            // 第 4.4 步：每日打卡提醒（默认关，schedule 内部会自行 cancel 闹钟）
+            com.bai.bookshelf.util.CheckInReminder.schedule(this);
             // v4.4：自动备份延后 3 秒再跑——整库 JSON + 全部封面图打 zip 是启动期最重的
             // 任务，冷启动先让路给首屏渲染，避免磁盘 I/O 与 Glide 加载封面互相争抢
             mainHandler.postDelayed(() -> BackupManager.autoBackupIfEnabled(this), 3000);

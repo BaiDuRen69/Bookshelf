@@ -184,6 +184,9 @@ public final class ZipRestore {
         String filesDirPath = filesDir.getAbsolutePath();
 
         db.runInTransaction(() -> {
+            // 第 4.3 步：旧包没有 check_ins 键时整段跳过（不删、不写、不报错）
+            final boolean hasCheckIns = root.has("check_ins")
+                    && root.get("check_ins").isJsonArray();
             // 清空全部表
             db.bookDao().deleteAll();
             db.bookCopyDao().deleteAll();
@@ -197,6 +200,9 @@ public final class ZipRestore {
             db.countryDao().deleteAll();
             db.publisherDao().deleteAll();
             db.borrowerDao().deleteAll();
+            if (hasCheckIns) {
+                db.checkInDao().deleteAll();
+            }
 
             // 按备份 id 重写（先主子表：书 → 副本/借出/图片/各库表）
             List<Book> books = readList(root, "books", new TypeToken<List<Book>>() {});
@@ -242,6 +248,11 @@ public final class ZipRestore {
             }
             for (Borrower x : readList(root, "borrowers", new TypeToken<List<Borrower>>() {})) {
                 db.borrowerDao().insert(x);
+            }
+            // 第 4.3 步：一次批量写回；缺键时整段跳过，保持库里现有打卡不变
+            if (hasCheckIns) {
+                db.checkInDao().insertAll(readList(root, "check_ins",
+                        new TypeToken<List<com.bai.bookshelf.data.entity.CheckIn>>() {}));
             }
         });
         return result;

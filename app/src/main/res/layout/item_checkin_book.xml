@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 打卡列表行（第 ③ 步）：间距/卡片/字阶沿用 item_book.xml 的同一套令牌。
+     按钮 View 高 48dp 保证触控，上下 inset 各 4dp 让视觉底色只有 40dp。 -->
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    style="@style/Widget.Bookshelf.Card"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginHorizontal="@dimen/page_padding_list"
+    android:layout_marginVertical="2dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:padding="10dp">
+
+        <FrameLayout
+            android:layout_width="40dp"
+            android:layout_height="56dp"
+            android:background="@drawable/bg_cover"
+            android:clipToOutline="true"
+            android:foreground="@drawable/bg_cover_stroke">
+
+            <ImageView
+                android:id="@+id/iv_cover"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:importantForAccessibility="no"
+                android:scaleType="centerCrop"
+                android:src="@drawable/ic_cover_placeholder" />
+        </FrameLayout>
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="@dimen/space_md"
+            android:layout_marginEnd="@dimen/space_sm"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/tv_title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="?attr/on_surface"
+                android:textSize="@dimen/text_body_small" />
+
+            <TextView
+                android:id="@+id/tv_subtitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="?attr/on_surface_variant"
+                android:textSize="@dimen/text_body_small" />
+        </LinearLayout>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_checkin"
+            style="@style/Widget.Bookshelf.Button"
+            android:layout_width="wrap_content"
+            android:layout_height="48dp"
+            android:insetBottom="4dp"
+            android:insetLeft="0dp"
+            android:insetRight="0dp"
+            android:insetTop="4dp"
+            android:minHeight="48dp"
+            android:minWidth="88dp"
+            android:paddingHorizontal="@dimen/space_md" />
+    </LinearLayout>
+</androidx.cardview.widget.CardView>

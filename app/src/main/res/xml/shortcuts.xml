@@ -26,6 +26,25 @@
             android:targetPackage="com.bai.bookshelf" />
     </shortcut>
 
+    <!-- 第 4.4 步：静态快捷方式直接带 extra（选「extra 参数」这一种，不用 activity-alias
+         以免多一个 exported 组件）。MainActivity 对 tab_index 做类型宽容读取，
+         因为 XML <extra> 的 android:value 可能被解析成 String 而不是 Integer。 -->
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_checkin"
+        android:shortcutId="checkin_today"
+        android:shortcutLongLabel="@string/shortcut_checkin_long"
+        android:shortcutShortLabel="@string/shortcut_checkin">
+        <intent
+            android:action="com.bai.bookshelf.action.CHECK_IN"
+            android:targetClass="com.bai.bookshelf.ui.MainActivity"
+            android:targetPackage="com.bai.bookshelf">
+            <extra
+                android:name="tab_index"
+                android:value="2" />
+        </intent>
+    </shortcut>
+
     <shortcut
         android:enabled="true"
         android:icon="@drawable/ic_shortcut_split"

@@ -339,6 +339,8 @@ public final class StatsPace {
     /** 阅读日历派生的习惯指标 */
     public static class Habit {
         public int daysReadThisYear;
+        /** 第 ④ 步：true = 事实源是每日打卡的自然日；false = 回退阅读区间估算 */
+        public boolean fromCheckIns;
         /** 最长连续阅读天数（历史全部记录里找） */
         public int longestStreak;
         /** 当前连续天数 */

@@ -4,6 +4,7 @@ import com.bai.bookshelf.app.BookshelfApp;
 import com.bai.bookshelf.data.entity.Book;
 import com.bai.bookshelf.data.entity.BookCopy;
 import com.bai.bookshelf.data.entity.BorrowRecord;
+import com.bai.bookshelf.data.entity.CheckIn;
 import com.bai.bookshelf.data.entity.Excerpt;
 import com.bai.bookshelf.data.entity.NoteImage;
 
@@ -19,7 +20,7 @@ import java.util.List;
  * 「删一本书要清什么」收敛到一处，两边共用，后续加新关联表只改这里。
  *
  * <p>清理范围：备注图片（书级 / 逐本 / 借出）、摘抄与摘抄图片、逐本信息、
- * 借出记录、本地封面文件（仅限 filesDir/covers/）、书籍主记录。
+ * 借出记录、每日阅读打卡、本地封面文件（仅限 filesDir/covers/）、书籍主记录。
  *
  * <p>v5.8.16：删除改成可撤销——{@link #deleteRecoverable} 把删掉的行留在快照里、
  * 只登记待删文件不立刻删；撤销用 {@link #restore} 按原主键写回，
@@ -39,6 +40,8 @@ public final class BookCascade {
         public final List<BorrowRecord> records = new ArrayList<>();
         public final List<NoteImage> images = new ArrayList<>();
         public final List<Excerpt> excerpts = new ArrayList<>();
+        /** 打卡记录（v25）：删书时一并清掉，撤销时按复合主键写回 */
+        public final List<CheckIn> checkIns = new ArrayList<>();
         /** 待删文件：撤销窗口结束后再删，避免恢复回来的书丢封面/图片 */
         public final List<String> files = new ArrayList<>();
     }
@@ -51,11 +54,13 @@ public final class BookCascade {
         d.excerpts.addAll(app.db().excerptDao().getByBook(bookId));
         d.copies.addAll(app.db().bookCopyDao().getByBook(bookId));
         d.records.addAll(app.db().borrowRecordDao().getByBook(bookId));
+        d.checkIns.addAll(app.db().checkInDao().getByBook(bookId));
 
         app.db().noteImageDao().deleteByBook(bookId);
         app.db().excerptDao().deleteByBook(bookId);
         app.db().bookCopyDao().deleteByBook(bookId);
         app.db().borrowRecordDao().deleteByBook(bookId);
+        app.db().checkInDao().deleteByBook(bookId);
         app.db().bookDao().deleteById(bookId);
 
         for (NoteImage img : d.images) {
@@ -93,6 +98,10 @@ public final class BookCascade {
         }
         for (Excerpt e : d.excerpts) {
             app.db().excerptDao().insert(e);
+        }
+        for (CheckIn c : d.checkIns) {
+            // IGNORE：撤销窗口内同一天被重新打过卡也不报错
+            app.db().checkInDao().insert(c);
         }
     }
 

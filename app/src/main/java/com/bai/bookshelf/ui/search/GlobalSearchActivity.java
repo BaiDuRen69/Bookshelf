@@ -334,9 +334,13 @@ public class GlobalSearchActivity extends BaseActivity {
             case REPAIR:
                 startActivity(new Intent(this, DatabaseRepairActivity.class));
                 break;
+            case CHECK_IN:
+                openMainTab(MainActivity.TAB_CHECKIN);
+                break;
             default:
                 // 自动备份 / 备份文件管理 / 应用锁 / 检查更新 / 导出 Excel 都在「我的」页
-                openMainTab(2);
+                // 四 Tab 之后「我的」是 3，不能再用写死的 2（那已经是打卡页）
+                openMainTab(MainActivity.TAB_MINE);
                 break;
         }
         finish();

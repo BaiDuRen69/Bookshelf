@@ -43,6 +43,8 @@ public final class BackupInspector {
         public boolean checksumOk;
         /** 藏书册数；-1 表示读不出来 */
         public int books = -1;
+        /** 打卡条数；-1 表示读不出来 */
+        public int checkIns = -1;
         public long totalBytes;
         public int mediaCount;
         /** 不可恢复的人话原因；null ⇒ 允许恢复 */
@@ -80,6 +82,7 @@ public final class BackupInspector {
             if (mediaCount > 0) {
                 sb.append(" · 图片 ").append(mediaCount).append(" 个");
             }
+            sb.append("\n打卡 ").append(checkIns < 0 ? "未知" : checkIns + " 条");
             sb.append("\n完整性：").append(verifyText());
             return sb.toString();
         }
@@ -231,6 +234,7 @@ public final class BackupInspector {
             return i;
         }
         i.books = countBooks(dataJson);
+        i.checkIns = countCheckIns(dataJson);
         if (i.books < 0 && i.meta != null) {
             i.books = i.meta.books;
         }
@@ -324,6 +328,17 @@ public final class BackupInspector {
                     .getAsJsonArray("books").size();
         } catch (Exception e) {
             return -1;
+        }
+    }
+
+    /** 从 data.json 数打卡条数；旧包没有该键按 0 处理，不报错 */
+    private static int countCheckIns(String dataJson) {
+        try {
+            com.google.gson.JsonObject o = JsonParser.parseString(dataJson).getAsJsonObject();
+            return o.has("check_ins") && o.get("check_ins").isJsonArray()
+                    ? o.getAsJsonArray("check_ins").size() : 0;
+        } catch (Exception e) {
+            return 0;
         }
     }
 

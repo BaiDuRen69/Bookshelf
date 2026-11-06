@@ -57,7 +57,8 @@ final class StatsInsight {
         if (h.currentStreak > 0) {
             sb.append(" · 当前连着 ").append(h.currentStreak).append(" 天");
         }
-        sb.append('\n').append("（按阅读记录的起止区间推算，在读且没填结束日期的书算每天在读）");
+        // 第 ④ 步：有足够打卡记录时按打卡自然日统计，否则回退区间并在末尾标「按区间估算」
+        sb.append('\n').append(com.bai.bookshelf.util.CheckInHabit.sourceNote(h.fromCheckIns));
         if (h.bestMonth > 0) {
             sb.append('\n').append("最勤的是 ").append(h.bestMonth).append(" 月（")
                     .append(h.bestMonthDays).append(" 天）");

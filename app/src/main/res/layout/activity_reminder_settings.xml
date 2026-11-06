@@ -129,6 +129,38 @@
 
                         <View style="@style/MineRowDivider" />
 
+                        <!-- 第 4.4 步：每日打卡提醒（默认关，需系统通知权限） -->
+                        <LinearLayout
+                            android:id="@+id/row_notify_checkin_daily"
+                            style="@style/MineRow">
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    style="@style/MineRowTitle"
+                                    android:text="每日打卡提醒" />
+
+                                <TextView
+                                    style="@style/MineRowSubtitle"
+                                    android:text="每天 21:00 提醒当天还没打卡；关掉后通知立即撤下、闹钟取消。没有系统通知权限时需先去系统设置开启" />
+                            </LinearLayout>
+
+                            <com.google.android.material.materialswitch.MaterialSwitch
+                                android:id="@+id/sw_notify_checkin_daily"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="@dimen/space_md"
+                                android:clickable="false"
+                                android:focusable="false"
+                                android:importantForAccessibility="no" />
+                        </LinearLayout>
+
+                        <View style="@style/MineRowDivider" />
+
                         <LinearLayout
                             android:id="@+id/row_notify_borrowed_in"
                             style="@style/MineRow">

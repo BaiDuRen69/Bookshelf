@@ -1038,6 +1038,16 @@
                             android:lineSpacingMultiplier="1.35"
                             android:textColor="?attr/on_surface_variant"
                             android:textSize="@dimen/text_body_small" />
+
+                        <!-- 第 ④ 步：打卡联动一行；今年 0 次打卡时整行隐藏 -->
+                        <TextView
+                            android:id="@+id/tv_checkin_line"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="@dimen/space_sm"
+                            android:textColor="?attr/colorPrimary"
+                            android:textSize="@dimen/text_body_small"
+                            android:visibility="gone" />
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
 

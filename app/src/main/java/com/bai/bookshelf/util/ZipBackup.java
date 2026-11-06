@@ -130,6 +130,8 @@ public final class ZipBackup {
         root.add("countries", new Gson().toJsonTree(db.countryDao().getAll()));
         root.add("publishers", new Gson().toJsonTree(db.publisherDao().getAll()));
         root.add("borrowers", new Gson().toJsonTree(db.borrowerDao().getAll()));
+        // 第 ④ 步：每日阅读打卡；老备份没有这个键，ZipRestore.readList 会返回空列表
+        root.add("check_ins", new Gson().toJsonTree(db.checkInDao().getAll()));
         byte[] jsonBytes = new Gson().toJson(root).getBytes(StandardCharsets.UTF_8);
 
         // ---- 2. 收集 filesDir 下的图片（排序保证条目集合稳定） ----
@@ -150,6 +152,9 @@ public final class ZipBackup {
         meta.dbVersion = AppDatabase.VERSION;
         meta.createdAt = System.currentTimeMillis();
         meta.books = books.size();
+        // 校验和算法不变：check_ins 已写进 data.json，条目字节变了校验和自然变；
+        // 这里只是把条数写进 meta.json 供恢复前预览。
+        meta.checkIns = db.checkInDao().getAll().size();
         // ZipOutputStream.close() 会连底层 FileOutputStream 一起关掉，那样就没法 sync 了；
         // 用一个「关的时候只 flush」的包装，先 finish 再 fsync 落盘
         try (java.io.FileOutputStream raw = new java.io.FileOutputStream(out)) {

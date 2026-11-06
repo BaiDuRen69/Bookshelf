@@ -52,6 +52,17 @@ public class StudyReportActivity extends BaseActivity {
         BookshelfApp app = BookshelfApp.get();
         app.io(() -> {
             List<Book> books = app.db().bookDao().getAll();
+            // 第 ④ 步：年报增加「今年打卡天数」
+            int reportYear = Calendar.getInstance().get(Calendar.YEAR);
+            int checkInDays = 0;
+            try {
+                checkInDays = com.bai.bookshelf.util.CheckInStore.yearSummary(
+                        app.db().checkInDao().getInRange(
+                                reportYear * 10000 + 101, reportYear * 10000 + 1231),
+                        reportYear)[0];
+            } catch (Exception ignored) {
+                // 库未就绪时该项按 0 处理，不影响年报其余部分
+            }
             int readDone = 0;
             int reading = 0;
             Map<String, Integer> authorCount = new HashMap<>();
@@ -101,18 +112,19 @@ public class StudyReportActivity extends BaseActivity {
             final Book fExpensive = mostExpensive;
             final Book fThickest = thickest;
             final List<Book> fRecent = recent;
+            final int fCheckInDays = checkInDays;
             app.ui(() -> {
                 if (isFinishing() || isDestroyed()) {
                     return;
                 }
                 bind(fTotal, fReadDone, fReading, fAuthor, fTopCount,
-                        fExpensive, fThickest, fRecent);
+                        fExpensive, fThickest, fRecent, fCheckInDays);
             });
         });
     }
 
     private void bind(int total, int readDone, int reading, String author, int authorCount,
-                      Book mostExpensive, Book thickest, List<Book> recent) {
+                      Book mostExpensive, Book thickest, List<Book> recent, int checkInDays) {
         int year = Calendar.getInstance().get(Calendar.YEAR);
         b.tvReportTitle.setText("我的书房 · " + year);
         // v5.8 口径：这里统计的是「种」（unique title），不能再写册
@@ -128,6 +140,7 @@ public class StudyReportActivity extends BaseActivity {
         b.tvReportPages.setText(thickest == null || thickest.pages <= 0
                 ? "最厚的一种：—"
                 : "最厚的一种：《" + safeTitle(thickest) + "》 " + thickest.pages + " 页");
+        b.tvReportCheckin.setText("今年打卡 " + checkInDays + " 天");
 
         ImageView[] views = {b.ivReport1, b.ivReport2, b.ivReport3, b.ivReport4};
         for (int i = 0; i < views.length; i++) {

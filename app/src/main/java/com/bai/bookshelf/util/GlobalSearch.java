@@ -45,7 +45,7 @@ public final class GlobalSearch {
         LOCATIONS, CHANNELS, CATEGORIES, TAGS, AUTHORS, PUBLISHERS, COUNTRIES,
         READING_STATS, READING_CALENDAR, YEAR_REPORT, SPLIT, INCOMPLETE,
         LIBRARY_MANAGE, API_SETTINGS, ABOUT, BACKUP, BACKUP_FILES, APP_LOCK,
-        AUTO_UPDATE, EXPORT_EXCEL, REPAIR, BORROWERS
+        AUTO_UPDATE, EXPORT_EXCEL, REPAIR, BORROWERS, CHECK_IN
     }
 
     /** 一个入口：名称 + 额外关键词 + 目标 */
@@ -96,7 +96,9 @@ public final class GlobalSearch {
         list.add(new Entry("出版社分布", "版本 出版方", Target.PUBLISHERS));
         list.add(new Entry("国家/地区分布", "中国 美国 日本", Target.COUNTRIES));
         list.add(new Entry("我的阅读", "月度 年度 统计 图表", Target.READING_STATS));
-        list.add(new Entry("阅读日历", "打卡 每天读了什么", Target.READING_CALENDAR));
+        // 第 4.4 步：「打卡」归打卡页，阅读日历不再抢这个词
+        list.add(new Entry("阅读日历", "每天读了什么 按月 读过哪些书", Target.READING_CALENDAR));
+        list.add(new Entry("打卡", "签到 连续 每天读了什么 补卡", Target.CHECK_IN));
         list.add(new Entry("书房年报", "年度总结 分享", Target.YEAR_REPORT));
         list.add(new Entry("购入价分摊", "套装 拆价 按比例", Target.SPLIT));
         list.add(new Entry("信息补全", "缺封面 缺分类 缺地点", Target.INCOMPLETE));

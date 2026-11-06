@@ -62,6 +62,15 @@
             </intent-filter>
         </receiver>
 
+        <!-- 第 4.4 步：每日 21:00 打卡提醒，独立闹钟与渠道 -->
+        <receiver
+            android:name=".util.CheckInReminderReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
         <activity
             android:name=".ui.lock.AppLockActivity"
             android:exported="false"
@@ -99,6 +108,8 @@
         <activity android:name=".ui.stats.ReadingStatsActivity" android:exported="false" />
         <activity android:name=".ui.stats.ReadingCalendarActivity" android:exported="false" />
         <activity android:name=".ui.stats.StudyReportActivity" android:exported="false" />
+        <!-- 打卡年视图（一期第 ② 步骨架，第 ④ 步填 12 月网格） -->
+        <activity android:name=".ui.checkin.CheckInYearActivity" android:exported="false" />
         <activity android:name=".ui.mine.SplitActivity" android:exported="false" />
         <activity android:name=".ui.mine.AboutActivity" android:exported="false" />
         <activity android:name=".ui.mine.ApiSettingsActivity" android:exported="false" />

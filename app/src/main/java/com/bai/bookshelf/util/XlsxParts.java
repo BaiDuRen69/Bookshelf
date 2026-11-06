@@ -44,6 +44,11 @@ public final class XlsxParts {
     }
 
     public static String contentTypesXml(boolean hasImages) {
+        return contentTypesXml(hasImages, false);
+    }
+
+    /** 第 4.3 步：有打卡数据时多声明一张 sheet2.xml */
+    public static String contentTypesXml(boolean hasImages, boolean hasCheckinSheet) {
         String imageDefaults = hasImages
                 ? "<Default Extension=\"jpg\" ContentType=\"image/jpeg\"/>"
                 + "<Default Extension=\"jpeg\" ContentType=\"image/jpeg\"/>"
@@ -55,6 +60,7 @@ public final class XlsxParts {
                 + imageDefaults
                 + "<Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/>"
                 + "<Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/>"
+                + (hasCheckinSheet ? "<Override PartName=\"/xl/worksheets/sheet2.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/>" : "")
                 + (hasImages ? "<Override PartName=\"/xl/drawings/drawing1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.drawing+xml\"/>" : "")
                 + "</Types>";
     }
@@ -67,17 +73,28 @@ public final class XlsxParts {
     }
 
     public static String workbookXml() {
+        return workbookXml(false);
+    }
+
+    /** 第 4.3 步：有打卡数据时 workbook 里多一张「打卡」sheet（rId2） */
+    public static String workbookXml(boolean hasCheckinSheet) {
         return "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>"
                 + "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" "
                 + "xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">"
-                + "<sheets><sheet name=\"藏书\" sheetId=\"1\" r:id=\"rId1\"/></sheets>"
-                + "</workbook>";
+                + "<sheets><sheet name=\"藏书\" sheetId=\"1\" r:id=\"rId1\"/>"
+                + (hasCheckinSheet ? "<sheet name=\"" + CheckInSheet.NAME + "\" sheetId=\"2\" r:id=\"rId2\"/>" : "")
+                + "</sheets></workbook>";
     }
 
     public static String workbookRelsXml() {
+        return workbookRelsXml(false);
+    }
+
+    public static String workbookRelsXml(boolean hasCheckinSheet) {
         return "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>"
                 + "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">"
                 + "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet1.xml\"/>"
+                + (hasCheckinSheet ? "<Relationship Id=\"rId2\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet2.xml\"/>" : "")
                 + "</Relationships>";
     }
 

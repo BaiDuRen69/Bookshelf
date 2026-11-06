@@ -1,6 +1,7 @@
 package com.bai.bookshelf.util;
 
 import java.util.Calendar;
+import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -142,6 +143,21 @@ public final class DateKeys {
     /** 两个日键之间的天数（不含结束日）；与含首尾口径差 1 天 */
     public static int daysBetween(int fromKey, int toKey) {
         return daysBetweenInclusive(fromKey, toKey) - 1;
+    }
+
+    /**
+     * ISO-8601 周号（打卡月视图左侧周数列用）：周一为一周第一天，
+     * 第一周是含 1 月 4 日的那一周。跨年的几天按 ISO 口径可能归上一年末周或下一年第 1 周。
+     *
+     * <p>用 Locale.ROOT + 中午 12 点，避开个别时区在零点附近的夏令时跳变。
+     */
+    public static int isoWeekOfYear(int dayKey) {
+        Calendar c = Calendar.getInstance(Locale.ROOT);
+        c.clear();
+        c.setFirstDayOfWeek(Calendar.MONDAY);
+        c.setMinimalDaysInFirstWeek(4);
+        c.set(dayKey / 10000, dayKey / 100 % 100 - 1, dayKey % 100, 12, 0, 0);
+        return c.get(Calendar.WEEK_OF_YEAR);
     }
 
     /**
