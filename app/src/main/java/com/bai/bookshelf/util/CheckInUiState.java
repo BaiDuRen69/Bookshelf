@@ -39,6 +39,46 @@ public final class CheckInUiState {
                 summary == null ? 0 : summary[2]);
     }
 
+    /** 摘要行的一个单元：上标签、下「数字 + 单位」，数字为 0 也照实给 */
+    public static final class Unit {
+        public final String label;
+        public final String value;
+        public final String unit;
+        /** true = 主色；false = 次级色（连续为 0 时不该抢眼） */
+        public final boolean accent;
+        /** 只挂在「本月打卡」下面：今天还没打卡时的提示，没有就 null */
+        public final String note;
+
+        Unit(String label, String value, String unit, boolean accent, String note) {
+            this.label = label;
+            this.value = value;
+            this.unit = unit;
+            this.accent = accent;
+            this.note = note;
+        }
+    }
+
+    /**
+     * 摘要行的三单元（{@link #summaryLine} 的结构化版本，数字与量词一字不差）：
+     * 「本月打卡 N 天」「连续 N 天」「补卡 N 次」。
+     */
+    public static Unit[] summaryUnits(int[] summary, int[] streak, String note) {
+        int days = summary == null ? 0 : summary[0];
+        int run = streak == null ? 0 : streak[0];
+        int backfills = summary == null ? 0 : summary[2];
+        return new Unit[]{
+                new Unit("本月打卡", String.valueOf(days), "天", true, note),
+                new Unit("连续", String.valueOf(run), "天", run > 0, null),
+                new Unit("补卡", String.valueOf(backfills), "次", true, null),
+        };
+    }
+
+    /** 只有正在看今天所在的那个月、且今天还没打卡，才提示「今天未打」 */
+    public static String todayNote(int yearMonth, int todayKey, boolean todayChecked) {
+        return !todayChecked && yearMonth == CheckInMonthGrid.yearMonthOf(todayKey)
+                ? "今天未打" : null;
+    }
+
     /** 统计页阅读栏的一行；今年 0 次时调用方整行隐藏 */
     public static String statsLine(int year, int[] yearSummary, int[] streak) {
         return String.format(Locale.ROOT,

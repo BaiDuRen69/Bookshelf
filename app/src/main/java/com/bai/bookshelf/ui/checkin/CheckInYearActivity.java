@@ -8,6 +8,7 @@ import com.bai.bookshelf.app.BookshelfApp;
 import com.bai.bookshelf.data.entity.CheckIn;
 import com.bai.bookshelf.databinding.ActivityCheckinYearBinding;
 import com.bai.bookshelf.ui.BaseActivity;
+import com.bai.bookshelf.util.CheckInLegend;
 import com.bai.bookshelf.util.CheckInMonthGrid;
 import com.bai.bookshelf.util.CheckInStore;
 import com.bai.bookshelf.util.CheckInUiState;
@@ -36,6 +37,7 @@ public class CheckInYearActivity extends BaseActivity {
         b = ActivityCheckinYearBinding.inflate(getLayoutInflater());
         setContentView(b.getRoot());
         b.toolbar.setNavigationOnClickListener(v -> finish());
+        CheckInLegendView.fill(b.llYearLegend, CheckInLegend.yearItems());
         b.fabToday.setOnClickListener(v -> {
             int today = DateKeys.todayKey();
             finishWith(CheckInMonthGrid.yearMonthOf(today), today);

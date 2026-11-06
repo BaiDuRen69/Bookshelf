@@ -45,6 +45,15 @@
             android:clipToPadding="false"
             android:paddingHorizontal="@dimen/page_padding"
             android:paddingBottom="@dimen/dock_reserve" />
+
+        <!-- 底部图例：小日历里那个实心点指「这个月打过卡」；落在原本留给 dock 的那条空带里 -->
+        <LinearLayout
+            android:id="@+id/ll_year_legend"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="@dimen/space_xl"
+            android:gravity="center"
+            android:orientation="horizontal" />
     </LinearLayout>
 
     <com.google.android.material.button.MaterialButton

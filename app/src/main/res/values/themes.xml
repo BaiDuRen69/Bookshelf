@@ -37,6 +37,9 @@
         <!-- v4.19：容器色给基线默认值，避免在弹窗主题（ThemeOverlay）下引用时取不到值 -->
         <item name="primary_container">@color/green_container</item>
         <item name="on_primary_container">@color/green_on_container</item>
+        <!-- 打卡选中格：默认就等于各主题的容器色，只有夜读需要更亮一档 + 一圈描边 -->
+        <item name="checkin_selected_bg">?attr/primary_container</item>
+        <item name="checkin_selected_stroke">@android:color/transparent</item>
         <!-- v4.19：标签底色也给基线默认值（同上） -->
         <item name="chip_bg">@color/chip_bg</item>
         <!-- v4.24：黄铜文字色（colorSecondary 只用于填充，白字对比度不足） -->
@@ -184,6 +187,12 @@
         <item name="accent_text">@color/night_accent_text</item>
         <item name="primary_container">@color/night_container</item>
         <item name="on_primary_container">@color/night_on_container</item>
+        <!-- v5.9.2 打卡选中格：规格给的 night_chip_bg(#2A2723) 压在 #1E1B18 卡面上只有
+             1.15:1（比原 night_container 的 1.26:1 还低），outline_strong(#4C443B) 也只有
+             1.79:1，两者都够不到 WCAG 1.4.11 的 3:1。底色照规格保留，可识别性交给描边：
+             描边改用 on_surface_variant(#B5AEA3) = 7.79:1。 -->
+        <item name="checkin_selected_bg">@color/night_chip_bg</item>
+        <item name="checkin_selected_stroke">?attr/on_surface_variant</item>
         <item name="android:colorBackground">@color/night_page</item>
         <item name="surface">@color/night_surface</item>
         <!-- v5.8.26：夜读的 dock 要比炭黑卡面亮一档，否则去掉描边后与内容糊在一起 -->

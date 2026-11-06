@@ -8,6 +8,7 @@ import android.graphics.RectF;
 import android.view.View;
 
 import com.bai.bookshelf.R;
+import com.bai.bookshelf.util.CheckInDots;
 import com.bai.bookshelf.util.ThemeManager;
 
 /**
@@ -31,6 +32,7 @@ public final class DayCellView extends View {
     private final RectF rect = new RectF();
     private final float density;
     private final float textSize;
+    private final float ringStroke;
 
     private int day;
     private int primary;
@@ -46,8 +48,11 @@ public final class DayCellView extends View {
     private boolean checkInMode;
     private boolean selected;
     private boolean adjacent;
-    private boolean dot;
-    private int primaryContainer;
+    private boolean future;
+    private int dotTotal;
+    private int dotBackfill;
+    private int selectedBg;
+    private int selectedStroke;
     private int onSurfaceVariant;
 
     public DayCellView(Context ctx) {
@@ -59,7 +64,9 @@ public final class DayCellView extends View {
         textPaint.setTextSize(textSize);
         bandPaint.setStyle(Paint.Style.FILL);
         ringPaint.setStyle(Paint.Style.STROKE);
-        ringPaint.setStrokeWidth(dp(1.2f));
+        // 描边统一走这一档：今天的圈、夜读选中的外描边、空心打卡点都靠它
+        ringStroke = dp(1.2f);
+        ringPaint.setStrokeWidth(ringStroke);
         setClickable(true);
     }
 
@@ -82,21 +89,28 @@ public final class DayCellView extends View {
 
     /**
      * 打卡月视图的状态绑定（新增重载，不改原 bind 签名）。
-     * 选中 = primary_container 胶囊底 + 主色文字；今天 = 主色描边；
-     * 邻月 = on_surface_variant 弱化；有打卡 = 底部 4dp 实心点（1 天多本也只 1 个点）。
+     *
+     * <p>选中 = {@code checkin_selected_bg} 胶囊（夜读再补一圈描边，淡底本身不够可读）；
+     * 今天 = 主色描边圆，今天且选中时两者叠加，不再因为胶囊把「今天」盖掉；
+     * 未来日 = 文字压到 120 alpha 且不画点；邻月 = 更弱的 110 alpha 且永不画点；
+     * 打卡点按本数排，补卡的那几本画空心点、实心在左。
      */
-    public void bindCheckIn(int day, int primary, int primaryContainer,
+    public void bindCheckIn(int day, int primary, int selectedBg, int selectedStroke,
                             int onSurface, int onSurfaceVariant,
-                            boolean selected, boolean today, boolean adjacent, boolean dot) {
+                            boolean selected, boolean today, boolean adjacent, boolean future,
+                            int dotTotal, int dotBackfill) {
         this.day = day;
         this.primary = primary;
-        this.primaryContainer = primaryContainer;
+        this.selectedBg = selectedBg;
+        this.selectedStroke = selectedStroke;
         this.onSurface = onSurface;
         this.onSurfaceVariant = onSurfaceVariant;
         this.selected = selected;
         this.today = today;
         this.adjacent = adjacent;
-        this.dot = dot;
+        this.future = future;
+        this.dotTotal = dotTotal;
+        this.dotBackfill = dotBackfill;
         this.checkInMode = true;
         invalidate();
     }
@@ -151,13 +165,28 @@ public final class DayCellView extends View {
         float cy = h / 2f;
 
         if (selected) {
-            bandPaint.setColor(primaryContainer);
+            bandPaint.setColor(selectedBg);
             rect.set(dp(2), cy - radius, w - dp(2), cy + radius);
             canvas.drawRoundRect(rect, radius, radius, bandPaint);
+            if (selectedStroke != 0) {
+                // 夜读的胶囊底与卡面差值不够，靠这一圈描边把「选中」读出来
+                float stroke = px(R.dimen.checkin_selected_stroke_w);
+                ringPaint.setColor(selectedStroke);
+                ringPaint.setStrokeWidth(stroke);
+                rect.inset(stroke / 2f, stroke / 2f);
+                canvas.drawRoundRect(rect, radius, radius, ringPaint);
+            }
+            if (today) {
+                // 今天且选中：胶囊之外仍画主色圈，「今天」不再被盖掉
+                ringPaint.setColor(primary);
+                ringPaint.setStrokeWidth(ringStroke);
+                canvas.drawCircle(cx, cy, radius, ringPaint);
+            }
             textPaint.setColor(primary);
             textPaint.setFakeBoldText(true);
         } else if (today) {
             ringPaint.setColor(primary);
+            ringPaint.setStrokeWidth(ringStroke);
             canvas.drawCircle(cx, cy, radius, ringPaint);
             textPaint.setColor(primary);
             textPaint.setFakeBoldText(false);
@@ -165,18 +194,43 @@ public final class DayCellView extends View {
             textPaint.setColor(adjacent ? onSurfaceVariant : onSurface);
             textPaint.setFakeBoldText(false);
         }
-        textPaint.setAlpha(adjacent && !selected ? 160 : 255);
-
-        // 有打卡：底部一个 4dp 实心点，颜色跟主色；一天多本也只画一点
-        if (dot) {
-            bandPaint.setColor(primary);
-            canvas.drawCircle(cx, h - px(R.dimen.checkin_dot_bottom),
-                    px(R.dimen.checkin_dot_size) / 2f, bandPaint);
-        }
+        textPaint.setAlpha(adjacent ? 110 : (future ? 120 : 255));
+        drawCheckInDots(canvas, cx, h);
 
         float baseline = cy - (textPaint.descent() + textPaint.ascent()) / 2f;
         canvas.drawText(String.valueOf(day), cx, baseline, textPaint);
         textPaint.setAlpha(255);
+    }
+
+    /**
+     * 底部打卡点：点数 = 当天打卡的本数（1 本大点、2 本起小点、≥3 本固定三个），
+     * 补卡的那几本画空心、实心排左边。未来日与邻月一律不画——否则会读成「这个月打过」。
+     */
+    private void drawCheckInDots(Canvas canvas, float cx, float h) {
+        int count = CheckInDots.dotCount(dotTotal);
+        if (count == 0 || future || adjacent) {
+            return;
+        }
+        float size = px(CheckInDots.useLargeDot(dotTotal)
+                ? R.dimen.checkin_dot_size : R.dimen.checkin_dot_size_multi);
+        float gap = px(R.dimen.checkin_dot_gap);
+        float r = size / 2f;
+        float step = size + gap;
+        float left = cx - (count * size + (count - 1) * gap) / 2f + r;
+        float bottom = h - px(R.dimen.checkin_dot_bottom);
+        int[] fh = CheckInDots.filledHollow(dotTotal, dotBackfill);
+        bandPaint.setColor(primary);
+        float x = left;
+        for (int i = 0; i < fh[0]; i++) {
+            canvas.drawCircle(x, bottom, r, bandPaint);
+            x += step;
+        }
+        ringPaint.setColor(primary);
+        ringPaint.setStrokeWidth(ringStroke);
+        for (int i = 0; i < fh[1]; i++) {
+            canvas.drawCircle(x, bottom, r, ringPaint);
+            x += step;
+        }
     }
 
     private float dp(float value) {

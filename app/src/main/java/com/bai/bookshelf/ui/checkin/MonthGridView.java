@@ -16,6 +16,7 @@ import androidx.core.view.ViewCompat;
 
 import com.bai.bookshelf.R;
 import com.bai.bookshelf.ui.widget.DayCellView;
+import com.bai.bookshelf.util.CheckInDots;
 import com.bai.bookshelf.util.CheckInMonthGrid;
 import com.bai.bookshelf.util.DateKeys;
 import com.bai.bookshelf.util.ThemeManager;
@@ -45,6 +46,9 @@ public class MonthGridView extends LinearLayout {
 
         /** 月份变了：外部更新标题 / 重新取数 */
         void onMonthChanged(int yearMonth);
+
+        /** 点未来日：只说明原因，选中态不动 */
+        void onFutureDay(int dayKey);
     }
 
     private static final long ANIM_HALF_MS = 110; // 两段共 220ms
@@ -58,7 +62,13 @@ public class MonthGridView extends LinearLayout {
     private int yearMonth;                 // yyyymm
     private int selectedDayKey;
     private int todayKey;
-    private Map<Integer, Integer> checkInCounts = Collections.emptyMap();
+    /** dayKey → {打卡本数, 其中补卡本数}，由 Fragment 用当月已有结果组装 */
+    private Map<Integer, int[]> marks = Collections.emptyMap();
+    private int colorPrimary;
+    private int colorSelectedBg;
+    private int colorSelectedStroke;
+    private int colorOnSurface;
+    private int colorVariant;
     @Nullable
     private Listener listener;
     private boolean scrolling;
@@ -175,8 +185,9 @@ public class MonthGridView extends LinearLayout {
         return index >= 0 && index < dayKeys.length ? dayKeys[index] : 0;
     }
 
-    public void setCheckInCounts(@Nullable Map<Integer, Integer> counts) {
-        checkInCounts = counts == null ? Collections.emptyMap() : new HashMap<>(counts);
+    /** @param dayMarks dayKey → {打卡本数, 其中补卡本数}，由 CheckInDots.marks 组装 */
+    public void setCheckInMarks(@Nullable Map<Integer, int[]> dayMarks) {
+        marks = dayMarks == null ? Collections.emptyMap() : new HashMap<>(dayMarks);
         render();
     }
 
@@ -221,10 +232,8 @@ public class MonthGridView extends LinearLayout {
 
         // nonTransitiveRClass=true：项目 R.attr 不含 appcompat 的 colorPrimary，
         // 走 ThemeManager 暴露的 androidx.appcompat.R.attr.colorPrimary
-        int primary = ThemeManager.resolveColor(getContext(), ThemeManager.ATTR_COLOR_PRIMARY);
-        int container = ThemeManager.resolveColor(getContext(), R.attr.primary_container);
-        int onSurface = ThemeManager.resolveColor(getContext(), R.attr.on_surface);
-        int variant = ThemeManager.resolveColor(getContext(), R.attr.on_surface_variant);
+        resolveCellColors();
+        int variant = colorVariant;
 
         for (int r = 0; r < rowCount; r++) {
             LinearLayout row = new LinearLayout(getContext());
@@ -240,13 +249,17 @@ public class MonthGridView extends LinearLayout {
                 boolean adjacent = CheckInMonthGrid.isAdjacent(key, y, m);
                 boolean today = key == todayKey;
                 boolean selected = key == selectedDayKey;
-                boolean dot = checkInCounts.containsKey(key) && checkInCounts.get(key) > 0;
-                int dayNumber = key % 100;
+                boolean future = key > todayKey;
+                int total = CheckInDots.total(marks, key);
+                // 邻月永远不画点：不然会被读成「这个月打过卡」
+                int backfill = adjacent ? 0 : CheckInDots.backfill(marks, key);
 
                 DayCellView cell = new DayCellView(getContext());
-                cell.bindCheckIn(dayNumber, primary, container, onSurface, variant,
-                        selected, today, adjacent, dot);
-                cell.setContentDescription(describe(key, today, dot, adjacent, selected));
+                cell.bindCheckIn(key % 100, colorPrimary, colorSelectedBg, colorSelectedStroke,
+                        colorOnSurface, variant, selected, today, adjacent, future,
+                        adjacent ? 0 : total, backfill);
+                cell.setContentDescription(
+                        describe(key, today, total, backfill, adjacent, selected, future));
                 cell.setOnClickListener(v -> {
                     if (scrolling) {
                         return;
@@ -254,6 +267,11 @@ public class MonthGridView extends LinearLayout {
                     if (adjacent) {
                         if (listener != null) {
                             listener.onMoveToDay(key);
+                        }
+                    } else if (key > todayKey) {
+                        // 未来日：只说明原因，选中态不动，别再让列表拿这一天去被拒绝
+                        if (listener != null) {
+                            listener.onFutureDay(key);
                         }
                     } else {
                         setSelectedDay(key);
@@ -272,9 +290,19 @@ public class MonthGridView extends LinearLayout {
         setContentDescription(CheckInMonthGrid.titleOf(yearMonth) + "日历");
     }
 
-    /** 「11月5日，已打卡」/「11月5日，今天，未打卡」 */
-    private String describe(int dayKey, boolean today, boolean dot,
-                            boolean adjacent, boolean selected) {
+    /** 一轮渲染解析一次格子用色（切主题会重建视图，不必管热更新） */
+    private void resolveCellColors() {
+        colorPrimary = ThemeManager.resolveColor(getContext(), ThemeManager.ATTR_COLOR_PRIMARY);
+        colorSelectedBg = ThemeManager.resolveColor(getContext(), R.attr.checkin_selected_bg);
+        colorSelectedStroke =
+                ThemeManager.resolveColor(getContext(), R.attr.checkin_selected_stroke);
+        colorOnSurface = ThemeManager.resolveColor(getContext(), R.attr.on_surface);
+        colorVariant = ThemeManager.resolveColor(getContext(), R.attr.on_surface_variant);
+    }
+
+    /** 「11月5日，已打卡（3 本 · 含 1 笔补卡）」/「11月20日，未来日期，未打卡」 */
+    private String describe(int dayKey, boolean today, int total, int backfill,
+                            boolean adjacent, boolean selected, boolean future) {
         StringBuilder sb = new StringBuilder();
         sb.append(dayKey / 100 % 100).append("月").append(dayKey % 100).append("日");
         if (adjacent) {
@@ -286,7 +314,18 @@ public class MonthGridView extends LinearLayout {
         if (today) {
             sb.append("，今天");
         }
-        sb.append(dot ? "，已打卡" : "，未打卡");
+        if (future) {
+            sb.append("，未来日期");
+        }
+        if (total > 0) {
+            sb.append("，已打卡").append("（").append(total).append(" 本");
+            if (backfill > 0) {
+                sb.append(" · 含 ").append(backfill).append(" 笔补卡");
+            }
+            sb.append("）");
+        } else {
+            sb.append("，未打卡");
+        }
         return sb.toString();
     }
 
@@ -356,22 +395,20 @@ public class MonthGridView extends LinearLayout {
 
     /**
      * 打卡/撤销后只重绑受影响的那一格（点与朗读文案），不重建整张网格。
-     * 一天多本也只画一个点，所以这里用布尔值即可。
+     *
+     * @param total    当天打卡的本数（0 = 清空该格）
+     * @param backfill 其中补卡的本数
      */
-    public void setDayChecked(int dayKey, boolean checked) {
-        Map<Integer, Integer> copy = new HashMap<>(checkInCounts);
-        if (checked) {
-            Integer old = copy.get(dayKey);
-            copy.put(dayKey, old == null ? 1 : old + 1);
+    public void setDayMarks(int dayKey, int total, int backfill) {
+        Map<Integer, int[]> copy = new HashMap<>(marks);
+        if (total > 0) {
+            copy.put(dayKey, new int[]{total, backfill});
         } else {
             copy.remove(dayKey);
         }
-        checkInCounts = copy;
+        marks = copy;
 
-        int primary = ThemeManager.resolveColor(getContext(), ThemeManager.ATTR_COLOR_PRIMARY);
-        int container = ThemeManager.resolveColor(getContext(), R.attr.primary_container);
-        int onSurface = ThemeManager.resolveColor(getContext(), R.attr.on_surface);
-        int variant = ThemeManager.resolveColor(getContext(), R.attr.on_surface_variant);
+        resolveCellColors();
         int y = CheckInMonthGrid.yearOf(yearMonth);
         int m = CheckInMonthGrid.monthOf(yearMonth);
         for (int i = 0; i < dayKeys.length; i++) {
@@ -385,9 +422,14 @@ public class MonthGridView extends LinearLayout {
             boolean adjacent = CheckInMonthGrid.isAdjacent(dayKey, y, m);
             boolean today = dayKey == todayKey;
             boolean selected = dayKey == selectedDayKey;
-            cell.bindCheckIn(dayKey % 100, primary, container, onSurface, variant,
-                    selected, today, adjacent, checked);
-            cell.setContentDescription(describe(dayKey, today, checked, adjacent, selected));
+            boolean future = dayKey > todayKey;
+            int shownTotal = adjacent ? 0 : total;
+            int shownBackfill = adjacent ? 0 : backfill;
+            cell.bindCheckIn(dayKey % 100, colorPrimary, colorSelectedBg, colorSelectedStroke,
+                    colorOnSurface, colorVariant, selected, today, adjacent, future,
+                    shownTotal, shownBackfill);
+            cell.setContentDescription(
+                    describe(dayKey, today, total, backfill, adjacent, selected, future));
             return;
         }
     }

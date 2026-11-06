@@ -3,9 +3,12 @@ package com.bai.bookshelf.ui.checkin;
 import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
+import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
@@ -15,17 +18,21 @@ import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 
+import com.bai.bookshelf.R;
 import com.bai.bookshelf.app.BookshelfApp;
 import com.bai.bookshelf.data.entity.Book;
 import com.bai.bookshelf.data.entity.BorrowRecord;
 import com.bai.bookshelf.data.entity.CheckIn;
 import com.bai.bookshelf.databinding.FragmentCheckinBinding;
 import com.bai.bookshelf.ui.MainActivity;
+import com.bai.bookshelf.ui.stats.StatsText;
 import com.bai.bookshelf.util.BookSanitizer;
+import com.bai.bookshelf.util.CheckInHabit;
 import com.bai.bookshelf.util.CheckInMonthGrid;
 import com.bai.bookshelf.util.CheckInStore;
 import com.bai.bookshelf.util.CheckInUiState;
 import com.bai.bookshelf.util.DateKeys;
+import com.bai.bookshelf.util.ThemeManager;
 import com.bai.bookshelf.util.UndoBar;
 
 import java.util.ArrayList;
@@ -89,10 +96,9 @@ public class CheckInFragment extends Fragment
         todayKey = DateKeys.todayKey();
         selectedDayKey = todayKey;
 
-        b.toolbar.setTitle(CheckInMonthGrid.titleOf(b.monthGrid.getYearMonth()));
+        setToolbarMonth(b.monthGrid.getYearMonth());
         b.toolbar.setOnClickListener(v -> openYearView());
         b.tvYear.setOnClickListener(v -> openYearView());
-        b.tvToday.setOnClickListener(v -> b.monthGrid.moveToToday());
         b.fabToday.setOnClickListener(v -> b.monthGrid.moveToToday());
 
         adapter = new CheckInAdapter();
@@ -110,6 +116,7 @@ public class CheckInFragment extends Fragment
         });
 
         b.monthGrid.setListener(this);
+        renderLegend();
         BookshelfApp.get().whenDbReady(() -> loadMonth(b.monthGrid.getYearMonth()));
     }
 
@@ -117,6 +124,81 @@ public class CheckInFragment extends Fragment
         Intent intent = new Intent(requireContext(), CheckInYearActivity.class);
         intent.putExtra(CheckInYearActivity.EXTRA_YEAR_MONTH, b.monthGrid.getYearMonth());
         yearLauncher.launch(intent);
+    }
+
+    /** 页头分层：主标题只留「11月」，年份降到副标题，右侧不再挤「今天」 */
+    private void setToolbarMonth(int yearMonth) {
+        b.toolbar.setTitle(CheckInMonthGrid.monthOf(yearMonth) + "月");
+        b.toolbar.setSubtitle(String.valueOf(CheckInMonthGrid.yearOf(yearMonth)));
+    }
+
+    /**
+     * 摘要行三单元（本月打卡 / 连续 / 补卡）：数字与单位走 StatsText.metric 的
+     * span 方案，不再用两段 TextView 对基线；整句 summaryLine 留给读屏。
+     */
+    private void renderSummary(int[] summary, int[] streak, boolean todayChecked) {
+        b.llCheckinSummary.removeAllViews();
+        int ym = b.monthGrid.getYearMonth();
+        b.llCheckinSummary.setContentDescription(
+                CheckInUiState.summaryLine(ym, summary, streak));
+        int variant = ThemeManager.resolveColor(requireContext(), R.attr.on_surface_variant);
+        CheckInUiState.Unit[] units =
+                CheckInUiState.summaryUnits(summary, streak,
+                        CheckInUiState.todayNote(ym, todayKey, todayChecked));
+        for (int i = 0; i < units.length; i++) {
+            b.llCheckinSummary.addView(summaryUnitView(units[i], variant), summaryUnitLp(i));
+        }
+    }
+
+    private View summaryUnitView(CheckInUiState.Unit u, int variant) {
+        LinearLayout cell = new LinearLayout(requireContext());
+        cell.setOrientation(LinearLayout.VERTICAL);
+        cell.setGravity(Gravity.CENTER_HORIZONTAL);
+        cell.addView(overline(u.label));
+        TextView value = new TextView(requireContext());
+        value.setTextAppearance(requireContext(), R.style.Text_Bookshelf_Metric_Small);
+        value.setGravity(Gravity.CENTER_HORIZONTAL);
+        value.setText(StatsText.metric(u.value, u.unit, variant));
+        if (!u.accent) {
+            // 连续 0 天不该抢眼
+            value.setTextColor(variant);
+        }
+        cell.addView(value, wrapCenter());
+        if (u.note != null) {
+            LinearLayout.LayoutParams noteLp = wrapCenter();
+            noteLp.topMargin = getResources().getDimensionPixelSize(R.dimen.space_sm);
+            cell.addView(overline(u.note), noteLp);
+        }
+        return cell;
+    }
+
+    private TextView overline(String text) {
+        TextView tv = new TextView(requireContext());
+        tv.setTextAppearance(requireContext(), R.style.Text_Bookshelf_Overline);
+        tv.setGravity(Gravity.CENTER_HORIZONTAL);
+        tv.setText(text);
+        return tv;
+    }
+
+    private LinearLayout.LayoutParams wrapCenter() {
+        return new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+    }
+
+    /** 三单元等分，单元间 space_md */
+    private LinearLayout.LayoutParams summaryUnitLp(int index) {
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        if (index > 0) {
+            lp.setMarginStart(getResources().getDimensionPixelSize(R.dimen.space_md));
+        }
+        return lp;
+    }
+
+    /** 只用那条已有的按日查询数出 {本数, 补卡本数}，不新增 DAO */
+    private static int[] dayMark(List<CheckIn> dayList, int dayKey) {
+        int[] mark = com.bai.bookshelf.util.CheckInDots.marks(dayList).get(dayKey);
+        return mark == null ? new int[]{0, 0} : mark;
     }
 
     // ==================== 取数 ====================
@@ -171,16 +253,17 @@ public class CheckInFragment extends Fragment
             } catch (Exception ignored) {
                 return; // 库未就绪 / 修复中，等下一次回调
             }
-            Map<Integer, Integer> counts = CheckInStore.countByDayInRange(monthList);
+            final Map<Integer, int[]> dayMarks =
+                    com.bai.bookshelf.util.CheckInDots.marks(monthList);
+            final boolean todayChecked = CheckInHabit.dayKeys(all).contains(todayKey);
             app.ui(() -> {
                 if (b == null) {
                     return;
                 }
                 if (refreshGrid) {
-                    b.monthGrid.setCheckInCounts(counts);
+                    b.monthGrid.setCheckInMarks(dayMarks);
                 }
-                b.tvCheckinSummary.setText(
-                        CheckInUiState.summaryLine(yearMonth, summary, streak));
+                renderSummary(summary, streak, todayChecked);
                 adapter.submit(rows, day, todayKey);
                 boolean empty = rows.isEmpty();
                 b.emptyState.getRoot().setVisibility(empty ? View.VISIBLE : View.GONE);
@@ -197,19 +280,20 @@ public class CheckInFragment extends Fragment
         app.io(() -> {
             final int[] summary;
             final int[] streak;
+            final boolean todayChecked;
             try {
                 summary = CheckInStore.monthSummary(app.db().checkInDao().getInRange(
                         DateKeys.keyOf(y, m, 1),
                         DateKeys.keyOf(y, m, DateKeys.daysInMonth(y, m))), y, m);
-                streak = CheckInStore.streakDays(
-                        app.db().checkInDao().getInRange(0, 99999999), todayKey);
+                List<CheckIn> all = app.db().checkInDao().getInRange(0, 99999999);
+                streak = CheckInStore.streakDays(all, todayKey);
+                todayChecked = CheckInHabit.dayKeys(all).contains(todayKey);
             } catch (Exception ignored) {
                 return;
             }
             app.ui(() -> {
                 if (b != null) {
-                    b.tvCheckinSummary.setText(
-                            CheckInUiState.summaryLine(yearMonth, summary, streak));
+                    renderSummary(summary, streak, todayChecked);
                 }
             });
         });
@@ -232,11 +316,16 @@ public class CheckInFragment extends Fragment
     }
 
     @Override
+    public void onFutureDay(int dayKey) {
+        toast(CheckInUiState.rejectText(CheckInStore.Result.REJECTED_FUTURE));
+    }
+
+    @Override
     public void onMonthChanged(int yearMonth) {
         if (b == null) {
             return;
         }
-        b.toolbar.setTitle(CheckInMonthGrid.titleOf(yearMonth));
+        setToolbarMonth(yearMonth);
         loadMonth(yearMonth);
     }
 
@@ -260,9 +349,9 @@ public class CheckInFragment extends Fragment
                 return;
             }
             final boolean added = result == CheckInStore.Result.ADDED;
-            final boolean dayHasAny;
+            final int[] mark;
             try {
-                dayHasAny = !app.db().checkInDao().getByDay(dayKey).isEmpty();
+                mark = dayMark(app.db().checkInDao().getByDay(dayKey), dayKey);
             } catch (Exception ignored) {
                 return;
             }
@@ -273,15 +362,15 @@ public class CheckInFragment extends Fragment
                 b.getRoot().performHapticFeedback(
                         android.view.HapticFeedbackConstants.KEYBOARD_TAP);
                 adapter.updateRow(position, added);
-                b.monthGrid.setDayChecked(dayKey, dayHasAny);
+                b.monthGrid.setDayMarks(dayKey, mark[0], mark[1]);
                 refreshSummaryOnly(b.monthGrid.getYearMonth());
 
                 final boolean wasAdded = added;
                 Runnable undo = () -> app.io(() -> {
                     CheckInStore.toggle(app.db(), row.book, dayKey, true);
-                    final boolean anyLeft;
+                    final int[] left;
                     try {
-                        anyLeft = !app.db().checkInDao().getByDay(dayKey).isEmpty();
+                        left = dayMark(app.db().checkInDao().getByDay(dayKey), dayKey);
                     } catch (Exception ignored) {
                         return;
                     }
@@ -290,7 +379,7 @@ public class CheckInFragment extends Fragment
                             return;
                         }
                         adapter.updateRow(position, !wasAdded);
-                        b.monthGrid.setDayChecked(dayKey, anyLeft);
+                        b.monthGrid.setDayMarks(dayKey, left[0], left[1]);
                         refreshSummaryOnly(b.monthGrid.getYearMonth());
                         UndoBar.offer(b.getRoot(), "已撤销打卡", null, null);
                     });
@@ -324,5 +413,11 @@ public class CheckInFragment extends Fragment
             adapter.setListener(null);
         }
         b = null;
+    }
+
+    /** 网格下方图例：圈 / 实心点 / 半实心点 / 方框各指什么 */
+    private void renderLegend() {
+        CheckInLegendView.fill(b.llCheckinLegend,
+                com.bai.bookshelf.util.CheckInLegend.monthItems());
     }
 }

@@ -43,6 +43,8 @@
     <dimen name="checkin_dot_bottom">6dp</dimen>
     <!-- 名字沿用规格，实际用途是描边圆的半径内缩（半径 = 半边长 - 这个值），不是线宽 -->
     <dimen name="checkin_ring_stroke">1.5dp</dimen>
+    <!-- 夜读选中胶囊外那一圈描边的线宽（浅色主题这圈是透明的） -->
+    <dimen name="checkin_selected_stroke_w">1dp</dimen>
     <dimen name="checkin_swipe_distance">24dp</dimen>
     <dimen name="fab_size">56dp</dimen>
     <dimen name="fab_corner">28dp</dimen>            <!-- = fab_size 的一半，胶囊公式 -->

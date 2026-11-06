@@ -234,8 +234,8 @@ public class CheckInUiInstrumentedTest {
         View title = row.findViewById(R.id.tv_title);
         assertNotNull(title);
         assertNotNull(row.findViewById(R.id.tv_subtitle));
-        assertNotNull("小结行要固定在列表顶部",
-                checkin().findViewById(R.id.tv_checkin_summary));
+        assertNotNull("摘要行要固定在列表顶部",
+                checkin().findViewById(R.id.ll_checkin_summary));
     }
 
     @Test
@@ -264,13 +264,13 @@ public class CheckInUiInstrumentedTest {
         final int target = grid.getDayKeyAt(10);
         CharSequence neighbourBefore = grid.getCellAt(11).getContentDescription();
         InstrumentationRegistry.getInstrumentation()
-                .runOnMainSync(() -> grid.setDayChecked(target, true));
+                .runOnMainSync(() -> grid.setDayMarks(target, 1, 0));
         assertTrue("打过的那天要念「已打卡」",
                 grid.getCellAt(10).getContentDescription().toString().contains("已打卡"));
         assertEquals("相邻格子不能被整表重建", neighbourBefore.toString(),
                 grid.getCellAt(11).getContentDescription().toString());
         InstrumentationRegistry.getInstrumentation()
-                .runOnMainSync(() -> grid.setDayChecked(target, false));
+                .runOnMainSync(() -> grid.setDayMarks(target, 0, 0));
         assertTrue("撤销后回到「未打卡」",
                 grid.getCellAt(10).getContentDescription().toString().contains("未打卡"));
     }

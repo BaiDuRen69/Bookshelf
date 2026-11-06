@@ -19,9 +19,9 @@
             android:clickable="true"
             android:contentDescription="打开年视图"
             android:foreground="?attr/selectableItemBackground"
-            app:title="2026年11月">
+            app:title="11月">
 
-            <!-- 右侧「年」「今天」两个文本按钮：页头前景色跟随主题，不用硬编码 -->
+            <!-- 右侧只留「年」：回到今天已经有悬浮「今」，文本按钮再放一个是三个入口打转 -->
             <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="match_parent"
@@ -35,24 +35,13 @@
                     android:background="?attr/selectableItemBackground"
                     android:clickable="true"
                     android:contentDescription="打开年视图"
+                    android:fontFamily="sans-serif-medium"
                     android:gravity="center"
+                    android:letterSpacing="0.04"
                     android:paddingHorizontal="@dimen/space_md"
                     android:text="年"
                     android:textColor="?attr/header_fg"
-                    android:textSize="@dimen/text_body_medium" />
-
-                <TextView
-                    android:id="@+id/tv_today"
-                    android:layout_width="wrap_content"
-                    android:layout_height="match_parent"
-                    android:background="?attr/selectableItemBackground"
-                    android:clickable="true"
-                    android:contentDescription="回到今天"
-                    android:gravity="center"
-                    android:paddingHorizontal="@dimen/space_md"
-                    android:text="今天"
-                    android:textColor="?attr/header_fg"
-                    android:textSize="@dimen/text_body_medium" />
+                    android:textSize="@dimen/text_body_small" />
             </LinearLayout>
         </com.google.android.material.appbar.MaterialToolbar>
 
@@ -64,16 +53,31 @@
             android:layout_marginTop="@dimen/space_sm"
             android:paddingHorizontal="@dimen/space_sm" />
 
-        <!-- 列表顶部固定小结：11月已打卡 12 天 · 连续 5 天 · 补卡 2 次 -->
-        <TextView
-            android:id="@+id/tv_checkin_summary"
+        <!-- 网格下方图例：圈/实心点/半实心点/方框各指什么，四项横排、项间 space_md -->
+        <LinearLayout
+            android:id="@+id/ll_checkin_legend"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginHorizontal="@dimen/page_padding"
-            android:layout_marginTop="@dimen/space_md"
+            android:layout_marginTop="@dimen/space_sm"
             android:gravity="center"
-            android:textColor="?attr/on_surface_variant"
-            android:textSize="@dimen/text_body_small" />
+            android:orientation="horizontal" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginHorizontal="@dimen/page_padding"
+            android:layout_marginTop="@dimen/space_md"
+            android:background="?attr/outline" />
+
+        <!-- 列表顶部固定小结：三单元「本月打卡 / 连续 / 补卡」，单元在代码里填；
+             contentDescription 用 summaryLine 整句，读屏念的和统计口径一致 -->
+        <LinearLayout
+            android:id="@+id/ll_checkin_summary"
+            style="@style/StatsSummaryRow"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="@dimen/page_padding" />
 
         <FrameLayout
             android:layout_width="match_parent"

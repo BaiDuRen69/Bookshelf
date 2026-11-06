@@ -17,6 +17,10 @@
     <attr name="on_surface_variant" format="color" />
     <attr name="primary_container" format="color" />
     <attr name="on_primary_container" format="color" />
+    <!-- 打卡页选中格：浅色主题跟 primary_container，夜读另给一档更亮的底 + 一圈描边，
+         否则 #26302C 压在 #1E1B18 卡面上几乎看不出被选中 -->
+    <attr name="checkin_selected_bg" format="color" />
+    <attr name="checkin_selected_stroke" format="color" />
     <!-- v4.24：黄铜作文字时的深色版本（填充仍用 colorSecondary） -->
     <attr name="accent_text" format="color" />
     <!-- v5.8.26：浮动 dock 的面色（比 surface 亮一档，六套浅色主题共用，夜读单独覆盖） -->

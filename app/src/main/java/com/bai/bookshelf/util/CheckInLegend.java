@@ -1,0 +1,45 @@
+package com.bai.bookshelf.util;
+
+/**
+ * 打卡页图例的数据（纯计算，JVM 可测）：符号、文案、用哪个语义色。
+ *
+ * <p>颜色留给 View 侧解析（?attr 需要 Context），这里只给档位常量，
+ * 保证月视图与年视图的图例文案有一处唯一的出处。
+ */
+public final class CheckInLegend {
+
+    /** 主色：今天描边、已打卡点、含补卡点 */
+    public static final int TONE_PRIMARY = 0;
+    /** 描边强色：选中框——淡底在夜读下几乎看不见，轮廓才读得出 */
+    public static final int TONE_OUTLINE = 1;
+
+    public static final class Item {
+        public final String glyph;
+        public final String label;
+        public final int tone;
+
+        Item(String glyph, String label, int tone) {
+            this.glyph = glyph;
+            this.label = label;
+            this.tone = tone;
+        }
+    }
+
+    private CheckInLegend() {
+    }
+
+    /** 月视图网格下方四项 */
+    public static Item[] monthItems() {
+        return new Item[]{
+                new Item("○", "今天", TONE_PRIMARY),
+                new Item("●", "已打卡", TONE_PRIMARY),
+                new Item("◐", "含补卡", TONE_PRIMARY),
+                new Item("▭", "已选中", TONE_OUTLINE),
+        };
+    }
+
+    /** 年视图底部一项 */
+    public static Item[] yearItems() {
+        return new Item[]{new Item("●", "该月有打卡", TONE_PRIMARY)};
+    }
+}
