@@ -68,7 +68,8 @@ public class CheckInViewSwitchInstrumentedTest {
         CheckInViewSwitcher switcher = new CheckInViewSwitcher(host,
                 root.findViewById(R.id.month_content),
                 root.findViewById(R.id.year_content),
-                root.findViewById(R.id.year_view));
+                root.findViewById(R.id.year_view),
+                root.findViewById(R.id.month_grid));
         assertFalse(switcher.isYearVisible());
         assertFalse(switcher.isAnimating());
     }

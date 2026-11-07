@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 年视图面板：由 fragment_checkin.xml 的 <include android:id="@+id/year_content"> 挂载。
+     原先独立 Activity 的年份标题 / 今年小结 / 12 月网格 / 图例都在这里，
+     点月、点格、「今」统一回调给 CheckInFragment，不再 setResult/finish。 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <TextView
+        android:id="@+id/tv_year_title"
+        style="@style/Text.Bookshelf.Metric"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/space_md"
+        android:gravity="center"
+        android:textColor="?attr/on_surface" />
+
+    <LinearLayout
+        android:id="@+id/ll_year_summary"
+        style="@style/StatsSummaryRow"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="@dimen/space_sm"
+        android:gravity="center" />
+
+    <com.bai.bookshelf.ui.checkin.CheckInYearView
+        android:id="@+id/year_view"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:clipToPadding="false"
+        android:paddingHorizontal="@dimen/page_padding"
+        android:paddingBottom="@dimen/dock_reserve" />
+
+    <LinearLayout
+        android:id="@+id/ll_year_legend"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="@dimen/space_xl"
+        android:gravity="center"
+        android:orientation="horizontal" />
+</LinearLayout>

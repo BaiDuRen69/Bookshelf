@@ -40,6 +40,8 @@
         <!-- 打卡选中格：默认就等于各主题的容器色，只有夜读需要更亮一档 + 一圈描边 -->
         <item name="checkin_selected_bg">?attr/primary_container</item>
         <item name="checkin_selected_stroke">@android:color/transparent</item>
+        <!-- 非今天选中格用一圈圆框；七套主题都继承本基线，夜读会自动取它的 outline_strong -->
+        <item name="checkin_day_ring">?attr/outline_strong</item>
         <!-- v4.19：标签底色也给基线默认值（同上） -->
         <item name="chip_bg">@color/chip_bg</item>
         <!-- v4.24：黄铜文字色（colorSecondary 只用于填充，白字对比度不足） -->

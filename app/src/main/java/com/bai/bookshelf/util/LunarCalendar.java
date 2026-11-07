@@ -47,6 +47,16 @@ public final class LunarCalendar {
         return text;
     }
 
+    /** 切月时把当月 42 格一次算完，onDraw 只读缓存，不逐格触发换算 */
+    public void precompute(int[] dayKeys) {
+        if (dayKeys == null) {
+            return;
+        }
+        for (int key : dayKeys) {
+            label(key);
+        }
+    }
+
     /** 切月/切年时清一次，避免长期持有无用字符串 */
     public void clearCache() {
         cache.clear();

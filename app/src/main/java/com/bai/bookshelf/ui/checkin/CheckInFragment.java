@@ -23,7 +23,6 @@ import com.bai.bookshelf.util.BookSanitizer;
 import com.bai.bookshelf.util.CheckInHabit;
 import com.bai.bookshelf.util.CheckInMonthGrid;
 import com.bai.bookshelf.util.CheckInStore;
-import com.bai.bookshelf.util.CheckInYearGrid;
 import com.bai.bookshelf.util.CheckInUiState;
 import com.bai.bookshelf.util.DateKeys;
 import com.bai.bookshelf.util.ReadDays;
@@ -51,7 +50,7 @@ public class CheckInFragment extends Fragment
     private int todayKey;
     private long lastReloadMs;
     private CheckInViewSwitcher switcher;
-    private List<CheckIn> yearAll = new ArrayList<>();
+    private CheckInYearPanel yearPanel;
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
@@ -66,9 +65,9 @@ public class CheckInFragment extends Fragment
         todayKey = DateKeys.todayKey();
         selectedDayKey = todayKey;
 
-        switcher = new CheckInViewSwitcher(b.viewSwitchHost, b.monthContent,
-                b.yearContent, b.yearView);
-        b.yearView.setListener(new CheckInYearView.Listener() {
+        View yearContentView = b.getRoot().findViewById(R.id.year_content);
+        yearPanel = new CheckInYearPanel(yearContentView);
+        yearPanel.setListener(new CheckInYearPanel.Listener() {
             @Override
             public void onPick(int yearMonth, int dayKey) {
                 exitYearToMonth(yearMonth, dayKey);
@@ -76,9 +75,12 @@ public class CheckInFragment extends Fragment
 
             @Override
             public void onYearChanged(int year) {
-                updateYearHeader(year);
+                // 年份标题与今年小结由 CheckInYearPanel 内部刷新
             }
         });
+        switcher = new CheckInViewSwitcher(b.viewSwitchHost, b.monthContent,
+                yearContentView, yearPanel.yearView(), b.monthGrid);
+        yearPanel.yearView().setYearSwitcher(switcher);
 
         setToolbarMonth(b.monthGrid.getYearMonth());
         b.toolbar.setOnClickListener(v -> toggleYearView());
@@ -88,8 +90,11 @@ public class CheckInFragment extends Fragment
                 return;
             }
             if (switcher.isYearVisible()) {
+                final int[] todayPick = yearPanel.todayPick(DateKeys.todayKey());
+                // 「今」返回时缩放中心落在今天格，不是上一次选中的日子
+                b.monthGrid.setSelectedDay(todayPick[1]);
                 switcher.toMonth(b.monthGrid.selectedCellCenterIn(b.viewSwitchHost), () -> {
-                    selectedDayKey = DateKeys.todayKey();
+                    selectedDayKey = todayPick[1];
                     b.monthGrid.moveToToday();
                 });
             } else {
@@ -150,17 +155,12 @@ public class CheckInFragment extends Fragment
             }
             final List<CheckIn> list = all;
             final int today = DateKeys.todayKey();
-            final int currentYear = today / 10000;
-            final int min = CheckInYearGrid.minYear(list, currentYear);
-            final int max = CheckInYearGrid.maxYear(currentYear);
             app.ui(() -> {
                 if (b == null || !isAdded()) {
                     return;
                 }
-                yearAll = list;
-                int year = Math.max(min, Math.min(max, ym / 100));
-                b.yearView.bind(year, min, max, list, today);
-                updateYearHeader(year);
+                // 年份边界、网格 bind、标题与小结全部收进 CheckInYearPanel
+                yearPanel.bind(ym, list, today);
                 switcher.toYear(pivot, null);
             });
         });
@@ -175,27 +175,22 @@ public class CheckInFragment extends Fragment
             if (b == null) {
                 return;
             }
-            if (dayKey > 0) {
-                selectedDayKey = dayKey;
-                b.monthGrid.setSelectedDay(dayKey);
-            }
-            if (b.monthGrid.getYearMonth() != yearMonth) {
-                b.monthGrid.setYearMonth(yearMonth); // 内部触发 onMonthChanged → loadMonth
-            } else {
-                loadMonth(yearMonth, false);
-            }
-            switcher.toMonth(b.monthGrid.selectedCellCenterIn(b.viewSwitchHost), null);
+            // 数据刷新统一延后到 toMonth 的 TransitionListener.onTransitionEnd
+            switcher.toMonth(b.monthGrid.selectedCellCenterIn(b.viewSwitchHost), () -> {
+                if (b == null) {
+                    return;
+                }
+                if (dayKey > 0) {
+                    selectedDayKey = dayKey;
+                    b.monthGrid.setSelectedDay(dayKey);
+                }
+                if (b.monthGrid.getYearMonth() != yearMonth) {
+                    b.monthGrid.setYearMonth(yearMonth); // 内部触发 onMonthChanged → loadMonth
+                } else {
+                    loadMonth(yearMonth, false);
+                }
+            });
         });
-    }
-
-    private void updateYearHeader(int year) {
-        if (b == null) {
-            return;
-        }
-        b.tvYearTitle.setText(String.valueOf(year));
-        int[] summary = CheckInStore.yearSummary(yearAll, year);
-        b.llYearSummary.setContentDescription(CheckInUiState.yearLine(summary));
-        CheckInSummaryRow.fill(b.llYearSummary, CheckInUiState.yearUnits(summary));
     }
 
     /** 页头分层：主标题只留「11月」，年份降到副标题，右侧不再挤「今天」 */
@@ -547,8 +542,7 @@ public class CheckInFragment extends Fragment
     private void renderLegend() {
         CheckInLegendView.fill(b.llCheckinLegend,
                 com.bai.bookshelf.util.CheckInLegend.monthItems());
-        CheckInLegendView.fill(b.llYearLegend,
-                com.bai.bookshelf.util.CheckInLegend.yearItems());
+        yearPanel.renderLegend();
         b.tvLegendNote.setText(com.bai.bookshelf.util.CheckInLegend.monthNote());
         b.tvLegendNote.setVisibility(View.VISIBLE);
     }

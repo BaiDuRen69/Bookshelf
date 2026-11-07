@@ -30,4 +30,6 @@
          （白字压暗金只有 2.13:1），所以底色与前景色要能各自独立指定。 -->
     <attr name="header_bg" format="color" />
     <attr name="header_fg" format="color" />
+    <!-- 打卡日历「非今天选中」的正圆描边框色；基线取 outline_strong，各主题自动跟随 -->
+    <attr name="checkin_day_ring" format="color" />
 </resources>

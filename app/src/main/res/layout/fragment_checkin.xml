@@ -122,48 +122,13 @@
                 </FrameLayout>
             </LinearLayout>
 
-            <!-- 年视图：同页内切换，不再启动独立 Activity；初始隐藏 -->
-            <LinearLayout
+            <!-- 年视图面板：同页内切换，不再启动独立 Activity；初始隐藏 -->
+            <include
                 android:id="@+id/year_content"
+                layout="@layout/view_checkin_year_panel"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:orientation="vertical"
-                android:visibility="gone">
-
-                <TextView
-                    android:id="@+id/tv_year_title"
-                    style="@style/Text.Bookshelf.Metric"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="@dimen/space_md"
-                    android:gravity="center"
-                    android:textColor="?attr/on_surface" />
-
-                <LinearLayout
-                    android:id="@+id/ll_year_summary"
-                    style="@style/StatsSummaryRow"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="@dimen/space_sm"
-                    android:gravity="center" />
-
-                <com.bai.bookshelf.ui.checkin.CheckInYearView
-                    android:id="@+id/year_view"
-                    android:layout_width="match_parent"
-                    android:layout_height="0dp"
-                    android:layout_weight="1"
-                    android:clipToPadding="false"
-                    android:paddingHorizontal="@dimen/page_padding"
-                    android:paddingBottom="@dimen/dock_reserve" />
-
-                <LinearLayout
-                    android:id="@+id/ll_year_legend"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="@dimen/space_xl"
-                    android:gravity="center"
-                    android:orientation="horizontal" />
-            </LinearLayout>
+                android:visibility="gone" />
         </FrameLayout>
     </LinearLayout>
 

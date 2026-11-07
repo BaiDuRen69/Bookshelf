@@ -238,6 +238,15 @@ public class MonthGridView extends LinearLayout {
         refreshAllCells();
     }
 
+    /** 月↔年切换动画期间暂停 42 个格子的打卡点入场动画，保持帧率 */
+    public void suspendDotAnimations(boolean suspended) {
+        for (DayCellView cell : cells) {
+            if (cell != null) {
+                cell.setDotAnimationSuspended(suspended);
+            }
+        }
+    }
+
     /**
      * 选中日期格中心相对动画容器的坐标（px），月↔年切换拿它当缩放中心，
      * 不是屏幕中心。找不到格子时退回容器中心。
@@ -403,6 +412,7 @@ public class MonthGridView extends LinearLayout {
         int y = CheckInMonthGrid.yearOf(yearMonth);
         int m = CheckInMonthGrid.monthOf(yearMonth);
         dayKeys = CheckInMonthGrid.dayKeys(y, m);
+        lunar.precompute(dayKeys); // 每月一次算完农历，onDraw 只读缓存
         int[] weeks = CheckInMonthGrid.weekNumbers(dayKeys);
         structureMonth = yearMonth;
 
@@ -635,7 +645,7 @@ public class MonthGridView extends LinearLayout {
         // 深色底上的文字走 colorOnPrimary（material attr，nonTransitiveRClass 下要全限定）
         colorOnTodayBg = ThemeManager.resolveColor(getContext(),
                 com.google.android.material.R.attr.colorOnPrimary);
-        colorRing = ThemeManager.resolveColor(getContext(), R.attr.outline_strong);
+        colorRing = ThemeManager.resolveColor(getContext(), R.attr.checkin_day_ring);
         colorLunar = ThemeManager.resolveColor(getContext(), R.attr.on_surface_variant);
         float scale = getResources().getConfiguration().fontScale;
         float widthDp = getResources().getDisplayMetrics().widthPixels

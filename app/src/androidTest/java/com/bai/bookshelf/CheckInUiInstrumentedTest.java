@@ -3,6 +3,7 @@ package com.bai.bookshelf;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
@@ -20,7 +21,6 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.bai.bookshelf.R;
-import com.bai.bookshelf.ui.checkin.CheckInYearActivity;
 import com.bai.bookshelf.ui.checkin.CheckInYearView;
 import com.bai.bookshelf.ui.checkin.MonthGridView;
 import com.bai.bookshelf.util.CheckInMonthGrid;
@@ -204,22 +204,24 @@ public class CheckInUiInstrumentedTest {
     }
 
     @Test
-    public void 月份标题可点且年视图已注册可inflate() {
+    public void 月份标题可点且年视图已内嵌进打卡页() {
         View toolbar = checkin().findViewById(R.id.toolbar);
         assertTrue("标题整块要可点", toolbar.isClickable());
         assertEquals("打开年视图", toolbar.getContentDescription().toString());
 
-        // 故意不启动 Activity：BaseActivity 的应用锁 / 主题 recreate 链会让
-        // ActivityScenario 在 instrumentation 里等不到 RESUMED（实测会挂住）。
-        // 改验 Manifest 注册 + 布局结构，跳转接线由 Fragment 的 OnClickListener 保证。
-        android.content.pm.ResolveInfo info = themed().getPackageManager().resolveActivity(
-                new android.content.Intent(themed(), CheckInYearActivity.class), 0);
-        assertNotNull("年视图 Activity 要在 Manifest 注册", info);
-        View yearRoot = inflate(R.layout.activity_checkin_year);
-        assertNotNull(yearRoot.findViewById(R.id.toolbar));
-        assertNotNull(yearRoot.findViewById(R.id.tv_year));
-        assertNotNull(yearRoot.findViewById(R.id.year_view));
-        assertNotNull("今年小结要拆成单元行", yearRoot.findViewById(R.id.ll_year_summary));
+        // 年视图改为 Fragment 内嵌，不再有独立 Activity：动画容器只在 Toolbar 之下
+        ViewGroup host = checkin().findViewById(R.id.view_switch_host);
+        assertNotNull(host);
+        assertEquals("host 里只有月、年两层", 2, host.getChildCount());
+        assertNotNull(checkin().findViewById(R.id.month_content));
+        View yearContent = checkin().findViewById(R.id.year_content);
+        assertNotNull(yearContent);
+        assertEquals(View.GONE, yearContent.getVisibility());
+        assertNotNull("年份标题", checkin().findViewById(R.id.tv_year_title));
+        assertNotNull("12 月网格", checkin().findViewById(R.id.year_view));
+        assertNotNull("今年小结要拆成单元行", checkin().findViewById(R.id.ll_year_summary));
+        assertNull("Toolbar 不参与动画", host.findViewById(R.id.toolbar));
+        assertNull("悬浮今不参与动画", host.findViewById(R.id.fab_today));
     }
 
     @Test
@@ -241,21 +243,25 @@ public class CheckInUiInstrumentedTest {
 
     @Test
     public void 年视图有12个月真实网格与今按钮() {
-        View yearRoot = inflate(R.layout.activity_checkin_year);
-        assertNotNull(yearRoot.findViewById(R.id.tv_year));
-        assertNotNull(yearRoot.findViewById(R.id.ll_year_summary));
-        assertNotNull("年视图里也要有悬浮「今」", yearRoot.findViewById(R.id.fab_today));
-        CheckInYearView yearView = yearRoot.findViewById(R.id.year_view);
+        // 面板已内嵌：fab 在打卡页根层常驻，12 张月卡由 CheckInYearView 双缓冲复用
+        assertNotNull("今按钮两个视图共用", checkin().findViewById(R.id.fab_today));
+        assertNotNull("年份标题", checkin().findViewById(R.id.tv_year_title));
+        CheckInYearView yearView = checkin().findViewById(R.id.year_view);
         assertNotNull(yearView);
         InstrumentationRegistry.getInstrumentation().runOnMainSync(() ->
                 yearView.bind(2026, 2023, 2027,
-                        new java.util.ArrayList<>(), DateKeys.todayKey()));
+                        new java.util.ArrayList<>(), 20261107));
         assertEquals(2026, yearView.getYear());
-        LinearLayout rows = (LinearLayout) yearView.getChildAt(0);
-        assertEquals("一年 6 行", 6, rows.getChildCount());
+        for (int m = 1; m <= 12; m++) {
+            assertNotNull("第 " + m + " 月卡片是真实 View", yearView.monthCardAt(m));
+        }
+        assertNotNull("当前月蓝描边", yearView.monthCardAt(11).getBackground());
+        assertNull("其它月不画底", yearView.monthCardAt(10).getBackground());
+        LinearLayout layer = (LinearLayout) ((ViewGroup) yearView.getChildAt(0)).getChildAt(0);
+        assertEquals("一年 6 行", 6, layer.getChildCount());
         for (int r = 0; r < 6; r++) {
             assertEquals("每行两个月卡片", 2,
-                    ((ViewGroup) rows.getChildAt(r)).getChildCount());
+                    ((ViewGroup) layer.getChildAt(r)).getChildCount());
         }
     }
 

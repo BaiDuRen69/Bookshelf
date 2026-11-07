@@ -103,6 +103,8 @@ public final class DayCellView extends View {
     private int lunarColor;
     private float lunarTextSize;
     private float shadowOffset;
+    /** 视图切换动画期间暂停打卡点入场，避免两个属性动画抢同一帧 */
+    private boolean dotSuspended;
     /** 打卡点入场进度：1 = 已落定；<1 时点半径按 0.6→1 放大、透明度 0→255 */
     private float dotProgress = 1f;
     @Nullable
@@ -240,8 +242,23 @@ public final class DayCellView extends View {
         invalidate();
     }
 
+    /** 视图切换动画期间挂起 120ms 的打卡点入场，动画结束再恢复 */
+    public void setDotAnimationSuspended(boolean suspended) {
+        dotSuspended = suspended;
+        if (dotAnim != null) {
+            dotAnim.cancel();
+            dotAnim = null;
+        }
+        dotProgress = 1f;
+        invalidate();
+    }
+
     /** 打卡点入场：120ms 内半径 0.6→1、透明度 0→255，只改一个 progress 字段，不新建 View */
     private void startDotEntrance() {
+        if (dotSuspended) {
+            dotProgress = 1f;
+            return;
+        }
         if (dotAnim != null) {
             dotAnim.cancel();
         }

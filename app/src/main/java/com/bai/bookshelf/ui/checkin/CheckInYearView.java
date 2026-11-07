@@ -8,6 +8,7 @@ import android.view.GestureDetector;
 import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.animation.DecelerateInterpolator;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -15,11 +16,6 @@ import android.widget.TextView;
 
 import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
-import androidx.interpolator.view.animation.FastOutSlowInInterpolator;
-import androidx.transition.Fade;
-import androidx.transition.Slide;
-import androidx.transition.TransitionManager;
-import androidx.transition.TransitionSet;
 
 import com.bai.bookshelf.R;
 import com.bai.bookshelf.data.entity.CheckIn;
@@ -56,7 +52,6 @@ public class CheckInYearView extends ScrollView {
 
     private static final float SWIPE_DISTANCE_DP = 60f;
     private static final float MIN_FLING_VELOCITY = 200f;
-    private static final long YEAR_SWITCH_MS = 260;
 
     private final FrameLayout switcher;
     private final LinearLayout[] layers = new LinearLayout[2];
@@ -74,6 +69,8 @@ public class CheckInYearView extends ScrollView {
     private List<CheckIn> all = Collections.emptyList();
     @Nullable
     private Listener listener;
+    @Nullable
+    private CheckInViewSwitcher yearSwitcher;
     private boolean horizontal;
 
     public CheckInYearView(Context ctx) {
@@ -175,6 +172,11 @@ public class CheckInYearView extends ScrollView {
         this.listener = l;
     }
 
+    /** 切年动画由 CheckInViewSwitcher 用 TransitionManager 统一编排 */
+    public void setYearSwitcher(@Nullable CheckInViewSwitcher switcher) {
+        this.yearSwitcher = switcher;
+    }
+
     public int getYear() {
         return year;
     }
@@ -229,33 +231,35 @@ public class CheckInYearView extends ScrollView {
         }
         final int nextYear = CheckInYearGrid.shiftYear(year, delta, minYear, maxYear);
         final int nextLayer = 1 - activeLayer;
-        // 隐藏层先填好新一年的数据，再交给 TransitionManager 切可见性
+        // 隐藏层先填好新一年的数据，再交给 ViewSwitcher 做水平位移 + 淡入淡出
         renderLayer(nextLayer, nextYear);
-        TransitionSet set = new TransitionSet();
-        set.addTransition(new Fade());
-        Slide out = new Slide(delta < 0 ? Gravity.END : Gravity.START);
-        out.addTarget(layers[activeLayer]);
-        Slide in = new Slide(delta < 0 ? Gravity.START : Gravity.END);
-        in.addTarget(layers[nextLayer]);
-        set.addTransition(out).addTransition(in);
-        set.setDuration(YEAR_SWITCH_MS);
-        set.setInterpolator(new FastOutSlowInInterpolator());
-        TransitionManager.beginDelayedTransition(switcher, set);
-        layers[activeLayer].setVisibility(View.GONE);
-        layers[nextLayer].setVisibility(View.VISIBLE);
+        final View oldLayer = layers[activeLayer];
+        final View newLayer = layers[nextLayer];
         activeLayer = nextLayer;
         year = nextYear;
         scrollTo(0, 0);
-        if (listener != null) {
-            listener.onYearChanged(year);
+        if (yearSwitcher != null) {
+            yearSwitcher.switchYear(delta, oldLayer, newLayer,
+                    () -> {
+                        if (listener != null) {
+                            listener.onYearChanged(year);
+                        }
+                    });
+        } else {
+            oldLayer.setVisibility(View.GONE);
+            newLayer.setVisibility(View.VISIBLE);
+            if (listener != null) {
+                listener.onYearChanged(year);
+            }
         }
     }
 
-    /** 越界时不换年，做一次 24dp 回弹 */
+    /** 越界时不换年，做一次 24dp 回弹（Decelerate） */
     private void rubberBand(int delta) {
         float distance = dp(CheckInYearGrid.RUBBER_BAND_DP) * (delta < 0 ? -1f : 1f);
         ValueAnimator anim = ValueAnimator.ofFloat(0f, distance, 0f);
         anim.setDuration(220);
+        anim.setInterpolator(new DecelerateInterpolator());
         anim.addUpdateListener(a -> switcher.setTranslationX((float) a.getAnimatedValue()));
         anim.start();
     }
