@@ -1074,4 +1074,52 @@ public class LibraryStatsTest {
         StatsPace.Pace without = StatsPace.pace(books, null, h, 0, null);
         assertEquals(2, without.daySample);
     }
+
+    /** v5.9.1 第六步验收：同一段 42 天借出 5 天，模糊 42−5=37，精确只数日集合 5 */
+    @Test
+    public void 模糊扣外借与精确点数在同一段区间上各算各的() {
+        Book fuzzy = book(90, "模糊 42 天");
+        fuzzy.readStatus = Book.READ_DONE;
+        fuzzy.pages = 400;
+        fuzzy.readingStartDate = "2026-10-01";
+        fuzzy.readingFinishDate = "2026-11-11";
+
+        Book precise = book(91, "精确 5 天");
+        precise.readStatus = Book.READ_DONE;
+        precise.pages = 400;
+        precise.readingStartDate = "2026-10-01";
+        precise.readingFinishDate = "2026-11-11";
+        ReadingRecords.Record pr = new ReadingRecords.Record(1);
+        pr.status = Book.READ_DONE;
+        pr.mode = ReadingRecords.MODE_PRECISE;
+        pr.startDate = "2026-10-01";
+        pr.endDate = "2026-11-11";
+        precise.readingRecords = ReadingRecords.toJson(
+                java.util.Collections.singletonList(pr));
+
+        java.util.Map<Long, java.util.List<int[]>> spans = new java.util.HashMap<>();
+        spans.put(90L, java.util.Collections.singletonList(
+                new int[]{20261010, 20261014})); // 借出 5 天（含首尾）
+        java.util.Map<Long, java.util.Map<Integer, java.util.List<Integer>>> byBook =
+                new java.util.HashMap<>();
+        java.util.Map<Integer, java.util.List<Integer>> seqDays = new java.util.HashMap<>();
+        seqDays.put(1, Arrays.asList(20261001, 20261005, 20261020, 20261031, 20261111));
+        byBook.put(91L, seqDays);
+
+        List<Book> books = Arrays.asList(fuzzy, precise);
+        StatsHoldings.Holdings h = StatsHoldings.holdings(books, null);
+        StatsPace.Pace p = StatsPace.pace(books, null, h, 0, spans, byBook);
+        assertEquals("模糊 42−5=37、精确 5，两本都进样本", 2, p.daySample);
+        assertEquals((37.0 + 5.0) / 2, p.medianDays, 1e-9);
+        assertEquals(1, p.fuzzySample);
+        assertEquals(1, p.preciseSample);
+        assertEquals("精确轮不扣外借：没记的日子本来就不算",
+                5, ReadingRecords.readDays(
+                        ReadingRecords.lastOf(ReadingRecords.load(precise)),
+                        seqDays.get(1), spans.get(91L)));
+        assertEquals("模糊轮=区间含首尾扣外借",
+                37, ReadingRecords.readDays(
+                        ReadingRecords.lastOf(ReadingRecords.load(fuzzy)),
+                        null, spans.get(90L)));
+    }
 }
