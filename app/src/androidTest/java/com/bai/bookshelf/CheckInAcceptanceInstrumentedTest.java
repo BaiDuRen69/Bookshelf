@@ -2,6 +2,7 @@ package com.bai.bookshelf;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import android.net.Uri;
@@ -85,6 +86,26 @@ public class CheckInAcceptanceInstrumentedTest {
         Log.i(TAG, "验收后删除测试书目：" + removed);
     }
 
+    /** devtest 库被多个测试类共用，断言只看本用例造的这本书 */
+    private static int countForBook(List<CheckIn> rows, long bookId) {
+        int n = 0;
+        for (CheckIn c : rows) {
+            if (c.bookId == bookId) {
+                n++;
+            }
+        }
+        return n;
+    }
+
+    private static CheckIn findForBook(List<CheckIn> rows, long bookId) {
+        for (CheckIn c : rows) {
+            if (c.bookId == bookId) {
+                return c;
+            }
+        }
+        return null;
+    }
+
     @Test
     public void 打卡闭环_今天打卡撤销补卡与拒绝() {
         int today = DateKeys.todayKey();
@@ -93,20 +114,21 @@ public class CheckInAcceptanceInstrumentedTest {
         Book a = app().db().bookDao().getById(idA);
         String finishBefore = a.readingFinishDate;
 
-        // 今天打卡
+        // 今天打卡（只数本用例造的这本书，避免被其它测试类的遗留数据污染）
         assertEquals(CheckInStore.Result.ADDED,
                 CheckInStore.toggle(app().db(), a, today, true));
-        assertEquals(1, app().db().checkInDao().getByDay(today).size());
+        assertEquals(1, countForBook(app().db().checkInDao().getByDay(today), idA));
         // 第二次点即撤销（幂等）
         assertEquals(CheckInStore.Result.REMOVED,
                 CheckInStore.toggle(app().db(), a, today, true));
-        assertEquals(0, app().db().checkInDao().getByDay(today).size());
+        assertEquals(0, countForBook(app().db().checkInDao().getByDay(today), idA));
 
-        // 补卡到 10 天前 → backfill=true
+        // 补卡到 3 天前 → backfill=true
         int past = DateKeys.shiftDayKey(today, -3);
         assertEquals(CheckInStore.Result.ADDED,
                 CheckInStore.toggle(app().db(), a, past, true));
-        CheckIn c = app().db().checkInDao().getByDay(past).get(0);
+        CheckIn c = findForBook(app().db().checkInDao().getByDay(past), idA);
+        assertNotNull("补卡记录要写库", c);
         assertTrue("补卡标记", c.backfill);
         String summary = CheckInUiState.summaryLine(today / 100,
                 new int[]{1, 1, 1}, new int[]{1, past});
@@ -135,7 +157,8 @@ public class CheckInAcceptanceInstrumentedTest {
         for (int d : new int[]{-2, -1, 0}) {
             CheckInStore.toggle(app().db(), b, DateKeys.shiftDayKey(today, d), true);
         }
-        List<CheckIn> all = app().db().checkInDao().getAll();
+        // 只看本用例造的这本书：共享库里可能有其它测试类留下的历史打卡
+        List<CheckIn> all = app().db().checkInDao().getByBook(id);
         int[] streak = CheckInStore.streakDays(all, today);
         assertEquals("连续 3 天", 3, streak[0]);
         assertFalse("今天已打卡，不应待打卡", CheckInStore.pendingToday(all, today));

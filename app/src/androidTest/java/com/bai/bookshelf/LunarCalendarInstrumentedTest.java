@@ -49,18 +49,21 @@ public class LunarCalendarInstrumentedTest {
     public void 一年之内能找到闰月与腊月三十() {
         boolean leapFound = false;
         boolean lastDayFound = false;
-        for (int m = 1; m <= 12 && (!leapFound || !lastDayFound); m++) {
-            int days = DateKeys.daysInMonth(2025, m);
-            for (int d = 1; d <= days; d++) {
-                int[] v = provider.lunar(2025 * 10000 + m * 100 + d);
-                if (v == null) {
-                    continue;
-                }
-                if (v.length > 2 && v[2] == 1) {
-                    leapFound = true;
-                }
-                if (v[0] == 12 && v[1] == 30) {
-                    lastDayFound = true;
+        // 跨四年找齐闰月与腊月三十：农历腊月有大小月之分，单一年份不一定有三十
+        for (int y = 2024; y <= 2027 && (!leapFound || !lastDayFound); y++) {
+            for (int m = 1; m <= 12 && (!leapFound || !lastDayFound); m++) {
+                int days = DateKeys.daysInMonth(y, m);
+                for (int d = 1; d <= days && (!leapFound || !lastDayFound); d++) {
+                    int[] v = provider.lunar(y * 10000 + m * 100 + d);
+                    if (v == null) {
+                        continue;
+                    }
+                    if (v.length > 2 && v[2] == 1) {
+                        leapFound = true;
+                    }
+                    if (v[0] == 12 && v[1] == 30) {
+                        lastDayFound = true;
+                    }
                 }
             }
         }
