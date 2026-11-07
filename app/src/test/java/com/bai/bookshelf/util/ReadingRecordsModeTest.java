@@ -90,4 +90,43 @@ public class ReadingRecordsModeTest {
         assertTrue(keys.contains(DateKeys.parseKey(r.startDate)));
         assertTrue(keys.contains(DateKeys.parseKey(r.endDate)));
     }
+
+    /** 同一起止：模糊按区间 42 天，精确只数记过的 5 天 */
+    @Test
+    public void 同一起止两种模式天数不同() {
+        ReadingRecords.Record r = new ReadingRecords.Record(1);
+        r.status = Book.READ_DONE;
+        r.startDate = "2026-05-01";
+        r.endDate = "2026-06-11"; // 含首尾 42 天
+        List<Integer> keys = Arrays.asList(20260501, 20260503, 20260510, 20260601, 20260611);
+        assertEquals(42, ReadingRecords.readDays(r, keys, null));
+        r.mode = ReadingRecords.MODE_PRECISE;
+        assertEquals(5, ReadingRecords.readDays(r, keys, null));
+    }
+
+    @Test
+    public void 外借扣减只在模糊轨生效() {
+        ReadingRecords.Record r = new ReadingRecords.Record(1);
+        r.status = Book.READ_DONE;
+        r.startDate = "2026-05-01";
+        r.endDate = "2026-05-10"; // 10 天
+        List<int[]> spans = Collections.singletonList(new int[]{20260503, 20260505});
+        assertEquals(7, ReadingRecords.readDays(r, null, spans));
+        r.mode = ReadingRecords.MODE_PRECISE;
+        List<Integer> keys = Arrays.asList(20260501, 20260503, 20260505, 20260510);
+        assertEquals("精确轨不扣外借：记了就是读了", 4,
+                ReadingRecords.readDays(r, keys, spans));
+    }
+
+    @Test
+    public void 口径与天数文案统一出口() {
+        ReadingRecords.Record fuzzy = new ReadingRecords.Record(1);
+        ReadingRecords.Record precise = new ReadingRecords.Record(2);
+        precise.mode = ReadingRecords.MODE_PRECISE;
+        assertEquals("模糊", ReadingRecords.modeLabel(fuzzy));
+        assertEquals("精确", ReadingRecords.modeLabel(precise));
+        assertEquals("模糊", ReadingRecords.modeLabel(null));
+        assertEquals("区间 42 天", ReadingRecords.daysLabel(42, false));
+        assertEquals("已记 23 天", ReadingRecords.daysLabel(23, true));
+    }
 }

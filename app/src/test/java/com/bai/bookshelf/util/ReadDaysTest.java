@@ -37,12 +37,12 @@ public class ReadDaysTest {
     public void 模糊轨与旧区间口径逐字相同() {
         ReadingRecords.Record r = fuzzy();
         assertEquals(ReadingRecords.MODE_FUZZY, r.mode);
-        assertEquals(10, ReadDays.of(r, null, null));
-        assertEquals(ReadingRecords.days(r), ReadDays.of(r, null, null));
+        assertEquals(10, ReadingRecords.readDays(r, null, null));
+        assertEquals(ReadingRecords.days(r), ReadingRecords.readDays(r, null, null));
 
         List<int[]> spans = Collections.singletonList(new int[]{20261103, 20261105});
-        assertEquals("借出去那三天要照旧扣掉", 7, ReadDays.of(r, null, spans));
-        assertEquals(ReadingRecords.days(r, spans), ReadDays.of(r, null, spans));
+        assertEquals("借出去那三天要照旧扣掉", 7, ReadingRecords.readDays(r, null, spans));
+        assertEquals(ReadingRecords.days(r, spans), ReadingRecords.readDays(r, null, spans));
     }
 
     @Test
@@ -51,17 +51,17 @@ public class ReadDaysTest {
         r.status = Book.READING;
         r.startDate = DateKeys.formatKey(DateKeys.todayKey());
         r.endDate = "";
-        assertEquals("今天开始、还没结束 = 1 天", 1, ReadDays.of(r, null, null));
+        assertEquals("今天开始、还没结束 = 1 天", 1, ReadingRecords.readDays(r, null, null));
     }
 
     @Test
     public void 精确轨只数日集合不看外借区间() {
         ReadingRecords.Record r = precise();
         List<Integer> keys = Arrays.asList(20261101, 20261103, 20261105, 20261108, 20261110);
-        assertEquals(5, ReadDays.of(r, keys, null));
+        assertEquals(5, ReadingRecords.readDays(r, keys, null));
         List<int[]> spans = Collections.singletonList(new int[]{20261101, 20261110});
         assertEquals("日集合本身就是事实：打过卡的那天就是读了，不再扣区间",
-                5, ReadDays.of(r, keys, spans));
+                5, ReadingRecords.readDays(r, keys, spans));
     }
 
     @Test
@@ -70,7 +70,7 @@ public class ReadDaysTest {
         assertEquals(0, ReadDays.precise(new ArrayList<>()));
         assertEquals(0, ReadDays.precise(null));
         // 空集合不偷偷退回区间口径：那样会把「没记日子」显示成「记满了十天」
-        assertEquals(0, ReadDays.of(precise(), Collections.emptyList(), null));
+        assertEquals(0, ReadingRecords.readDays(precise(), Collections.emptyList(), null));
     }
 
     @Test
@@ -94,7 +94,7 @@ public class ReadDaysTest {
         assertFalse(ReadDays.isPrecise(null));
         assertFalse(ReadDays.isPrecise(fuzzy()));
         assertTrue(ReadDays.isPrecise(precise()));
-        assertEquals("记录为空时天数按 0，不抛", 0, ReadDays.of(null, null, null));
+        assertEquals("记录为空时天数按 0，不抛", 0, ReadingRecords.readDays(null, null, null));
     }
 
     @Test

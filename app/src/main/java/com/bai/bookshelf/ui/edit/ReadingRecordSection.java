@@ -188,7 +188,7 @@ public class ReadingRecordSection {
                 temp.startDate = text(db.etRecStart);
                 temp.endDate = text(db.etRecEnd);
             }
-            int days = com.bai.bookshelf.util.ReadDays.of(temp, keys, null);
+            int days = ReadingRecords.readDays(temp, keys, null);
             db.tvRecDays.setText("阅读天数：" + (days > 0 ? days + " 天" : "—"));
             db.tvRecPicked.setText("已选 " + com.bai.bookshelf.util.ReadDays.precise(keys) + " 天");
         };

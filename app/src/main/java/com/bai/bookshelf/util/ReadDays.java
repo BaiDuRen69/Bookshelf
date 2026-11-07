@@ -47,19 +47,6 @@ public final class ReadDays {
     }
 
     /**
-     * 双轨入口：精确轮按日集合数，模糊轮走原来的区间口径（含外借扣减）。
-     *
-     * @param dayKeys 这一场的日集合；模糊轮传什么都无所谓，但精确轮传 null 会被当成「还没记日子」
-     * @param spans   外借区间，只作用于模糊轨；null / 空 = 不扣减
-     */
-    public static int of(ReadingRecords.Record r, Collection<Integer> dayKeys, List<int[]> spans) {
-        if (r == null) {
-            return 0;
-        }
-        return isPrecise(r) ? precise(dayKeys) : ReadingRecords.days(r, spans);
-    }
-
-    /**
      * 某一轮的日集合（去重 + 升序）：从 check_ins 行里挑出属于这个 seq 的日子。
      *
      * <p>只按 seq 过滤，不按 bookId——传进来的行必须已经是同一本书

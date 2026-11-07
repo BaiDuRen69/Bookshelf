@@ -76,12 +76,17 @@ public class CheckInStoreTest {
 
         @Override
         public boolean exists(long bookId, int dayKey) {
+            return seqOf(bookId, dayKey) != 0;
+        }
+
+        @Override
+        public int seqOf(long bookId, int dayKey) {
             for (CheckIn c : rows) {
                 if (c.bookId == bookId && c.dayKey == dayKey) {
-                    return true;
+                    return c.seq;
                 }
             }
-            return false;
+            return 0;
         }
     }
 
@@ -237,6 +242,11 @@ public class CheckInStoreTest {
             public boolean exists(long bookId, int dayKey) {
                 return false;
             }
+
+            @Override
+            public int seqOf(long bookId, int dayKey) {
+                return 0;
+            }
         };
         assertEquals(CheckInStore.Result.ADDED,
                 CheckInStore.toggle(racy, reading(1, "2026-11-01"), TODAY, true, TODAY));
@@ -356,5 +366,77 @@ public class CheckInStoreTest {
         b.readStatus = Book.READ_NONE;
         assertEquals(1, CheckInStore.currentSeq(b));
         assertEquals(1, CheckInStore.currentSeq(null));
+    }
+
+    /** 精确轮在读 + 指定拥有日/录入日的小书 */
+    private static Book preciseReading(String purchaseDate, long createdAt) {
+        Book b = new Book();
+        b.id = 7;
+        b.readStatus = Book.READING;
+        b.purchaseDate = purchaseDate;
+        b.createdAt = createdAt;
+        ReadingRecords.Record r = new ReadingRecords.Record(1);
+        r.status = Book.READING;
+        r.mode = ReadingRecords.MODE_PRECISE;
+        r.startDate = "2026-11-01";
+        b.readingRecords = ReadingRecords.toJson(Collections.singletonList(r));
+        return b;
+    }
+
+    /** 与现状的行为差异，必须钉住：精确轮补历史可以早于会话起始日 */
+    @Test
+    public void 精确轮允许补早于会话起始日的历史() {
+        MemSink sink = new MemSink();
+        Book b = preciseReading("2026-10-01", 0);
+        assertEquals("会话 11-01 才开始，但 10-15 拥有之后就能补",
+                CheckInStore.Result.ADDED, toggle(sink, b, 20261015, true));
+        assertEquals("拥有日之前还是不行", CheckInStore.Result.REJECTED_BEFORE_START,
+                toggle(sink, b, 20260930, true));
+    }
+
+    @Test
+    public void 精确轮没有拥有日就退到录入当天再退到无下界() {
+        java.util.Calendar c = java.util.Calendar.getInstance();
+        c.clear();
+        c.set(2026, 9, 20, 12, 0, 0); // 中午，避开时区零点边界
+        MemSink sink = new MemSink();
+        Book created = preciseReading("", c.getTimeInMillis());
+        assertEquals(CheckInStore.Result.REJECTED_BEFORE_START,
+                toggle(sink, created, 20261019, true));
+        assertEquals(CheckInStore.Result.ADDED, toggle(sink, created, 20261020, true));
+
+        MemSink sink2 = new MemSink();
+        Book none = preciseReading("", 0);
+        assertEquals("拥有日与录入日都没有就不设下界",
+                CheckInStore.Result.ADDED, toggle(sink2, none, 20260101, true));
+    }
+
+    @Test
+    public void 模糊轮下界仍是会话起始日() {
+        MemSink sink = new MemSink();
+        Book b = readingWithJson(7, "2026-11-01");
+        assertEquals("模糊轮不许补到会话开始之前",
+                CheckInStore.Result.REJECTED_BEFORE_START, toggle(sink, b, 20261015, true));
+    }
+
+    @Test
+    public void 日记在别轮时拒绝而不是抢过来() {
+        MemSink sink = new MemSink();
+        Book b = preciseReading("2026-10-01", 0);
+        CheckIn other = ci(7, 20261015, false);
+        other.seq = 2; // 同一天记在第 2 轮
+        sink.rows.add(other);
+        assertEquals(CheckInStore.Result.REJECTED_OTHER_SEQ, toggle(sink, b, 20261015, true));
+        assertEquals("别轮的行不能被删掉", 1, sink.rows.size());
+        assertEquals(2, sink.rows.get(0).seq);
+    }
+
+    @Test
+    public void 本轮已记的日子再点是撤销() {
+        MemSink sink = new MemSink();
+        Book b = preciseReading("2026-10-01", 0);
+        assertEquals(CheckInStore.Result.ADDED, toggle(sink, b, 20261015, true));
+        assertEquals(CheckInStore.Result.REMOVED, toggle(sink, b, 20261015, true));
+        assertTrue(sink.rows.isEmpty());
     }
 }

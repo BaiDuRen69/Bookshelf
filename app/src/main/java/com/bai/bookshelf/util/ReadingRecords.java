@@ -443,6 +443,35 @@ public final class ReadingRecords {
         r.endDate = r.status == Book.READ_DONE ? DateKeys.formatKey(max) : "";
     }
 
+    /**
+     * 阅读天数的唯一入口（v5.9.1 修订第二步）：双轨在这里分叉，别处不再自己判模式。
+     *
+     * <p>精确 = 日集合里不同日子的个数（离散日，**不**扣外借：打过卡的那天就是读了）；
+     * 模糊 = 原来的 {@link #days(Record, List)}（含首尾、扣外借），一个字没改。
+     *
+     * @param preciseDayKeys 精确轮的日集合；模糊轮传什么都无所谓
+     * @param lendSpans      外借区间，只作用于模糊轨；null / 空 = 不扣
+     */
+    public static int readDays(Record r, List<Integer> preciseDayKeys, List<int[]> lendSpans) {
+        if (r == null) {
+            return 0;
+        }
+        if (r.mode == MODE_PRECISE) {
+            return ReadDays.precise(preciseDayKeys);
+        }
+        return days(r, lendSpans);
+    }
+
+    /** 口径徽标：「模糊」/「精确」，UI 与导出共用，避免各处自己拼 */
+    public static String modeLabel(Record r) {
+        return r != null && r.mode == MODE_PRECISE ? "精确" : "模糊";
+    }
+
+    /** 天数文案：模糊按区间算、精确按实际记的日子算，量词分开才不会被读成同一回事 */
+    public static String daysLabel(int days, boolean precise) {
+        return (precise ? "已记 " : "区间 ") + days + " 天";
+    }
+
     /** 根据日期推断状态：有始有终=已读，只有开始=在读，都没有=未读 */
     public static int suggestedStatus(String startDate, String endDate) {
         boolean start = DateKeys.parseKey(startDate) > 0;

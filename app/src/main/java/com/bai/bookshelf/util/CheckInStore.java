@@ -27,7 +27,9 @@ public final class CheckInStore {
         REJECTED_BEFORE_START,
         REJECTED_NOT_READING,
         /** 调用方禁止补卡时，点过去某日 */
-        REJECTED_BACKFILL
+        REJECTED_BACKFILL,
+        /** 该日已记在同一本书的另一轮：不能直接抢过来，UI 给「移到本轮」 */
+        REJECTED_OTHER_SEQ
     }
 
     /**
@@ -42,6 +44,9 @@ public final class CheckInStore {
         void delete(long bookId, int dayKey);
 
         boolean exists(long bookId, int dayKey);
+
+        /** 该日当前记在哪一轮；0 = 没记过。跨轮判定靠它，不能只看 exists */
+        int seqOf(long bookId, int dayKey);
     }
 
     private CheckInStore() {
@@ -53,33 +58,153 @@ public final class CheckInStore {
     public static Result toggle(AppDatabase db, Book book, int dayKey, boolean allowBackfill) {
         Result result = toggle(new RoomSink(db), book, dayKey, allowBackfill, DateKeys.todayKey());
         if (result == Result.ADDED || result == Result.REMOVED) {
-            syncPreciseRound(db, book);
+            resyncPreciseRounds(db, book);
         }
         return result;
     }
 
     /**
-     * 精确轮的日集合变了（打卡/撤销/选择器确定）之后，统一在这里重算派生起止并回写书籍。
+     * 日集合变了（打卡/撤销/选择器确定/跨轮移动）之后，统一在这里重算派生起止并回写书籍。
      *
-     * <p>只碰「进行中且精确」的那一场：模糊轮一个字不改（历史零改写），
-     * 已读/弃读轮也不动（它们的起止是历史事实）。日集合为空时 deriveRange 不写，
-     * 开始日保留新会话落下的今天锚点。
+     * <p>只碰精确轮：模糊轮一个字不改（历史零改写）。精确轮的起止本来就是派生值，
+     * 所以每一场都按它自己那轮的日集合重算；日集合没变的轮次算出来还是原值，幂等。
+     * 日集合为空时 deriveRange 不写，开始日保留新会话落下的今天锚点。
      */
-    static void syncPreciseRound(AppDatabase db, Book book) {
+    static void resyncPreciseRounds(AppDatabase db, Book book) {
         if (db == null || book == null) {
             return;
         }
         List<ReadingRecords.Record> records = ReadingRecords.load(book);
-        ReadingRecords.Record ongoing = ReadingRecords.ongoingReading(records);
-        if (ongoing == null || ongoing.mode != ReadingRecords.MODE_PRECISE) {
+        boolean touched = false;
+        for (ReadingRecords.Record r : records) {
+            if (r.mode != ReadingRecords.MODE_PRECISE) {
+                continue;
+            }
+            ReadingRecords.deriveRange(r, db.checkInDao().getDayKeys(book.id, r.seq));
+            touched = true;
+        }
+        if (!touched) {
             return;
         }
-        List<Integer> keys = db.checkInDao().getDayKeys(book.id, ongoing.seq);
-        ReadingRecords.deriveRange(ongoing, keys);
         ReadingRecords.syncTo(book, records);
         book.updatedAt = System.currentTimeMillis();
         book.dirty = true;
         db.bookDao().update(book);
+    }
+
+    /** 把若干天从它们现在的轮次挪到 toSeq（「移到本轮」动作）；返回真的挪了几条 */
+    public static int moveToSeq(AppDatabase db, long bookId, List<Integer> dayKeys, int toSeq) {
+        if (db == null || dayKeys == null || dayKeys.isEmpty()) {
+            return 0;
+        }
+        List<Integer> movable = new ArrayList<>();
+        for (Integer key : dayKeys) {
+            if (key == null || key <= 0) {
+                continue;
+            }
+            int owned = seqOf(db, bookId, key);
+            if (owned != 0 && owned != toSeq) {
+                movable.add(key);
+            }
+        }
+        if (movable.isEmpty()) {
+            return 0;
+        }
+        db.checkInDao().updateSeq(bookId, movable, toSeq);
+        Book book = db.bookDao().getById(bookId);
+        if (book != null) {
+            resyncPreciseRounds(db, book);
+        }
+        return movable.size();
+    }
+
+    /** applyDayKeys 的结果计数：让 UI 能说清「加了几天、删了几天、几天没进去、为什么」 */
+    public static final class BatchResult {
+        public int added;
+        public int removed;
+        public int rejectedFuture;
+        public int rejectedOtherSeq;
+
+        public boolean changed() {
+            return added > 0 || removed > 0;
+        }
+
+        public boolean rejected() {
+            return rejectedFuture > 0 || rejectedOtherSeq > 0;
+        }
+    }
+
+    /**
+     * 把某一轮的日集合对齐到 targetKeys：差集最小改动——只插新增、只删移除，
+     * 已存在且仍需要的行一个字不动（createdAt / backfill 都保留）。
+     *
+     * <p>新增里超过今天的记 rejectedFuture、已记在别轮的记 rejectedOtherSeq，都不写库；
+     * 结束后统一 deriveRange + syncTo，调用方不许自己写起止。
+     */
+    public static BatchResult applyDayKeys(AppDatabase db, Book book, int seq,
+                                           List<Integer> targetKeys, int todayKey) {
+        BatchResult out = new BatchResult();
+        if (db == null || book == null) {
+            return out;
+        }
+        Set<Integer> target = new HashSet<>();
+        if (targetKeys != null) {
+            for (Integer key : targetKeys) {
+                if (key != null && key > 0) {
+                    target.add(key);
+                }
+            }
+        }
+        Set<Integer> current = new HashSet<>(db.checkInDao().getDayKeys(book.id, seq));
+        long now = System.currentTimeMillis();
+        for (int key : current) {
+            if (!target.contains(key)) {
+                CheckIn pk = new CheckIn();
+                pk.bookId = book.id;
+                pk.dayKey = key;
+                db.checkInDao().delete(pk);
+                out.removed++;
+            }
+        }
+        List<Integer> addedKeys = new ArrayList<>(target);
+        java.util.Collections.sort(addedKeys);
+        for (int key : addedKeys) {
+            if (current.contains(key)) {
+                continue;
+            }
+            if (key > todayKey) {
+                out.rejectedFuture++;
+                continue;
+            }
+            int owned = seqOf(db, book.id, key);
+            if (owned != 0 && owned != seq) {
+                out.rejectedOtherSeq++;
+                continue;
+            }
+            CheckIn c = new CheckIn();
+            c.bookId = book.id;
+            c.dayKey = key;
+            c.createdAt = now;
+            c.backfill = isBackfill(key, todayKey);
+            c.seq = seq;
+            if (db.checkInDao().insert(c) != -1) {
+                out.added++;
+            }
+        }
+        if (out.changed()) {
+            resyncPreciseRounds(db, book);
+        }
+        return out;
+    }
+
+    /** 该日现在记在哪一轮；0 = 没记过 */
+    private static int seqOf(AppDatabase db, long bookId, int dayKey) {
+        for (CheckIn c : db.checkInDao().getByDay(dayKey)) {
+            if (c.bookId == bookId) {
+                return c.seq;
+            }
+        }
+        return 0;
     }
 
     /** 当前进行中会话的轮次；没有在 reading 的就归到第一轮（与历史行默认值一致） */
@@ -93,11 +218,16 @@ public final class CheckInStore {
         if (book == null || sink == null) {
             return Result.REJECTED_NOT_READING;
         }
+        int seq = currentSeq(book);
         // 撤销只是删一条打卡记录，不改阅读状态；书已读完、日期已过期也允许撤，
-        // 所以先于范围检查处理。
-        if (sink.exists(book.id, dayKey)) {
+        // 所以先于范围检查处理。但只能撤本轮的：别轮的日子要「移到本轮」而不是抢。
+        int owned = sink.seqOf(book.id, dayKey);
+        if (owned == seq) {
             sink.delete(book.id, dayKey);
             return Result.REMOVED;
+        }
+        if (owned != 0) {
+            return Result.REJECTED_OTHER_SEQ;
         }
         Result reason = rejectReason(book, dayKey, todayKey);
         if (reason != null) {
@@ -113,15 +243,18 @@ public final class CheckInStore {
         c.backfill = isBackfill(dayKey, todayKey);
         c.pages = 0; // 本期只存不用
         // 归到当前在读的那一轮；精确轮靠 (bookId, seq) 取日集合，归错轮天数就错了
-        c.seq = currentSeq(book);
+        c.seq = seq;
         // 并发下若已被别人写入，IGNORE 返回 false；按幂等视作已打卡
         sink.insert(c);
         return Result.ADDED;
     }
 
     /**
-     * 能不能在这一天打卡：不晚于今天、书处于在读、不早于当前阅读会话起始日。
-     * 起始日解析不到时退化为「不晚于今天即可」。
+     * 能不能在这一天打卡：不晚于今天、书处于在读、不早于下界。
+     *
+     * <p>下界分模式（v5.9.1 修订）：模糊轮沿用会话起始日；精确轮的意义就是补历史，
+     * 卡在会话起始日毫无用处，所以下界退到「这本书什么时候拥有的」——
+     * 拥有日 → 录入当天 → 都没有就不设下界。上界始终是今天。
      */
     public static boolean canCheckIn(Book book, int dayKey, int todayKey) {
         return rejectReason(book, dayKey, todayKey) == null;
@@ -137,11 +270,29 @@ public final class CheckInStore {
         if (book.readStatus != Book.READING) {
             return Result.REJECTED_NOT_READING;
         }
-        int start = sessionStartKey(book);
+        ReadingRecords.Record ongoing =
+                ReadingRecords.ongoingReading(ReadingRecords.load(book));
+        boolean precise = ongoing != null && ongoing.mode == ReadingRecords.MODE_PRECISE;
+        int start = precise ? ownershipStartKey(book) : sessionStartKey(book);
         if (start > 0 && dayKey < start) {
             return Result.REJECTED_BEFORE_START;
         }
         return null;
+    }
+
+    /**
+     * 精确轮的下界：拥有日（purchaseDate，部分日期展开到区间起点）→ 录入当天 → 0（不设下界）。
+     * 书还没拥有就读不了，这条比会话起始日更讲得通。
+     */
+    private static int ownershipStartKey(Book book) {
+        int owned = DateKeys.parseStartKey(book.purchaseDate);
+        if (owned > 0) {
+            return owned;
+        }
+        if (book.createdAt > 0) {
+            return DateKeys.dayKey(book.createdAt);
+        }
+        return 0;
     }
 
     /**
@@ -285,12 +436,17 @@ public final class CheckInStore {
 
         @Override
         public boolean exists(long bookId, int dayKey) {
+            return seqOf(bookId, dayKey) != 0;
+        }
+
+        @Override
+        public int seqOf(long bookId, int dayKey) {
             for (CheckIn c : db.checkInDao().getByDay(dayKey)) {
                 if (c.bookId == bookId) {
-                    return true;
+                    return c.seq;
                 }
             }
-            return false;
+            return 0;
         }
     }
 }

@@ -145,6 +145,8 @@ public final class CheckInUiState {
                 return "只有「在读」的书能打卡";
             case REJECTED_BACKFILL:
                 return "这一天不能补卡";
+            case REJECTED_OTHER_SEQ:
+                return "这一天已记在另一轮阅读里，可移到本轮";
             default:
                 return "操作未完成";
         }
