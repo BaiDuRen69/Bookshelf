@@ -38,7 +38,7 @@
 
     <!-- ===== 打卡页专用（feature/clock-in）=====
          月视图格子、打卡点、切月位移、悬浮按钮：整页尺寸只改这里，不散着改代码。 -->
-    <dimen name="checkin_cell_h">48dp</dimen>       <!-- 原 44dp，抬到 48dp 呼吸与触控更稳 -->
+    <dimen name="checkin_cell_h">56dp</dimen>       <!-- 原 48dp：格内加一行农历小字，抬到 56dp 才不挤 -->
     <dimen name="checkin_week_w">28dp</dimen>
     <dimen name="checkin_dot_size">4dp</dimen>
     <dimen name="checkin_dot_size_multi">3dp</dimen>
@@ -61,6 +61,14 @@
     <dimen name="checkin_button_icon">18dp</dimen>
     <!-- 「已打卡」描边按钮的线宽，和卡片描边同为 1dp -->
     <dimen name="checkin_button_stroke">1dp</dimen>
+    <!-- 三态按钮统一宽度：wrap_content 会随「打卡 / 补卡 / 已打卡 ✓」与图标变化而跳 -->
+    <dimen name="checkin_button_w">96dp</dimen>
+    <!-- 格内农历小字（字体缩放 ≥1.3 时整行隐藏，避免裁字） -->
+    <dimen name="checkin_lunar_text">11sp</dimen>
+    <!-- 今天选中格的硬件阴影高度（ViewOutlineProvider + elevation，不用软件层阴影） -->
+    <dimen name="checkin_today_elevation">2dp</dimen>
+    <!-- 年视图切年时新旧页的水平位移量 -->
+    <dimen name="checkin_year_shift_dp">120dp</dimen>
 
     <!-- ===== 字阶（v4.24 收敛为 28 / 22 / 17 / 15 / 13 / 11 六档；v4.25 统计 hero 40） ===== -->
     <dimen name="text_micro">9sp</dimen>

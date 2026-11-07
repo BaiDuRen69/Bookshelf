@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 打卡页（一期第 ② 步骨架）：月份标题工具栏 → 月视图网格 → 在读书籍列表 → 悬浮「今」。
-     底部避让统一用 @dimen/dock_reserve，与书架 / 统计 / 我的三页一致。 -->
+<!-- 打卡页：Toolbar / 悬浮「今」常驻，view_switch_host 内月视图与年视图互切。
+     动画只作用于 host 内的两个 content：系统状态栏、MainActivity 的 dock 都不在动画树里。 -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
@@ -22,7 +22,6 @@
             android:foreground="?attr/selectableItemBackground"
             app:title="11月">
 
-            <!-- 右侧只留「年」：回到今天已经有悬浮「今」，文本按钮再放一个是三个入口打转 -->
             <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="match_parent"
@@ -46,77 +45,128 @@
             </LinearLayout>
         </com.google.android.material.appbar.MaterialToolbar>
 
-        <com.bai.bookshelf.ui.checkin.MonthGridView
-            android:id="@+id/month_grid"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginHorizontal="@dimen/page_padding"
-            android:layout_marginTop="@dimen/space_sm"
-            android:paddingHorizontal="@dimen/space_sm" />
-
-        <!-- 网格下方图例：圈/实心点/半实心点/方框各指什么，四项横排、项间 space_md -->
-        <LinearLayout
-            android:id="@+id/ll_checkin_legend"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginHorizontal="@dimen/page_padding"
-            android:layout_marginTop="@dimen/space_sm"
-            android:gravity="center"
-            android:orientation="horizontal" />
-
-        <!-- 图例下面一行小字：点的语义（精确轮只画真读过的日子） -->
-        <TextView
-            android:id="@+id/tv_legend_note"
-            style="@style/Text.Bookshelf.Overline"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginHorizontal="@dimen/page_padding"
-            android:layout_marginTop="@dimen/space_xs"
-            android:gravity="center"
-            android:visibility="gone"
-            tools:text="点 = 实际读过的日子" />
-
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:layout_marginHorizontal="@dimen/page_padding"
-            android:layout_marginTop="@dimen/space_md"
-            android:background="?attr/outline" />
-
-        <!-- 列表顶部固定小结：三单元「本月打卡 / 连续 / 补卡」，单元在代码里填；
-             contentDescription 用 summaryLine 整句，读屏念的和统计口径一致 -->
-        <LinearLayout
-            android:id="@+id/ll_checkin_summary"
-            style="@style/StatsSummaryRow"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginHorizontal="@dimen/page_padding" />
-
+        <!-- 视图切换的唯一动画容器：月/年两层重叠，切换只动这一块 -->
         <FrameLayout
+            android:id="@+id/view_switch_host"
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1">
 
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/rv_checkin"
+            <LinearLayout
+                android:id="@+id/month_content"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:clipToPadding="false"
-                android:paddingBottom="@dimen/dock_reserve" />
+                android:orientation="vertical">
 
-            <include
-                android:id="@+id/empty_state"
-                layout="@layout/view_empty_state"
+                <com.bai.bookshelf.ui.checkin.MonthGridView
+                    android:id="@+id/month_grid"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginHorizontal="@dimen/page_padding"
+                    android:layout_marginTop="@dimen/space_sm"
+                    android:paddingHorizontal="@dimen/space_sm" />
+
+                <LinearLayout
+                    android:id="@+id/ll_checkin_legend"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginHorizontal="@dimen/page_padding"
+                    android:layout_marginTop="@dimen/space_sm"
+                    android:gravity="center"
+                    android:orientation="horizontal" />
+
+                <TextView
+                    android:id="@+id/tv_legend_note"
+                    style="@style/Text.Bookshelf.Overline"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginHorizontal="@dimen/page_padding"
+                    android:layout_marginTop="@dimen/space_xs"
+                    android:gravity="center"
+                    android:visibility="gone"
+                    tools:text="点 = 实际读过的日子" />
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginHorizontal="@dimen/page_padding"
+                    android:layout_marginTop="@dimen/space_md"
+                    android:background="?attr/outline" />
+
+                <LinearLayout
+                    android:id="@+id/ll_checkin_summary"
+                    style="@style/StatsSummaryRow"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginHorizontal="@dimen/page_padding" />
+
+                <FrameLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="1">
+
+                    <androidx.recyclerview.widget.RecyclerView
+                        android:id="@+id/rv_checkin"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:clipToPadding="false"
+                        android:paddingBottom="@dimen/dock_reserve" />
+
+                    <include
+                        android:id="@+id/empty_state"
+                        layout="@layout/view_empty_state"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center"
+                        android:visibility="gone" />
+                </FrameLayout>
+            </LinearLayout>
+
+            <!-- 年视图：同页内切换，不再启动独立 Activity；初始隐藏 -->
+            <LinearLayout
+                android:id="@+id/year_content"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center"
-                android:visibility="gone" />
+                android:layout_height="match_parent"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <TextView
+                    android:id="@+id/tv_year_title"
+                    style="@style/Text.Bookshelf.Metric"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/space_md"
+                    android:gravity="center"
+                    android:textColor="?attr/on_surface" />
+
+                <LinearLayout
+                    android:id="@+id/ll_year_summary"
+                    style="@style/StatsSummaryRow"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="@dimen/space_sm"
+                    android:gravity="center" />
+
+                <com.bai.bookshelf.ui.checkin.CheckInYearView
+                    android:id="@+id/year_view"
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="1"
+                    android:clipToPadding="false"
+                    android:paddingHorizontal="@dimen/page_padding"
+                    android:paddingBottom="@dimen/dock_reserve" />
+
+                <LinearLayout
+                    android:id="@+id/ll_year_legend"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="@dimen/space_xl"
+                    android:gravity="center"
+                    android:orientation="horizontal" />
+            </LinearLayout>
         </FrameLayout>
     </LinearLayout>
 
-    <!-- fab_size 圆形，主色底 + colorOnPrimary 文字「今」，与 fab_scan 同级留白/高度。
-         下面这组 0dp 不是间距选择，是把 MaterialButton 自带的 inset 与 padding 清零，
-         否则 56dp 的圆会被吞掉 4dp 变成 48dp 的视觉尺寸。 -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/fab_today"
         android:layout_width="@dimen/fab_size"

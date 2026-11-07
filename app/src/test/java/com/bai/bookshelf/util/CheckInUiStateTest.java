@@ -37,13 +37,17 @@ public class CheckInUiStateTest {
 
     @Test
     public void 副标题追加记录口径且口径在借出人之前() {
-        assertEquals("读到 43% · 精确记录",
-                CheckInUiState.subtitle(43, "", "精确"));
-        assertEquals("读到 43% · 模糊记录 · 借给 张三",
-                CheckInUiState.subtitle(43, "张三", " 模糊 "));
-        assertEquals("在读 · 精确记录", CheckInUiState.subtitle(0, null, "精确"));
-        // 空口径不写：老调用方不该平白多一段
-        assertEquals("读到 43%", CheckInUiState.subtitle(43, "", ""));
+        // 用例保留，断言按新口径更新：打卡列表不再显示「精确/模糊记录」，改显示每本阅读天数
+        assertEquals("读到 43% · 已读 12 天",
+                CheckInUiState.subtitleDays(43, 12, ""));
+        assertEquals("读到 43% · 已读 5 天 · 借给 张三",
+                CheckInUiState.subtitleDays(43, 5, " 张三 "));
+        assertEquals("在读 · 已读 0 天", CheckInUiState.subtitleDays(0, -1, null));
+        assertFalse(CheckInUiState.subtitleDays(43, 12, "精确").contains("记录"));
+        assertFalse(CheckInUiState.subtitleDays(43, 12, "").contains("区间"));
+        // 老三参签名保留兼容，但不再拼口径
+        assertEquals("读到 43%", CheckInUiState.subtitle(43, "", "精确"));
+        assertEquals("读到 43% · 借给 张三", CheckInUiState.subtitle(43, "张三", "模糊"));
     }
 
     @Test

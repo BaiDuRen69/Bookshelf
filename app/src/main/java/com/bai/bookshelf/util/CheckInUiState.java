@@ -21,21 +21,31 @@ public final class CheckInUiState {
 
     /** 「读到 43%」；有借出记录时追加「 · 借给 张三」 */
     public static String subtitle(int progress, String borrower) {
-        return subtitle(progress, borrower, null);
+        StringBuilder sb = new StringBuilder();
+        sb.append(progress > 0 ? "读到 " + progress + "%" : "在读");
+        if (borrower != null && !borrower.trim().isEmpty()) {
+            sb.append(" · 借给 ").append(borrower.trim());
+        }
+        return sb.toString();
     }
 
     /**
-     * 带记录口径的副标题（v5.9.1 第六步）：
-     * 「读到 43% · 精确记录」/「读到 43% · 模糊记录 · 借给 张三」。
-     *
-     * @param modeLabel 「精确」/「模糊」；null 或空 = 不标口径（老行为）
+     * 老三参签名保留兼容调用点：记录口径（精确/模糊）本期从打卡列表下线，
+     * 统一改走 {@link #subtitleDays(int, int, String)}。
      */
     public static String subtitle(int progress, String borrower, String modeLabel) {
+        return subtitle(progress, borrower);
+    }
+
+    /**
+     * 打卡列表副标题：「读到 43% · 已读 12 天 · 借给 张三」。
+     * 天数走 ReadingRecords.readDays 的唯一口径，这里只做纯格式化；
+     * 不再出现「精确记录 / 模糊记录 / 区间 / 已记」等口径词。
+     */
+    public static String subtitleDays(int progress, int readDays, String borrower) {
         StringBuilder sb = new StringBuilder();
         sb.append(progress > 0 ? "读到 " + progress + "%" : "在读");
-        if (modeLabel != null && !modeLabel.trim().isEmpty()) {
-            sb.append(" · ").append(modeLabel.trim()).append("记录");
-        }
+        sb.append(" · 已读 ").append(Math.max(0, readDays)).append(" 天");
         if (borrower != null && !borrower.trim().isEmpty()) {
             sb.append(" · 借给 ").append(borrower.trim());
         }
@@ -201,6 +211,9 @@ public final class CheckInUiState {
         String safe = title == null ? "" : title;
         if (checked) {
             return "《" + safe + "》已打卡，点击撤销";
+        }
+        if (dayKey > todayKey) {
+            return "未来日期，暂不能为《" + safe + "》打卡";
         }
         return "为《" + safe + "》" + (dayKey < todayKey ? "补卡" : "打卡");
     }

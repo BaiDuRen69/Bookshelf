@@ -71,6 +71,14 @@ public final class DayCellView extends View {
     private int selectedBg;
     private int selectedStroke;
     private int onSurfaceVariant;
+    // ===== 打卡日历的新视觉：今日深色阴影、非今日圆框、农历小字 =====
+    private String lunarText = "";
+    private int todayBg;
+    private int onTodayBg;
+    private int ringColor;
+    private int lunarColor;
+    private float lunarTextSize;
+    private float shadowOffset;
     /** 打卡点入场进度：1 = 已落定；<1 时点半径按 0.6→1 放大、透明度 0→255 */
     private float dotProgress = 1f;
     @Nullable
@@ -180,6 +188,24 @@ public final class DayCellView extends View {
         invalidate();
     }
 
+    /**
+     * 打卡月视图的附加装饰（新增可选参数，不改 bindCheckIn 的现有签名）：
+     * 今日选中用深色底 + 偏移半透明阴影，非今日选中用正圆框；农历小字画在数字下方。
+     * 阴影是纯绘制的一层，不走 Paint.setShadowLayer，避免切软件层掉帧。
+     * 选择器模式（ROLE_PICKER）不读这些值，观感保持原样。
+     */
+    public void setCheckInDecor(String lunar, int todayBg, int onTodayBg, int ringColor,
+                                int lunarColor, float lunarTextSize, float shadowOffset) {
+        this.lunarText = lunar == null ? "" : lunar;
+        this.todayBg = todayBg;
+        this.onTodayBg = onTodayBg;
+        this.ringColor = ringColor;
+        this.lunarColor = lunarColor;
+        this.lunarTextSize = lunarTextSize;
+        this.shadowOffset = shadowOffset;
+        invalidate();
+    }
+
     /** 打卡点入场：120ms 内半径 0.6→1、透明度 0→255，只改一个 progress 字段，不新建 View */
     private void startDotEntrance() {
         if (dotAnim != null) {
@@ -286,24 +312,23 @@ public final class DayCellView extends View {
             }
             textPaint.setFakeBoldText(picked);
         } else if (selected) {
-            bandPaint.setColor(selectedBg);
-            rect.set(dp(2), cy - radius, w - dp(2), cy + radius);
-            canvas.drawRoundRect(rect, radius, radius, bandPaint);
-            if (selectedStroke != 0) {
-                // 夜读的胶囊底与卡面差值不够，靠这一圈描边把「选中」读出来
-                float stroke = px(R.dimen.checkin_selected_stroke_w);
-                ringPaint.setColor(selectedStroke);
-                ringPaint.setStrokeWidth(stroke);
-                rect.inset(stroke / 2f, stroke / 2f);
-                canvas.drawRoundRect(rect, radius, radius, ringPaint);
-            }
-            if (today) {
-                // 今天且选中：胶囊之外仍画主色圈，「今天」不再被盖掉
-                ringPaint.setColor(primary);
-                ringPaint.setStrokeWidth(ringStroke);
+            if (today && !adjacent) {
+                // 今日选中：深色底 + 向下偏移的一层半透明阴影（纯绘制，不切软件层）
+                rect.set(dp(2), cy - radius, w - dp(2), cy + radius);
+                bandPaint.setColor((0x24 << 24) | (onSurface & 0x00FFFFFF));
+                canvas.drawRoundRect(rect.left, rect.top + shadowOffset,
+                        rect.right, rect.bottom + shadowOffset, radius, radius, bandPaint);
+                bandPaint.setColor(todayBg);
+                canvas.drawRoundRect(rect, radius, radius, bandPaint);
+                textPaint.setColor(onTodayBg);
+            } else {
+                // 非今日选中：正圆描边框（未来日退成次级色，仍可辨识选中）
+                ringPaint.setColor(future ? onSurfaceVariant : ringColor);
+                ringPaint.setStrokeWidth(px(R.dimen.checkin_ring_stroke));
                 canvas.drawCircle(cx, cy, radius, ringPaint);
+                ringPaint.setStrokeWidth(ringStroke);
+                textPaint.setColor(primary);
             }
-            textPaint.setColor(primary);
             textPaint.setFakeBoldText(true);
         } else if (anchor) {
             // 框选锚点：只描边不填底，和「已选入」的实心胶囊一眼分得开
@@ -330,8 +355,27 @@ public final class DayCellView extends View {
                 : (adjacent ? 110 : (future ? 120 : 255)));
         drawCheckInDots(canvas, cx, h);
 
+        boolean showLunar = !pickerMode && !lunarText.isEmpty() && lunarTextSize > 0;
         float baseline = cy - (textPaint.descent() + textPaint.ascent()) / 2f;
+        if (showLunar) {
+            baseline -= dp(5);
+        }
         canvas.drawText(String.valueOf(day), cx, baseline, textPaint);
+        if (showLunar) {
+            float savedSize = textPaint.getTextSize();
+            int savedColor = textPaint.getColor();
+            int savedAlpha = textPaint.getAlpha();
+            boolean savedBold = textPaint.isFakeBoldText();
+            textPaint.setTextSize(lunarTextSize);
+            textPaint.setColor(lunarColor);
+            textPaint.setFakeBoldText(false);
+            textPaint.setAlpha(adjacent ? 90 : 160);
+            canvas.drawText(lunarText, cx, cy + lunarTextSize + dp(3), textPaint);
+            textPaint.setTextSize(savedSize);
+            textPaint.setColor(savedColor);
+            textPaint.setAlpha(savedAlpha);
+            textPaint.setFakeBoldText(savedBold);
+        }
         textPaint.setAlpha(255);
     }
 

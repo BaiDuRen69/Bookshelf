@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 打卡按钮的透明图标占位：三态共用同一 18dp icon 槽，
+     避免「已打卡」多一个勾导致 wrap_content 宽度跳动。 -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <size
+        android:width="@dimen/checkin_button_icon"
+        android:height="@dimen/checkin_button_icon" />
+    <solid android:color="@android:color/transparent" />
+</shape>

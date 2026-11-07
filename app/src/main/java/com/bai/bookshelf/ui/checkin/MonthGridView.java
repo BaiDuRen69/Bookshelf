@@ -19,6 +19,8 @@ import com.bai.bookshelf.ui.widget.DayCellView;
 import com.bai.bookshelf.util.CheckInDots;
 import com.bai.bookshelf.util.CheckInMonthGrid;
 import com.bai.bookshelf.util.DateKeys;
+import com.bai.bookshelf.util.LunarCalendar;
+import com.bai.bookshelf.util.LunarCalendarIcu;
 import com.bai.bookshelf.util.ThemeManager;
 import com.bai.bookshelf.util.Typo;
 
@@ -99,6 +101,14 @@ public class MonthGridView extends LinearLayout {
     private int colorPickedBg;
     private int colorReferenceBg;
     private int colorPreviewBg;
+    // 今日深色底 / 非今日圆框 / 农历小字：全部取现有 ?attr 语义色
+    private int colorTodayBg;
+    private int colorOnTodayBg;
+    private int colorRing;
+    private int colorLunar;
+    private float lunarTextSize;
+    private float shadowOffset;
+    private final LunarCalendar lunar;
     @Nullable
     private Listener listener;
     // ===== 选择器角色（默认 ROLE_CHECKIN；切回去后与打卡页一字不差）=====
@@ -119,6 +129,7 @@ public class MonthGridView extends LinearLayout {
         super(ctx, attrs);
         setOrientation(VERTICAL);
         density = ctx.getResources().getDisplayMetrics().density;
+        lunar = new LunarCalendar(new LunarCalendarIcu());
         ViewCompat.setAccessibilityHeading(this, true);
 
         addView(buildHeader(), new LayoutParams(LayoutParams.MATCH_PARENT,
@@ -219,6 +230,31 @@ public class MonthGridView extends LinearLayout {
 
     public int getDayKeyAt(int index) {
         return index >= 0 && index < dayKeys.length ? dayKeys[index] : 0;
+    }
+
+    /** 跨天/从详情页返回时只更新「今天 / 未来」分界，不抢走用户选中的日期 */
+    public void refreshTodayKey() {
+        todayKey = DateKeys.todayKey();
+        refreshAllCells();
+    }
+
+    /**
+     * 选中日期格中心相对动画容器的坐标（px），月↔年切换拿它当缩放中心，
+     * 不是屏幕中心。找不到格子时退回容器中心。
+     */
+    public int[] selectedCellCenter(View host) {
+        int[] hostLoc = new int[2];
+        host.getLocationInWindow(hostLoc);
+        for (int i = 0; i < dayKeys.length; i++) {
+            DayCellView cell = cells[i];
+            if (dayKeys[i] == selectedDayKey && cell != null) {
+                int[] loc = new int[2];
+                cell.getLocationInWindow(loc);
+                return new int[]{loc[0] + cell.getWidth() / 2 - hostLoc[0],
+                        loc[1] + cell.getHeight() / 2 - hostLoc[1]};
+            }
+        }
+        return new int[]{host.getWidth() / 2, host.getHeight() / 2};
     }
 
     // ==================== 选择器模式（v5.9.1 第三步）====================
@@ -424,6 +460,9 @@ public class MonthGridView extends LinearLayout {
         cell.bindCheckIn(key % 100, colorPrimary, colorSelectedBg, colorSelectedStroke,
                 colorOnSurface, colorVariant, key == selectedDayKey, today, adjacent, future,
                 adjacent ? 0 : total, backfill, false);
+        cell.setCheckInDecor(lunarTextSize > 0 ? lunar.label(key) : "",
+                colorTodayBg, colorOnTodayBg, colorRing, colorLunar,
+                lunarTextSize, shadowOffset);
         cell.setContentDescription(
                 describe(key, today, total, backfill, adjacent, key == selectedDayKey, future));
     }
@@ -481,9 +520,11 @@ public class MonthGridView extends LinearLayout {
                 listener.onMoveToDay(key);
             }
         } else if (key > todayKey) {
-            // 未来日：只说明原因，选中态不动，别再让列表拿这一天去被拒绝
+            // 未来日允许选中查看（列表会显示但按钮禁用），只是不能提交打卡
+            setSelectedDay(key);
             if (listener != null) {
-                listener.onFutureDay(key);
+                listener.onSelectDay(key);
+                listener.onFutureDay(key); // 只用于无障碍播报，不再弹拒绝 Toast
             }
         } else {
             setSelectedDay(key);
@@ -590,6 +631,17 @@ public class MonthGridView extends LinearLayout {
         colorPickedBg = ThemeManager.resolveColor(getContext(), R.attr.primary_container);
         colorReferenceBg = ThemeManager.resolveColor(getContext(), R.attr.surface_dim);
         colorPreviewBg = ThemeManager.resolveColor(getContext(), R.attr.outline);
+        colorTodayBg = ThemeManager.resolveColor(getContext(), R.attr.header_bg);
+        colorOnTodayBg = ThemeManager.resolveColor(getContext(), R.attr.header_fg);
+        colorRing = ThemeManager.resolveColor(getContext(), R.attr.outline_strong);
+        colorLunar = ThemeManager.resolveColor(getContext(), R.attr.on_surface_variant);
+        float scale = getResources().getConfiguration().fontScale;
+        float widthDp = getResources().getDisplayMetrics().widthPixels
+                / getResources().getDisplayMetrics().density;
+        // 大字模式/窄屏把农历整行收掉，公历数字与打卡点不裁
+        lunarTextSize = scale < 1.3f && widthDp >= 360f
+                ? getResources().getDimension(R.dimen.checkin_lunar_text) : 0f;
+        shadowOffset = getResources().getDimension(R.dimen.checkin_today_elevation);
     }
 
     /** 「11月5日，已打卡（3 本 · 含 1 笔补卡）」/「11月20日，未来日期，未打卡」 */

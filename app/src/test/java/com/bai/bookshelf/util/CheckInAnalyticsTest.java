@@ -59,12 +59,15 @@ public class CheckInAnalyticsTest {
     public void 年份下界取最早打卡上界为当前年加一() {
         List<CheckIn> all = new ArrayList<>(Arrays.asList(
                 ci(1, 20231105), ci(1, 20261103), ci(2, 20250101)));
-        assertEquals(2023, CheckInYearGrid.minYear(all, 2026));
+        // 新口径：无历史记录/空库也要能往前翻 5 年，否则左滑切年根本滑不动
+        assertEquals(2021, CheckInYearGrid.minYear(all, 2026));
         assertEquals(2027, CheckInYearGrid.maxYear(2026));
-        assertEquals(2026, CheckInYearGrid.minYear(null, 2026));
-        assertEquals(2026, CheckInYearGrid.minYear(Collections.emptyList(), 2026));
-        assertEquals("未来异常数据不能把下界拉高", 2023,
+        assertEquals(2021, CheckInYearGrid.minYear(null, 2026));
+        assertEquals(2021, CheckInYearGrid.minYear(Collections.emptyList(), 2026));
+        assertEquals("未来异常数据不能把下界拉高", 2021,
                 CheckInYearGrid.minYear(Arrays.asList(ci(1, 20231105), ci(1, 20991231)), 2026));
+        assertEquals("比当前年早 10 年的打卡记录仍决定下界", 2016,
+                CheckInYearGrid.minYear(Arrays.asList(ci(1, 20161105)), 2026));
     }
 
     @Test

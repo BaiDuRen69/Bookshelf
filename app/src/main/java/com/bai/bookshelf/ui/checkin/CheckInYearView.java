@@ -8,14 +8,22 @@ import android.view.GestureDetector;
 import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
 import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat;
+import androidx.interpolator.view.animation.FastOutSlowInInterpolator;
+import androidx.transition.Fade;
+import androidx.transition.Slide;
+import androidx.transition.TransitionManager;
+import androidx.transition.TransitionSet;
 
 import com.bai.bookshelf.R;
 import com.bai.bookshelf.data.entity.CheckIn;
+import com.bai.bookshelf.util.CheckInHabit;
 import com.bai.bookshelf.util.CheckInMonthGrid;
 import com.bai.bookshelf.util.CheckInYearGrid;
 import com.bai.bookshelf.util.DateKeys;
@@ -32,7 +40,10 @@ import java.util.Set;
 /**
  * 年视图：垂直滚动的 12 个月网格（2 列 × 6 行）。
  * 每格 = 可点可读屏的月份标题 + 精简小日历；左右滑切年份（左=上一年、右=下一年）。
- * 越界用 24dp 橡皮筋回弹，不换年。不引入 ViewPager2 / 日历库。
+ *
+ * <p>两层卡片复用 + TransitionManager(Fade + Slide) 做切年：换年只 bind 数据，
+ * 不再 removeAllViews 重建 12 张卡，动画期间不触发整表 measure/layout，帧率才稳。
+ * 当前月用 @color/blue_primary 描边，其它月份标题走 on_surface_variant 灰字。
  */
 public class CheckInYearView extends ScrollView {
 
@@ -45,11 +56,17 @@ public class CheckInYearView extends ScrollView {
 
     private static final float SWIPE_DISTANCE_DP = 60f;
     private static final float MIN_FLING_VELOCITY = 200f;
+    private static final long YEAR_SWITCH_MS = 260;
 
-    private final LinearLayout rows;
+    private final FrameLayout switcher;
+    private final LinearLayout[] layers = new LinearLayout[2];
+    private final View[][] cards = new View[2][13];
+    private final TextView[][] titles = new TextView[2][13];
+    private final MiniCalendarView[][] minis = new MiniCalendarView[2][13];
     private final GestureDetector detector;
     private final float density;
 
+    private int activeLayer;
     private int year;
     private int minYear;
     private int maxYear;
@@ -66,10 +83,16 @@ public class CheckInYearView extends ScrollView {
     public CheckInYearView(Context ctx, @Nullable AttributeSet attrs) {
         super(ctx, attrs);
         density = ctx.getResources().getDisplayMetrics().density;
-        rows = new LinearLayout(ctx);
-        rows.setOrientation(LinearLayout.VERTICAL);
-        addView(rows, new LayoutParams(LayoutParams.MATCH_PARENT,
+        switcher = new FrameLayout(ctx);
+        addView(switcher, new LayoutParams(LayoutParams.MATCH_PARENT,
                 LayoutParams.WRAP_CONTENT));
+        for (int layer = 0; layer < 2; layer++) {
+            layers[layer] = createLayer(layer);
+            layers[layer].setVisibility(layer == 0 ? View.VISIBLE : View.GONE);
+            switcher.addView(layers[layer], new FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.WRAP_CONTENT));
+        }
         detector = new GestureDetector(ctx, new GestureDetector.SimpleOnGestureListener() {
             @Override
             public boolean onScroll(MotionEvent e1, MotionEvent e2, float dx, float dy) {
@@ -88,12 +111,64 @@ public class CheckInYearView extends ScrollView {
                         || Math.abs(dx) < Math.abs(e2.getY() - e1.getY())) {
                     return false;
                 }
-                // 用户指定：左滑 = 年份 −1，右滑 = 年份 +1（与常见日历方向相反）
+                // 用户指定：左滑 = 年份 −1，右滑 = 年份 +1
                 shift(CheckInYearGrid.deltaForSwipe(dx));
                 return true;
             }
         });
         todayKey = DateKeys.todayKey();
+    }
+
+    /** 一次建好 12 张卡片，之后换年只 bind，不重建 View */
+    private LinearLayout createLayer(int layer) {
+        LinearLayout root = new LinearLayout(getContext());
+        root.setOrientation(LinearLayout.VERTICAL);
+        for (int r = 0; r < 6; r++) {
+            LinearLayout row = new LinearLayout(getContext());
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            for (int c = 0; c < 2; c++) {
+                final int month1 = r * 2 + c + 1;
+                LinearLayout card = new LinearLayout(getContext());
+                card.setOrientation(LinearLayout.VERTICAL);
+                card.setPadding(dp(8), dp(8), dp(8), dp(8));
+                card.setClickable(true);
+                LinearLayout.LayoutParams cardLp = new LinearLayout.LayoutParams(
+                        0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+                cardLp.setMargins(dp(4), dp(4), dp(4), dp(4));
+
+                TextView title = new TextView(getContext());
+                Typo.text(title, R.dimen.text_body_small);
+                title.setGravity(Gravity.CENTER);
+                title.setPadding(0, 0, 0, dp(4));
+                title.setOnClickListener(v -> {
+                    if (listener != null) {
+                        listener.onPick(year * 100 + month1, 0);
+                    }
+                });
+                card.addView(title, new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT));
+
+                MiniCalendarView mini = new MiniCalendarView(getContext());
+                mini.setOnDayClick(dayKey -> {
+                    if (listener != null) {
+                        // 小日历含邻月补齐格：点到邻月就定位到那一天真正所属的月份
+                        listener.onPick(CheckInMonthGrid.yearMonthOf(dayKey), dayKey);
+                    }
+                });
+                card.addView(mini, new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT, dp(72)));
+
+                cards[layer][month1] = card;
+                titles[layer][month1] = title;
+                minis[layer][month1] = mini;
+                row.addView(card, cardLp);
+            }
+            root.addView(row, new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT));
+        }
+        return root;
     }
 
     public void setListener(@Nullable Listener l) {
@@ -104,6 +179,12 @@ public class CheckInYearView extends ScrollView {
         return year;
     }
 
+    /** 当前激活层里某个月的卡片（年视图点月放大动画要拿它当缩放主体） */
+    @Nullable
+    public View monthCardAt(int month1) {
+        return month1 >= 1 && month1 <= 12 ? cards[activeLayer][month1] : null;
+    }
+
     public void bind(int year, int minYear, int maxYear,
                      List<CheckIn> checkIns, int todayKey) {
         this.year = year;
@@ -111,85 +192,59 @@ public class CheckInYearView extends ScrollView {
         this.maxYear = maxYear;
         this.all = checkIns == null ? Collections.emptyList() : new ArrayList<>(checkIns);
         this.todayKey = todayKey;
-        render();
+        renderLayer(activeLayer, year);
     }
 
-    private void render() {
-        rows.removeAllViews();
+    private void renderLayer(int layer, int forYear) {
         int primary = ThemeManager.resolveColor(getContext(), ThemeManager.ATTR_COLOR_PRIMARY);
-        int container = ThemeManager.resolveColor(getContext(), R.attr.primary_container);
         int variant = ThemeManager.resolveColor(getContext(), R.attr.on_surface_variant);
-        Set<Integer> checked = new HashSet<>(com.bai.bookshelf.util.CheckInHabit.dayKeys(all));
-
-        for (int r = 0; r < 6; r++) {
-            LinearLayout row = new LinearLayout(getContext());
-            row.setOrientation(LinearLayout.HORIZONTAL);
-            for (int c = 0; c < 2; c++) {
-                final int month1 = r * 2 + c + 1;
-                final int ym = year * 100 + month1;
-                boolean current = CheckInYearGrid.isCurrentMonth(year, month1, todayKey);
-
-                LinearLayout card = new LinearLayout(getContext());
-                card.setOrientation(LinearLayout.VERTICAL);
-                card.setPadding(dp(8), dp(8), dp(8), dp(8));
-                // 当前月不只换个底色：底色太弱，加一圈主色描边才一眼认得出「现在在这」
-                card.setBackground(current ? currentCardBackground(container, primary) : null);
-                card.setClickable(true);
-                LinearLayout.LayoutParams cardLp = new LinearLayout.LayoutParams(
-                        0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-                cardLp.setMargins(dp(4), dp(4), dp(4), dp(4));
-
-                TextView title = new TextView(getContext());
-                title.setText(month1 + "月");
-                Typo.text(title, R.dimen.text_body_small);
-                title.setTextColor(current ? primary : variant);
-                title.setGravity(Gravity.CENTER);
-                title.setPadding(0, 0, 0, dp(4));
-                title.setContentDescription(String.format(Locale.ROOT,
-                        "%d年%d月，查看这个月", year, month1));
-                title.setOnClickListener(v -> {
-                    if (listener != null) {
-                        listener.onPick(ym, 0);
-                    }
-                });
-                card.addView(title, new LinearLayout.LayoutParams(
-                        LinearLayout.LayoutParams.MATCH_PARENT,
-                        LinearLayout.LayoutParams.WRAP_CONTENT));
-
-                MiniCalendarView mini = new MiniCalendarView(getContext());
-                mini.bind(year, month1, checked, todayKey);
-                mini.setOnDayClick(dayKey -> {
-                    if (listener != null) {
-                        // 小日历含邻月补齐格：点到邻月就定位到那一天真正所属的月份
-                        listener.onPick(CheckInMonthGrid.yearMonthOf(dayKey), dayKey);
-                    }
-                });
-                card.addView(mini, new LinearLayout.LayoutParams(
-                        LinearLayout.LayoutParams.MATCH_PARENT, dp(72)));
-                row.addView(card, cardLp);
-            }
-            rows.addView(row, new LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT));
+        Set<Integer> checked = new HashSet<>(CheckInHabit.dayKeys(all));
+        for (int month1 = 1; month1 <= 12; month1++) {
+            boolean current = CheckInYearGrid.isCurrentMonth(forYear, month1, todayKey);
+            View card = cards[layer][month1];
+            TextView title = titles[layer][month1];
+            card.setBackground(current ? currentCardBackground() : null);
+            title.setText(month1 + "月");
+            title.setTextColor(current ? primary : variant);
+            title.setContentDescription(String.format(Locale.ROOT,
+                    "%d年%d月，查看这个月", forYear, month1));
+            minis[layer][month1].bind(forYear, month1, checked, todayKey);
         }
     }
 
-    /** 当前月卡片：primary_container 底 + 1dp 主色描边，圆角走 radius_sm */
-    private GradientDrawable currentCardBackground(int container, int primary) {
+    /** 当前月：透明底 + 1dp 蓝色描边；其它月份不画底、标题走灰色 */
+    private GradientDrawable currentCardBackground() {
         GradientDrawable bg = new GradientDrawable();
-        bg.setColor(container);
+        bg.setColor(ContextCompat.getColor(getContext(), android.R.color.transparent));
         bg.setCornerRadius(getResources().getDimension(R.dimen.radius_sm));
         bg.setStroke(getResources().getDimensionPixelSize(R.dimen.checkin_year_card_stroke),
-                primary);
+                ContextCompat.getColor(getContext(), R.color.blue_primary));
         return bg;
     }
 
-    private void shift(int delta) {        if (CheckInYearGrid.boundaryHit(year, delta, minYear, maxYear)) {
+    private void shift(int delta) {
+        if (CheckInYearGrid.boundaryHit(year, delta, minYear, maxYear)) {
             rubberBand(delta);
             return;
         }
-        year = CheckInYearGrid.shiftYear(year, delta, minYear, maxYear);
-        render();
+        final int nextYear = CheckInYearGrid.shiftYear(year, delta, minYear, maxYear);
+        final int nextLayer = 1 - activeLayer;
+        // 隐藏层先填好新一年的数据，再交给 TransitionManager 切可见性
+        renderLayer(nextLayer, nextYear);
+        TransitionSet set = new TransitionSet();
+        set.addTransition(new Fade());
+        Slide out = new Slide(delta < 0 ? Gravity.END : Gravity.START);
+        out.addTarget(layers[activeLayer]);
+        Slide in = new Slide(delta < 0 ? Gravity.START : Gravity.END);
+        in.addTarget(layers[nextLayer]);
+        set.addTransition(out).addTransition(in);
+        set.setDuration(YEAR_SWITCH_MS);
+        set.setInterpolator(new FastOutSlowInInterpolator());
+        TransitionManager.beginDelayedTransition(switcher, set);
+        layers[activeLayer].setVisibility(View.GONE);
+        layers[nextLayer].setVisibility(View.VISIBLE);
+        activeLayer = nextLayer;
+        year = nextYear;
         scrollTo(0, 0);
         if (listener != null) {
             listener.onYearChanged(year);
@@ -201,7 +256,7 @@ public class CheckInYearView extends ScrollView {
         float distance = dp(CheckInYearGrid.RUBBER_BAND_DP) * (delta < 0 ? -1f : 1f);
         ValueAnimator anim = ValueAnimator.ofFloat(0f, distance, 0f);
         anim.setDuration(220);
-        anim.addUpdateListener(a -> rows.setTranslationX((float) a.getAnimatedValue()));
+        anim.addUpdateListener(a -> switcher.setTranslationX((float) a.getAnimatedValue()));
         anim.start();
     }
 

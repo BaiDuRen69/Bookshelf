@@ -42,6 +42,10 @@ public class MiniCalendarView extends View {
     private float gap;
     private float offsetX;
     private float offsetY;
+    // 主题色只在 bind 时解析一次：onDraw 每帧重解会拖慢年视图切换动画
+    private int cachedOutline;
+    private int cachedVariant;
+    private int cachedPrimary;
     @Nullable
     private OnDayClick listener;
 
@@ -77,6 +81,9 @@ public class MiniCalendarView extends View {
         }
         setContentDescription(String.format(Locale.ROOT, "%d年%d月，打卡 %d 天",
                 year, month1, days));
+        cachedOutline = ThemeManager.resolveColor(getContext(), R.attr.outline);
+        cachedVariant = ThemeManager.resolveColor(getContext(), R.attr.on_surface_variant);
+        cachedPrimary = ThemeManager.resolveColor(getContext(), ThemeManager.ATTR_COLOR_PRIMARY);
         invalidate();
     }
 
@@ -92,27 +99,23 @@ public class MiniCalendarView extends View {
         offsetX = (w - (cell * 7 + gap * 6)) / 2f;
         offsetY = (h - (cell * 6 + gap * 5)) / 2f;
 
-        int outline = ThemeManager.resolveColor(getContext(), R.attr.outline);
-        int variant = ThemeManager.resolveColor(getContext(), R.attr.on_surface_variant);
-        int primary = ThemeManager.resolveColor(getContext(), ThemeManager.ATTR_COLOR_PRIMARY);
-
         for (int i = 0; i < keys.length; i++) {
             int key = keys[i];
             float x = offsetX + (i % 7) * (cell + gap);
             float y = offsetY + (i / 7) * (cell + gap);
             boolean adjacent = CheckInMonthGrid.isAdjacent(key, year, month1);
 
-            boxPaint.setColor(adjacent ? variant : outline);
+            boxPaint.setColor(adjacent ? cachedVariant : cachedOutline);
             boxPaint.setAlpha(adjacent ? 40 : 70);
             canvas.drawRoundRect(x, y, x + cell, y + cell, dp(2), dp(2), boxPaint);
             boxPaint.setAlpha(255);
 
             if (checked.contains(key)) {
-                dotPaint.setColor(primary);
+                dotPaint.setColor(cachedPrimary);
                 canvas.drawCircle(x + cell / 2f, y + cell / 2f, cell * 0.30f, dotPaint);
             }
             if (key == todayKey) {
-                ringPaint.setColor(primary);
+                ringPaint.setColor(cachedPrimary);
                 canvas.drawRoundRect(x, y, x + cell, y + cell, dp(2), dp(2), ringPaint);
             }
         }

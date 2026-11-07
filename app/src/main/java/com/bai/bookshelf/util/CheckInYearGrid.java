@@ -9,12 +9,18 @@ public final class CheckInYearGrid {
 
     public static final int RUBBER_BAND_DP = 24;
 
+    /**
+     * 无历史打卡时仍允许往前翻的年数：否则新用户第一年左滑会被下界挡住，
+     * 需求要的「2026→2025→2024」根本滑不动。
+     */
+    public static final int MIN_YEAR_SPAN = 5;
+
     private CheckInYearGrid() {
     }
 
-    /** 下界 = 库里最早一条打卡的年份；无记录则当前年 */
+    /** 下界 = min(最早一条打卡年份, 当前年 − 5)；异常未来数据不会把下界拉高 */
     public static int minYear(List<CheckIn> all, int currentYear) {
-        int min = currentYear;
+        int min = currentYear - MIN_YEAR_SPAN;
         if (all != null) {
             for (CheckIn c : all) {
                 if (c != null && c.dayKey > 0) {
