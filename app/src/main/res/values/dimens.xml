@@ -38,7 +38,8 @@
 
     <!-- ===== 打卡页专用（feature/clock-in）=====
          月视图格子、打卡点、切月位移、悬浮按钮：整页尺寸只改这里，不散着改代码。 -->
-    <dimen name="checkin_cell_h">56dp</dimen>       <!-- 原 48dp：格内加一行农历小字，抬到 56dp 才不挤 -->
+    <dimen name="checkin_cell_h">56dp</dimen>       <!-- 打卡月历：格内加一行农历小字 -->
+    <dimen name="checkin_cell_h_picker">48dp</dimen> <!-- 精确日期选择器沿用原格高，观感不变 -->
     <dimen name="checkin_week_w">28dp</dimen>
     <dimen name="checkin_dot_size">4dp</dimen>
     <dimen name="checkin_dot_size_multi">3dp</dimen>

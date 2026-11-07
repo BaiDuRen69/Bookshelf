@@ -251,6 +251,11 @@ public final class CheckInViewSwitcher {
         monthGrid.suspendDotAnimations(false);
         monthContent.setLayerType(View.LAYER_TYPE_NONE, null);
         yearContent.setLayerType(View.LAYER_TYPE_NONE, null);
+        // 动画被取消时 onAnimationEnd 可能不跑：兜底把两层状态归位，避免叠加/半透明残留
+        set(monthContent, 1f, 1f);
+        set(yearContent, 1f, 1f);
+        monthContent.setVisibility(yearVisible ? View.GONE : View.VISIBLE);
+        yearContent.setVisibility(yearVisible ? View.VISIBLE : View.GONE);
     }
 
     private static float pivotOf(int[] pivot, int index) {

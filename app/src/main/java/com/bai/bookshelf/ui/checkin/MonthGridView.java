@@ -278,6 +278,7 @@ public class MonthGridView extends LinearLayout {
             picker.setRangeMode(false);
         }
         resolveCellColors();
+        rebuildStructure(); // 角色切换要应用对应的格高（选择器 48dp / 打卡 56dp）
         refreshAllCells();
         updatePickerHeading();
     }
@@ -412,7 +413,9 @@ public class MonthGridView extends LinearLayout {
         int y = CheckInMonthGrid.yearOf(yearMonth);
         int m = CheckInMonthGrid.monthOf(yearMonth);
         dayKeys = CheckInMonthGrid.dayKeys(y, m);
-        lunar.precompute(dayKeys); // 每月一次算完农历，onDraw 只读缓存
+        if (role == ROLE_CHECKIN) {
+            lunar.precompute(dayKeys); // 只有打卡月历显示农历，选择器不做无用换算
+        }
         int[] weeks = CheckInMonthGrid.weekNumbers(dayKeys);
         structureMonth = yearMonth;
 
@@ -434,8 +437,10 @@ public class MonthGridView extends LinearLayout {
                 final int cellIndex = index;
                 cell.setOnClickListener(v -> onCellTouched(cellIndex));
                 cells[index] = cell;
-                row.addView(cell, new LinearLayout.LayoutParams(0,
-                        getResources().getDimensionPixelSize(R.dimen.checkin_cell_h), 1f));
+                // 只有打卡月历需要农历行（56dp）；精确日期选择器保持原来的 48dp
+                int cellH = getResources().getDimensionPixelSize(role == ROLE_PICKER
+                        ? R.dimen.checkin_cell_h_picker : R.dimen.checkin_cell_h);
+                row.addView(cell, new LinearLayout.LayoutParams(0, cellH, 1f));
             }
             grid.addView(row, new LayoutParams(LayoutParams.MATCH_PARENT,
                     LayoutParams.WRAP_CONTENT));

@@ -64,4 +64,19 @@ public class LunarLabelTest {
         assertEquals("初八", lunar.label(20260401));
         assertEquals(2, fake.calls);
     }
+
+    @Test
+    public void 每月预计算后逐格读取不再触发换算() {
+        Fake fake = new Fake(5, 9, 0);
+        LunarCalendar lunar = new LunarCalendar(fake);
+        int[] keys = {20261101, 20261102, 20261103, 20261101};
+        lunar.precompute(keys);
+        assertEquals("重复日期只换算一次", 3, fake.calls);
+        for (int key : keys) {
+            assertEquals("初九", lunar.label(key));
+        }
+        assertEquals("逐格读取命中缓存", 3, fake.calls);
+        lunar.precompute(null); // 空数组不崩
+        assertEquals(3, fake.calls);
+    }
 }
