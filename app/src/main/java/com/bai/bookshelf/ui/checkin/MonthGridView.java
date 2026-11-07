@@ -22,12 +22,16 @@ import com.bai.bookshelf.util.DateKeys;
 import com.bai.bookshelf.util.ThemeManager;
 import com.bai.bookshelf.util.Typo;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 
 /**
  * 打卡月视图：周一开头、左侧 ISO 周数列、7 列日期格，全部是真实 View
@@ -53,6 +57,23 @@ public class MonthGridView extends LinearLayout {
         void onFutureDay(int dayKey);
     }
 
+    /**
+     * 选择器模式（v5.9.1 第三步）：给编辑页框选「哪几天读过」。
+     *
+     * <p>与 {@link Listener} 完全分开——打卡页的四个回调一个都没动，
+     * 打开选择器后走这套，关掉后回到原来那套。
+     */
+    public interface PickListener {
+        /** 每次勾选变化后回调，参数是升序去重的完整日集合 */
+        void onPickChanged(List<Integer> dayKeys);
+
+        /** 点了不该点的日子：{@code future} = 未来日（还没发生），false = 邻月（属于别的月份） */
+        void onPickBlocked(int dayKey, boolean future);
+
+        /** 长按设/取消框选起点（0 = 已取消） */
+        void onPickAnchor(int dayKey);
+    }
+
     private static final long ANIM_HALF_MS = 110; // 两段共 220ms
     private static final float SWIPE_DISTANCE_DP = 60f;
     private static final float MIN_FLING_VELOCITY = 200f;
@@ -75,6 +96,14 @@ public class MonthGridView extends LinearLayout {
     private int colorVariant;
     @Nullable
     private Listener listener;
+    // ===== 选择器模式（默认关；关掉后与打卡页一字不差）=====
+    private boolean pickMode;
+    @Nullable
+    private PickListener pickListener;
+    /** 已选入的阅读日（升序去重） */
+    private final Set<Integer> picked = new TreeSet<>();
+    /** 框选起点：0 = 没有 */
+    private int anchorKey;
     private boolean scrolling;
     private int[] dayKeys = new int[0];
     private final DayCellView[] cells = new DayCellView[CheckInMonthGrid.DAYS_PER_WEEK
@@ -190,6 +219,52 @@ public class MonthGridView extends LinearLayout {
         return index >= 0 && index < dayKeys.length ? dayKeys[index] : 0;
     }
 
+    // ==================== 选择器模式（v5.9.1 第三步）====================
+
+    /**
+     * 打开/关闭选择器模式。
+     *
+     * <p>打开时打卡页的「点一天看那天读了哪几本」不再触发，格子改成勾选；
+     * 关闭（传 null）后行为回到原样，包括已有的选中日。
+     *
+     * @param initial 初始已选日集合，null = 空集合
+     */
+    public void setPicker(@Nullable Collection<Integer> initial, @Nullable PickListener l) {
+        pickListener = l;
+        pickMode = l != null;
+        anchorKey = 0;
+        picked.clear();
+        if (initial != null) {
+            for (Integer key : initial) {
+                if (key != null && key > 0) {
+                    picked.add(key);
+                }
+            }
+        }
+        // 开与关都要重贴一遍：锚点的空胶囊、勾选的实心胶囊，两种模式画法不同
+        refreshAllCells();
+    }
+
+    /** 外部改了集合（撤销、整段沿用）后刷新显示 */
+    public void setPickedDays(@Nullable Collection<Integer> keys) {
+        picked.clear();
+        if (keys != null) {
+            for (Integer key : keys) {
+                if (key != null && key > 0) {
+                    picked.add(key);
+                }
+            }
+        }
+        if (pickMode) {
+            refreshAllCells();
+        }
+    }
+
+    /** 当前已选日（升序去重副本，调用方改不动内部集合） */
+    public List<Integer> getPickedDays() {
+        return new ArrayList<>(picked);
+    }
+
     /**
      * @param dayMarks dayKey → {打卡本数, 其中补卡本数}，由 CheckInDots.marks 组装
      */
@@ -275,6 +350,8 @@ public class MonthGridView extends LinearLayout {
                 DayCellView cell = new DayCellView(getContext());
                 final int cellIndex = index;
                 cell.setOnClickListener(v -> onCellTouched(cellIndex));
+                // 长按只在选器模式下有意义；打卡页返回 false，长按行为与以前一样没有副作用
+                cell.setOnLongClickListener(v -> pickMode && onCellLongTouched(cellIndex));
                 cells[index] = cell;
                 row.addView(cell, new LinearLayout.LayoutParams(0,
                         getResources().getDimensionPixelSize(R.dimen.checkin_cell_h), 1f));
@@ -299,9 +376,20 @@ public class MonthGridView extends LinearLayout {
         int total = CheckInDots.total(marks, key);
         // 邻月永远不画点：不然会被读成「这个月打过卡」
         int backfill = adjacent ? 0 : CheckInDots.backfill(marks, key);
+        if (pickMode) {
+            // 选器模式：胶囊表示「这一天读过」，锚点表示「从这天开始框」，
+            // 打卡点一律不画——胶囊已经把信息说完了，再叠点只会让人以为有两套状态。
+            boolean pickedNow = picked.contains(key);
+            cell.bindCheckIn(key % 100, colorPrimary, colorSelectedBg, colorSelectedStroke,
+                    colorOnSurface, colorVariant, pickedNow, today, adjacent, future,
+                    0, 0, key == anchorKey);
+            cell.setContentDescription(
+                    describePick(key, today, adjacent, future, pickedNow, key == anchorKey));
+            return;
+        }
         cell.bindCheckIn(key % 100, colorPrimary, colorSelectedBg, colorSelectedStroke,
                 colorOnSurface, colorVariant, key == selectedDayKey, today, adjacent, future,
-                adjacent ? 0 : total, backfill);
+                adjacent ? 0 : total, backfill, false);
         cell.setContentDescription(
                 describe(key, today, total, backfill, adjacent, key == selectedDayKey, future));
     }
@@ -350,6 +438,10 @@ public class MonthGridView extends LinearLayout {
         int key = dayKeys[index];
         boolean adjacent = CheckInMonthGrid.isAdjacent(key,
                 CheckInMonthGrid.yearOf(yearMonth), CheckInMonthGrid.monthOf(yearMonth));
+        if (pickMode) {
+            onPickTouched(key, adjacent);
+            return;
+        }
         if (adjacent) {
             if (listener != null) {
                 listener.onMoveToDay(key);
@@ -365,6 +457,95 @@ public class MonthGridView extends LinearLayout {
                 listener.onSelectDay(key);
             }
         }
+    }
+
+    /** 选器模式下的单击：有锚点就框住这一段，没锚点就勾/取消这一天 */
+    private void onPickTouched(int key, boolean adjacent) {
+        if (adjacent || key > todayKey) {
+            // 邻月属于别的月份、未来日还没发生，都不该被算成「读过」
+            if (pickListener != null) {
+                pickListener.onPickBlocked(key, key > todayKey);
+            }
+            return;
+        }
+        if (anchorKey != 0 && anchorKey != key) {
+            // 框选：两端之间整段选入，尾巴超过今天的部分丢掉（今天之后还没发生）
+            int from = Math.min(anchorKey, key);
+            int to = Math.min(Math.max(anchorKey, key), todayKey);
+            if (to >= from) {
+                picked.addAll(DateKeys.keyRange(from, to));
+            }
+            clearAnchor();
+            refreshAllCells();
+        } else {
+            if (!picked.remove(key)) {
+                picked.add(key);
+            }
+            clearAnchor();
+            refreshCells(new int[]{key});
+        }
+        firePickChanged();
+    }
+
+    /** 锚点用完就清，并告诉调用方——编辑页那句「再点一天就框住这段」得跟着消失 */
+    private void clearAnchor() {
+        if (anchorKey == 0) {
+            return;
+        }
+        anchorKey = 0;
+        if (pickListener != null) {
+            pickListener.onPickAnchor(0);
+        }
+    }
+
+    /** 长按设框选起点；再长按同一天取消 */
+    private boolean onCellLongTouched(int index) {
+        if (scrolling || index >= dayKeys.length) {
+            return false;
+        }
+        int key = dayKeys[index];
+        boolean adjacent = CheckInMonthGrid.isAdjacent(key,
+                CheckInMonthGrid.yearOf(yearMonth), CheckInMonthGrid.monthOf(yearMonth));
+        if (adjacent || key > todayKey) {
+            if (pickListener != null) {
+                pickListener.onPickBlocked(key, key > todayKey);
+            }
+            return true;
+        }
+        int prev = anchorKey;
+        anchorKey = anchorKey == key ? 0 : key;
+        refreshCells(new int[]{prev, key});
+        if (pickListener != null) {
+            pickListener.onPickAnchor(anchorKey);
+        }
+        return true;
+    }
+
+    private void firePickChanged() {
+        if (pickListener != null) {
+            pickListener.onPickChanged(new ArrayList<>(picked));
+        }
+    }
+
+    /** 选器模式的朗读：「11月3日，已选入」/「11月3日，未选」，锚点与今天一起念出来 */
+    private String describePick(int dayKey, boolean today, boolean adjacent, boolean future,
+                                boolean pickedNow, boolean anchor) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(dayKey / 100 % 100).append("月").append(dayKey % 100).append("日");
+        if (adjacent) {
+            sb.append("，邻月");
+        }
+        if (today) {
+            sb.append("，今天");
+        }
+        if (future) {
+            sb.append("，未来日期");
+        }
+        if (anchor) {
+            sb.append("，框选起点");
+        }
+        sb.append(pickedNow ? "，已选入" : "，未选");
+        return sb.toString();
     }
 
     /** 一轮渲染解析一次格子用色（切主题会重建视图，不必管热更新） */

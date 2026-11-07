@@ -1,6 +1,8 @@
 package com.bai.bookshelf.util;
 
+import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.List;
 import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -143,6 +145,24 @@ public final class DateKeys {
     /** 两个日键之间的天数（不含结束日）；与含首尾口径差 1 天 */
     public static int daysBetween(int fromKey, int toKey) {
         return daysBetweenInclusive(fromKey, toKey) - 1;
+    }
+
+    /**
+     * 两个日键之间的每一天，升序含首尾（精确模式「框选一段」用）。
+     *
+     * <p>只负责展开区间，不负责「今天之后不能算读过」——上限由调用方夹，
+     * 因为要不要提示用户、要不要静默丢掉尾巴，是页面决定而不是日期工具决定。
+     */
+    public static List<Integer> keyRange(int fromKey, int toKey) {
+        List<Integer> out = new ArrayList<>();
+        if (fromKey <= 0 || toKey <= 0 || toKey < fromKey) {
+            return out;
+        }
+        int n = daysBetweenInclusive(fromKey, toKey);
+        for (int i = 0; i < n; i++) {
+            out.add(shiftDayKey(fromKey, i));
+        }
+        return out;
     }
 
     /**

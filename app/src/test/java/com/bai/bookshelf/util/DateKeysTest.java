@@ -68,6 +68,24 @@ public class DateKeysTest {
     }
 
     @Test
+    public void keyRangeExpandsInclusiveAndAscending() {
+        assertEquals(java.util.Arrays.asList(20261103, 20261104, 20261105),
+                DateKeys.keyRange(20261103, 20261105));
+        assertEquals("同一天就是一天", java.util.Collections.singletonList(20261103),
+                DateKeys.keyRange(20261103, 20261103));
+        assertEquals("跨月要按日历走，不是按整数加", java.util.Arrays.asList(
+                        20260227, 20260228, 20260301, 20260302),
+                DateKeys.keyRange(20260227, 20260302));
+    }
+
+    @Test
+    public void keyRangeReturnsEmptyForReversedOrBadKeys() {
+        assertEquals(java.util.Collections.emptyList(), DateKeys.keyRange(20261105, 20261103));
+        assertEquals(java.util.Collections.emptyList(), DateKeys.keyRange(0, 20261103));
+        assertEquals(java.util.Collections.emptyList(), DateKeys.keyRange(20261103, 0));
+    }
+
+    @Test
     public void presetRangeFollowsCalendar() {
         java.util.Calendar now = java.util.Calendar.getInstance();
         now.clear();

@@ -55,6 +55,8 @@ public final class DayCellView extends View {
     private boolean selected;
     private boolean adjacent;
     private boolean future;
+    /** 选择器模式的框选锚点（打卡页恒为 false） */
+    private boolean anchor;
     private int dotTotal;
     private int dotBackfill;
     private int selectedBg;
@@ -104,11 +106,14 @@ public final class DayCellView extends View {
      * 今天 = 主色描边圆，今天且选中时两者叠加，不再因为胶囊把「今天」盖掉；
      * 未来日 = 文字压到 120 alpha 且不画点；邻月 = 更弱的 110 alpha 且永不画点；
      * 打卡点按本数排，补卡的那几本画空心点、实心在左。
+     *
+     * <p>{@code anchor} 是选择器模式（v5.9.1 第三步）才用的框选锚点：只描边不填底，
+     * 和「已选入」的实心胶囊一眼分得开。打卡页永远传 false，观感与之前逐像素一致。
      */
     public void bindCheckIn(int day, int primary, int selectedBg, int selectedStroke,
                             int onSurface, int onSurfaceVariant,
                             boolean selected, boolean today, boolean adjacent, boolean future,
-                            int dotTotal, int dotBackfill) {
+                            int dotTotal, int dotBackfill, boolean anchor) {
         int before = this.dotTotal;
         this.day = day;
         this.primary = primary;
@@ -120,6 +125,7 @@ public final class DayCellView extends View {
         this.today = today;
         this.adjacent = adjacent;
         this.future = future;
+        this.anchor = anchor;
         this.dotTotal = dotTotal;
         this.dotBackfill = dotBackfill;
         this.checkInMode = true;
@@ -214,6 +220,17 @@ public final class DayCellView extends View {
             }
             textPaint.setColor(primary);
             textPaint.setFakeBoldText(true);
+        } else if (anchor) {
+            // 框选锚点：只描边不填底，和「已选入」的实心胶囊一眼分得开
+            float stroke = px(R.dimen.checkin_selected_stroke_w);
+            rect.set(dp(2), cy - radius, w - dp(2), cy + radius);
+            rect.inset(stroke / 2f, stroke / 2f);
+            ringPaint.setColor(primary);
+            ringPaint.setStrokeWidth(stroke);
+            canvas.drawRoundRect(rect, radius, radius, ringPaint);
+            ringPaint.setStrokeWidth(ringStroke);
+            textPaint.setColor(primary);
+            textPaint.setFakeBoldText(false);
         } else if (today) {
             ringPaint.setColor(primary);
             ringPaint.setStrokeWidth(ringStroke);
