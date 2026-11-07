@@ -16,7 +16,7 @@ import java.io.Serializable;
  */
 @Entity(tableName = "check_ins",
         primaryKeys = {"bookId", "dayKey"},
-        indices = {@Index("dayKey")})
+        indices = {@Index("dayKey"), @Index({"bookId", "seq"})})
 public class CheckIn implements Serializable {
     private static final long serialVersionUID = 1L;
 
@@ -34,4 +34,12 @@ public class CheckIn implements Serializable {
 
     /** 当天读到第几页，0 = 未填；本期只存不用 */
     public int pages;
+
+    /**
+     * 属于这本书的第几轮阅读记录（对齐 {@code ReadingRecords.Record.seq}）。
+     *
+     * <p>默认 1：v25 及以前的行迁移过来全是第一轮，精确模式的日集合按 (bookId, seq)
+     * 取，旧数据因此天然落在「第一轮」上，不需要任何回填。
+     */
+    public int seq = 1;
 }

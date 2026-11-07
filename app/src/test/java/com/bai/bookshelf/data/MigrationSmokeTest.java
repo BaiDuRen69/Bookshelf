@@ -102,6 +102,31 @@ public class MigrationSmokeTest {
         }
     }
 
+    /** 25→26 的业务规则：历史打卡行全部落在第一轮，既有行一条不少、一列不改 */
+    @Test
+    public void 升到二十六版时历史打卡行落第一轮且索引就位() throws Exception {
+        Connection db = openAt(25);
+        try {
+            exec(db, "INSERT INTO check_ins (bookId, dayKey, createdAt, backfill, pages)"
+                    + " VALUES (7, 20261103, 1000, 1, 0)");
+            exec(db, "INSERT INTO check_ins (bookId, dayKey, createdAt, backfill, pages)"
+                    + " VALUES (7, 20261105, 2000, 0, 12)");
+            AppDatabase.migration(25).migrate(proxy(db));
+            assertEquals("旧行要补成第一轮", 1L, number(db, "SELECT seq FROM check_ins"
+                    + " WHERE dayKey = 20261103"));
+            assertEquals("打卡行不能少", 2L, number(db, "SELECT COUNT(*) FROM check_ins"));
+            assertEquals("backfill 原样保留", 1L, number(db, "SELECT backfill FROM check_ins"
+                    + " WHERE dayKey = 20261103"));
+            assertEquals("pages 原样保留", 12L, number(db, "SELECT pages FROM check_ins"
+                    + " WHERE dayKey = 20261105"));
+            assertTrue("复合索引要建起来", string(db, "SELECT name FROM sqlite_master"
+                    + " WHERE type='index' AND name='index_check_ins_bookId_seq'") != null);
+            assertSchemaLike(26, db);
+        } finally {
+            db.close();
+        }
+    }
+
     // ==================== schema 比对 ====================
 
     /** 升级后的库要和「直接用目标版本 schema 建出来的库」逐表逐列一致 */

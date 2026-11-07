@@ -16,6 +16,11 @@ import java.util.List;
  */
 public final class ReadingRecords {
 
+    /** 模糊记录：只记起止日期，天数按区间算（v5.8.33 起扣外借）。历史数据都是这一档。 */
+    public static final int MODE_FUZZY = 0;
+    /** 精确记录：哪几天读过由 check_ins 说了算，日期只是这份日集合的派生结果。 */
+    public static final int MODE_PRECISE = 1;
+
     /** 单次阅读记录（JSON 存在 books.readingRecords 里） */
     public static final class Record {
         public int seq;
@@ -28,6 +33,13 @@ public final class ReadingRecords {
          * -1 = 旧数据没这个字段，由 {@link #parse} 按「DONE 视为 100、其余视为 0」补齐。
          */
         public int progress = -1;
+        /**
+         * v5.9.1：记录口径。0 = 模糊（{@link #MODE_FUZZY}），1 = 精确（{@link #MODE_PRECISE}）。
+         *
+         * <p>老 JSON 没这个字段，Gson 留默认 0 = 模糊，所以历史数据一行都不用改、
+         * 行为与今天完全一致；这里不需要任何兼容分支。
+         */
+        public int mode = MODE_FUZZY;
 
         public Record() {
         }
@@ -406,6 +418,29 @@ public final class ReadingRecords {
             return Math.max(0, DateKeys.daysBetween(start, end) + 1);
         }
         return LendSpans.minusDays(start, end, spans);
+    }
+
+    /**
+     * 精确模式的派生起止：日期不是用户填的，是这份日集合的两端（v5.9.1）。
+     *
+     * <p>开始日取最早一天；结束日只在已读（DONE）时取最晚一天——在读还没读完、
+     * 弃读那天读的是另一遍，都不该被最晚一天钉死。
+     *
+     * <p>日集合为空时**一个字都不写**：要不要退回模糊口径、要不要提示「还没记日子」
+     * 是调用方的决定，这里不替它清空已有日期（那会把用户填过的东西抹掉）。
+     */
+    public static void deriveRange(Record r, List<Integer> dayKeys) {
+        if (r == null || dayKeys == null || dayKeys.isEmpty()) {
+            return;
+        }
+        int min = dayKeys.get(0);
+        int max = dayKeys.get(0);
+        for (int key : dayKeys) {
+            min = Math.min(min, key);
+            max = Math.max(max, key);
+        }
+        r.startDate = DateKeys.formatKey(min);
+        r.endDate = r.status == Book.READ_DONE ? DateKeys.formatKey(max) : "";
     }
 
     /** 根据日期推断状态：有始有终=已读，只有开始=在读，都没有=未读 */

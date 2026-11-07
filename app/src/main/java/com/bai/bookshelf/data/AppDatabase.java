@@ -69,7 +69,7 @@ import com.bai.bookshelf.data.entity.Tag;
 public abstract class AppDatabase extends RoomDatabase {
 
     /** Room schema 版本（v5.7：备份 meta 与升级前副本都要读到它，故提为常量） */
-    public static final int VERSION = 25;
+    public static final int VERSION = 26;
 
     /** 数据库文件名（建库与升级前副本共用） */
     public static final String DB_NAME = "bookshelf.db";
@@ -452,6 +452,24 @@ public abstract class AppDatabase extends RoomDatabase {
         }
     };
 
+    /**
+     * v25 → v26：打卡行归入「第几轮阅读记录」。
+     *
+     * <p>只加一列 + 一个复合索引，不重建表、不删行、不动既有列；列定义与索引名照抄
+     * Room 生成的 schemas/.../26.json。SQLite 不允许给已有表加 NOT NULL 且无默认值的列，
+     * 所以这里写 DEFAULT 1——历史行全部落成第一轮，精确模式天然不需要回填。
+     * 26.json 里 seq 没有默认值（实体只在 Java 字段上给 = 1），迁移多出来的 DEFAULT
+     * 与「迁移只加列不改结构」一致，Room 的 schema 校验不看默认值。
+     */
+    public static final Migration MIGRATION_25_26 = new Migration(25, 26) {
+        @Override
+        public void migrate(@NonNull SupportSQLiteDatabase database) {
+            database.execSQL("ALTER TABLE `check_ins` ADD COLUMN `seq` INTEGER NOT NULL DEFAULT 1");
+            database.execSQL("CREATE INDEX IF NOT EXISTS `index_check_ins_bookId_seq` "
+                    + "ON `check_ins` (`bookId`, `seq`)");
+        }
+    };
+
     /** 全部迁移（建库与迁移冒烟测试共用一份清单，避免两处各写一遍漏掉一条） */
     public static Migration[] migrations() {
         return new Migration[]{
@@ -460,7 +478,8 @@ public abstract class AppDatabase extends RoomDatabase {
                 MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13,
                 MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17,
                 MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21,
-                MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25};
+                MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25,
+                MIGRATION_25_26};
     }
 
     /** 某一个旧版本对应的迁移；没有则 null（供测试逐级串起来） */

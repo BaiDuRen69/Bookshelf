@@ -51,4 +51,22 @@ public interface CheckInDao {
     /** zip 恢复用：清空打卡表（老备份没有这个键时也要清，避免残留） */
     @Query("DELETE FROM check_ins")
     void deleteAll();
+
+    // ===== 精确阅读记录（v26）：日集合的唯一真相就是这张表，按 (bookId, seq) 取 =====
+
+    /** 某一轮阅读的全部打卡，日期升序（画日历、算 readDays 都吃这个） */
+    @Query("SELECT * FROM check_ins WHERE bookId = :bookId AND seq = :seq ORDER BY dayKey ASC")
+    List<CheckIn> getByBookSeq(long bookId, int seq);
+
+    /** 只要日期，避免为了数天数把整行读出来 */
+    @Query("SELECT dayKey FROM check_ins WHERE bookId = :bookId AND seq = :seq")
+    List<Integer> getDayKeys(long bookId, int seq);
+
+    /** 跨轮移动：把指定几天挪到另一轮（编辑页「这段其实属于第二轮」） */
+    @Query("UPDATE check_ins SET seq = :toSeq WHERE bookId = :bookId AND dayKey IN (:keys)")
+    void updateSeq(long bookId, List<Integer> keys, int toSeq);
+
+    /** 清空某一轮的日集合（模式切换、撤销重做用） */
+    @Query("DELETE FROM check_ins WHERE bookId = :bookId AND seq = :seq")
+    void deleteByBookSeq(long bookId, int seq);
 }
