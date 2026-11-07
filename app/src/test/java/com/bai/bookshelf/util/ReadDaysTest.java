@@ -97,6 +97,21 @@ public class ReadDaysTest {
         assertEquals("记录为空时天数按 0，不抛", 0, ReadDays.of(null, null, null));
     }
 
+    @Test
+    public void 全量打卡按书和轮次分组() {
+        List<CheckIn> rows = new ArrayList<>();
+        rows.add(row(7, 20261105, 1));
+        rows.add(row(7, 20261101, 1));
+        rows.add(row(7, 20261109, 2));
+        rows.add(row(8, 20261103, 1));
+        java.util.Map<Long, java.util.Map<Integer, List<Integer>>> byBook = ReadDays.byBook(rows);
+        assertEquals(2, byBook.size());
+        assertEquals(Arrays.asList(20261101, 20261105), byBook.get(7L).get(1));
+        assertEquals(Collections.singletonList(20261109), byBook.get(7L).get(2));
+        assertEquals(Collections.singletonList(20261103), byBook.get(8L).get(1));
+        assertTrue(ReadDays.byBook(null).isEmpty());
+    }
+
     private static CheckIn row(long bookId, int dayKey, int seq) {
         CheckIn c = new CheckIn();
         c.bookId = bookId;

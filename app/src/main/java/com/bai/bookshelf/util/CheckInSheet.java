@@ -8,13 +8,13 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Excel 导出里的「打卡」sheet 行数据（纯 JVM，可单测）：书名 / 日期 / 是否补卡。
+ * Excel 导出里的「打卡」sheet 行数据（纯 JVM，可单测）：书名 / 日期 / 是否补卡 / 轮次。
  * 无打卡数据时调用方不生成该 sheet，这里只负责把行排好。
  */
 public final class CheckInSheet {
 
     public static final String NAME = "打卡";
-    public static final String[] HEADERS = {"书名", "日期", "是否补卡"};
+    public static final String[] HEADERS = {"书名", "日期", "是否补卡", "轮次"};
 
     private CheckInSheet() {
     }
@@ -41,7 +41,8 @@ public final class CheckInSheet {
             out.add(new String[]{
                     title == null || title.isEmpty() ? "（已删除）" : title,
                     DateKeys.formatKey(c.dayKey),
-                    c.backfill ? "是" : "否"
+                    c.backfill ? "是" : "否",
+                    String.valueOf(c.seq)
             });
         }
         return out;

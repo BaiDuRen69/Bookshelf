@@ -49,9 +49,43 @@ public final class CheckInStore {
 
     // ==================== 写入 ====================
 
-    /** 生产入口：「今天」取系统当前日 */
+    /** 生产入口：「今天」取系统当前日；打卡落库后顺手把精确轮的派生起止同步掉 */
     public static Result toggle(AppDatabase db, Book book, int dayKey, boolean allowBackfill) {
-        return toggle(new RoomSink(db), book, dayKey, allowBackfill, DateKeys.todayKey());
+        Result result = toggle(new RoomSink(db), book, dayKey, allowBackfill, DateKeys.todayKey());
+        if (result == Result.ADDED || result == Result.REMOVED) {
+            syncPreciseRound(db, book);
+        }
+        return result;
+    }
+
+    /**
+     * 精确轮的日集合变了（打卡/撤销/选择器确定）之后，统一在这里重算派生起止并回写书籍。
+     *
+     * <p>只碰「进行中且精确」的那一场：模糊轮一个字不改（历史零改写），
+     * 已读/弃读轮也不动（它们的起止是历史事实）。日集合为空时 deriveRange 不写，
+     * 开始日保留新会话落下的今天锚点。
+     */
+    static void syncPreciseRound(AppDatabase db, Book book) {
+        if (db == null || book == null) {
+            return;
+        }
+        List<ReadingRecords.Record> records = ReadingRecords.load(book);
+        ReadingRecords.Record ongoing = ReadingRecords.ongoingReading(records);
+        if (ongoing == null || ongoing.mode != ReadingRecords.MODE_PRECISE) {
+            return;
+        }
+        List<Integer> keys = db.checkInDao().getDayKeys(book.id, ongoing.seq);
+        ReadingRecords.deriveRange(ongoing, keys);
+        ReadingRecords.syncTo(book, records);
+        book.updatedAt = System.currentTimeMillis();
+        book.dirty = true;
+        db.bookDao().update(book);
+    }
+
+    /** 当前进行中会话的轮次；没有在 reading 的就归到第一轮（与历史行默认值一致） */
+    public static int currentSeq(Book book) {
+        ReadingRecords.Record ongoing = ReadingRecords.ongoingReading(ReadingRecords.load(book));
+        return ongoing == null ? 1 : ongoing.seq;
     }
 
     /** 可注入实现：单测用固定 todayKey，UI 也走这里以便复用同一套规则 */
@@ -78,6 +112,8 @@ public final class CheckInStore {
         c.createdAt = System.currentTimeMillis();
         c.backfill = isBackfill(dayKey, todayKey);
         c.pages = 0; // 本期只存不用
+        // 归到当前在读的那一轮；精确轮靠 (bookId, seq) 取日集合，归错轮天数就错了
+        c.seq = currentSeq(book);
         // 并发下若已被别人写入，IGNORE 返回 false；按幂等视作已打卡
         sink.insert(c);
         return Result.ADDED;

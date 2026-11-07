@@ -323,4 +323,38 @@ public class CheckInStoreTest {
         assertTrue(CheckInStore.countByDayInRange(null).isEmpty());
         assertArrayEquals(new int[]{0, 0}, CheckInStore.streakDays(null, TODAY));
     }
+
+    /** v5.9.1：打卡归到当前在读的那一轮，精确轮靠 (bookId, seq) 取日集合 */
+    @Test
+    public void 打卡落在当前在读轮次上() {
+        Book b = new Book();
+        b.id = 7;
+        b.readStatus = Book.READING;
+        List<ReadingRecords.Record> records = new ArrayList<>();
+        ReadingRecords.Record done = new ReadingRecords.Record(1);
+        done.status = Book.READ_DONE;
+        done.startDate = "2026-09-01";
+        done.endDate = "2026-09-20";
+        records.add(done);
+        ReadingRecords.Record ongoing = new ReadingRecords.Record(2);
+        ongoing.status = Book.READING;
+        ongoing.startDate = "2026-11-01";
+        ongoing.mode = ReadingRecords.MODE_PRECISE;
+        records.add(ongoing);
+        b.readingRecords = ReadingRecords.toJson(records);
+
+        assertEquals(2, CheckInStore.currentSeq(b));
+        MemSink sink = new MemSink();
+        assertEquals(CheckInStore.Result.ADDED, toggle(sink, b, TODAY, true));
+        assertEquals("第二轮在读，打卡不能落进第一轮", 2, sink.rows.get(0).seq);
+    }
+
+    @Test
+    public void 没有会话时打卡归第一轮() {
+        Book b = new Book();
+        b.id = 7;
+        b.readStatus = Book.READ_NONE;
+        assertEquals(1, CheckInStore.currentSeq(b));
+        assertEquals(1, CheckInStore.currentSeq(null));
+    }
 }

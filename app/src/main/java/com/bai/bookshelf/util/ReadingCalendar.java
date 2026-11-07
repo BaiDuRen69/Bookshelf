@@ -16,21 +16,32 @@ public final class ReadingCalendar {
     private ReadingCalendar() {
     }
 
-    /** 单本书的阅读日（键 yyyy-MM-dd，值固定 1） */
+    /** 单本书的阅读日（键 yyyy-MM-dd，值固定 1）；不传日集合时精确轮不铺 */
     public static Map<String, Integer> dailyDays(Book book) {
+        return dailyDays(book, null);
+    }
+
+    /** @param preciseBySeq 该书各轮的日集合（seq → 升序日键），精确轮只铺这些日子 */
+    public static Map<String, Integer> dailyDays(Book book,
+                                                 Map<Integer, List<Integer>> preciseBySeq) {
         Map<String, Integer> days = new LinkedHashMap<>();
-        addBook(days, book);
+        addBook(days, book, preciseBySeq);
         return days;
     }
 
     /** 单本书每天的书目（同一天只有本书一条） */
     public static Map<String, List<String>> titlesByDay(Book book) {
+        return titlesByDay(book, null);
+    }
+
+    public static Map<String, List<String>> titlesByDay(Book book,
+                                                        Map<Integer, List<Integer>> preciseBySeq) {
         Map<String, List<String>> out = new LinkedHashMap<>();
         if (book == null) {
             return out;
         }
         String label = BookText.calendarLabel(book);
-        for (String day : dailyDays(book).keySet()) {
+        for (String day : dailyDays(book, preciseBySeq).keySet()) {
             List<String> titles = new java.util.ArrayList<>(1);
             titles.add(label);
             out.put(day, titles);
@@ -40,12 +51,20 @@ public final class ReadingCalendar {
 
     /** 每天读过的书（书名 + 作者），用于点击某天后的书目列表 */
     public static Map<String, List<String>> titlesByDay(List<Book> books) {
+        return titlesByDay(books, null);
+    }
+
+    /** @param preciseByBook 书 → 轮次 → 日集合（{@link ReadDays#byBook} 组装），精确轮只铺真实日子 */
+    public static Map<String, List<String>> titlesByDay(List<Book> books,
+                                                        Map<Long, Map<Integer, List<Integer>>> preciseByBook) {
         Map<String, List<String>> out = new LinkedHashMap<>();
         if (books == null) {
             return out;
         }
         for (Book book : books) {
-            for (Map.Entry<String, List<String>> e : titlesByDay(book).entrySet()) {
+            Map<Integer, List<Integer>> bySeq =
+                    preciseByBook == null ? null : preciseByBook.get(book.id);
+            for (Map.Entry<String, List<String>> e : titlesByDay(book, bySeq).entrySet()) {
                 List<String> titles = out.get(e.getKey());
                 if (titles == null) {
                     titles = new java.util.ArrayList<>();
@@ -72,16 +91,36 @@ public final class ReadingCalendar {
         return new int[]{c.get(Calendar.YEAR), c.get(Calendar.MONTH)};
     }
 
-    private static void addBook(Map<String, Integer> out, Book book) {
+    private static void addBook(Map<String, Integer> out, Book book,
+                                Map<Integer, List<Integer>> preciseBySeq) {
         if (book == null) {
             return;
         }
         for (ReadingRecords.Record r : ReadingRecords.load(book)) {
-            addRecord(out, r);
+            addRecord(out, r, preciseBySeq == null ? null : preciseBySeq.get(r.seq));
         }
     }
 
-    private static void addRecord(Map<String, Integer> out, ReadingRecords.Record r) {
+    /**
+     * 精确轮只铺真实打过卡的日子（v5.9.1）；模糊轮照旧铺起止区间。
+     *
+     * <p>精确轮但调用方没给日集合（{@code keys == null}）时一天都不铺：
+     * 没有真相就不画，宁可少画也不把区间当成「每天都读了」。
+     */
+    private static void addRecord(Map<String, Integer> out, ReadingRecords.Record r,
+                                  List<Integer> keys) {
+        if (r.mode == ReadingRecords.MODE_PRECISE) {
+            if (keys == null) {
+                return;
+            }
+            int today = DateKeys.todayKey();
+            for (int key : keys) {
+                if (key > 0 && key <= today) {
+                    out.put(DateKeys.formatKey(key), 1);
+                }
+            }
+            return;
+        }
         int start = DateKeys.parseKey(r.startDate);
         if (start == 0) {
             return;

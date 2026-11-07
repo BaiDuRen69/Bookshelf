@@ -942,7 +942,7 @@ public class BookDetailActivity extends BaseActivity {
     /** 本书的阅读日历（按阅读记录起止日期铺出每天） */
     private void showReadingCalendar() {
         Map<String, java.util.List<String>> titles =
-                com.bai.bookshelf.util.ReadingCalendar.titlesByDay(book);
+                com.bai.bookshelf.util.ReadingCalendar.titlesByDay(book, readDayKeys);
         Map<String, Integer> days = new java.util.LinkedHashMap<>();
         for (String day : titles.keySet()) {
             days.put(day, 1);

@@ -32,17 +32,22 @@ public class CheckInWiringTest {
         assertFalse(CheckInSheet.needed(Collections.emptyList()));
         List<String[]> empty = CheckInSheet.rows(Collections.emptyList(), null);
         assertEquals("无数据时也只返回表头", 1, empty.size());
-        assertArrayEquals(new String[]{"书名", "日期", "是否补卡"}, empty.get(0));
+        assertArrayEquals(new String[]{"书名", "日期", "是否补卡", "轮次"}, empty.get(0));
 
         Map<Long, String> titles = new HashMap<>();
         titles.put(1L, "三体");
         titles.put(2L, "活着");
+        CheckIn secondRound = ci(1, 20261106, false);
+        secondRound.seq = 2;
         List<String[]> rows = CheckInSheet.rows(Arrays.asList(
-                ci(1, 20261105, false), ci(2, 20261028, true), ci(9, 20261101, false)), titles);
-        assertEquals(4, rows.size());
-        assertArrayEquals(new String[]{"活着", "2026-10-28", "是"}, rows.get(1));
-        assertArrayEquals(new String[]{"（已删除）", "2026-11-01", "否"}, rows.get(2));
-        assertArrayEquals(new String[]{"三体", "2026-11-05", "否"}, rows.get(3));
+                ci(1, 20261105, false), ci(2, 20261028, true), ci(9, 20261101, false),
+                secondRound), titles);
+        assertEquals(5, rows.size());
+        assertArrayEquals(new String[]{"活着", "2026-10-28", "是", "1"}, rows.get(1));
+        assertArrayEquals(new String[]{"（已删除）", "2026-11-01", "否", "1"}, rows.get(2));
+        assertArrayEquals(new String[]{"三体", "2026-11-05", "否", "1"}, rows.get(3));
+        assertArrayEquals("轮次要跟着导出，不然两轮的日子在表里分不开",
+                new String[]{"三体", "2026-11-06", "否", "2"}, rows.get(4));
     }
 
     @Test

@@ -5,8 +5,10 @@ import com.bai.bookshelf.data.entity.CheckIn;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -75,6 +77,38 @@ public final class ReadDays {
             }
         }
         Collections.sort(out);
+        return out;
+    }
+
+    /** 全量打卡行按 书 → 轮次 → 日集合 分组（统计日历一次取全后用，避免逐本逐轮查） */
+    public static Map<Long, Map<Integer, List<Integer>>> byBook(List<CheckIn> rows) {
+        Map<Long, Map<Integer, List<Integer>>> out = new HashMap<>();
+        if (rows == null) {
+            return out;
+        }
+        Map<Long, List<CheckIn>> grouped = new HashMap<>();
+        for (CheckIn c : rows) {
+            if (c == null) {
+                continue;
+            }
+            List<CheckIn> list = grouped.get(c.bookId);
+            if (list == null) {
+                list = new ArrayList<>();
+                grouped.put(c.bookId, list);
+            }
+            list.add(c);
+        }
+        for (Map.Entry<Long, List<CheckIn>> e : grouped.entrySet()) {
+            Set<Integer> seqs = new HashSet<>();
+            for (CheckIn c : e.getValue()) {
+                seqs.add(c.seq);
+            }
+            Map<Integer, List<Integer>> bySeq = new HashMap<>();
+            for (int seq : seqs) {
+                bySeq.put(seq, keysOf(e.getValue(), seq));
+            }
+            out.put(e.getKey(), bySeq);
+        }
         return out;
     }
 }

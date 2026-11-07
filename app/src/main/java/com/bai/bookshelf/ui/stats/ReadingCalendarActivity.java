@@ -52,7 +52,10 @@ public class ReadingCalendarActivity extends BaseActivity {
         BookshelfApp app = BookshelfApp.get();
         app.io(() -> {
             List<Book> books = BookSanitizer.normalizeAll(app.db().bookDao().getAll());
-            Map<String, List<String>> titles = ReadingCalendar.titlesByDay(books);
+            // 精确轮只铺真实打过卡的日子，模糊轮照旧铺区间（v5.9.1）
+            java.util.Map<Long, java.util.Map<Integer, java.util.List<Integer>>> preciseByBook =
+                    com.bai.bookshelf.util.ReadDays.byBook(app.db().checkInDao().getAll());
+            Map<String, List<String>> titles = ReadingCalendar.titlesByDay(books, preciseByBook);
             Map<String, Integer> counts = new java.util.LinkedHashMap<>();
             int max = 0;
             for (Map.Entry<String, List<String>> e : titles.entrySet()) {

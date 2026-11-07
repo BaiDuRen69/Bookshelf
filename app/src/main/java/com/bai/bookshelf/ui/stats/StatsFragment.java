@@ -589,8 +589,20 @@ public class StatsFragment extends Fragment {
                     com.bai.bookshelf.util.StatsHealth.health(books);
             int todayKey = com.bai.bookshelf.util.DateKeys.todayKey();
             int fromKey = com.bai.bookshelf.util.DateKeys.shiftDayKey(todayKey, -364);
+            // 打卡一次取全：习惯栏与阅读日历共用，精确轮按真实日集合铺（v5.9.1）
+            java.util.List<com.bai.bookshelf.data.entity.CheckIn> loadedCheckIns;
+            try {
+                loadedCheckIns = com.bai.bookshelf.app.BookshelfApp.get().db()
+                        .checkInDao().getInRange(0, 99999999);
+            } catch (Exception e) {
+                loadedCheckIns = new ArrayList<>();
+            }
+            final java.util.List<com.bai.bookshelf.data.entity.CheckIn> allCheckIns = loadedCheckIns;
+            final java.util.Map<Long, java.util.Map<Integer, java.util.List<Integer>>> preciseByBook =
+                    com.bai.bookshelf.util.ReadDays.byBook(allCheckIns);
             int readingDays = 0;
-            for (String day : com.bai.bookshelf.util.ReadingCalendar.titlesByDay(books).keySet()) {
+            for (String day : com.bai.bookshelf.util.ReadingCalendar
+                    .titlesByDay(books, preciseByBook).keySet()) {
                 int k = com.bai.bookshelf.util.DateKeys.parseKey(day);
                 if (k >= fromKey && k <= todayKey) {
                     readingDays++;
@@ -708,19 +720,13 @@ public class StatsFragment extends Fragment {
             java.util.List<Integer> dayKeys = new ArrayList<>();
             // 第 ④ 步：有书累计打卡 ≥3 次就以打卡自然日为事实源，修掉
             //「在读未填结束日 → 按天铺满整个区间」的虚高；不足则回退区间估算。
-            java.util.List<com.bai.bookshelf.data.entity.CheckIn> allCheckIns;
-            try {
-                allCheckIns = com.bai.bookshelf.app.BookshelfApp.get().db()
-                        .checkInDao().getInRange(0, 99999999);
-            } catch (Exception e) {
-                allCheckIns = new ArrayList<>();
-            }
             final boolean habitByCheckIn =
                     com.bai.bookshelf.util.CheckInHabit.useCheckIns(allCheckIns);
             if (habitByCheckIn) {
                 dayKeys.addAll(com.bai.bookshelf.util.CheckInHabit.dayKeys(allCheckIns));
             } else {
-                for (String day : com.bai.bookshelf.util.ReadingCalendar.titlesByDay(books).keySet()) {
+                for (String day : com.bai.bookshelf.util.ReadingCalendar
+                        .titlesByDay(books, preciseByBook).keySet()) {
                     int k = com.bai.bookshelf.util.DateKeys.parseKey(day);
                     if (k > 0) {
                         dayKeys.add(k);
