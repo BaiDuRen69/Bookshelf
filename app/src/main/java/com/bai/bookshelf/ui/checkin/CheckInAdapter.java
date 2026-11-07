@@ -46,8 +46,6 @@ public class CheckInAdapter extends RecyclerView.Adapter<CheckInAdapter.VH> {
         public final Book book;
         public boolean checked;
         public String borrower = "";
-        /** 兼容旧调用点保留字段；打卡列表不再展示记录口径 */
-        public String modeLabel = "";
         /** 当前轮的阅读天数（ReadingRecords.readDays 唯一口径） */
         public int readDays;
         /** 当前在读那一轮的 seq：打卡写入时带上，撤销时才认得出是哪一轮 */
@@ -169,6 +167,7 @@ public class CheckInAdapter extends RecyclerView.Adapter<CheckInAdapter.VH> {
      * 字号、iconSize、iconPadding、strokeWidth）三态完全一致，交给布局一次定死。
      */
     private static void applyButtonStyle(MaterialButton btn, int state, ButtonStyles s) {
+        btn.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, s.textSize);
         btn.setIconGravity(MaterialButton.ICON_GRAVITY_TEXT_START);
         btn.setIconSize(s.iconSize);
         btn.setIconPadding(s.iconPadding);
@@ -208,6 +207,7 @@ public class CheckInAdapter extends RecyclerView.Adapter<CheckInAdapter.VH> {
         final int iconSize;
         final int iconPadding;
         final int strokeWidth;
+        final float textSize;
 
         ButtonStyles(Context ctx) {
             primary = ThemeManager.resolveColor(ctx, ThemeManager.ATTR_COLOR_PRIMARY);
@@ -223,6 +223,7 @@ public class CheckInAdapter extends RecyclerView.Adapter<CheckInAdapter.VH> {
             iconSize = ctx.getResources().getDimensionPixelSize(R.dimen.checkin_button_icon);
             iconPadding = ctx.getResources().getDimensionPixelSize(R.dimen.space_xs);
             strokeWidth = ctx.getResources().getDimensionPixelSize(R.dimen.checkin_button_stroke);
+            textSize = ctx.getResources().getDimension(R.dimen.text_body_small);
         }
     }
 

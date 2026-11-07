@@ -3,10 +3,12 @@ package com.bai.bookshelf.ui.widget;
 import android.animation.ValueAnimator;
 import android.content.Context;
 import android.graphics.Canvas;
+import android.graphics.Outline;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.RectF;
 import android.view.View;
+import android.view.ViewOutlineProvider;
 
 import androidx.annotation.Nullable;
 
@@ -30,6 +32,28 @@ public final class DayCellView extends View {
 
     /** 打卡点入场时长（比切月的 110ms 略长，落点要看得见） */
     private static final long DOT_ENTRANCE_MS = 120;
+
+    /** 今日选中格的硬件阴影轮廓：胶囊形，RenderThread 绘制，不切软件层 */
+    private static final ViewOutlineProvider TODAY_OUTLINE = new ViewOutlineProvider() {
+        @Override
+        public void getOutline(View view, Outline outline) {
+            int w = view.getWidth();
+            int h = view.getHeight();
+            if (w <= 0 || h <= 0) {
+                outline.setEmpty();
+                return;
+            }
+            outline.setRoundRect(0, 0, w, h, Math.min(w, h) / 2f);
+            outline.setAlpha(1f);
+        }
+    };
+
+    private static final ViewOutlineProvider EMPTY_OUTLINE = new ViewOutlineProvider() {
+        @Override
+        public void getOutline(View view, Outline outline) {
+            outline.setEmpty();
+        }
+    };
 
     private final Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint bandPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -189,13 +213,17 @@ public final class DayCellView extends View {
     }
 
     /**
-     * 打卡月视图的附加装饰（新增可选参数，不改 bindCheckIn 的现有签名）：
-     * 今日选中用深色底 + 偏移半透明阴影，非今日选中用正圆框；农历小字画在数字下方。
-     * 阴影是纯绘制的一层，不走 Paint.setShadowLayer，避免切软件层掉帧。
-     * 选择器模式（ROLE_PICKER）不读这些值，观感保持原样。
+     * 打卡月视图的状态绑定（新增重载，不改原 13 参签名）：额外带今日深色底、
+     * colorOnPrimary 反色字、正圆框、农历小字与 2dp 硬件阴影高度。
      */
-    public void setCheckInDecor(String lunar, int todayBg, int onTodayBg, int ringColor,
-                                int lunarColor, float lunarTextSize, float shadowOffset) {
+    public void bindCheckIn(int day, int primary, int selectedBg, int selectedStroke,
+                            int onSurface, int onSurfaceVariant,
+                            boolean selected, boolean today, boolean adjacent, boolean future,
+                            int dotTotal, int dotBackfill, boolean anchor,
+                            String lunar, int todayBg, int onTodayBg, int ringColor,
+                            int lunarColor, float lunarTextSize, float shadowOffset) {
+        bindCheckIn(day, primary, selectedBg, selectedStroke, onSurface, onSurfaceVariant,
+                selected, today, adjacent, future, dotTotal, dotBackfill, anchor);
         this.lunarText = lunar == null ? "" : lunar;
         this.todayBg = todayBg;
         this.onTodayBg = onTodayBg;
@@ -203,6 +231,12 @@ public final class DayCellView extends View {
         this.lunarColor = lunarColor;
         this.lunarTextSize = lunarTextSize;
         this.shadowOffset = shadowOffset;
+        // 硬件阴影：ViewOutlineProvider + elevation，由 RenderThread 绘制；
+        // 不用 Paint.setShadowLayer（会切软件层掉帧）。选择器模式不参与。
+        boolean todaySelected = checkInMode && !pickerMode && selected && today && !adjacent;
+        setElevation(todaySelected ? shadowOffset : 0f);
+        setOutlineProvider(todaySelected ? TODAY_OUTLINE : EMPTY_OUTLINE);
+        invalidateOutline();
         invalidate();
     }
 
@@ -313,11 +347,8 @@ public final class DayCellView extends View {
             textPaint.setFakeBoldText(picked);
         } else if (selected) {
             if (today && !adjacent) {
-                // 今日选中：深色底 + 向下偏移的一层半透明阴影（纯绘制，不切软件层）
+                // 今日选中：深色底 + colorOnPrimary 字；阴影交给硬件 elevation
                 rect.set(dp(2), cy - radius, w - dp(2), cy + radius);
-                bandPaint.setColor((0x24 << 24) | (onSurface & 0x00FFFFFF));
-                canvas.drawRoundRect(rect.left, rect.top + shadowOffset,
-                        rect.right, rect.bottom + shadowOffset, radius, radius, bandPaint);
                 bandPaint.setColor(todayBg);
                 canvas.drawRoundRect(rect, radius, radius, bandPaint);
                 textPaint.setColor(onTodayBg);

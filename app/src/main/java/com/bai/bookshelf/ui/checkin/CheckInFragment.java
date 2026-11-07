@@ -87,7 +87,7 @@ public class CheckInFragment extends Fragment
                 return;
             }
             if (switcher.isYearVisible()) {
-                switcher.toMonth(b.monthGrid.selectedCellCenter(b.viewSwitchHost), () -> {
+                switcher.toMonth(b.monthGrid.selectedCellCenterIn(b.viewSwitchHost), () -> {
                     selectedDayKey = DateKeys.todayKey();
                     b.monthGrid.moveToToday();
                 });
@@ -122,7 +122,7 @@ public class CheckInFragment extends Fragment
             return;
         }
         if (switcher.isYearVisible()) {
-            switcher.toMonth(b.monthGrid.selectedCellCenter(b.viewSwitchHost), null);
+            switcher.toMonth(b.monthGrid.selectedCellCenterIn(b.viewSwitchHost), null);
         } else {
             openYearView();
         }
@@ -138,7 +138,7 @@ public class CheckInFragment extends Fragment
             return;
         }
         final int ym = b.monthGrid.getYearMonth();
-        final int[] pivot = b.monthGrid.selectedCellCenter(b.viewSwitchHost);
+        final int[] pivot = b.monthGrid.selectedCellCenterIn(b.viewSwitchHost);
         BookshelfApp app = BookshelfApp.get();
         app.io(() -> {
             List<CheckIn> all;
@@ -183,7 +183,7 @@ public class CheckInFragment extends Fragment
             } else {
                 loadMonth(yearMonth, false);
             }
-            switcher.toMonth(b.monthGrid.selectedCellCenter(b.viewSwitchHost), null);
+            switcher.toMonth(b.monthGrid.selectedCellCenterIn(b.viewSwitchHost), null);
         });
     }
 

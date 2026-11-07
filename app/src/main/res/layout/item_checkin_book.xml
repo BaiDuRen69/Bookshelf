@@ -76,7 +76,6 @@
             android:insetTop="4dp"
             android:maxLines="1"
             android:minHeight="48dp"
-            android:minWidth="0dp"
             android:paddingHorizontal="@dimen/space_md" />
     </LinearLayout>
 </androidx.cardview.widget.CardView>

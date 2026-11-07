@@ -18,7 +18,7 @@ import androidx.transition.TransitionManager;
  * 避免两条动画抢 scaleX/scaleY。动画只作用于 host 内的两个 content，
  * Toolbar、悬浮「今」、MainActivity 的 dock 与系统状态栏都不在动画树里。
  *
- * <p>缩放中心由 MonthGridView.selectedCellCenter(host) 给出（当前选中日期格），
+ * <p>缩放中心由 MonthGridView.selectedCellCenterIn(host) 给出（当前选中日期格），
  * 不是屏幕中心。全程只改 alpha/scale/translation，不触发 requestLayout。
  */
 public final class CheckInViewSwitcher {

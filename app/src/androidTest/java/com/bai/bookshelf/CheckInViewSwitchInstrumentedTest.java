@@ -85,7 +85,7 @@ public class CheckInViewSwitchInstrumentedTest {
         View root = inflate(R.layout.fragment_checkin);
         ViewGroup host = root.findViewById(R.id.view_switch_host);
         MonthGridView grid = root.findViewById(R.id.month_grid);
-        int[] pivot = grid.selectedCellCenter(host);
+        int[] pivot = grid.selectedCellCenterIn(host);
         assertEquals(2, pivot.length);
         assertTrue(pivot[0] >= 0);
         assertTrue(pivot[1] >= 0);

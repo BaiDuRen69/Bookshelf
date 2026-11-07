@@ -242,7 +242,7 @@ public class MonthGridView extends LinearLayout {
      * 选中日期格中心相对动画容器的坐标（px），月↔年切换拿它当缩放中心，
      * 不是屏幕中心。找不到格子时退回容器中心。
      */
-    public int[] selectedCellCenter(View host) {
+    public int[] selectedCellCenterIn(View host) {
         int[] hostLoc = new int[2];
         host.getLocationInWindow(hostLoc);
         for (int i = 0; i < dayKeys.length; i++) {
@@ -459,8 +459,8 @@ public class MonthGridView extends LinearLayout {
         }
         cell.bindCheckIn(key % 100, colorPrimary, colorSelectedBg, colorSelectedStroke,
                 colorOnSurface, colorVariant, key == selectedDayKey, today, adjacent, future,
-                adjacent ? 0 : total, backfill, false);
-        cell.setCheckInDecor(lunarTextSize > 0 ? lunar.label(key) : "",
+                adjacent ? 0 : total, backfill, false,
+                lunarTextSize > 0 ? lunar.label(key) : "",
                 colorTodayBg, colorOnTodayBg, colorRing, colorLunar,
                 lunarTextSize, shadowOffset);
         cell.setContentDescription(
@@ -632,7 +632,9 @@ public class MonthGridView extends LinearLayout {
         colorReferenceBg = ThemeManager.resolveColor(getContext(), R.attr.surface_dim);
         colorPreviewBg = ThemeManager.resolveColor(getContext(), R.attr.outline);
         colorTodayBg = ThemeManager.resolveColor(getContext(), R.attr.header_bg);
-        colorOnTodayBg = ThemeManager.resolveColor(getContext(), R.attr.header_fg);
+        // 深色底上的文字走 colorOnPrimary（material attr，nonTransitiveRClass 下要全限定）
+        colorOnTodayBg = ThemeManager.resolveColor(getContext(),
+                com.google.android.material.R.attr.colorOnPrimary);
         colorRing = ThemeManager.resolveColor(getContext(), R.attr.outline_strong);
         colorLunar = ThemeManager.resolveColor(getContext(), R.attr.on_surface_variant);
         float scale = getResources().getConfiguration().fontScale;
