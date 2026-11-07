@@ -47,6 +47,9 @@ public class BookSaveFlow {
         /** 保存前把阅读记录汇总到 book 的阅读状态/日期/评分 */
         void syncReadingRecords();
 
+        /** 入库时把改过的轮次日集合写进 check_ins（在 io 线程调用） */
+        void persistReadingDaySets(BookshelfApp app);
+
         /** 保存前把借书记录汇总到 book 的借阅日期与藏书状态 */
         void syncBorrowRecords();
 
@@ -149,6 +152,7 @@ public class BookSaveFlow {
         app.io(() -> {
             if (host.editMode()) {
                 BookEditSaver.saveEdit(app, book, copiesToSave, copyImagesToSave, imagesToSave);
+                host.persistReadingDaySets(app);
             } else {
                 // 新增前按 ISBN 查重（ISBN 为空则跳过）
                 Book exist = book.isbn.isEmpty() ? null : app.db().bookDao().getByIsbn(book.isbn);
@@ -174,6 +178,7 @@ public class BookSaveFlow {
                                     app.io(() -> {
                                         BookEditSaver.insertNew(app, activity, book, copiesToSave,
                                                 copyImagesToSave, imagesToSave, now);
+                                        host.persistReadingDaySets(app);
                                         app.ui(host::onSaved);
                                     }))
                             .show());
@@ -181,6 +186,7 @@ public class BookSaveFlow {
                 }
                 BookEditSaver.insertNew(app, activity, book, copiesToSave, copyImagesToSave,
                         imagesToSave, now);
+                host.persistReadingDaySets(app);
             }
             app.ui(host::onSaved);
         });

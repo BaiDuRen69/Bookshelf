@@ -202,6 +202,11 @@ public class BookEditActivity extends BaseActivity {
             }
 
             @Override
+            public void persistReadingDaySets(com.bai.bookshelf.app.BookshelfApp app) {
+                readingRecords.persistDaySets(app);
+            }
+
+            @Override
             public void syncBorrowRecords() {
                 borrowRecords.syncToBook();
             }
