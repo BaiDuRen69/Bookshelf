@@ -658,6 +658,75 @@ public class BookDetailActivity extends BaseActivity {
         });
     }
 
+    /**
+     * 阅读记录卡的精确入口与一次性引导（v5.9.1 修订第五步）。
+     *
+     * <p>当前轮（最后一场）是精确 → 直接开面板补记；是模糊 → 先问要不要改用精确。
+     * 引导只在第一次进入精确轮时出现，「知道了」写 ui_prefs 的 precise_mode_hint_seen。
+     */
+    private void bindPreciseEntry() {
+        java.util.List<ReadingRecords.Record> records = ReadingRecords.load(book);
+        ReadingRecords.Record current = records.isEmpty()
+                ? null : ReadingRecords.lastOf(records);
+        b.btnReadingPrecise.setVisibility(current == null ? View.GONE : View.VISIBLE);
+        b.btnReadingPrecise.setOnClickListener(v -> {
+            if (current == null) {
+                return;
+            }
+            if (current.mode == ReadingRecords.MODE_PRECISE) {
+                openPreciseSheet(current);
+                return;
+            }
+            new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                    .setTitle("改用精确记录？")
+                    .setMessage("精确记录按你实际读过的日子算天数，起止日期由这些日子自动派生。"
+                            + "已填的起止会作为参考底纹带进选择器。")
+                    .setPositiveButton("改用", (d, w) -> {
+                        int before = current.mode;
+                        current.mode = ReadingRecords.MODE_PRECISE;
+                        ReadingRecords.syncTo(book, records);
+                        BookshelfApp app = BookshelfApp.get();
+                        app.io(() -> {
+                            app.db().bookDao().update(book);
+                            app.ui(() -> {
+                                com.bai.bookshelf.util.UndoBar.offer(b.getRoot(),
+                                        "已改用精确记录",
+                                        () -> app.io(() -> {
+                                            current.mode = before;
+                                            ReadingRecords.syncTo(book, records);
+                                            app.db().bookDao().update(book);
+                                            app.ui(this::reload);
+                                        }), null);
+                                openPreciseSheet(current);
+                            });
+                        });
+                    })
+                    .setNegativeButton(R.string.action_cancel, null)
+                    .show();
+        });
+
+        boolean hasPrecise = false;
+        for (ReadingRecords.Record r : records) {
+            if (r.mode == ReadingRecords.MODE_PRECISE) {
+                hasPrecise = true;
+                break;
+            }
+        }
+        // 与 ThemeManager 同一个 prefs 文件；键名按规格固定
+        android.content.SharedPreferences prefs =
+                getSharedPreferences("ui_prefs", MODE_PRIVATE);
+        boolean seen = prefs.getBoolean("precise_mode_hint_seen", false);
+        b.llPreciseHint.setVisibility(hasPrecise && !seen ? View.VISIBLE : View.GONE);
+        b.btnPreciseHintOk.setOnClickListener(v -> {
+            prefs.edit().putBoolean("precise_mode_hint_seen", true).apply();
+            b.llPreciseHint.setVisibility(View.GONE);
+        });
+    }
+
+    private void openPreciseSheet(ReadingRecords.Record record) {
+        com.bai.bookshelf.ui.checkin.DayPickerSheet.show(this, book, record, keys -> reload());
+    }
+
     private void reload() {
         DetailDataLoader.load(BookshelfApp.get(), book.id, data -> {
             if (data == null) { // 已被删除
@@ -753,6 +822,7 @@ public class BookDetailActivity extends BaseActivity {
                 copies, openRecords);
         DetailRecordLists.bindReading(this, b, book, openRecords, copies, readDayKeys);
         DetailRecordLists.bindBorrow(this, b, book);
+        bindPreciseEntry();
         // v5.7：四个分区可折叠，折叠状态跨书沿用
         DetailSectionCollapse.bind(this, b.ivToggleInfo, b.llInfoGrid,
                 DetailSectionCollapse.INFO, "书目信息");

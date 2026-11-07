@@ -356,4 +356,17 @@ public class ReadingFlowTest {
         assertEquals(ReadingRecords.MODE_PRECISE, records.get(0).mode);
         assertEquals("2026-11-01", records.get(0).startDate);
     }
+
+    /** 重载可以显式指定模糊；旧签名仍委托为精确 */
+    @Test
+    public void startOverloadHonoursExplicitMode() {
+        Book b = book();
+        assertTrue(ReadingFlow.start(b, "2026-11-01", ReadingRecords.MODE_FUZZY));
+        assertEquals(ReadingRecords.MODE_FUZZY,
+                ReadingRecords.parse(b.readingRecords).get(0).mode);
+        Book c = book();
+        assertTrue(ReadingFlow.start(c, "2026-11-01"));
+        assertEquals(ReadingRecords.MODE_PRECISE,
+                ReadingRecords.parse(c.readingRecords).get(0).mode);
+    }
 }

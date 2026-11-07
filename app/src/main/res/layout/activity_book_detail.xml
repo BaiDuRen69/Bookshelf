@@ -556,6 +556,20 @@
                                 android:paddingVertical="4dp"
                                 android:text="阅读记录" />
 
+                            <!-- 精确记录入口：当前轮精确直接补记，模糊先问要不要改用。
+                                 inset 清零是为了让 48dp 触控区就是视觉高度，不被 Material 默认 inset 吞掉 -->
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btn_reading_precise"
+                                style="@style/Widget.Bookshelf.Button.Outlined"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:insetTop="0dp"
+                                android:insetBottom="0dp"
+                                android:minHeight="48dp"
+                                android:paddingHorizontal="@dimen/space_md"
+                                android:text="精确记录"
+                                android:textSize="@dimen/text_caption_large" />
+
                             <TextView
                                 android:id="@+id/btn_reading_calendar"
                                 android:layout_width="wrap_content"
@@ -608,6 +622,33 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="@dimen/space_sm"
                             android:orientation="vertical" />
+
+                        <!-- 首次进入精确轮的一次性引导（ui_prefs: precise_mode_hint_seen） -->
+                        <LinearLayout
+                            android:id="@+id/ll_precise_hint"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="@dimen/space_sm"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal"
+                            android:visibility="gone">
+
+                            <TextView
+                                android:id="@+id/tv_precise_hint"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="精确记录按你实际读过的日子算天数——在打卡页点一下，或点这里补记。"
+                                android:textColor="?attr/on_surface_variant"
+                                android:textSize="@dimen/text_caption_large" />
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btn_precise_hint_ok"
+                                style="@style/Widget.Bookshelf.Button.Text"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="知道了" />
+                        </LinearLayout>
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
 

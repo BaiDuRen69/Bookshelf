@@ -21,8 +21,13 @@ public final class ReadingFlow {
     private ReadingFlow() {
     }
 
-    /** 已经在读则返回 false；否则新增一场 READING（进度从 0 起） */
+    /** 已经在读则返回 false；否则新增一场 READING（进度从 0 起），默认精确口径 */
     public static boolean start(Book book, String today) {
+        return start(book, today, ReadingRecords.MODE_PRECISE);
+    }
+
+    /** 指定口径的开始阅读（v5.9.1 修订第五步）；旧签名委托为 PRECISE，避免遗漏调用点 */
+    public static boolean start(Book book, String today, int mode) {
         if (book == null) {
             return false;
         }
@@ -30,7 +35,7 @@ public final class ReadingFlow {
         if (ReadingRecords.ongoingReading(records) != null) {
             return false;
         }
-        ReadingRecords.Record r = newRecord(records, today);
+        ReadingRecords.Record r = newRecord(records, today, mode);
         r.status = Book.READING;
         r.progress = 0;
         records.add(r);
@@ -160,18 +165,24 @@ public final class ReadingFlow {
         return maxSeq + 1;
     }
 
+    /** 新会话：seq 取最大值 +1，开始日 = 今天，结束日与评分留空；默认精确 */
+    private static ReadingRecords.Record newRecord(List<ReadingRecords.Record> records,
+                                                   String today) {
+        return newRecord(records, today, ReadingRecords.MODE_PRECISE);
+    }
+
     /**
      * 新会话：seq 取最大值 +1，开始日 = 今天，结束日与评分留空。
      *
-     * <p>v5.9.1 起新会话默认**精确**口径：往后的日子靠打卡记，起止由日集合派生。
-     * 开始日先落在今天作为锚点，第一次打卡后 deriveRange 会把它改成最早那天；
-     * 历史会话与 derive/load 合成的老记录不走这里，仍是模糊，一个字不改。
+     * <p>v5.9.1 起活入口（开始/读完/弃读/再读）默认**精确**口径：往后的日子靠打卡记，
+     * 起止由日集合派生。开始日先落在今天作为锚点，第一次打卡后 deriveRange 会把它
+     * 改成最早那天；历史会话与 derive/load 合成的老记录不走这里，仍是模糊。
      */
     private static ReadingRecords.Record newRecord(List<ReadingRecords.Record> records,
-                                                   String today) {
+                                                   String today, int mode) {
         ReadingRecords.Record r = new ReadingRecords.Record(nextSeq(records));
         r.startDate = nz(today);
-        r.mode = ReadingRecords.MODE_PRECISE;
+        r.mode = mode;
         return r;
     }
 

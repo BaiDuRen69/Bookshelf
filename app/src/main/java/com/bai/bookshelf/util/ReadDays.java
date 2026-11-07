@@ -67,6 +67,45 @@ public final class ReadDays {
         return out;
     }
 
+    /** 最长连续阅读天数：日集合里最长的连续段（含首尾）；空集合 0 */
+    public static int longestRun(Collection<Integer> dayKeys) {
+        if (dayKeys == null || dayKeys.isEmpty()) {
+            return 0;
+        }
+        java.util.TreeSet<Integer> sorted = new java.util.TreeSet<>(dayKeys);
+        int best = 1;
+        int run = 1;
+        int prev = sorted.first();
+        for (int key : sorted) {
+            if (key == prev) {
+                continue;
+            }
+            run = key == DateKeys.shiftDayKey(prev, 1) ? run + 1 : 1;
+            best = Math.max(best, run);
+            prev = key;
+        }
+        return best;
+    }
+
+    /** 是否「多在周末」：周六周日的日子超过一半（空集合 false） */
+    public static boolean weekendHeavy(Collection<Integer> dayKeys) {
+        if (dayKeys == null || dayKeys.isEmpty()) {
+            return false;
+        }
+        Set<Integer> distinct = new HashSet<>(dayKeys);
+        int weekend = 0;
+        java.util.Calendar c = java.util.Calendar.getInstance();
+        for (int key : distinct) {
+            c.clear();
+            c.set(key / 10000, key / 100 % 100 - 1, key % 100);
+            int dow = c.get(java.util.Calendar.DAY_OF_WEEK);
+            if (dow == java.util.Calendar.SATURDAY || dow == java.util.Calendar.SUNDAY) {
+                weekend++;
+            }
+        }
+        return weekend * 2 > distinct.size();
+    }
+
     /** 全量打卡行按 书 → 轮次 → 日集合 分组（统计日历一次取全后用，避免逐本逐轮查） */
     public static Map<Long, Map<Integer, List<Integer>>> byBook(List<CheckIn> rows) {
         Map<Long, Map<Integer, List<Integer>>> out = new HashMap<>();

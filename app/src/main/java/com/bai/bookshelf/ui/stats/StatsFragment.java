@@ -610,7 +610,7 @@ public class StatsFragment extends Fragment {
             }
             final com.bai.bookshelf.util.StatsPace.Pace pace =
                     com.bai.bookshelf.util.StatsPace.pace(
-                            books, copiesByBook, hold, readingDays, lendSpans);
+                            books, copiesByBook, hold, readingDays, lendSpans, preciseByBook);
             // v5.8.19：在读剩余页数与预计读完日，速度沿用上面的中位页/天
             final com.bai.bookshelf.util.StatsPace.Backlog backlog =
                     com.bai.bookshelf.util.StatsPace.backlog(books,

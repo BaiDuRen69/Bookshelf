@@ -139,6 +139,19 @@ public final class StatsPace {
     public static Pace pace(List<Book> raw, java.util.Map<Long, List<BookCopy>> copiesByBook,
                             Holdings h, int readingDaysLastYear,
                             java.util.Map<Long, List<int[]>> lendSpans) {
+        return pace(raw, copiesByBook, h, readingDaysLastYear, lendSpans, null);
+    }
+
+    /**
+     * @param preciseByBook 书 → 轮次 → 日集合（{@link ReadDays#byBook}）。精确轮一个日子
+     *                      都没记的书按「无天数」排除出速度样本——它的起止只是锚点，
+     *                      拿锚点区间算 1 天会污染中位数（v5.9.1 修订第五步）。
+     *                      传 null 时不做这项排除（老调用点与单测保持原行为）。
+     */
+    public static Pace pace(List<Book> raw, java.util.Map<Long, List<BookCopy>> copiesByBook,
+                            Holdings h, int readingDaysLastYear,
+                            java.util.Map<Long, List<int[]>> lendSpans,
+                            java.util.Map<Long, java.util.Map<Integer, List<Integer>>> preciseByBook) {
         List<Book> books = BookSanitizer.normalizeAll(raw);
         Pace p = new Pace();
         p.finishRate = h.readRate();
@@ -150,6 +163,9 @@ public final class StatsPace {
         for (Book book : books) {
             if (book.readStatus == Book.READ_DROPPED || book.readingFinishDate.isEmpty()) {
                 continue;
+            }
+            if (preciseByBook != null && preciseRoundWithoutDays(book, preciseByBook)) {
+                continue; // 精确轮没记日子：起止只是锚点，不进速度样本
             }
             int finishKey = DateKeys.parseKey(book.readingFinishDate);
             int startKey = DateKeys.parseKey(book.readingStartDate);
@@ -274,6 +290,18 @@ public final class StatsPace {
     }
 
     /** yyyyMMdd 键 + N 天 → yyyy-MM-dd */
+    /** 最后一场是精确且一个日子都没记：起止只是锚点，不该进速度样本 */
+    private static boolean preciseRoundWithoutDays(Book book,
+                                                   java.util.Map<Long, java.util.Map<Integer, List<Integer>>> byBook) {
+        ReadingRecords.Record last = ReadingRecords.lastOf(ReadingRecords.load(book));
+        if (last.mode != ReadingRecords.MODE_PRECISE) {
+            return false;
+        }
+        java.util.Map<Integer, List<Integer>> bySeq = byBook.get(book.id);
+        List<Integer> keys = bySeq == null ? null : bySeq.get(last.seq);
+        return ReadDays.precise(keys) == 0;
+    }
+
     private static String plusDays(int dateKey, int days) {
         java.util.Calendar c = java.util.Calendar.getInstance();
         c.set(dateKey / 10000, dateKey / 100 % 100 - 1, dateKey % 100, 0, 0, 0);

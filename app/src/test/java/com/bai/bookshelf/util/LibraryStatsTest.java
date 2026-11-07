@@ -1041,4 +1041,37 @@ public class LibraryStatsTest {
         assertEquals(Book.READ_DONE, b.readStatus);
         assertEquals("2026-06-01", b.readingFinishDate);
     }
+
+    /** v5.9.1 修订第五步：精确轮没记日子的书不进速度样本，不拿锚点区间污染中位数 */
+    @Test
+    public void preciseRoundWithoutDaysExcludedFromSpeedSample() {
+        Book fuzzy = book(1, "模糊书");
+        fuzzy.readStatus = Book.READ_DONE;
+        fuzzy.pages = 300;
+        fuzzy.readingStartDate = "2026-05-01";
+        fuzzy.readingFinishDate = "2026-05-10"; // 10 天
+
+        Book preciseEmpty = book(2, "精确没记");
+        preciseEmpty.readStatus = Book.READ_DONE;
+        preciseEmpty.pages = 300;
+        preciseEmpty.readingStartDate = "2026-06-01";
+        preciseEmpty.readingFinishDate = "2026-06-01"; // 锚点 1 天，但一个日子都没记
+        ReadingRecords.Record pr = new ReadingRecords.Record(1);
+        pr.status = Book.READ_DONE;
+        pr.mode = ReadingRecords.MODE_PRECISE;
+        pr.startDate = "2026-06-01";
+        pr.endDate = "2026-06-01";
+        preciseEmpty.readingRecords = ReadingRecords.toJson(java.util.Collections.singletonList(pr));
+
+        java.util.Map<Long, java.util.Map<Integer, java.util.List<Integer>>> byBook =
+                new java.util.HashMap<>(); // 没有任何打卡行
+        java.util.List<Book> books = Arrays.asList(fuzzy, preciseEmpty);
+        StatsHoldings.Holdings h = StatsHoldings.holdings(books, null);
+        StatsPace.Pace with = StatsPace.pace(books, null, h, 0, null, byBook);
+        assertEquals("精确空轮被排除，只剩模糊那本", 1, with.daySample);
+        assertEquals(10.0, with.medianDays, 1e-9);
+        // 老调用点（不传日集合）保持原行为：两本都进
+        StatsPace.Pace without = StatsPace.pace(books, null, h, 0, null);
+        assertEquals(2, without.daySample);
+    }
 }

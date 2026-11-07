@@ -48,7 +48,21 @@ public final class DetailRecordLists {
         for (ReadingRecords.Record r : records) {
             java.util.List<Integer> keys = dayKeysBySeq == null ? null : dayKeysBySeq.get(r.seq);
             addRow(activity, b.containerReadingRecordsDetail, readingLine(r, spans, keys));
+            if (r.mode == ReadingRecords.MODE_PRECISE
+                    && com.bai.bookshelf.util.ReadDays.precise(keys) > 0) {
+                addOverline(activity, b.containerReadingRecordsDetail, habitLine(keys));
+            }
         }
+    }
+
+    /** 精确轮的第二行：最长连续 + 是否多在周末，数据来自日集合本身 */
+    private static String habitLine(java.util.List<Integer> keys) {
+        StringBuilder sb = new StringBuilder("最长连续 ")
+                .append(com.bai.bookshelf.util.ReadDays.longestRun(keys)).append(" 天");
+        if (com.bai.bookshelf.util.ReadDays.weekendHeavy(keys)) {
+            sb.append(" · 多在周末");
+        }
+        return sb.toString();
     }
 
     public static void bindBorrow(Activity activity, ActivityBookDetailBinding b, Book book) {
@@ -70,26 +84,24 @@ public final class DetailRecordLists {
         StringBuilder sb = new StringBuilder("第 ").append(r.seq).append(" 次 · ")
                 .append(StatusText.read(r.status));
         boolean precise = r.mode == ReadingRecords.MODE_PRECISE;
-        if (precise) {
-            // 精确轮标出来，免得和模糊轮的「区间天数」混着读；模糊是默认档，不加标签免噪
-            sb.append(" · 精确");
-        }
         if (!r.startDate.isEmpty()) {
-            sb.append(" · ").append(r.startDate);
+            sb.append(" · ").append(monthDay(r.startDate));
             if (!r.endDate.isEmpty()) {
-                sb.append(" — ").append(r.endDate);
+                sb.append("–").append(monthDay(r.endDate));
             }
         }
         if (precise) {
             int days = com.bai.bookshelf.util.ReadDays.precise(dayKeys);
-            sb.append(days > 0 ? " · " + days + " 天" : " · 还没记日子");
+            // 0 天不说「已记 0 天」：降级成补记入口，统计侧也把这一轮排除出样本
+            sb.append(days > 0 ? " · " + ReadingRecords.daysLabel(days, true)
+                    : " · 还没记具体日子 · 点这里补记");
         } else {
             int days = ReadingRecords.days(r, spans);
             if (days > 0) {
-                sb.append(" · ").append(days).append(" 天");
+                sb.append(" · ").append(ReadingRecords.daysLabel(days, false));
                 int raw = ReadingRecords.days(r);
                 if (raw > days) {
-                    sb.append("（扣掉借出 ").append(raw - days).append(" 天）");
+                    sb.append("（已扣外借 ").append(raw - days).append(" 天）");
                 }
             }
         }
@@ -97,6 +109,12 @@ public final class DetailRecordLists {
             sb.append(" · ★").append(ReadingRecords.formatRating(r.rating));
         }
         return sb.toString();
+    }
+
+    /** yyyy-MM-dd → 「5月1日」；解析不出来就原样返回，不编日期 */
+    private static String monthDay(String date) {
+        int key = com.bai.bookshelf.util.DateKeys.parseKey(date);
+        return key <= 0 ? date : (key / 100 % 100) + "月" + (key % 100) + "日";
     }
 
     private static String borrowLine(BorrowSourceRecords.Record r) {
@@ -128,6 +146,21 @@ public final class DetailRecordLists {
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT);
         lp.topMargin = pad / 2;
+        tv.setLayoutParams(lp);
+        container.addView(tv);
+    }
+
+    /** 精确轮主行下面那条 overline 小字（最长连续 / 多在周末） */
+    private static void addOverline(Activity activity, LinearLayout container, String text) {
+        TextView tv = new TextView(activity);
+        tv.setText(text);
+        tv.setTextAppearance(activity, R.style.Text_Bookshelf_Overline);
+        int pad = (int) (10 * activity.getResources().getDisplayMetrics().density);
+        tv.setPadding(pad, 0, pad, 0);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT);
+        lp.topMargin = pad / 4;
         tv.setLayoutParams(lp);
         container.addView(tv);
     }

@@ -112,6 +112,22 @@ public class ReadDaysTest {
         assertTrue(ReadDays.byBook(null).isEmpty());
     }
 
+    @Test
+    public void 最长连续段含首尾且断档重计() {
+        assertEquals(3, ReadDays.longestRun(Arrays.asList(20261101, 20261102, 20261103, 20261106)));
+        assertEquals(1, ReadDays.longestRun(Arrays.asList(20261101, 20261103)));
+        assertEquals(0, ReadDays.longestRun(null));
+        assertEquals(2, ReadDays.longestRun(Arrays.asList(20261103, 20261102, 20261102)));
+    }
+
+    @Test
+    public void 周末占比过半才算多在周末() {
+        // 2026-11-07 周六、11-08 周日、11-09 周一、11-10 周二
+        assertTrue(ReadDays.weekendHeavy(Arrays.asList(20261107, 20261108, 20261109)));
+        assertFalse(ReadDays.weekendHeavy(Arrays.asList(20261107, 20261109, 20261110)));
+        assertFalse(ReadDays.weekendHeavy(null));
+    }
+
     private static CheckIn row(long bookId, int dayKey, int seq) {
         CheckIn c = new CheckIn();
         c.bookId = bookId;
