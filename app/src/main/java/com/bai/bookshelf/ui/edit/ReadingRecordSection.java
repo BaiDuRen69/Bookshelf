@@ -6,23 +6,30 @@ import android.widget.Toast;
 import androidx.appcompat.app.AlertDialog;
 
 import com.bai.bookshelf.R;
+import com.bai.bookshelf.app.BookshelfApp;
 import com.bai.bookshelf.data.entity.Book;
 import com.bai.bookshelf.databinding.ActivityBookEditBinding;
 import com.bai.bookshelf.databinding.DialogReadingRecordBinding;
 import com.bai.bookshelf.ui.BaseActivity;
+import com.bai.bookshelf.ui.checkin.DayPickerSheet;
 import com.bai.bookshelf.ui.widget.CalendarPicker;
+import com.bai.bookshelf.util.CheckInStore;
 import com.bai.bookshelf.util.DateKeys;
+import com.bai.bookshelf.util.ReadDays;
 import com.bai.bookshelf.util.ReadingRecords;
 import com.bai.bookshelf.util.StatusText;
+import com.bai.bookshelf.util.ThemeManager;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 编辑页的「阅读记录」区（v5.7）：
- * 一本书可添加多次阅读（第 1 次、第 2 次…），每次记录状态、起止日期、自动天数与评分。
- * 保存书籍时取最后一次记录汇总成书籍的阅读状态/日期/评分。
+ * 编辑页的「阅读记录」区（v5.7，v5.9.1 修订第四步加双模式）。
+ *
+ * <p>模糊档照旧：起止两个输入框 + CalendarPicker + suggestedStatus 推断（含弃读保护）。
+ * 精确档：起止隐藏，改一行只读展示，点开 DayPickerSheet 补记；保存顺序固定
+ * 「写 mode → applyDayKeys → syncTo」，任一步失败整体不落库并说明原因。
  */
 public class ReadingRecordSection {
 
@@ -31,7 +38,7 @@ public class ReadingRecordSection {
     private final Book book;
     private final List<ReadingRecords.Record> records = new ArrayList<>();
     private final String initialJson;
-    /** 各轮日集合的暂存区：弹窗保存才进 pending，整本书保存才落 check_ins */
+    /** 各轮日集合的读取缓存：列表行计数与弹窗初始已选都从这里取 */
     private final ReadingDaySets daySets = new ReadingDaySets();
 
     public ReadingRecordSection(BaseActivity activity, ActivityBookEditBinding b, Book book) {
@@ -42,11 +49,10 @@ public class ReadingRecordSection {
         initialJson = ReadingRecords.toJson(records);
         b.btnAddReadingRecord.setOnClickListener(v -> add());
         render();
-        com.bai.bookshelf.app.BookshelfApp.get().whenDbReady(
-                () -> daySets.load(com.bai.bookshelf.app.BookshelfApp.get(), book.id, null));
+        BookshelfApp.get().whenDbReady(() -> daySets.load(BookshelfApp.get(), book.id, null));
     }
 
-    /** 是否有改动（用于未保存确认）：会话 JSON 或待落库的日集合，任一变了都算脏 */
+    /** 是否有改动（用于未保存确认） */
     public boolean isDirty() {
         return !ReadingRecords.toJson(records).equals(initialJson) || daySets.hasPending();
     }
@@ -57,14 +63,12 @@ public class ReadingRecordSection {
     }
 
     /** 整本书入库时调用（io 线程）：把改过的轮次日集合写进 check_ins */
-    public void persistDaySets(com.bai.bookshelf.app.BookshelfApp app) {
+    public void persistDaySets(BookshelfApp app) {
         daySets.persist(app, book.id);
     }
 
     private void add() {
-        // v5.8.31：取号统一走 ReadingFlow.nextSeq（max+1）。
-        // 旧实现按 List 下标重排全部 seq，删过中间一场后会与状态机的取号规则错位，
-        // 把「最后一场」指错对象。
+        // 手动添加通常是补录历史，默认模糊；要精确在分段里切（与 ReadingFlow 的活入口相反）
         showDialog(new ReadingRecords.Record(com.bai.bookshelf.util.ReadingFlow.nextSeq(records)));
     }
 
@@ -78,8 +82,7 @@ public class ReadingRecordSection {
             android.widget.TextView row = new android.widget.TextView(activity);
             row.setText(line(r));
             Typo.text(row, R.dimen.text_body_small);
-            row.setTextColor(com.bai.bookshelf.util.ThemeManager.resolveColor(
-                    activity, R.attr.on_surface));
+            row.setTextColor(ThemeManager.resolveColor(activity, R.attr.on_surface));
             row.setBackgroundResource(R.drawable.bg_dialog_row);
             row.setPadding(pad, pad, pad, pad);
             android.widget.LinearLayout.LayoutParams lp =
@@ -95,13 +98,13 @@ public class ReadingRecordSection {
         }
     }
 
-    /**
-     * 会话行（v5.8.31）：状态标签、这一场自己的起止与进度都要显示出来，
-     * 弃读那场的评分额外标「不计入平均分」——汇总分只平均已读会话。
-     */
+    /** 会话行：模式徽标 + 双轨天数文案统一走 modeLabel/daysLabel，不再各处自己拼 */
     private String line(ReadingRecords.Record r) {
+        boolean precise = r.mode == ReadingRecords.MODE_PRECISE;
+        int days = precise ? ReadDays.precise(daySets.keys(r.seq)) : ReadingRecords.days(r);
         StringBuilder sb = new StringBuilder("第 ").append(r.seq).append(" 次 · ")
-                .append(StatusText.read(r.status));
+                .append(ReadingRecords.modeLabel(r))
+                .append(" · ").append(ReadingRecords.daysLabel(days, precise));
         if (!r.startDate.isEmpty()) {
             sb.append(" · ").append(r.startDate);
             if (!r.endDate.isEmpty()) {
@@ -110,17 +113,7 @@ public class ReadingRecordSection {
         } else if (!r.endDate.isEmpty()) {
             sb.append(" · — — ").append(r.endDate);
         }
-        int days;
-        if (r.mode == ReadingRecords.MODE_PRECISE) {
-            sb.append(" · 精确");
-            days = com.bai.bookshelf.util.ReadDays.precise(daySets.keys(r.seq));
-        } else {
-            days = ReadingRecords.days(r);
-        }
-        if (days > 0) {
-            sb.append(" · ").append(days).append(" 天");
-        }
-        // 每场显示自己的进度（缺字段的老记录由 parse 补齐：已读 100、其余 0）
+        sb.append(" · ").append(StatusText.read(r.status));
         if (r.status == Book.READING || r.status == Book.READ_DROPPED) {
             sb.append(" · 读到 ").append(ReadingRecords.progressOf(r)).append("%");
         }
@@ -139,9 +132,12 @@ public class ReadingRecordSection {
         final boolean isNew = !records.contains(editing);
         final int[] status = {editing.status};
         final boolean[] suppress = {false};
-        // v5.8.31：这一场是否被**显式**选成弃读。选过之后，后面无论怎么改日期
-        // 都不允许 suggestedStatus 把它推断回在读/已读（弃读没有「读完日期」可言）
+        // v5.8.31：显式选过弃读后，日期推断不许把它覆盖回在读/已读
         final boolean[] droppedPicked = {editing.status == Book.READ_DROPPED};
+        final int[] mode = {editing.mode};
+        // 本轮已记日子：面板「确定」后更新；保存时交给 applyDayKeys 对齐
+        final List<Integer>[] preciseKeys = newListHolder();
+        preciseKeys[0] = daySets.keys(editing.seq);
 
         db.etRecStart.setText(editing.startDate);
         db.etRecEnd.setText(editing.endDate);
@@ -164,33 +160,23 @@ public class ReadingRecordSection {
             }
         });
 
-        // ===== 记录口径（v5.9.1 第四步）=====
-        final int[] mode = {editing.mode};
-        final boolean[] suppressMode = {false};
-        // 弹窗自己的日集合副本：点「取消」一个字都不漏写，点「保存」才进 daySets
-        final java.util.Map<Integer, List<Integer>> dialogDays = new java.util.HashMap<>();
-        // 选择器回调要在 applyModeUi 之后才建得出来，用 holder 打破声明顺序的环
-        final com.bai.bookshelf.ui.checkin.MonthGridView.PickerListener[] pickHolder =
-                new com.bai.bookshelf.ui.checkin.MonthGridView.PickerListener[1];
-
         Runnable refreshDays = () -> {
-            ReadingRecords.Record temp = new ReadingRecords.Record(editing.seq);
-            temp.status = status[0];
-            temp.mode = mode[0];
-            List<Integer> keys = dialogDays.get(editing.seq);
-            if (mode[0] == ReadingRecords.MODE_PRECISE) {
-                // 精确档的起止是派生值：输入框只读展示，不让用户手填出第二份真相
-                ReadingRecords.deriveRange(temp,
-                        keys == null ? java.util.Collections.emptyList() : keys);
-                db.etRecStart.setText(temp.startDate);
-                db.etRecEnd.setText(temp.endDate);
+            if (EditReadingMode.showsPreciseRow(mode[0])) {
+                ReadingRecords.Record derived = new ReadingRecords.Record(editing.seq);
+                derived.status = status[0];
+                ReadingRecords.deriveRange(derived, preciseKeys[0]);
+                int days = ReadDays.precise(preciseKeys[0]);
+                db.tvRecDays.setText("阅读天数：" + (days > 0 ? days + " 天" : "—"));
+                db.tvRecPreciseLine.setText(EditReadingMode.readonlyLine(
+                        days, derived.startDate, derived.endDate));
             } else {
+                ReadingRecords.Record temp = new ReadingRecords.Record(editing.seq);
+                temp.status = status[0];
                 temp.startDate = text(db.etRecStart);
                 temp.endDate = text(db.etRecEnd);
+                int days = ReadingRecords.days(temp);
+                db.tvRecDays.setText("阅读天数：" + (days > 0 ? days + " 天" : "—"));
             }
-            int days = ReadingRecords.readDays(temp, keys, null);
-            db.tvRecDays.setText("阅读天数：" + (days > 0 ? days + " 天" : "—"));
-            db.tvRecPicked.setText("已选 " + com.bai.bookshelf.util.ReadDays.precise(keys) + " 天");
         };
 
         Runnable syncChip = () -> {
@@ -198,189 +184,64 @@ public class ReadingRecordSection {
             db.cgRecStatus.check(chipId(status[0]));
             suppress[0] = false;
         };
-        Runnable syncModeChip = () -> {
-            suppressMode[0] = true;
-            db.cgRecMode.check(mode[0] == ReadingRecords.MODE_PRECISE
-                    ? R.id.chip_rec_precise : R.id.chip_rec_fuzzy);
-            suppressMode[0] = false;
+        Runnable syncSeg = () -> {
+            styleSeg(db.tvSegFuzzy, mode[0] == ReadingRecords.MODE_FUZZY);
+            styleSeg(db.tvSegPrecise, mode[0] == ReadingRecords.MODE_PRECISE);
         };
-
-        // 撤销快照：口径、状态、起止、评分、各轮日集合，逐字段留底
-        java.util.function.Supplier<DialogSnap> snap = () -> {
-            DialogSnap s = new DialogSnap();
-            s.mode = mode[0];
-            s.status = status[0];
-            s.start = text(db.etRecStart);
-            s.end = text(db.etRecEnd);
-            s.rating = db.seekRecRating.getProgress() / 2.0;
-            for (java.util.Map.Entry<Integer, List<Integer>> e : dialogDays.entrySet()) {
-                s.days.put(e.getKey(), new ArrayList<>(e.getValue()));
-            }
-            return s;
-        };
-
         Runnable applyModeUi = () -> {
-            boolean precise = mode[0] == ReadingRecords.MODE_PRECISE;
+            boolean precise = EditReadingMode.showsPreciseRow(mode[0]);
+            db.tilRecStart.setVisibility(EditReadingMode.showsDateInputs(mode[0])
+                    ? android.view.View.VISIBLE : android.view.View.GONE);
+            db.tilRecEnd.setVisibility(EditReadingMode.showsDateInputs(mode[0])
+                    ? android.view.View.VISIBLE : android.view.View.GONE);
             db.llRecPrecise.setVisibility(precise ? android.view.View.VISIBLE
                     : android.view.View.GONE);
-            db.etRecStart.setClickable(!precise);
-            db.etRecEnd.setClickable(!precise);
-            if (precise) {
-                List<Integer> keys = dialogDays.get(editing.seq);
-                if (keys == null) {
-                    keys = daySets.keys(editing.seq);
-                    dialogDays.put(editing.seq, keys);
-                }
-                db.mgRecDays.setRole(com.bai.bookshelf.ui.checkin.MonthGridView.ROLE_PICKER);
-                db.mgRecDays.setPickerListener(pickHolder[0]);
-                db.mgRecDays.setPickedDays(new java.util.HashSet<>(keys));
-            } else {
-                db.mgRecDays.setRole(com.bai.bookshelf.ui.checkin.MonthGridView.ROLE_CHECKIN);
-            }
             refreshDays.run();
         };
-        Runnable refreshAll = () -> {
-            syncChip.run();
-            syncModeChip.run();
-            applyModeUi.run();
-        };
-        java.util.function.Consumer<DialogSnap> restore = s -> {
-            mode[0] = s.mode;
-            status[0] = s.status;
-            db.etRecStart.setText(s.start);
-            db.etRecEnd.setText(s.end);
-            db.seekRecRating.setProgress(Math.max(0, Math.min(10, (int) Math.round(s.rating * 2))));
-            db.tvRecRating.setText(ReadingRecords.formatRating(s.rating) + " 分");
-            dialogDays.clear();
-            for (java.util.Map.Entry<Integer, List<Integer>> e : s.days.entrySet()) {
-                dialogDays.put(e.getKey(), new ArrayList<>(e.getValue()));
-            }
-            refreshAll.run();
-        };
-        java.util.function.BiConsumer<String, DialogSnap> offerUndo = (msg, before) ->
-                com.bai.bookshelf.util.UndoBar.offer(db.getRoot(), msg,
-                        () -> restore.accept(before), null);
-        // 网格动作（单点/框选/取消）后把集合抄回弹窗副本，留底再覆盖以便撤销
-        Runnable syncDaysFromGrid = () -> {
-            DialogSnap before = snap.get();
-            List<Integer> keys = db.mgRecDays.pickedKeys();
-            dialogDays.put(editing.seq, new ArrayList<>(keys));
-            refreshDays.run();
-            offerUndo.accept("阅读日改为 " + keys.size() + " 天", before);
-        };
 
-        pickHolder[0] = new com.bai.bookshelf.ui.checkin.MonthGridView.PickerListener() {
-            @Override
-            public void onToggleDay(int dayKey) {
-                syncDaysFromGrid.run();
-            }
-
-            @Override
-            public void onRangeFill(int fromKey, int toKey) {
-                syncDaysFromGrid.run();
-            }
-
-            @Override
-            public void onRangeCancel(int fromKey, int toKey) {
-                syncDaysFromGrid.run();
-            }
-        };
-
-        db.cgRecMode.setOnCheckedStateChangeListener((group, checkedIds) -> {
-            if (suppressMode[0] || checkedIds.isEmpty()) {
-                return;
-            }
-            int next = checkedIds.get(0) == R.id.chip_rec_precise
-                    ? ReadingRecords.MODE_PRECISE : ReadingRecords.MODE_FUZZY;
+        java.util.function.IntConsumer switchMode = next -> {
             if (next == mode[0]) {
                 return;
             }
             if (next == ReadingRecords.MODE_PRECISE && !daySets.isLoaded()) {
                 Toast.makeText(activity, "打卡记录还在读取，稍等一下再切", Toast.LENGTH_SHORT).show();
-                syncModeChip.run();
                 return;
             }
-            DialogSnap before = snap.get();
-            mode[0] = next;
-            applyModeUi.run();
-            offerUndo.accept(next == ReadingRecords.MODE_PRECISE
-                    ? "已切到精确记录" : "已切回模糊记录", before);
-        });
-
-        db.btnRecSpan.setOnClickListener(v -> {
-            int from = DateKeys.parseKey(text(db.etRecStart));
-            if (from == 0) {
-                Toast.makeText(activity, "先填开始日期，才能整段沿用", Toast.LENGTH_SHORT).show();
-                return;
-            }
-            int to = DateKeys.parseKey(text(db.etRecEnd));
-            if (to == 0) {
-                to = DateKeys.todayKey(); // 在读没有结束日：沿用到今天
-            }
-            to = Math.min(to, DateKeys.todayKey());
-            DialogSnap before = snap.get();
-            List<Integer> keys = DateKeys.keyRange(from, to);
-            dialogDays.put(editing.seq, keys);
-            db.mgRecDays.setPickedDays(new java.util.HashSet<>(keys));
-            refreshDays.run();
-            offerUndo.accept("已整段沿用 " + keys.size() + " 天", before);
-        });
-
-        db.btnRecClear.setOnClickListener(v -> {
-            DialogSnap before = snap.get();
-            dialogDays.put(editing.seq, new ArrayList<>());
-            db.mgRecDays.setPickedDays(new java.util.HashSet<>());
-            refreshDays.run();
-            offerUndo.accept("已清空这一轮的阅读日", before);
-        });
-
-        db.btnRecMove.setOnClickListener(v -> {
-            if (!daySets.isLoaded()) {
-                Toast.makeText(activity, "打卡记录还在读取，稍等一下再移", Toast.LENGTH_SHORT).show();
-                return;
-            }
-            List<Integer> mine = dialogDays.get(editing.seq);
-            if (mine == null || mine.isEmpty()) {
-                Toast.makeText(activity, "这一轮还没有日子可移", Toast.LENGTH_SHORT).show();
-                return;
-            }
-            List<ReadingRecords.Record> others = new ArrayList<>();
-            for (ReadingRecords.Record r : records) {
-                if (r.seq != editing.seq) {
-                    others.add(r);
+            if (next == ReadingRecords.MODE_FUZZY) {
+                // 精确→模糊：派生起止回填输入框，已记的日子留在打卡记录里
+                ReadingRecords.Record derived = new ReadingRecords.Record(editing.seq);
+                derived.status = status[0];
+                ReadingRecords.deriveRange(derived, preciseKeys[0]);
+                if (!derived.startDate.isEmpty()) {
+                    db.etRecStart.setText(derived.startDate);
                 }
+                db.etRecEnd.setText(derived.endDate);
+                Toast.makeText(activity, EditReadingMode.fuzzySwitchNote(
+                        ReadDays.precise(preciseKeys[0])), Toast.LENGTH_LONG).show();
             }
-            if (others.isEmpty()) {
-                Toast.makeText(activity, "没有别的轮次可移", Toast.LENGTH_SHORT).show();
-                return;
-            }
-            String[] labels = new String[others.size()];
-            for (int i = 0; i < others.size(); i++) {
-                labels[i] = "第 " + others.get(i).seq + " 次";
-            }
-            new MaterialAlertDialogBuilder(activity)
-                    .setTitle("把这一轮的日子移到")
-                    .setItems(labels, (d, which) -> {
-                        int toSeq = others.get(which).seq;
-                        DialogSnap before = snap.get();
-                        List<Integer> target = dialogDays.get(toSeq);
-                        if (target == null) {
-                            target = daySets.keys(toSeq);
-                        }
-                        java.util.Set<Integer> merged = new java.util.TreeSet<>(target);
-                        merged.addAll(mine);
-                        dialogDays.put(toSeq, new ArrayList<>(merged));
-                        dialogDays.put(editing.seq, new ArrayList<>());
-                        db.mgRecDays.setPickedDays(new java.util.HashSet<>());
-                        refreshDays.run();
-                        offerUndo.accept("已把 " + mine.size() + " 天移到第 " + toSeq + " 次", before);
-                    })
-                    .setNegativeButton(R.string.action_cancel, null)
-                    .show();
+            // 模糊→精确不清空起止：原区间进面板当参考底纹
+            mode[0] = next;
+            syncSeg.run();
+            applyModeUi.run();
+        };
+        db.tvSegFuzzy.setOnClickListener(v -> switchMode.accept(ReadingRecords.MODE_FUZZY));
+        db.tvSegPrecise.setOnClickListener(v -> switchMode.accept(ReadingRecords.MODE_PRECISE));
+
+        db.tvRecPreciseLine.setOnClickListener(v -> {
+            // 参考底纹与「整段沿用」看的是这一轮**原来**的口径与起止，不是弹窗里暂切的 mode
+            ReadingRecords.Record probe = new ReadingRecords.Record(editing.seq);
+            probe.mode = editing.mode;
+            probe.startDate = editing.startDate;
+            probe.endDate = editing.endDate;
+            DayPickerSheet.show(activity, book, probe, keys -> {
+                preciseKeys[0] = keys;
+                daySets.noteSaved(editing.seq, keys);
+                refreshDays.run();
+            });
         });
 
         syncChip.run();
-        syncModeChip.run();
+        syncSeg.run();
         applyModeUi.run();
 
         db.cgRecStatus.setOnCheckedStateChangeListener((group, checkedIds) -> {
@@ -408,38 +269,41 @@ public class ReadingRecordSection {
             if (next == Book.READ_DROPPED) {
                 droppedPicked[0] = true;
             }
-            if (next == Book.READ_DROPPED
-                    && !text(db.etRecStart).isEmpty() && !text(db.etRecEnd).isEmpty()) {
-                new MaterialAlertDialogBuilder(activity)
-                        .setTitle("设为弃读")
-                        .setMessage("是否把结束日期改为今天？")
-                        .setPositiveButton("改为今天", (d, w) -> {
-                            db.etRecEnd.setText(DateKeys.formatKey(DateKeys.todayKey()));
-                            status[0] = Book.READ_DROPPED;
-                            refreshDays.run();
-                        })
-                        .setNegativeButton("保持原日期", (d, w) -> {
-                            status[0] = Book.READ_DROPPED;
-                            refreshDays.run();
-                        })
-                        .show();
-                return;
-            }
-            if (next == Book.READING && !text(db.etRecEnd).isEmpty()) {
-                new MaterialAlertDialogBuilder(activity)
-                        .setTitle("设为在读")
-                        .setMessage("是否清除结束日期？")
-                        .setPositiveButton("清除结束日期", (d, w) -> {
-                            db.etRecEnd.setText("");
-                            status[0] = Book.READING;
-                            refreshDays.run();
-                        })
-                        .setNegativeButton("保留日期", (d, w) -> {
-                            status[0] = Book.READING;
-                            refreshDays.run();
-                        })
-                        .show();
-                return;
+            // 精确档的起止是派生值：选已读自动取日集合最大值、选在读自动清空，不问不手改
+            if (EditReadingMode.showsDateInputs(mode[0])) {
+                if (next == Book.READ_DROPPED
+                        && !text(db.etRecStart).isEmpty() && !text(db.etRecEnd).isEmpty()) {
+                    new MaterialAlertDialogBuilder(activity)
+                            .setTitle("设为弃读")
+                            .setMessage("是否把结束日期改为今天？")
+                            .setPositiveButton("改为今天", (d, w) -> {
+                                db.etRecEnd.setText(DateKeys.formatKey(DateKeys.todayKey()));
+                                status[0] = Book.READ_DROPPED;
+                                refreshDays.run();
+                            })
+                            .setNegativeButton("保持原日期", (d, w) -> {
+                                status[0] = Book.READ_DROPPED;
+                                refreshDays.run();
+                            })
+                            .show();
+                    return;
+                }
+                if (next == Book.READING && !text(db.etRecEnd).isEmpty()) {
+                    new MaterialAlertDialogBuilder(activity)
+                            .setTitle("设为在读")
+                            .setMessage("是否清除结束日期？")
+                            .setPositiveButton("清除结束日期", (d, w) -> {
+                                db.etRecEnd.setText("");
+                                status[0] = Book.READING;
+                                refreshDays.run();
+                            })
+                            .setNegativeButton("保留日期", (d, w) -> {
+                                status[0] = Book.READING;
+                                refreshDays.run();
+                            })
+                            .show();
+                    return;
+                }
             }
             status[0] = next;
             refreshDays.run();
@@ -501,41 +365,83 @@ public class ReadingRecordSection {
                 Toast.makeText(activity, "请选择阅读状态", Toast.LENGTH_SHORT).show();
                 return;
             }
-            if (isNew) {
-                records.add(editing);
-            }
-            editing.status = status[0];
-            editing.mode = mode[0];
-            if (mode[0] == ReadingRecords.MODE_PRECISE) {
-                if (!daySets.isLoaded()) {
-                    Toast.makeText(activity, "打卡记录还没读完，稍后再保存", Toast.LENGTH_SHORT).show();
-                    return;
-                }
-                List<Integer> keys = dialogDays.get(editing.seq);
-                if (keys == null) {
-                    keys = new ArrayList<>();
-                }
-                // 起止是日集合的派生值，不从输入框回读（那俩框在精确档是只读的）
-                ReadingRecords.Record derived = new ReadingRecords.Record(editing.seq);
-                derived.status = status[0];
-                ReadingRecords.deriveRange(derived, keys);
-                editing.startDate = derived.startDate;
-                editing.endDate = derived.endDate;
-                for (java.util.Map.Entry<Integer, List<Integer>> e : dialogDays.entrySet()) {
-                    if (!e.getValue().equals(daySets.keys(e.getKey()))) {
-                        daySets.commit(e.getKey(), e.getValue());
-                    }
-                }
+            if (EditReadingMode.showsPreciseRow(mode[0])) {
+                savePrecise(db, dialog, editing, status, mode, preciseKeys[0], syncSeg,
+                        applyModeUi);
             } else {
+                if (isNew) {
+                    records.add(editing);
+                }
+                editing.status = status[0];
+                editing.mode = ReadingRecords.MODE_FUZZY;
                 editing.startDate = text(db.etRecStart);
                 editing.endDate = text(db.etRecEnd);
+                editing.rating = db.seekRecRating.getProgress() / 2.0;
+                records.sort((a, c) -> Integer.compare(a.seq, c.seq));
+                syncToBook();
+                render();
+                dialog.dismiss();
             }
-            editing.rating = db.seekRecRating.getProgress() / 2.0;
-            records.sort((a, c) -> Integer.compare(a.seq, c.seq));
-            syncToBook();
-            render();
-            dialog.dismiss();
         });
+    }
+
+    /** 精确档保存：mode → applyDayKeys → syncTo；被拒绝则整体不落库、弹窗留着说原因 */
+    private void savePrecise(DialogReadingRecordBinding db, AlertDialog dialog,
+                             ReadingRecords.Record editing, int[] status,
+                             int[] mode, List<Integer> keys, Runnable syncSeg,
+                             Runnable applyModeUi) {
+        if (!EditReadingMode.canSavePrecise(keys.size())) {
+            Toast.makeText(activity, "精确记录至少要有 1 天", Toast.LENGTH_SHORT).show();
+            mode[0] = ReadingRecords.MODE_FUZZY; // 不静默降级：明确切回模糊让用户看见
+            syncSeg.run();
+            applyModeUi.run();
+            return;
+        }
+        // 先把 mode 与状态进内存会话并 syncTo 暂存到 book，applyDayKeys 才认得这一轮是精确
+        List<ReadingRecords.Record> staged = new ArrayList<>(records);
+        if (!staged.contains(editing)) {
+            staged.add(editing);
+        }
+        editing.mode = ReadingRecords.MODE_PRECISE;
+        editing.status = status[0];
+        ReadingRecords.syncTo(book, staged);
+        BookshelfApp app = BookshelfApp.get();
+        app.io(() -> {
+            final CheckInStore.BatchResult result = CheckInStore.applyDayKeys(
+                    app.db(), book, editing.seq, keys, DateKeys.todayKey());
+            app.ui(() -> {
+                if (result.rejected()) {
+                    Toast.makeText(activity, "有 " + result.rejectedFuture + " 天在未来、"
+                            + result.rejectedOtherSeq + " 天在别轮，本次未保存",
+                            Toast.LENGTH_LONG).show();
+                    return; // book 还没写库，整体不落
+                }
+                editing.rating = db.seekRecRating.getProgress() / 2.0;
+                records.clear();
+                records.addAll(staged);
+                records.sort((a, c) -> Integer.compare(a.seq, c.seq));
+                daySets.noteSaved(editing.seq, keys);
+                syncToBook();
+                render();
+                dialog.dismiss();
+            });
+        });
+    }
+
+    /** 分段选中态：与统计页分栏同一套（底 + 主色 + 加粗 + setSelected 供读屏播报） */
+    private void styleSeg(android.widget.TextView tv, boolean selected) {
+        int primary = ThemeManager.resolveColor(activity, ThemeManager.ATTR_COLOR_PRIMARY);
+        int normal = ThemeManager.resolveColor(activity, R.attr.on_surface_variant);
+        tv.setBackgroundResource(selected ? R.drawable.bg_seg_selected_inset : 0);
+        tv.setTextColor(selected ? primary : normal);
+        tv.setTypeface(null, selected ? android.graphics.Typeface.BOLD
+                : android.graphics.Typeface.NORMAL);
+        tv.setSelected(selected);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<Integer>[] newListHolder() {
+        return new List[1];
     }
 
     /** 当前弹窗引用（“未读”清空时用于关闭） */
@@ -591,15 +497,5 @@ public class ReadingRecordSection {
 
     private int dp(int value) {
         return (int) (value * activity.getResources().getDisplayMetrics().density);
-    }
-
-    /** 弹窗内一次可撤销操作的留底：口径/状态/起止/评分 + 各轮日集合，逐字段还原 */
-    private static final class DialogSnap {
-        int mode;
-        int status;
-        String start = "";
-        String end = "";
-        double rating;
-        final java.util.Map<Integer, List<Integer>> days = new java.util.HashMap<>();
     }
 }

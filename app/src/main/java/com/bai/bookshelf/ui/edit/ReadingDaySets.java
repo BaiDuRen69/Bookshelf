@@ -84,6 +84,13 @@ final class ReadingDaySets {
         return keys == null ? new ArrayList<>() : new ArrayList<>(keys);
     }
 
+    /** 面板「确定」已经直接落库了：把缓存刷新到最新，不进 pending（避免保存时再重写一遍） */
+    void noteSaved(int seq, List<Integer> keys) {
+        List<Integer> copy = new ArrayList<>(keys);
+        Collections.sort(copy);
+        saved.put(seq, copy);
+    }
+
     /** 弹窗点保存：把这一轮的待写集合记下来 */
     void commit(int seq, List<Integer> keys) {
         List<Integer> copy = new ArrayList<>(keys);

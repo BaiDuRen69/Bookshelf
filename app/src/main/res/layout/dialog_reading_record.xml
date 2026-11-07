@@ -68,32 +68,44 @@
             android:layout_marginBottom="6dp"
             android:text="记录口径" />
 
-        <com.google.android.material.chip.ChipGroup
-            android:id="@+id/cg_rec_mode"
-            style="@style/Widget.Bookshelf.ChipGroup"
+        <!-- 与统计页分栏同一套分段控件：bg_seg_track 轨道 + 48dp 触控 + 贴合水波 -->
+        <LinearLayout
+            android:id="@+id/ll_rec_mode"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            app:selectionRequired="true"
-            app:singleSelection="true">
+            android:background="@drawable/bg_seg_track"
+            android:orientation="horizontal"
+            android:padding="@dimen/space_xs">
 
-            <com.google.android.material.chip.Chip
-                android:id="@+id/chip_rec_fuzzy"
-                style="@style/Widget.Bookshelf.Chip"
-                android:layout_width="wrap_content"
+            <TextView
+                android:id="@+id/tv_seg_fuzzy"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:checkable="true"
-                android:text="模糊（记起止）" />
+                android:layout_weight="1"
+                android:foreground="@drawable/ripple_pill"
+                android:gravity="center"
+                android:minHeight="48dp"
+                android:paddingVertical="@dimen/space_sm"
+                android:text="模糊记录"
+                android:textColor="?attr/on_surface_variant"
+                android:textSize="@dimen/text_body_small" />
 
-            <com.google.android.material.chip.Chip
-                android:id="@+id/chip_rec_precise"
-                style="@style/Widget.Bookshelf.Chip"
-                android:layout_width="wrap_content"
+            <TextView
+                android:id="@+id/tv_seg_precise"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:checkable="true"
-                android:text="精确（记日子）" />
-        </com.google.android.material.chip.ChipGroup>
+                android:layout_weight="1"
+                android:foreground="@drawable/ripple_pill"
+                android:gravity="center"
+                android:minHeight="48dp"
+                android:paddingVertical="@dimen/space_sm"
+                android:text="精确记录"
+                android:textColor="?attr/on_surface_variant"
+                android:textSize="@dimen/text_body_small" />
+        </LinearLayout>
 
         <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/til_rec_start"
             style="@style/Widget.Bookshelf.TextField"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -110,6 +122,7 @@
         </com.google.android.material.textfield.TextInputLayout>
 
         <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/til_rec_end"
             style="@style/Widget.Bookshelf.TextField"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -134,8 +147,8 @@
             android:textColor="?attr/on_surface_variant"
             android:textSize="@dimen/text_body_small" />
 
-        <!-- 精确模式才出现：复用打卡页的月历做选择器，不引第三方日历库。
-             起止两个输入框在这一档变成派生值的只读展示，点不动。 -->
+        <!-- 精确档：起止输入框隐藏，改这一行只读展示（点开 DayPickerSheet 补记）。
+             网格与工具条都在面板里，弹窗不再嵌月历。 -->
         <LinearLayout
             android:id="@+id/ll_rec_precise"
             android:layout_width="match_parent"
@@ -145,58 +158,18 @@
             android:visibility="gone">
 
             <TextView
-                android:id="@+id/tv_rec_picked"
+                android:id="@+id/tv_rec_precise_line"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="已选 0 天"
-                android:textColor="?attr/on_surface_variant"
+                android:background="@drawable/bg_dialog_row"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="@drawable/ripple_pill"
+                android:minHeight="48dp"
+                android:padding="@dimen/space_md"
+                android:text="还没记具体日子 · 点这里补记"
+                android:textColor="?attr/on_surface"
                 android:textSize="@dimen/text_body_small" />
-
-            <com.bai.bookshelf.ui.checkin.MonthGridView
-                android:id="@+id/mg_rec_days"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/space_sm" />
-
-            <TextView
-                android:id="@+id/tv_rec_pick_hint"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/space_sm"
-                android:text="点一天勾上，长按一天再点另一天框住整段"
-                android:textColor="?attr/on_surface_variant"
-                android:textSize="@dimen/text_caption" />
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/space_sm"
-                android:orientation="horizontal">
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btn_rec_span"
-                    style="@style/Widget.Bookshelf.Button.Text"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="整段沿用" />
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btn_rec_clear"
-                    style="@style/Widget.Bookshelf.Button.Text"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="清空" />
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btn_rec_move"
-                    style="@style/Widget.Bookshelf.Button.Text"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="移到别轮" />
-            </LinearLayout>
         </LinearLayout>
 
         <LinearLayout
