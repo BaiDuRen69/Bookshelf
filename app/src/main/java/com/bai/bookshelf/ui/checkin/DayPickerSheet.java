@@ -14,6 +14,7 @@ import com.bai.bookshelf.util.DateKeys;
 import com.bai.bookshelf.util.ReadingRecords;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -33,6 +34,16 @@ public final class DayPickerSheet {
     }
 
     private DayPickerSheet() {
+    }
+
+    /** 该日现在记在哪一轮；0 = 没记过（与 CheckInStore 内部口径一致） */
+    private static int seqOf(BookshelfApp app, long bookId, int dayKey) {
+        for (com.bai.bookshelf.data.entity.CheckIn c : app.db().checkInDao().getByDay(dayKey)) {
+            if (c.bookId == bookId) {
+                return c.seq;
+            }
+        }
+        return 0;
     }
 
     public static void show(BaseActivity activity, Book book, ReadingRecords.Record record,
@@ -133,8 +144,56 @@ public final class DayPickerSheet {
                                 + result.rejectedOtherSeq + " 天在别轮没记";
                         b.tvPickerResult.setText(msg);
                         b.tvPickerResult.setVisibility(View.VISIBLE);
+                        b.btnPickerMove.setVisibility(result.rejectedOtherSeq > 0
+                                ? View.VISIBLE : View.GONE);
                         Toast.makeText(activity, msg, Toast.LENGTH_LONG).show();
                         return; // 面板留着，让用户处理被拒绝的日子
+                    }
+                    dialog.dismiss();
+                    if (callback != null) {
+                        callback.onConfirmed(keys);
+                    }
+                });
+            });
+        });
+        b.btnPickerMove.setOnClickListener(v -> {
+            final List<Integer> keys = b.mgPicker.pickedKeys();
+            b.btnPickerMove.setEnabled(false);
+            app.io(() -> {
+                // 先留底每天原来在哪一轮，撤销时逐天挪回去
+                final java.util.Map<Integer, Integer> origin = new java.util.HashMap<>();
+                final List<Integer> movable = new ArrayList<>();
+                for (int key : keys) {
+                    int owned = seqOf(app, book.id, key);
+                    if (owned != 0 && owned != record.seq) {
+                        origin.put(key, owned);
+                        movable.add(key);
+                    }
+                }
+                final int moved = CheckInStore.moveToSeq(app.db(), book.id, movable, record.seq);
+                final CheckInStore.BatchResult again = CheckInStore.applyDayKeys(
+                        app.db(), book, record.seq, keys, DateKeys.todayKey());
+                app.ui(() -> {
+                    b.btnPickerMove.setEnabled(true);
+                    if (moved > 0) {
+                        com.bai.bookshelf.util.UndoBar.offer(b.getRoot(),
+                                "已把 " + moved + " 天移到本轮",
+                                () -> app.io(() -> {
+                                    for (java.util.Map.Entry<Integer, Integer> e : origin.entrySet()) {
+                                        CheckInStore.moveToSeq(app.db(), book.id,
+                                                java.util.Collections.singletonList(e.getKey()),
+                                                e.getValue());
+                                    }
+                                    app.ui(() -> Toast.makeText(activity, "已撤销移轮",
+                                            Toast.LENGTH_SHORT).show());
+                                }), null);
+                    }
+                    if (again.rejected()) {
+                        b.tvPickerResult.setText("还剩 " + again.rejectedFuture + " 天在未来没记、"
+                                + again.rejectedOtherSeq + " 天在别轮没记");
+                        b.btnPickerMove.setVisibility(again.rejectedOtherSeq > 0
+                                ? View.VISIBLE : View.GONE);
+                        return;
                     }
                     dialog.dismiss();
                     if (callback != null) {
