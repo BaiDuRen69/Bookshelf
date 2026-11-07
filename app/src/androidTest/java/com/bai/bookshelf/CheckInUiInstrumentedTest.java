@@ -341,51 +341,53 @@ public class CheckInUiInstrumentedTest {
     }
 
     @Test
-    public void 选器模式单击勾选长按框选() {
+    public void 选择器角色单击勾选与框选填充() {
         MonthGridView grid = monthGrid();
         final int ia = pastIndex(grid, 2);
         final int ib = pastIndex(grid, 0);
         final int a = grid.getDayKeyAt(ia);
         final int b = grid.getDayKeyAt(ib);
-        final java.util.List<Integer> changed = new java.util.ArrayList<>();
-        final int[] anchor = {-1};
-        final int[] blocked = {0};
-        final boolean[] futureFlag = {false};
-        MonthGridView.PickListener pl = new MonthGridView.PickListener() {
+        final int[] toggled = {0};
+        final int[] filled = {0};
+        final int[] fillTo = {0};
+        MonthGridView.PickerListener pl = new MonthGridView.PickerListener() {
             @Override
-            public void onPickChanged(java.util.List<Integer> keys) {
-                changed.clear();
-                changed.addAll(keys);
+            public void onToggleDay(int dayKey) {
+                toggled[0] = dayKey;
             }
 
             @Override
-            public void onPickBlocked(int dayKey, boolean future) {
-                blocked[0] = dayKey;
-                futureFlag[0] = future;
+            public void onRangeFill(int fromKey, int toKey) {
+                filled[0] = fromKey;
+                fillTo[0] = toKey;
             }
 
             @Override
-            public void onPickAnchor(int dayKey) {
-                anchor[0] = dayKey;
+            public void onRangeCancel(int fromKey, int toKey) {
             }
         };
-        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> grid.setPicker(null, pl));
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+            grid.setRole(MonthGridView.ROLE_PICKER);
+            grid.setPickerListener(pl);
+        });
 
         click(grid, ia, false);
-        assertEquals("单击勾上这一天", java.util.Collections.singletonList(a), changed);
-        assertTrue("勾上的格子要念「已选入」",
-                grid.getCellAt(ia).getContentDescription().toString().contains("已选入"));
+        assertEquals("单击勾上这一天", a, toggled[0]);
+        assertEquals(java.util.Collections.singletonList(a), grid.pickedKeys());
+        assertTrue("勾上的格子要念「已选」",
+                grid.getCellAt(ia).getContentDescription().toString().contains("已选"));
         click(grid, ia, false);
-        assertTrue("再点一次取消", changed.isEmpty());
+        assertTrue("再点一次取消", grid.pickedKeys().isEmpty());
 
-        click(grid, ia, true);
-        assertEquals("长按设框选起点", a, anchor[0]);
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> grid.setRangeMode(true));
+        click(grid, ia, false); // 落锚
         assertTrue(grid.getCellAt(ia).getContentDescription().toString().contains("框选起点"));
-        click(grid, ib, false);
-        assertEquals("起点到终点整段选入", java.util.Arrays.asList(a, a + 1, b), changed);
-        assertEquals("框完锚点要清掉", 0, anchor[0]);
+        click(grid, ib, false); // 填充
+        assertEquals(a, filled[0]);
+        assertEquals(b, fillTo[0]);
+        assertEquals("起点到终点整段选入", java.util.Arrays.asList(a, a + 1, b), grid.pickedKeys());
 
-        // 未来日（本月里如果有的话）不该被算成读过
+        // 未来日（本月里如果有的话）不该被算成读过，也不响应
         int futureIdx = -1;
         for (int i = 0; i < grid.getDayCellCount(); i++) {
             int k = grid.getDayKeyAt(i);
@@ -395,22 +397,24 @@ public class CheckInUiInstrumentedTest {
             }
         }
         if (futureIdx >= 0) {
-            int before = changed.size();
+            int before = grid.pickedKeys().size();
             click(grid, futureIdx, false);
-            assertEquals("未来日被拦下", grid.getDayKeyAt(futureIdx), blocked[0]);
-            assertTrue(futureFlag[0]);
-            assertEquals("集合不能变", before, changed.size());
+            assertEquals("未来日不进集合", before, grid.pickedKeys().size());
+            assertTrue(grid.getCellAt(futureIdx).getContentDescription().toString()
+                    .contains("不可选"));
         }
     }
 
     @Test
-    public void 关掉选器后打卡页回调照旧() {
+    public void 切回打卡角色后回调照旧() {
         MonthGridView grid = monthGrid();
         final int ia = pastIndex(grid, 0);
         final int a = grid.getDayKeyAt(ia);
         final int[] selected = {0};
         InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
-            grid.setPicker(java.util.Collections.singletonList(a), null);
+            grid.setRole(MonthGridView.ROLE_PICKER);
+            grid.setPickedDays(new java.util.HashSet<>(java.util.Collections.singletonList(a)));
+            grid.setRole(MonthGridView.ROLE_CHECKIN);
             grid.setListener(new MonthGridView.Listener() {
                 @Override
                 public void onSelectDay(int dayKey) {
@@ -430,7 +434,6 @@ public class CheckInUiInstrumentedTest {
                 }
             });
         });
-        assertTrue("关掉选器要清掉勾选集合", grid.getPickedDays().isEmpty());
         click(grid, ia, false);
         assertEquals("打卡页的 onSelectDay 要照旧触发", a, selected[0]);
         assertEquals("选中日也要回到打卡页语义", a, grid.getSelectedDayKey());

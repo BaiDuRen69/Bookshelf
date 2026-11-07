@@ -57,6 +57,15 @@ public final class DayCellView extends View {
     private boolean future;
     /** 选择器模式的框选锚点（打卡页恒为 false） */
     private boolean anchor;
+    // ===== 精确日期选择器（v5.9.1 修订第三步）：复用 drawCheckIn 的分支，不另起绘制函数 =====
+    private boolean pickerMode;
+    private boolean picked;
+    private boolean reference;
+    private boolean preview;
+    private boolean blocked;
+    private int pickedBg;
+    private int referenceBg;
+    private int previewBg;
     private int dotTotal;
     private int dotBackfill;
     private int selectedBg;
@@ -129,10 +138,45 @@ public final class DayCellView extends View {
         this.dotTotal = dotTotal;
         this.dotBackfill = dotBackfill;
         this.checkInMode = true;
+        this.pickerMode = false;
         // 只有「从无到有」才弹一下：撤销再打、切月重建都会重新走这里
         if (dotTotal > 0 && before == 0) {
             startDotEntrance();
         }
+        invalidate();
+    }
+
+    /**
+     * 精确日期选择器的格子绑定（v5.9.1 修订第三步）：复用 {@link #drawCheckIn} 的绘制分支。
+     *
+     * <p>已选 = primary_container 胶囊 + 主色字 + 右下 4dp 实心点；参考底纹 = surface_dim + 次级字；
+     * 框选起点 = 胶囊底 + 1.5dp 主色描边；区间预览 = outline 底；越界日 alpha 110 且不响应点选。
+     * 打卡页不走这里，观感不变。
+     */
+    public void bindPicker(int day, int primary, int pickedBg, int referenceBg, int previewBg,
+                           int onSurface, int onSurfaceVariant,
+                           boolean picked, boolean reference, boolean anchor, boolean preview,
+                           boolean today, boolean blocked) {
+        this.day = day;
+        this.primary = primary;
+        this.pickedBg = pickedBg;
+        this.referenceBg = referenceBg;
+        this.previewBg = previewBg;
+        this.onSurface = onSurface;
+        this.onSurfaceVariant = onSurfaceVariant;
+        this.picked = picked;
+        this.reference = reference;
+        this.anchor = anchor;
+        this.preview = preview;
+        this.today = today;
+        this.blocked = blocked;
+        this.selected = false;
+        this.adjacent = false;
+        this.future = blocked;
+        this.dotTotal = 0;
+        this.dotBackfill = 0;
+        this.pickerMode = true;
+        this.checkInMode = true;
         invalidate();
     }
 
@@ -200,7 +244,48 @@ public final class DayCellView extends View {
         float cx = w / 2f;
         float cy = h / 2f;
 
-        if (selected) {
+        if (pickerMode) {
+            // 选择器与打卡页共用这一条绘制链，只是底的取法不同，不再另起第三个绘制函数
+            rect.set(dp(2), cy - radius, w - dp(2), cy + radius);
+            if (picked) {
+                bandPaint.setColor(pickedBg);
+                canvas.drawRoundRect(rect, radius, radius, bandPaint);
+                textPaint.setColor(primary);
+                // 右下 4dp 实心点：和打卡页底部居中的点区分开，一眼是「选进了集合」
+                bandPaint.setColor(primary);
+                canvas.drawCircle(w - dp(6), h - dp(6),
+                        px(R.dimen.checkin_dot_size) / 2f, bandPaint);
+            } else if (anchor) {
+                bandPaint.setColor(pickedBg);
+                canvas.drawRoundRect(rect, radius, radius, bandPaint);
+                float stroke = px(R.dimen.checkin_ring_stroke); // 1.5dp 主色描边
+                ringPaint.setColor(primary);
+                ringPaint.setStrokeWidth(stroke);
+                rect.inset(stroke / 2f, stroke / 2f);
+                canvas.drawRoundRect(rect, radius, radius, ringPaint);
+                ringPaint.setStrokeWidth(ringStroke);
+                textPaint.setColor(primary);
+            } else if (preview) {
+                bandPaint.setColor(previewBg);
+                canvas.drawRoundRect(rect, radius, radius, bandPaint);
+                textPaint.setColor(onSurface);
+            } else if (reference) {
+                bandPaint.setColor(referenceBg);
+                canvas.drawRoundRect(rect, radius, radius, bandPaint);
+                textPaint.setColor(onSurfaceVariant);
+            } else {
+                textPaint.setColor(onSurface);
+            }
+            if (today) {
+                ringPaint.setColor(primary);
+                ringPaint.setStrokeWidth(ringStroke);
+                canvas.drawCircle(cx, cy, radius, ringPaint);
+                if (!picked && !anchor) {
+                    textPaint.setColor(primary);
+                }
+            }
+            textPaint.setFakeBoldText(picked);
+        } else if (selected) {
             bandPaint.setColor(selectedBg);
             rect.set(dp(2), cy - radius, w - dp(2), cy + radius);
             canvas.drawRoundRect(rect, radius, radius, bandPaint);
@@ -241,7 +326,8 @@ public final class DayCellView extends View {
             textPaint.setColor(adjacent ? onSurfaceVariant : onSurface);
             textPaint.setFakeBoldText(false);
         }
-        textPaint.setAlpha(adjacent ? 110 : (future ? 120 : 255));
+        textPaint.setAlpha(pickerMode ? (blocked ? 110 : 255)
+                : (adjacent ? 110 : (future ? 120 : 255)));
         drawCheckInDots(canvas, cx, h);
 
         float baseline = cy - (textPaint.descent() + textPaint.ascent()) / 2f;

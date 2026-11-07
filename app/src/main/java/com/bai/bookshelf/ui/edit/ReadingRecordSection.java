@@ -170,8 +170,8 @@ public class ReadingRecordSection {
         // 弹窗自己的日集合副本：点「取消」一个字都不漏写，点「保存」才进 daySets
         final java.util.Map<Integer, List<Integer>> dialogDays = new java.util.HashMap<>();
         // 选择器回调要在 applyModeUi 之后才建得出来，用 holder 打破声明顺序的环
-        final com.bai.bookshelf.ui.checkin.MonthGridView.PickListener[] pickHolder =
-                new com.bai.bookshelf.ui.checkin.MonthGridView.PickListener[1];
+        final com.bai.bookshelf.ui.checkin.MonthGridView.PickerListener[] pickHolder =
+                new com.bai.bookshelf.ui.checkin.MonthGridView.PickerListener[1];
 
         Runnable refreshDays = () -> {
             ReadingRecords.Record temp = new ReadingRecords.Record(editing.seq);
@@ -231,9 +231,11 @@ public class ReadingRecordSection {
                     keys = daySets.keys(editing.seq);
                     dialogDays.put(editing.seq, keys);
                 }
-                db.mgRecDays.setPicker(keys, pickHolder[0]);
+                db.mgRecDays.setRole(com.bai.bookshelf.ui.checkin.MonthGridView.ROLE_PICKER);
+                db.mgRecDays.setPickerListener(pickHolder[0]);
+                db.mgRecDays.setPickedDays(new java.util.HashSet<>(keys));
             } else {
-                db.mgRecDays.setPicker(null, null);
+                db.mgRecDays.setRole(com.bai.bookshelf.ui.checkin.MonthGridView.ROLE_CHECKIN);
             }
             refreshDays.run();
         };
@@ -258,29 +260,29 @@ public class ReadingRecordSection {
         java.util.function.BiConsumer<String, DialogSnap> offerUndo = (msg, before) ->
                 com.bai.bookshelf.util.UndoBar.offer(db.getRoot(), msg,
                         () -> restore.accept(before), null);
+        // 网格动作（单点/框选/取消）后把集合抄回弹窗副本，留底再覆盖以便撤销
+        Runnable syncDaysFromGrid = () -> {
+            DialogSnap before = snap.get();
+            List<Integer> keys = db.mgRecDays.pickedKeys();
+            dialogDays.put(editing.seq, new ArrayList<>(keys));
+            refreshDays.run();
+            offerUndo.accept("阅读日改为 " + keys.size() + " 天", before);
+        };
 
-        pickHolder[0] = new com.bai.bookshelf.ui.checkin.MonthGridView.PickListener() {
+        pickHolder[0] = new com.bai.bookshelf.ui.checkin.MonthGridView.PickerListener() {
             @Override
-            public void onPickChanged(List<Integer> keys) {
-                // 回调进来时 dialogDays 还是改动前的样子，先留底再覆盖
-                DialogSnap before = snap.get();
-                dialogDays.put(editing.seq, new ArrayList<>(keys));
-                refreshDays.run();
-                offerUndo.accept("阅读日改为 " + keys.size() + " 天", before);
+            public void onToggleDay(int dayKey) {
+                syncDaysFromGrid.run();
             }
 
             @Override
-            public void onPickBlocked(int dayKey, boolean future) {
-                Toast.makeText(activity, future
-                        ? "未来的日子还没发生，不能算读过"
-                        : "这一天属于别的月份，先切月再选", Toast.LENGTH_SHORT).show();
+            public void onRangeFill(int fromKey, int toKey) {
+                syncDaysFromGrid.run();
             }
 
             @Override
-            public void onPickAnchor(int dayKey) {
-                db.tvRecPickHint.setText(dayKey == 0
-                        ? "点一天勾上，长按一天再点另一天框住整段"
-                        : "起点 " + DateKeys.formatKey(dayKey) + "，再点一天框住整段");
+            public void onRangeCancel(int fromKey, int toKey) {
+                syncDaysFromGrid.run();
             }
         };
 
@@ -319,7 +321,7 @@ public class ReadingRecordSection {
             DialogSnap before = snap.get();
             List<Integer> keys = DateKeys.keyRange(from, to);
             dialogDays.put(editing.seq, keys);
-            db.mgRecDays.setPickedDays(keys);
+            db.mgRecDays.setPickedDays(new java.util.HashSet<>(keys));
             refreshDays.run();
             offerUndo.accept("已整段沿用 " + keys.size() + " 天", before);
         });
@@ -327,7 +329,7 @@ public class ReadingRecordSection {
         db.btnRecClear.setOnClickListener(v -> {
             DialogSnap before = snap.get();
             dialogDays.put(editing.seq, new ArrayList<>());
-            db.mgRecDays.setPickedDays(java.util.Collections.emptyList());
+            db.mgRecDays.setPickedDays(new java.util.HashSet<>());
             refreshDays.run();
             offerUndo.accept("已清空这一轮的阅读日", before);
         });
@@ -369,7 +371,7 @@ public class ReadingRecordSection {
                         merged.addAll(mine);
                         dialogDays.put(toSeq, new ArrayList<>(merged));
                         dialogDays.put(editing.seq, new ArrayList<>());
-                        db.mgRecDays.setPickedDays(java.util.Collections.emptyList());
+                        db.mgRecDays.setPickedDays(new java.util.HashSet<>());
                         refreshDays.run();
                         offerUndo.accept("已把 " + mine.size() + " 天移到第 " + toSeq + " 次", before);
                     })

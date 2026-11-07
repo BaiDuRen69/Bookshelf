@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 精确日期选择器面板（v5.9.1 修订第三步）：窗口动画与 24dp 顶部圆角走
+     ThemeOverlay.Bookshelf.BottomSheet，这里不另设背景。 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingHorizontal="@dimen/space_xl"
+    android:paddingTop="@dimen/space_md"
+    android:paddingBottom="@dimen/space_md">
+
+    <View
+        android:layout_width="@dimen/space_xl"
+        android:layout_height="@dimen/space_xs"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginBottom="@dimen/space_md"
+        android:background="@drawable/bg_sheet_handle"
+        android:importantForAccessibility="no" />
+
+    <TextView
+        android:id="@+id/tv_picker_title"
+        style="@style/Text.Bookshelf.RowValue"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textColor="?attr/on_surface" />
+
+    <!-- 计数行：Overline 标签 + Metric.Small 数字，与统计摘要同一套版式 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/space_sm"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/tv_picker_count_label"
+            style="@style/Text.Bookshelf.Overline"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="已选" />
+
+        <TextView
+            android:id="@+id/tv_picker_count"
+            style="@style/Text.Bookshelf.Metric.Small"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="@dimen/space_sm"
+            android:text="0" />
+
+        <TextView
+            style="@style/Text.Bookshelf.Overline"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="@dimen/space_xs"
+            android:text="天" />
+    </LinearLayout>
+
+    <ScrollView
+        android:id="@+id/picker_grid_scroll"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/space_sm"
+        android:scrollbars="none">
+
+        <com.bai.bookshelf.ui.checkin.MonthGridView
+            android:id="@+id/mg_picker"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+    </ScrollView>
+
+    <TextView
+        android:id="@+id/tv_picker_hint"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/space_sm"
+        android:text="点一天勾上；开「连续区间」后点起点再点终点框住整段"
+        android:textColor="?attr/on_surface_variant"
+        android:textSize="@dimen/text_caption_large" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/space_sm"
+        android:orientation="horizontal">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_picker_range"
+            style="@style/Widget.Bookshelf.Button.Text"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="连续区间" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_picker_clear"
+            style="@style/Widget.Bookshelf.Button.Text"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="清空" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_picker_span"
+            style="@style/Widget.Bookshelf.Button.Text"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="整段沿用" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_picker_today"
+            style="@style/Widget.Bookshelf.Button.Text"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="跳到今天" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/tv_picker_result"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/space_sm"
+        android:textColor="?attr/colorError"
+        android:textSize="@dimen/text_body_small"
+        android:visibility="gone" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/space_md"
+        android:orientation="horizontal">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_picker_cancel"
+            style="@style/Widget.Bookshelf.Button.Outlined"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="@dimen/space_sm"
+            android:layout_weight="1"
+            android:text="@string/action_cancel" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_picker_ok"
+            style="@style/Widget.Bookshelf.Button"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="确定" />
+    </LinearLayout>
+</LinearLayout>

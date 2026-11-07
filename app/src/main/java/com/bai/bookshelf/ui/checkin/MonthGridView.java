@@ -22,8 +22,6 @@ import com.bai.bookshelf.util.DateKeys;
 import com.bai.bookshelf.util.ThemeManager;
 import com.bai.bookshelf.util.Typo;
 
-import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -31,7 +29,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeSet;
 
 /**
  * 打卡月视图：周一开头、左侧 ISO 周数列、7 列日期格，全部是真实 View
@@ -58,21 +55,26 @@ public class MonthGridView extends LinearLayout {
     }
 
     /**
-     * 选择器模式（v5.9.1 第三步）：给编辑页框选「哪几天读过」。
+     * 选择器角色的回调（v5.9.1 修订第三步）：按动作通知，集合自己去 {@link #pickedKeys()} 取。
      *
      * <p>与 {@link Listener} 完全分开——打卡页的四个回调一个都没动，
-     * 打开选择器后走这套，关掉后回到原来那套。
+     * {@link #setRole(int)} 切到 ROLE_PICKER 后走这套，切回 ROLE_CHECKIN 回到原来那套。
      */
-    public interface PickListener {
-        /** 每次勾选变化后回调，参数是升序去重的完整日集合 */
-        void onPickChanged(List<Integer> dayKeys);
+    public interface PickerListener {
+        /** 普通模式下单点勾/取消了一天 */
+        void onToggleDay(int dayKey);
 
-        /** 点了不该点的日子：{@code future} = 未来日（还没发生），false = 邻月（属于别的月份） */
-        void onPickBlocked(int dayKey, boolean future);
+        /** 框选填充了一段（含两端） */
+        void onRangeFill(int fromKey, int toKey);
 
-        /** 长按设/取消框选起点（0 = 已取消） */
-        void onPickAnchor(int dayKey);
+        /** 对已填充的段再点两端，整段取消 */
+        void onRangeCancel(int fromKey, int toKey);
     }
+
+    /** 打卡页角色（默认）：点一天看那天读了哪几本 */
+    public static final int ROLE_CHECKIN = 0;
+    /** 精确日期选择器角色：勾/框选「哪几天读过」 */
+    public static final int ROLE_PICKER = 1;
 
     private static final long ANIM_HALF_MS = 110; // 两段共 220ms
     private static final float SWIPE_DISTANCE_DP = 60f;
@@ -94,16 +96,16 @@ public class MonthGridView extends LinearLayout {
     private int colorSelectedStroke;
     private int colorOnSurface;
     private int colorVariant;
+    private int colorPickedBg;
+    private int colorReferenceBg;
+    private int colorPreviewBg;
     @Nullable
     private Listener listener;
-    // ===== 选择器模式（默认关；关掉后与打卡页一字不差）=====
-    private boolean pickMode;
+    // ===== 选择器角色（默认 ROLE_CHECKIN；切回去后与打卡页一字不差）=====
+    private int role = ROLE_CHECKIN;
     @Nullable
-    private PickListener pickListener;
-    /** 已选入的阅读日（升序去重） */
-    private final Set<Integer> picked = new TreeSet<>();
-    /** 框选起点：0 = 没有 */
-    private int anchorKey;
+    private PickerListener pickerListener;
+    private final DayPickerState picker = new DayPickerState();
     private boolean scrolling;
     private int[] dayKeys = new int[0];
     private final DayCellView[] cells = new DayCellView[CheckInMonthGrid.DAYS_PER_WEEK
@@ -222,47 +224,82 @@ public class MonthGridView extends LinearLayout {
     // ==================== 选择器模式（v5.9.1 第三步）====================
 
     /**
-     * 打开/关闭选择器模式。
-     *
-     * <p>打开时打卡页的「点一天看那天读了哪几本」不再触发，格子改成勾选；
-     * 关闭（传 null）后行为回到原样，包括已有的选中日。
-     *
-     * @param initial 初始已选日集合，null = 空集合
+     * 切角色（v5.9.1 修订第三步）。ROLE_PICKER 时格子改成勾选/框选，
+     * 打卡页的 onSelectDay 等回调不再触发；切回 ROLE_CHECKIN 行为回到原样。
      */
-    public void setPicker(@Nullable Collection<Integer> initial, @Nullable PickListener l) {
-        pickListener = l;
-        pickMode = l != null;
-        anchorKey = 0;
-        picked.clear();
-        if (initial != null) {
-            for (Integer key : initial) {
-                if (key != null && key > 0) {
-                    picked.add(key);
-                }
-            }
+    public void setRole(int role) {
+        this.role = role == ROLE_PICKER ? ROLE_PICKER : ROLE_CHECKIN;
+        if (this.role == ROLE_CHECKIN) {
+            picker.setRangeMode(false);
         }
-        // 开与关都要重贴一遍：锚点的空胶囊、勾选的实心胶囊，两种模式画法不同
+        resolveCellColors();
         refreshAllCells();
+        updatePickerHeading();
     }
 
-    /** 外部改了集合（撤销、整段沿用）后刷新显示 */
-    public void setPickedDays(@Nullable Collection<Integer> keys) {
-        picked.clear();
-        if (keys != null) {
-            for (Integer key : keys) {
-                if (key != null && key > 0) {
-                    picked.add(key);
-                }
-            }
+    public void setPickerListener(@Nullable PickerListener l) {
+        this.pickerListener = l;
+    }
+
+    /** 已选集合（实心胶囊 + 右下点） */
+    public void setPickedDays(@Nullable Set<Integer> keys) {
+        picker.setPicked(keys);
+        if (role == ROLE_PICKER) {
+            refreshAllCells();
+            updatePickerHeading();
         }
-        if (pickMode) {
+    }
+
+    /** 原模糊区间的参考底纹：浅底、不算已选，点它一下才变已选 */
+    public void setReferenceDays(@Nullable Set<Integer> keys) {
+        picker.setReference(keys);
+        if (role == ROLE_PICKER) {
             refreshAllCells();
         }
     }
 
-    /** 当前已选日（升序去重副本，调用方改不动内部集合） */
-    public List<Integer> getPickedDays() {
-        return new ArrayList<>(picked);
+    /** 框选起点（描边 + 主色底）；0 = 取消 */
+    public void setRangeAnchor(int dayKey) {
+        picker.setAnchor(dayKey);
+        if (role == ROLE_PICKER) {
+            refreshAllCells();
+        }
+    }
+
+    /** 「连续区间」开关：开着时第一点落锚、第二点填充/取消整段 */
+    public void setRangeMode(boolean on) {
+        picker.setRangeMode(on);
+        if (role == ROLE_PICKER) {
+            refreshAllCells();
+            announceForAccessibility(on ? "框选模式：点起点再点终点" : "已退出框选模式");
+        }
+    }
+
+    public boolean isRangeMode() {
+        return picker.rangeMode();
+    }
+
+    /** 「清空」：只清已选，参考底纹留着对照 */
+    public void clearPicked() {
+        picker.clear();
+        if (role == ROLE_PICKER) {
+            refreshAllCells();
+            updatePickerHeading();
+        }
+    }
+
+    /** 当前已选日（升序副本，调用方改不动内部集合）；确定落库时取它 */
+    public List<Integer> pickedKeys() {
+        return picker.pickedKeys();
+    }
+
+    /** 网格整体的读屏标题：选择器角色报已选天数 */
+    private void updatePickerHeading() {
+        if (role == ROLE_PICKER) {
+            setContentDescription("精确记录选择器，已选 " + picker.pickedKeys().size() + " 天");
+        } else {
+            setContentDescription(CheckInMonthGrid.titleOf(yearMonth) + "日历");
+        }
     }
 
     /**
@@ -350,8 +387,6 @@ public class MonthGridView extends LinearLayout {
                 DayCellView cell = new DayCellView(getContext());
                 final int cellIndex = index;
                 cell.setOnClickListener(v -> onCellTouched(cellIndex));
-                // 长按只在选器模式下有意义；打卡页返回 false，长按行为与以前一样没有副作用
-                cell.setOnLongClickListener(v -> pickMode && onCellLongTouched(cellIndex));
                 cells[index] = cell;
                 row.addView(cell, new LinearLayout.LayoutParams(0,
                         getResources().getDimensionPixelSize(R.dimen.checkin_cell_h), 1f));
@@ -359,7 +394,7 @@ public class MonthGridView extends LinearLayout {
             grid.addView(row, new LayoutParams(LayoutParams.MATCH_PARENT,
                     LayoutParams.WRAP_CONTENT));
         }
-        setContentDescription(CheckInMonthGrid.titleOf(yearMonth) + "日历");
+        updatePickerHeading();
     }
 
     /** 把一格当前的状态贴上去：胶囊、今天圈、灰显、打卡点与朗读文案 */
@@ -376,15 +411,14 @@ public class MonthGridView extends LinearLayout {
         int total = CheckInDots.total(marks, key);
         // 邻月永远不画点：不然会被读成「这个月打过卡」
         int backfill = adjacent ? 0 : CheckInDots.backfill(marks, key);
-        if (pickMode) {
-            // 选器模式：胶囊表示「这一天读过」，锚点表示「从这天开始框」，
-            // 打卡点一律不画——胶囊已经把信息说完了，再叠点只会让人以为有两套状态。
-            boolean pickedNow = picked.contains(key);
-            cell.bindCheckIn(key % 100, colorPrimary, colorSelectedBg, colorSelectedStroke,
-                    colorOnSurface, colorVariant, pickedNow, today, adjacent, future,
-                    0, 0, key == anchorKey);
-            cell.setContentDescription(
-                    describePick(key, today, adjacent, future, pickedNow, key == anchorKey));
+        if (role == ROLE_PICKER) {
+            // 选择器：已选/参考/锚点/预览四种底，越界日 alpha 110 且不响应点选
+            boolean blocked = future || adjacent;
+            cell.bindPicker(key % 100, colorPrimary, colorPickedBg, colorReferenceBg,
+                    colorPreviewBg, colorOnSurface, colorVariant,
+                    picker.isPicked(key), picker.isReference(key), key == picker.anchor(),
+                    picker.inPreview(key), today, blocked);
+            cell.setContentDescription(describePick(key, today, blocked));
             return;
         }
         cell.bindCheckIn(key % 100, colorPrimary, colorSelectedBg, colorSelectedStroke,
@@ -438,7 +472,7 @@ public class MonthGridView extends LinearLayout {
         int key = dayKeys[index];
         boolean adjacent = CheckInMonthGrid.isAdjacent(key,
                 CheckInMonthGrid.yearOf(yearMonth), CheckInMonthGrid.monthOf(yearMonth));
-        if (pickMode) {
+        if (role == ROLE_PICKER) {
             onPickTouched(key, adjacent);
             return;
         }
@@ -459,92 +493,89 @@ public class MonthGridView extends LinearLayout {
         }
     }
 
-    /** 选器模式下的单击：有锚点就框住这一段，没锚点就勾/取消这一天 */
+    /** 选择器角色下的单击：规则全在 DayPickerState 里，这里只派发回调与重绘 */
     private void onPickTouched(int key, boolean adjacent) {
-        if (adjacent || key > todayKey) {
-            // 邻月属于别的月份、未来日还没发生，都不该被算成「读过」
-            if (pickListener != null) {
-                pickListener.onPickBlocked(key, key > todayKey);
-            }
+        if (adjacent) {
+            return; // 邻月格在选择器里不响应（画成不可选）
+        }
+        int action = picker.tap(key, todayKey);
+        if (action == DayPickerState.ACTION_NONE) {
+            refreshAllCells(); // 落锚 / 越界：集合没变但锚点或提示变了
+            updatePickerHeading();
             return;
         }
-        if (anchorKey != 0 && anchorKey != key) {
-            // 框选：两端之间整段选入，尾巴超过今天的部分丢掉（今天之后还没发生）
-            int from = Math.min(anchorKey, key);
-            int to = Math.min(Math.max(anchorKey, key), todayKey);
-            if (to >= from) {
-                picked.addAll(DateKeys.keyRange(from, to));
-            }
-            clearAnchor();
-            refreshAllCells();
+        refreshAllCells();
+        updatePickerHeading();
+        if (pickerListener == null) {
+            return;
+        }
+        if (action == DayPickerState.ACTION_TOGGLE) {
+            pickerListener.onToggleDay(key);
+        } else if (action == DayPickerState.ACTION_FILL) {
+            pickerListener.onRangeFill(picker.lastFrom(), picker.lastTo());
         } else {
-            if (!picked.remove(key)) {
-                picked.add(key);
+            pickerListener.onRangeCancel(picker.lastFrom(), picker.lastTo());
+        }
+    }
+
+    /** 悬停预览：框选模式下锚点已落、终点未定时，把锚点到悬停日画成 outline 底 */
+    @Override
+    public boolean onHoverEvent(MotionEvent ev) {
+        if (role == ROLE_PICKER && picker.rangeMode() && picker.anchor() != 0) {
+            if (ev.getActionMasked() == MotionEvent.ACTION_HOVER_EXIT) {
+                picker.clearPreview();
+                refreshAllCells();
+                return true;
             }
-            clearAnchor();
-            refreshCells(new int[]{key});
-        }
-        firePickChanged();
-    }
-
-    /** 锚点用完就清，并告诉调用方——编辑页那句「再点一天就框住这段」得跟着消失 */
-    private void clearAnchor() {
-        if (anchorKey == 0) {
-            return;
-        }
-        anchorKey = 0;
-        if (pickListener != null) {
-            pickListener.onPickAnchor(0);
-        }
-    }
-
-    /** 长按设框选起点；再长按同一天取消 */
-    private boolean onCellLongTouched(int index) {
-        if (scrolling || index >= dayKeys.length) {
-            return false;
-        }
-        int key = dayKeys[index];
-        boolean adjacent = CheckInMonthGrid.isAdjacent(key,
-                CheckInMonthGrid.yearOf(yearMonth), CheckInMonthGrid.monthOf(yearMonth));
-        if (adjacent || key > todayKey) {
-            if (pickListener != null) {
-                pickListener.onPickBlocked(key, key > todayKey);
+            int index = indexAt(ev.getX(), ev.getY());
+            if (index >= 0) {
+                picker.setPreview(picker.anchor(), dayKeys[index]);
+                refreshAllCells();
+                return true;
             }
-            return true;
         }
-        int prev = anchorKey;
-        anchorKey = anchorKey == key ? 0 : key;
-        refreshCells(new int[]{prev, key});
-        if (pickListener != null) {
-            pickListener.onPickAnchor(anchorKey);
-        }
-        return true;
+        return super.onHoverEvent(ev);
     }
 
-    private void firePickChanged() {
-        if (pickListener != null) {
-            pickListener.onPickChanged(new ArrayList<>(picked));
+    /** 坐标落在哪个格子（仅本月格）；落空返回 -1 */
+    private int indexAt(float x, float y) {
+        for (int i = 0; i < dayKeys.length; i++) {
+            DayCellView cell = cells[i];
+            if (cell == null) {
+                continue;
+            }
+            int[] loc = new int[2];
+            cell.getLocationInWindow(loc);
+            int[] self = new int[2];
+            getLocationInWindow(self);
+            float lx = loc[0] - self[0];
+            float ly = loc[1] - self[1];
+            if (x >= lx && x <= lx + cell.getWidth() && y >= ly && y <= ly + cell.getHeight()) {
+                return i;
+            }
         }
+        return -1;
     }
 
-    /** 选器模式的朗读：「11月3日，已选入」/「11月3日，未选」，锚点与今天一起念出来 */
-    private String describePick(int dayKey, boolean today, boolean adjacent, boolean future,
-                                boolean pickedNow, boolean anchor) {
+    /** 选择器朗读：「11月5日，已选 / 参考区间 / 不可选」，今天与框选起点一起念 */
+    private String describePick(int dayKey, boolean today, boolean blocked) {
         StringBuilder sb = new StringBuilder();
         sb.append(dayKey / 100 % 100).append("月").append(dayKey % 100).append("日");
-        if (adjacent) {
-            sb.append("，邻月");
-        }
         if (today) {
             sb.append("，今天");
         }
-        if (future) {
-            sb.append("，未来日期");
-        }
-        if (anchor) {
+        if (dayKey == picker.anchor()) {
             sb.append("，框选起点");
         }
-        sb.append(pickedNow ? "，已选入" : "，未选");
+        if (blocked) {
+            sb.append("，不可选");
+        } else if (picker.isPicked(dayKey)) {
+            sb.append("，已选");
+        } else if (picker.isReference(dayKey)) {
+            sb.append("，参考区间");
+        } else {
+            sb.append("，未选");
+        }
         return sb.toString();
     }
 
@@ -556,6 +587,9 @@ public class MonthGridView extends LinearLayout {
                 ThemeManager.resolveColor(getContext(), R.attr.checkin_selected_stroke);
         colorOnSurface = ThemeManager.resolveColor(getContext(), R.attr.on_surface);
         colorVariant = ThemeManager.resolveColor(getContext(), R.attr.on_surface_variant);
+        colorPickedBg = ThemeManager.resolveColor(getContext(), R.attr.primary_container);
+        colorReferenceBg = ThemeManager.resolveColor(getContext(), R.attr.surface_dim);
+        colorPreviewBg = ThemeManager.resolveColor(getContext(), R.attr.outline);
     }
 
     /** 「11月5日，已打卡（3 本 · 含 1 笔补卡）」/「11月20日，未来日期，未打卡」 */
