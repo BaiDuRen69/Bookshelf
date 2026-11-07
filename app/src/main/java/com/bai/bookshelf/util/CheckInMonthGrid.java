@@ -4,10 +4,10 @@ import java.util.Calendar;
 import java.util.Locale;
 
 /**
- * 打卡月视图的排布规则（纯 JVM，可单测）：周一开头、前后补邻月、最多 6 行。
+ * 打卡月视图的排布规则（纯 JVM，可单测）：周一开头、前后补邻月、固定 6 行。
  *
- * <p>刻意不复用 ui/widget/CalendarPicker 的排布代码：硬约束要求 CalendarPicker
- * 的现有调用点与观感不变，第一版允许重复，第二期再谈合并。
+ * <p>固定 6 行是为了切月时月历高度不变：5 行的月份在第 6 行补下月日期（灰显），
+ * 不再让整张月历随月份抽动。刻意不复用 ui/widget/CalendarPicker 的排布代码。
  */
 public final class CheckInMonthGrid {
 
@@ -25,12 +25,12 @@ public final class CheckInMonthGrid {
         return (c.get(Calendar.DAY_OF_WEEK) + 5) % 7;
     }
 
+    /** 固定 6 行：切月不再改变月历高度 */
     public static int rows(int year, int month1) {
-        int total = leadDays(year, month1) + DateKeys.daysInMonth(year, month1);
-        return Math.min(MAX_ROWS, (total + DAYS_PER_WEEK - 1) / DAYS_PER_WEEK);
+        return MAX_ROWS;
     }
 
-    /** 长度 rows×7，含前后邻月补齐；第一个一定是周一 */
+    /** 长度恒为 42，含前后邻月补齐；第一个一定是周一 */
     public static int[] dayKeys(int year, int month1) {
         int count = rows(year, month1) * DAYS_PER_WEEK;
         int start = DateKeys.shiftDayKey(DateKeys.keyOf(year, month1, 1),
@@ -80,5 +80,16 @@ public final class CheckInMonthGrid {
 
     public static String titleOf(int yearMonth) {
         return String.format(Locale.ROOT, "%d年%d月", yearOf(yearMonth), monthOf(yearMonth));
+    }
+
+    /** 切月后把选中日夹到新月份：同号，没有这一天就取月末；无选中返回 0 */
+    public static int clampDayKey(int dayKey, int yearMonth) {
+        int year = yearOf(yearMonth);
+        int month = monthOf(yearMonth);
+        if (dayKey <= 0 || year <= 0 || month < 1 || month > 12) {
+            return 0;
+        }
+        int day = Math.min(dayKey % 100, DateKeys.daysInMonth(year, month));
+        return DateKeys.keyOf(year, month, day);
     }
 }

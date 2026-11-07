@@ -8,10 +8,12 @@ package com.bai.bookshelf.util;
  */
 public final class CheckInLegend {
 
-    /** 主色：今天描边、已打卡点、含补卡点 */
+    /** 主色：已打卡点、含补卡点 */
     public static final int TONE_PRIMARY = 0;
     /** 描边强色：选中框——淡底在夜读下几乎看不见，轮廓才读得出 */
     public static final int TONE_OUTLINE = 1;
+    /** 「今天」的暖色语义色，和主色分开，日历圆/图例/悬浮按钮同一套 */
+    public static final int TONE_TODAY = 2;
 
     public static final class Item {
         public final String glyph;
@@ -31,7 +33,7 @@ public final class CheckInLegend {
     /** 月视图网格下方四项 */
     public static Item[] monthItems() {
         return new Item[]{
-                new Item("○", "今天", TONE_PRIMARY),
+                new Item("○", "今天", TONE_TODAY),
                 new Item("●", "已打卡", TONE_PRIMARY),
                 new Item("◐", "含补卡", TONE_PRIMARY),
                 new Item("▭", "已选中", TONE_OUTLINE),

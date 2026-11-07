@@ -103,11 +103,15 @@ public final class CheckInViewSwitcher {
     }
 
     /**
-     * 年视图点某个月：该月卡 1.0→2.0 放大并平移到内容中心，其余 11 张淡出。
-     * 结束后统一复位，再交给 Fragment 切回月视图。
+     * 年视图点某个月 → 月视图：一次转场里连续缩小，不再「先放大卡片、再切月」两段。
+     *
+     * <p>点击的卡片 1→2 倍放大、其余 11 张淡出，年内容整体缩到 0.3 并淡出；
+     * 月内容以「卡片宽 / 月内容宽」为起始 scale、以该卡片中心为 pivot 放大回 1。
+     * 目标月份必须由调用方在此之前用 MonthGridView.setYearMonthSilently 静默铺好，
+     * 动画期间不会出现旧月份，结束后也不跳月。
      */
-    public void zoomMonthCard(int month1, @Nullable Runnable onEnd) {
-        if (animating) {
+    public void toMonthFromCard(int month1, @Nullable Runnable onEnd) {
+        if (animating || !yearVisible) {
             runIfPresent(onEnd);
             return;
         }
@@ -117,18 +121,38 @@ public final class CheckInViewSwitcher {
             return;
         }
         begin();
-        int[] loc = new int[2];
+        // 月内容挂在 host 上（match_parent），但此前是 GONE、还没测量：
+        // 先让它回到可见，再用 host 的坐标/宽度算 pivot 与起始 scale，避免读到 0。
+        monthContent.setVisibility(View.VISIBLE);
+        yearContent.setVisibility(View.VISIBLE);
+        set(yearContent, 1f, 1f);
+
+        int[] cardLoc = new int[2];
         int[] hostLoc = new int[2];
-        card.getLocationInWindow(loc);
-        yearContent.getLocationInWindow(hostLoc);
-        float cx = loc[0] + card.getWidth() / 2f - hostLoc[0];
-        float cy = loc[1] + card.getHeight() / 2f - hostLoc[1];
-        float dx = yearContent.getWidth() / 2f - cx;
-        float dy = yearContent.getHeight() / 2f - cy;
+        card.getLocationInWindow(cardLoc);
+        host.getLocationInWindow(hostLoc);
+        float cardCx = cardLoc[0] + card.getWidth() / 2f;
+        float cardCy = cardLoc[1] + card.getHeight() / 2f;
+        float px = cardCx - hostLoc[0];
+        float py = cardCy - hostLoc[1];
+
+        float startScale = SMALL_SCALE;
+        if (host.getWidth() > 0) {
+            startScale = Math.max(0.2f, Math.min(1f,
+                    card.getWidth() / (float) host.getWidth()));
+        }
+        set(monthContent, startScale, 0f);
+        monthContent.setPivotX(px);
+        monthContent.setPivotY(py);
+
         scaleTransition.clear();
+        scaleTransition.spec(monthContent, new ScalePivotTransition.Spec(
+                startScale, 1f, 0f, 1f, px, py, 0f, 0f, false));
+        scaleTransition.spec(yearContent, new ScalePivotTransition.Spec(
+                1f, SMALL_SCALE, 1f, 0f, px, py, 0f, 0f, true));
         scaleTransition.spec(card, new ScalePivotTransition.Spec(
                 1f, MONTH_ZOOM, 1f, 1f, card.getWidth() / 2f, card.getHeight() / 2f,
-                dx, dy, false));
+                0f, 0f, false));
         for (int m = 1; m <= 12; m++) {
             View other = yearView.monthCardAt(m);
             if (other != null && other != card) {
@@ -137,11 +161,13 @@ public final class CheckInViewSwitcher {
                         0f, 0f, false));
             }
         }
-        TransitionManager.beginDelayedTransition((ViewGroup) yearContent, transitionSet(onEnd));
+        TransitionManager.beginDelayedTransition(host, transitionSet(onEnd));
+        yearVisible = false;
     }
 
     /**
-     * 年视图左右滑切年：旧页 0→∓(0.35×内容宽) 淡出，新页 ±(0.35×内容宽)→0 淡入。
+     * 年视图左右滑切年：新页从 ±(0.35×内容宽) 滑入，旧页反向退出并淡出。
+     * delta > 0（左滑）= 下一年，新页在右、旧页向左；delta < 0（右滑）镜像。
      * 同样由 TransitionManager + AutoTransition + ScalePivotTransition 编排。
      */
     public void switchYear(int delta, View oldLayer, View newLayer,
@@ -153,18 +179,21 @@ public final class CheckInViewSwitcher {
         begin();
         float distance = host.getWidth() * YEAR_SHIFT_RATIO;
         float dir = delta < 0 ? -1f : 1f;
+        // 左滑（delta=+1）= 下一年的页从右侧进入、旧页向左退出；右滑反向
+        float newStart = dir * distance;
+        float oldEnd = -dir * distance;
         newLayer.setVisibility(View.VISIBLE);
         newLayer.setAlpha(0f);
-        newLayer.setTranslationX(-dir * distance);
+        newLayer.setTranslationX(newStart);
         oldLayer.setAlpha(1f);
         oldLayer.setTranslationX(0f);
         float px = newLayer.getWidth() / 2f;
         float py = newLayer.getHeight() / 2f;
         scaleTransition.clear();
         scaleTransition.spec(oldLayer, new ScalePivotTransition.Spec(
-                1f, 1f, 1f, 0f, px, py, 0f, 0f, dir * distance, 0f, true));
+                1f, 1f, 1f, 0f, px, py, 0f, 0f, oldEnd, 0f, true));
         scaleTransition.spec(newLayer, new ScalePivotTransition.Spec(
-                1f, 1f, 0f, 1f, px, py, -dir * distance, 0f, 0f, 0f, false));
+                1f, 1f, 0f, 1f, px, py, newStart, 0f, 0f, 0f, false));
         TransitionSet set = transitionSet(onEnd);
         set.setDuration(YEAR_SWITCH_MS);
         TransitionManager.beginDelayedTransition((ViewGroup) yearContent, set);
@@ -215,6 +244,8 @@ public final class CheckInViewSwitcher {
         set.excludeTarget(R.id.toolbar, true);
         set.excludeTarget(R.id.fab_today, true);
         set.excludeTarget(R.id.rv_checkin, true);
+        set.excludeTarget(R.id.rv_month_days, true);
+        set.excludeTarget(R.id.ll_month_days_handle, true);
         set.excludeTarget(R.id.ll_checkin_summary, true);
         set.excludeTarget(R.id.ll_checkin_legend, true);
         set.excludeTarget(R.id.ll_year_summary, true);
@@ -233,6 +264,9 @@ public final class CheckInViewSwitcher {
             @Override
             public void onTransitionCancel(Transition transition) {
                 finish();
+                // 取消也代表这次转场结束：onEnd 里的取数/标题更新必须补跑，
+                // 否则年→月会停在被淡掉的列表和没刷新的数据上
+                runIfPresent(onEnd);
             }
 
             @Override
@@ -254,6 +288,8 @@ public final class CheckInViewSwitcher {
         // 动画被取消时 onAnimationEnd 可能不跑：兜底把两层状态归位，避免叠加/半透明残留
         set(monthContent, 1f, 1f);
         set(yearContent, 1f, 1f);
+        // 点月放大只动 12 张卡片，取消时它们不会自己复位，下一次进年视图必须从 1 倍开始
+        yearView.resetCardTransforms();
         monthContent.setVisibility(yearVisible ? View.GONE : View.VISIBLE);
         yearContent.setVisibility(yearVisible ? View.VISIBLE : View.GONE);
     }

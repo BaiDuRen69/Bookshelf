@@ -27,6 +27,7 @@ public final class CheckInLegendView {
         int primary = ThemeManager.resolveColor(ctx, ThemeManager.ATTR_COLOR_PRIMARY);
         int outline = ThemeManager.resolveColor(ctx, R.attr.outline_strong);
         int variant = ThemeManager.resolveColor(ctx, R.attr.on_surface_variant);
+        int today = ThemeManager.resolveColor(ctx, R.attr.checkin_today_bg);
         container.removeAllViews();
         StringBuilder reading = new StringBuilder("图例：");
         for (int i = 0; i < items.length; i++) {
@@ -34,18 +35,26 @@ public final class CheckInLegendView {
                 reading.append("、");
             }
             reading.append(items[i].label);
-            container.addView(cell(ctx, items[i], primary, outline, variant), itemLp(ctx, i));
+            container.addView(cell(ctx, items[i], primary, outline, variant, today),
+                    itemLp(ctx, i));
         }
         container.setContentDescription(reading.toString());
     }
 
     private static LinearLayout cell(Context ctx, CheckInLegend.Item item,
-                                     int primary, int outline, int variant) {
+                                     int primary, int outline, int variant, int today) {
         LinearLayout cell = new LinearLayout(ctx);
         cell.setOrientation(LinearLayout.HORIZONTAL);
         cell.setGravity(Gravity.CENTER_VERTICAL);
-        cell.addView(text(ctx, item.glyph,
-                item.tone == CheckInLegend.TONE_OUTLINE ? outline : primary), wrap(ctx, 0));
+        int glyphColor;
+        if (item.tone == CheckInLegend.TONE_OUTLINE) {
+            glyphColor = outline;
+        } else if (item.tone == CheckInLegend.TONE_TODAY) {
+            glyphColor = today;
+        } else {
+            glyphColor = primary;
+        }
+        cell.addView(text(ctx, item.glyph, glyphColor), wrap(ctx, 0));
         cell.addView(text(ctx, item.label, variant),
                 wrap(ctx, px(ctx, R.dimen.space_xs)));
         return cell;

@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 当月逐日明细行（5.5）：日号 + 星期 / 打卡状态 / 书名一行。
+     今天行由 Adapter 贴 checkin_selected_bg 淡底，未来日整体 alpha 0.6。
+     固定 44dp，保证 28–31 天能在一屏里滚得动。 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="44dp"
+    android:clickable="true"
+    android:focusable="true"
+    android:foreground="?attr/selectableItemBackground"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingHorizontal="@dimen/page_padding">
+
+    <TextView
+        android:id="@+id/tv_day"
+        android:layout_width="22dp"
+        android:layout_height="wrap_content"
+        android:fontFeatureSettings="tnum"
+        android:gravity="center"
+        android:importantForAccessibility="no"
+        android:textColor="?attr/on_surface"
+        android:textSize="@dimen/text_body"
+        tools:text="7" />
+
+    <TextView
+        android:id="@+id/tv_weekday"
+        android:layout_width="32dp"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:importantForAccessibility="no"
+        android:textColor="?attr/on_surface_variant"
+        android:textSize="@dimen/text_caption"
+        tools:text="周五" />
+
+    <TextView
+        android:id="@+id/tv_state"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="@dimen/space_xs"
+        android:ellipsize="end"
+        android:importantForAccessibility="no"
+        android:maxLines="1"
+        android:textColor="?attr/on_surface"
+        android:textSize="@dimen/text_body_small"
+        tools:text="已打卡 3 本 · 补 1" />
+
+    <TextView
+        android:id="@+id/tv_titles"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="@dimen/space_sm"
+        android:layout_weight="1"
+        android:ellipsize="end"
+        android:gravity="end"
+        android:importantForAccessibility="no"
+        android:maxLines="1"
+        android:textColor="?attr/on_surface_variant"
+        android:textSize="@dimen/text_caption_large"
+        tools:text="《三体》、活着" />
+</LinearLayout>

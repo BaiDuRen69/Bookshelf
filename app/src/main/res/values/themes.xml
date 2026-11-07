@@ -42,6 +42,14 @@
         <item name="checkin_selected_stroke">@android:color/transparent</item>
         <!-- 非今天选中格用一圈圆框；七套主题都继承本基线，夜读会自动取它的 outline_strong -->
         <item name="checkin_day_ring">?attr/outline_strong</item>
+        <!-- 邻月日号：六套浅色主题共用一档灰，夜读单独覆盖成更暗的一档 -->
+        <item name="checkin_adjacent_text">@color/checkin_adjacent_text</item>
+        <!-- 今天：暖色底 + 反色字 + 选中外圈，和七套主题各自的 colorPrimary 分开 -->
+        <item name="checkin_today_bg">?attr/accent_text</item>
+        <item name="checkin_on_today">@color/checkin_on_today</item>
+        <item name="checkin_today_ring">?attr/on_surface_variant</item>
+        <!-- 节日文字：浅色主题跟 accent_text，夜读自动取 night_accent_text -->
+        <item name="checkin_holiday_text">?attr/accent_text</item>
         <!-- v4.19：标签底色也给基线默认值（同上） -->
         <item name="chip_bg">@color/chip_bg</item>
         <!-- v4.24：黄铜文字色（colorSecondary 只用于填充，白字对比度不足） -->
@@ -195,6 +203,11 @@
              描边改用 on_surface_variant(#B5AEA3) = 7.79:1。 -->
         <item name="checkin_selected_bg">@color/night_chip_bg</item>
         <item name="checkin_selected_stroke">?attr/on_surface_variant</item>
+        <item name="checkin_adjacent_text">@color/checkin_adjacent_text_night</item>
+        <!-- 夜读：亮金底 + 深墨字（9.5:1）；选中外圈用次级文字色，亮金上仍读得出 -->
+        <item name="checkin_today_bg">@color/night_accent_text</item>
+        <item name="checkin_on_today">@color/night_ink</item>
+        <item name="checkin_today_ring">@color/night_text_sub</item>
         <item name="android:colorBackground">@color/night_page</item>
         <item name="surface">@color/night_surface</item>
         <!-- v5.8.26：夜读的 dock 要比炭黑卡面亮一档，否则去掉描边后与内容糊在一起 -->

@@ -42,20 +42,22 @@ public class CheckInMonthGridTest {
     }
 
     @Test
-    public void 二零二六年六月周一开头不补天共五行() {
+    public void 二零二六年六月只占五行但补满六行() {
         assertEquals(0, CheckInMonthGrid.leadDays(2026, 6));
-        assertEquals(5, CheckInMonthGrid.rows(2026, 6));
+        assertEquals(6, CheckInMonthGrid.rows(2026, 6));
         int[] keys = CheckInMonthGrid.dayKeys(2026, 6);
-        assertEquals(35, keys.length);
+        assertEquals(42, keys.length);
         assertEquals(20260601, keys[0]);
-        assertEquals(20260705, keys[34]);
+        assertEquals("第 35 格仍是 7/5", 20260705, keys[34]);
+        assertEquals("第 6 行用下月日期补灰", 20260712, keys[41]);
     }
 
     @Test
-    public void 二零二六年二月补六天共五行() {
+    public void 二零二六年二月补六天也占六行() {
         assertEquals(6, CheckInMonthGrid.leadDays(2026, 2));
-        assertEquals(5, CheckInMonthGrid.rows(2026, 2));
+        assertEquals(6, CheckInMonthGrid.rows(2026, 2));
         int[] keys = CheckInMonthGrid.dayKeys(2026, 2);
+        assertEquals(42, keys.length);
         assertEquals(20260126, keys[0]);
     }
 
@@ -97,14 +99,24 @@ public class CheckInMonthGridTest {
     }
 
     @Test
-    public void 所有月份都不超过六行() {
+    public void 所有月份都固定六行42格() {
         for (int y = 2024; y <= 2028; y++) {
             for (int m = 1; m <= 12; m++) {
-                int rows = CheckInMonthGrid.rows(y, m);
-                assertTrue(y + "-" + m + " 行数 " + rows, rows >= 4 && rows <= 6);
-                assertEquals(rows * 7, CheckInMonthGrid.dayKeys(y, m).length);
+                assertEquals(y + "-" + m + " 行数固定 6", 6, CheckInMonthGrid.rows(y, m));
+                assertEquals(42, CheckInMonthGrid.dayKeys(y, m).length);
             }
         }
+    }
+
+    @Test
+    public void 切月把选中日夹到同号或月末() {
+        assertEquals(20260805, CheckInMonthGrid.clampDayKey(20260205, 202608));
+        assertEquals("2/28 → 8/28", 20260828, CheckInMonthGrid.clampDayKey(20260228, 202608));
+        assertEquals("31 号遇到 30 天月取月末", 20260930,
+                CheckInMonthGrid.clampDayKey(20260831, 202609));
+        assertEquals("闰年 2 月也有 29", 20240229,
+                CheckInMonthGrid.clampDayKey(20240131, 202402));
+        assertEquals("无选中保持无选中", 0, CheckInMonthGrid.clampDayKey(0, 202608));
     }
 
     @Test

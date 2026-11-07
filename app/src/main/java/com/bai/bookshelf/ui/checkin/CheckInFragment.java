@@ -1,6 +1,7 @@
 package com.bai.bookshelf.ui.checkin;
 
 import android.os.Bundle;
+import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -20,11 +21,17 @@ import com.bai.bookshelf.databinding.FragmentCheckinBinding;
 import com.bai.bookshelf.ui.MainActivity;
 import com.bai.bookshelf.ui.TabRefresh;
 import com.bai.bookshelf.util.BookSanitizer;
+import com.bai.bookshelf.util.CheckInCalendarState;
+import com.bai.bookshelf.util.CheckInDayDetail;
 import com.bai.bookshelf.util.CheckInHabit;
+import com.bai.bookshelf.util.CheckInHeader;
 import com.bai.bookshelf.util.CheckInMonthGrid;
 import com.bai.bookshelf.util.CheckInStore;
 import com.bai.bookshelf.util.CheckInUiState;
 import com.bai.bookshelf.util.DateKeys;
+import com.bai.bookshelf.util.HolidayCalendar;
+import com.bai.bookshelf.util.HolidayStore;
+import com.bai.bookshelf.util.InsetsHelper;
 import com.bai.bookshelf.util.ReadDays;
 import com.bai.bookshelf.util.ReadingRecords;
 
@@ -42,7 +49,8 @@ import java.util.Set;
  * readStatus 与阅读会话。打卡成功后只重绑受影响的一行与一个日历格，不整表重建。
  */
 public class CheckInFragment extends Fragment
-        implements MonthGridView.Listener, CheckInAdapter.Listener, TabRefresh {
+        implements MonthGridView.Listener, CheckInSwipeRoot.Listener,
+        CheckInAdapter.Listener, TabRefresh {
 
     private FragmentCheckinBinding b;
     private CheckInAdapter adapter;
@@ -51,6 +59,24 @@ public class CheckInFragment extends Fragment
     private long lastReloadMs;
     private CheckInViewSwitcher switcher;
     private CheckInYearPanel yearPanel;
+    private CheckInMonthDayAdapter monthDayAdapter;
+    /** 在读清单本身为空：没有任何「在读」的书 */
+    private boolean readingEmpty;
+    /** 在读清单不为空，但选中日的行全部早于开读日而被过滤光 */
+    private boolean dayEmpty;
+    /** 年→月转场期间把列表/小结/图例淡掉，数据回来后再显现 */
+    private boolean monthChromeHidden;
+
+    // 三态（本轮只接 MONTH↔WEEK；DETAIL 等逐日列表规格）
+    private CheckInCalendarState.Mode mode = CheckInCalendarState.Mode.MONTH;
+    private int toolbarFullPx;
+    private int toolbarCompactPx;
+    private float titleFullPx;
+    private float titleCompactPx;
+    private float relFullPx;
+    private float relCompactPx;
+    /** 当前已套用的基准高度档（false = 常规 / true = 紧凑），避免每帧 setBaseHeight */
+    private boolean headerCompactBase;
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
@@ -64,6 +90,8 @@ public class CheckInFragment extends Fragment
         super.onViewCreated(view, savedInstanceState);
         todayKey = DateKeys.todayKey();
         selectedDayKey = todayKey;
+        mode = CheckInCalendarState.Mode.MONTH; // 新视图从整月开始
+        headerCompactBase = false;
 
         View yearContentView = b.getRoot().findViewById(R.id.year_content);
         yearPanel = new CheckInYearPanel(yearContentView);
@@ -75,16 +103,33 @@ public class CheckInFragment extends Fragment
 
             @Override
             public void onYearChanged(int year) {
-                // 年份标题与今年小结由 CheckInYearPanel 内部刷新
+                // 年份标题与今年小结由 CheckInYearPanel 内部刷新；节日表按新年份补一次
+                refreshHolidaysForYear(year);
             }
         });
         switcher = new CheckInViewSwitcher(b.viewSwitchHost, b.monthContent,
                 yearContentView, yearPanel.yearView(), b.monthGrid);
         yearPanel.yearView().setYearSwitcher(switcher);
 
+        // 纵向手势的唯一入口：整页可滑，列表/悬浮按钮/年视图分别让行
+        b.swipeRoot.setListener(this);
+        b.swipeRoot.setGuard(() -> switcher == null
+                || switcher.isYearVisible() || switcher.isAnimating());
+        b.swipeRoot.setScrollList(b.rvCheckin);
+        b.swipeRoot.setExcludedList(b.rvMonthDays);
+        b.swipeRoot.setExcludedView(b.fabToday);
+
+        InsetsHelper.applyTopInset(b.toolbar);
+        toolbarFullPx = getResources().getDimensionPixelSize(R.dimen.toolbar_h);
+        toolbarCompactPx = getResources().getDimensionPixelSize(R.dimen.toolbar_h_compact);
+        titleFullPx = b.tvMonthTitle.getTextSize();
+        titleCompactPx = getResources().getDimension(R.dimen.text_body);
+        relFullPx = b.tvMonthRelative.getTextSize();
+        relCompactPx = getResources().getDimension(R.dimen.text_caption_compact);
+        // 页头与月历折叠共用同一个 220ms 进度：每帧由网格回调，不另起动画
+        b.monthGrid.setCollapseProgressListener(this::applyHeaderProgress);
         setToolbarMonth(b.monthGrid.getYearMonth());
         b.toolbar.setOnClickListener(v -> toggleYearView());
-        b.tvYear.setOnClickListener(v -> toggleYearView());
         b.fabToday.setOnClickListener(v -> {
             if (switcher.isAnimating()) {
                 return;
@@ -107,9 +152,14 @@ public class CheckInFragment extends Fragment
         b.rvCheckin.setLayoutManager(new LinearLayoutManager(requireContext()));
         b.rvCheckin.setAdapter(adapter);
 
-        b.emptyState.tvEmptyTitle.setText("还没有在读的书");
-        b.emptyState.tvEmptyDesc.setText("把一本书标成在读，就能每天打卡");
-        b.emptyState.btnEmptyCta.setText("打开书架");
+        monthDayAdapter = new CheckInMonthDayAdapter();
+        monthDayAdapter.setListener(this::onMonthDayClick);
+        b.rvMonthDays.setLayoutManager(new LinearLayoutManager(requireContext()));
+        b.rvMonthDays.setAdapter(monthDayAdapter);
+        b.llMonthDaysHandle.setOnClickListener(v -> toggleMonthDays());
+
+        // 空态两套文案：「还没有在读的书」与「这一天还没有可打卡的书」共用同一个 include
+        renderEmptyState();
         b.emptyState.btnEmptyCta.setOnClickListener(v -> {
             if (getActivity() instanceof MainActivity) {
                 ((MainActivity) requireActivity()).showTab(MainActivity.TAB_SHELF);
@@ -118,6 +168,7 @@ public class CheckInFragment extends Fragment
 
         b.monthGrid.setListener(this);
         renderLegend();
+        applyMode(mode, false); // 初始档位：整月 + 书目列表
         lastReloadMs = android.os.SystemClock.elapsedRealtime();
         BookshelfApp.get().whenDbReady(() -> loadMonth(b.monthGrid.getYearMonth()));
     }
@@ -143,9 +194,11 @@ public class CheckInFragment extends Fragment
                 || switcher.isYearVisible()) {
             return;
         }
+        // 进年视图前先展开整月（不带动画），缩放中心按展开后的格子算
+        applyMode(CheckInCalendarState.Mode.MONTH, false);
         final int ym = b.monthGrid.getYearMonth();
-        final int[] pivot = b.monthGrid.selectedCellCenterIn(b.viewSwitchHost);
         BookshelfApp app = BookshelfApp.get();
+        final int year = CheckInMonthGrid.yearOf(ym);
         app.io(() -> {
             List<CheckIn> all;
             try {
@@ -154,6 +207,8 @@ public class CheckInFragment extends Fragment
                 all = new ArrayList<>();
             }
             final List<CheckIn> list = all;
+            // 先把该年节日表放进内存，年视图 bind 时的 HolidaySource 就能同步命中
+            HolidayStore.load(app, year);
             final int today = DateKeys.todayKey();
             app.ui(() -> {
                 if (b == null || !isAdded()) {
@@ -161,42 +216,192 @@ public class CheckInFragment extends Fragment
                 }
                 // 年份边界、网格 bind、标题与小结全部收进 CheckInYearPanel
                 yearPanel.bind(ym, list, today);
-                switcher.toYear(pivot, null);
+                switcher.toYear(b.monthGrid.selectedCellCenterIn(b.viewSwitchHost), null);
+                refreshHolidaysForYear(year);
             });
         });
     }
 
-    /** 点某月：卡片放大、其它淡出，动画结束后回月视图并定位该月（点格则同时选中该日） */
+    /**
+     * 年视图点某月：一次转场连续缩小回月视图，不再先放大卡片再切月。
+     *
+     * <p>转场开始前先用 setYearMonthSilently 把目标月铺好（不播报、不回调），
+     * 动画期间看到的就是新月份；列表/小结/图例先淡出，数据回来后由 loadMonth 恢复。
+     */
     private void exitYearToMonth(int yearMonth, int dayKey) {
         if (b == null || switcher == null || switcher.isAnimating()) {
             return;
         }
-        switcher.zoomMonthCard(CheckInMonthGrid.monthOf(yearMonth), () -> {
+        final int month = CheckInMonthGrid.monthOf(yearMonth);
+        final int day = dayKey > 0
+                ? dayKey : CheckInMonthGrid.clampDayKey(selectedDayKey, yearMonth);
+        selectedDayKey = day;
+        applyMode(CheckInCalendarState.Mode.MONTH, false);
+        b.monthGrid.setYearMonthSilently(yearMonth, day);
+        setToolbarMonth(yearMonth);
+        setMonthChromeAlpha(0f);
+        monthChromeHidden = true;
+        switcher.toMonthFromCard(month, () -> {
             if (b == null) {
                 return;
             }
-            // 数据刷新统一延后到 toMonth 的 TransitionListener.onTransitionEnd
-            switcher.toMonth(b.monthGrid.selectedCellCenterIn(b.viewSwitchHost), () -> {
-                if (b == null) {
-                    return;
-                }
-                if (dayKey > 0) {
-                    selectedDayKey = dayKey;
-                    b.monthGrid.setSelectedDay(dayKey);
-                }
-                if (b.monthGrid.getYearMonth() != yearMonth) {
-                    b.monthGrid.setYearMonth(yearMonth); // 内部触发 onMonthChanged → loadMonth
-                } else {
-                    loadMonth(yearMonth, false);
-                }
-            });
+            loadMonth(yearMonth, true);
         });
     }
 
-    /** 页头分层：主标题只留「11月」，年份降到副标题，右侧不再挤「今天」 */
+    /**
+     * 空态：分「还没有在读的书」与「这一天还没有可打卡的书」两套文案。
+     * 后者只是翻到了开读日之前，没有可做的事，所以不给 CTA。
+     */
+    private void renderEmptyState() {
+        if (b == null) {
+            return;
+        }
+        if (dayEmpty) {
+            b.emptyState.tvEmptyTitle.setText("这一天还没有可打卡的书");
+            b.emptyState.tvEmptyDesc.setText("换一天看看");
+            b.emptyState.btnEmptyCta.setVisibility(View.GONE);
+        } else {
+            b.emptyState.tvEmptyTitle.setText("还没有在读的书");
+            b.emptyState.tvEmptyDesc.setText("把一本书标成在读，就能每天打卡");
+            b.emptyState.btnEmptyCta.setText("打开书架");
+            b.emptyState.btnEmptyCta.setVisibility(View.VISIBLE);
+        }
+    }
+
+    /** 两种空态对外只是一个「列表没有行」的结果，可见性判断统一走这里 */
+    private boolean listEmpty() {
+        return readingEmpty || dayEmpty;
+    }
+
+    /** 年→月转场期间先藏起来的月视图装饰：摘要/图例/列表/空态 */
+    private void setMonthChromeAlpha(float alpha) {
+        if (b == null) {
+            return;
+        }
+        b.llCheckinSummary.setAlpha(alpha);
+        b.llCheckinLegend.setAlpha(alpha);
+        b.tvLegendNote.setAlpha(alpha);
+        b.rvCheckin.setAlpha(alpha);
+        b.emptyState.getRoot().setAlpha(alpha);
+    }
+
+    /** 月视图列表与空态的可见性：DETAIL 显示逐日明细，其余按两种空态决定 */
+    private void updateMonthListVisibility() {
+        if (b == null) {
+            return;
+        }
+        boolean detail = mode == CheckInCalendarState.Mode.DETAIL;
+        boolean empty = listEmpty();
+        b.rvCheckin.setVisibility(!detail && !empty ? View.VISIBLE : View.GONE);
+        b.emptyState.getRoot().setVisibility(!detail && empty ? View.VISIBLE : View.GONE);
+        b.rvMonthDays.setVisibility(detail ? View.VISIBLE : View.GONE);
+    }
+
+    private void restoreMonthChrome() {
+        if (!monthChromeHidden) {
+            return;
+        }
+        monthChromeHidden = false;
+        setMonthChromeAlpha(1f);
+    }
+
+    /** 页头：今年只说「11月」，其他年份「2025 / 7」+ 右下角小字相对时间 */
     private void setToolbarMonth(int yearMonth) {
-        b.toolbar.setTitle(CheckInMonthGrid.monthOf(yearMonth) + "月");
-        b.toolbar.setSubtitle(String.valueOf(CheckInMonthGrid.yearOf(yearMonth)));
+        b.tvMonthTitle.setText(CheckInHeader.title(yearMonth, todayKey));
+        String rel = CheckInHeader.relative(yearMonth, todayKey);
+        b.tvMonthRelative.setText(rel);
+        b.tvMonthRelative.setVisibility(rel == null ? View.GONE : View.VISIBLE);
+        b.toolbar.setContentDescription(
+                b.tvMonthTitle.getText() + (rel == null ? "" : "，" + rel) + "，打开年视图");
+    }
+
+    /**
+     * 5.3：三态切换。MONTH ↔ WEEK 由月历折叠动画驱动头部；DETAIL 额外把
+     * 书目列表换成逐日明细（同一容器里两套列表互斥）。
+     */
+    private void applyMode(CheckInCalendarState.Mode next, boolean animate) {
+        if (b == null) {
+            return;
+        }
+        mode = next;
+        boolean detail = next == CheckInCalendarState.Mode.DETAIL;
+        b.monthGrid.setWeekMode(next != CheckInCalendarState.Mode.MONTH, animate);
+        applyCompactHeader(next != CheckInCalendarState.Mode.MONTH, animate);
+        updateMonthListVisibility();
+        b.ivMonthDaysArrow.setRotation(detail ? 180f : 0f);
+        b.llMonthDaysHandle.setContentDescription(detail
+                ? "收起逐日明细，回到书目" : "查看本月逐日明细");
+    }
+
+    /** 把手是手势之外的第二入口：MONTH/WEEK ↔ DETAIL */
+    private void toggleMonthDays() {
+        if (b == null || switcher == null || switcher.isAnimating()
+                || switcher.isYearVisible()) {
+            return;
+        }
+        if (mode == CheckInCalendarState.Mode.DETAIL) {
+            applyMode(CheckInCalendarState.Mode.MONTH, true);
+        } else {
+            applyMode(CheckInCalendarState.Mode.DETAIL, true);
+            loadMonth(b.monthGrid.getYearMonth(), false);
+        }
+    }
+
+    /** 点逐日明细某天：选中该日、回到整月，并刷新当天的书单 */
+    private void onMonthDayClick(CheckInDayDetail.Day day) {
+        if (b == null || day == null || switcher == null || switcher.isAnimating()) {
+            return;
+        }
+        selectedDayKey = day.dayKey;
+        b.monthGrid.setSelectedDay(day.dayKey);
+        applyMode(CheckInCalendarState.Mode.MONTH, true);
+        loadMonth(b.monthGrid.getYearMonth(), false);
+    }
+
+    /**
+     * 5.4：页头在两档高度间收起。真正的逐帧进度来自网格的同一条 220ms 动画，
+     * 这里只负责把最终基准高度写回 InsetsHelper（动画中不 requestApplyInsets）。
+     */
+    private void applyCompactHeader(boolean compact, boolean animate) {
+        if (!animate) {
+            applyHeaderProgress(compact ? 1f : 0f);
+        }
+    }
+
+    /** p = 0 整月 / 1 单周；Toolbar 48↔40dp、标题 17↔15sp、相对时间 11↔10sp、图例淡出 */
+    private void applyHeaderProgress(float p) {
+        if (b == null) {
+            return;
+        }
+        float t = Math.max(0f, Math.min(1f, p));
+        b.tvMonthTitle.setTextSize(TypedValue.COMPLEX_UNIT_PX,
+                titleFullPx + (titleCompactPx - titleFullPx) * t);
+        b.tvMonthRelative.setTextSize(TypedValue.COMPLEX_UNIT_PX,
+                relFullPx + (relCompactPx - relFullPx) * t);
+        int contentH = Math.round(toolbarFullPx + (toolbarCompactPx - toolbarFullPx) * t);
+        int topInset = InsetsHelper.topInset(b.toolbar);
+        ViewGroup.LayoutParams lp = b.toolbar.getLayoutParams();
+        if (lp != null && lp.height != contentH + topInset) {
+            lp.height = contentH + topInset;
+            b.toolbar.setLayoutParams(lp);
+        }
+        float legendAlpha = 1f - t;
+        b.llCheckinLegend.setAlpha(legendAlpha);
+        b.tvLegendNote.setAlpha(legendAlpha);
+        int legendVis = t >= 0.999f ? View.GONE : View.VISIBLE;
+        if (b.llCheckinLegend.getVisibility() != legendVis) {
+            b.llCheckinLegend.setVisibility(legendVis);
+        }
+        if (b.tvLegendNote.getVisibility() != legendVis) {
+            b.tvLegendNote.setVisibility(legendVis);
+        }
+        // 动画的起点/终点各写一次基准，让 inset 监听器以后按新高度重算
+        boolean compact = t >= 0.999f;
+        if ((t <= 0.001f || compact) && compact != headerCompactBase) {
+            headerCompactBase = compact;
+            InsetsHelper.setBaseHeight(b.toolbar, compact ? toolbarCompactPx : toolbarFullPx);
+        }
     }
 
     /**
@@ -294,9 +499,12 @@ public class CheckInFragment extends Fragment
             final List<CheckIn> all;
             final List<CheckInAdapter.Row> rows = new ArrayList<>();
             final Map<Long, Integer> preciseSeq = new HashMap<>();
+            final List<CheckInDayDetail.Day> monthDays;
             final int[] summary;
             final int[] streak;
             final int roundDays;
+            final HolidayCalendar holidays;
+            final boolean anyReading;
             try {
                 monthList = app.db().checkInDao().getInRange(start, end);
                 all = app.db().checkInDao().getInRange(0, 99999999);
@@ -309,7 +517,10 @@ public class CheckInFragment extends Fragment
                     checked.add(c.bookId);
                 }
                 List<Book> reading = new ArrayList<>();
+                // 逐日明细的书名取全部藏书（不只在读），删掉的书才能落成「（已删除）」
+                Map<Long, String> bookTitles = new HashMap<>();
                 for (Book book : BookSanitizer.normalizeAll(app.db().bookDao().getAll())) {
+                    bookTitles.put(book.id, book.title);
                     if (book.readStatus == Book.READING) {
                         reading.add(book);
                     }
@@ -322,6 +533,7 @@ public class CheckInFragment extends Fragment
                     }
                 }
                 reading.sort((x, z) -> Long.compare(z.updatedAt, x.updatedAt));
+                anyReading = !reading.isEmpty();
                 // 每本书的阅读天数走唯一口径：精确轮吃日集合，模糊轮按区间算
                 Map<Long, Map<Integer, List<Integer>>> daysByBook = ReadDays.byBook(all);
                 for (Book book : reading) {
@@ -339,12 +551,21 @@ public class CheckInFragment extends Fragment
                         row.readDays = ReadingRecords.readDays(current,
                                 perSeq == null ? null : perSeq.get(row.seq), null);
                     }
+                    // 选中日早于开读日：该书当天整行不出现；已打卡的历史行仍保留，允许撤销
+                    int recorded = CheckInStore.recordedDays(all, book.id, row.seq);
+                    if (CheckInUiState.hiddenBeforeStart(row.checked, day,
+                            CheckInStore.earliestCheckInKey(book, recorded))) {
+                        continue;
+                    }
                     rows.add(row);
                 }
                 summary = CheckInStore.monthSummary(monthList, y, m);
                 streak = CheckInStore.streakDays(all, todayKey);
                 roundDays = selectedRoundDays(reading, all, day);
+                holidays = HolidayStore.load(app, y);
+                monthDays = CheckInDayDetail.ofMonth(monthList, bookTitles, y * 100 + m, todayKey);
             } catch (Exception ignored) {
+                app.ui(this::restoreMonthChrome); // 别让转场藏起来的 chrome 永远停在 0
                 return; // 库未就绪 / 修复中，等下一次回调
             }
             final Map<Integer, int[]> dayMarks =
@@ -354,14 +575,19 @@ public class CheckInFragment extends Fragment
                 if (b == null) {
                     return;
                 }
+                b.monthGrid.setHolidays(holidays);
                 if (refreshGrid) {
                     b.monthGrid.setCheckInMarks(dayMarks);
                 }
                 renderSummary(summary, streak, todayChecked, roundDays);
                 adapter.submit(rows, day, todayKey);
-                boolean empty = rows.isEmpty();
-                b.emptyState.getRoot().setVisibility(empty ? View.VISIBLE : View.GONE);
-                b.rvCheckin.setVisibility(empty ? View.GONE : View.VISIBLE);
+                monthDayAdapter.submit(monthDays, todayKey);
+                readingEmpty = !anyReading;
+                dayEmpty = anyReading && rows.isEmpty();
+                renderEmptyState();
+                updateMonthListVisibility();
+                restoreMonthChrome();
+                refreshHolidaysForMonth(y);
             });
         });
     }
@@ -428,12 +654,33 @@ public class CheckInFragment extends Fragment
     }
 
     @Override
-    public void onMonthChanged(int yearMonth) {
+    public void onMonthChanged(int yearMonth, int selectedDayKey) {
         if (b == null) {
             return;
         }
+        this.selectedDayKey = selectedDayKey;
         setToolbarMonth(yearMonth);
         loadMonth(yearMonth);
+    }
+
+    /** 5.2：上滑收周、下滑展开；5.5：MONTH 再下滑进逐日明细，DETAIL 上滑回整月 */
+    @Override
+    public void onVerticalSwipe(boolean up) {
+        if (b == null || switcher == null || switcher.isAnimating()
+                || switcher.isYearVisible()) {
+            return;
+        }
+        CheckInCalendarState.Mode next = up
+                ? CheckInCalendarState.afterUp(mode)
+                : CheckInCalendarState.afterDown(mode);
+        if (next == mode) {
+            return; // WEEK 上滑 / DETAIL 下滑：没有下一步
+        }
+        applyMode(next, true);
+        if (next == CheckInCalendarState.Mode.DETAIL) {
+            // 月份可能刚切过，进明细时用当前月重建一次逐日行
+            loadMonth(b.monthGrid.getYearMonth(), false);
+        }
     }
 
     @Override
@@ -512,6 +759,33 @@ public class CheckInFragment extends Fragment
         }
     }
 
+    /** 月视图节日表刷新：网络结果只回贴到仍在显示的那一年 */
+    private void refreshHolidaysForMonth(int year) {
+        if (b == null || getContext() == null) {
+            return;
+        }
+        HolidayStore.refreshIfNeeded(requireContext(), year, (y, cal) -> {
+            if (b == null) {
+                return;
+            }
+            if (CheckInMonthGrid.yearOf(b.monthGrid.getYearMonth()) == y) {
+                b.monthGrid.setHolidays(cal);
+            }
+        });
+    }
+
+    /** 年视图节日表刷新：CheckInYearView 自己会忽略年份对不上的迟到回调 */
+    private void refreshHolidaysForYear(int year) {
+        if (b == null || getContext() == null) {
+            return;
+        }
+        HolidayStore.refreshIfNeeded(requireContext(), year, (y, cal) -> {
+            if (b != null) {
+                yearPanel.refreshHolidays();
+            }
+        });
+    }
+
     private void reloadCurrentMonth() {
         if (b == null || !isAdded()) {
             return;
@@ -523,6 +797,7 @@ public class CheckInFragment extends Fragment
         lastReloadMs = now;
         todayKey = DateKeys.todayKey();
         b.monthGrid.refreshTodayKey(); // 只更新今天/未来分界，不动选中日
+        setToolbarMonth(b.monthGrid.getYearMonth()); // 跨天后相对时间/年份归属可能变
         loadMonth(b.monthGrid.getYearMonth());
     }
 
@@ -530,10 +805,14 @@ public class CheckInFragment extends Fragment
     public void onDestroyView() {
         super.onDestroyView();
         if (b != null) {
+            b.monthGrid.setCollapseProgressListener(null);
             b.monthGrid.setListener(null);
         }
         if (adapter != null) {
             adapter.setListener(null);
+        }
+        if (monthDayAdapter != null) {
+            monthDayAdapter.setListener(null);
         }
         b = null;
     }
@@ -544,6 +823,8 @@ public class CheckInFragment extends Fragment
                 com.bai.bookshelf.util.CheckInLegend.monthItems());
         yearPanel.renderLegend();
         b.tvLegendNote.setText(com.bai.bookshelf.util.CheckInLegend.monthNote());
-        b.tvLegendNote.setVisibility(View.VISIBLE);
+        // 收周时图例被折叠进度隐藏，这里不要在重新渲染时又亮起来
+        b.tvLegendNote.setVisibility(mode == CheckInCalendarState.Mode.MONTH
+                ? View.VISIBLE : View.GONE);
     }
 }

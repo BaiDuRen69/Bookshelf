@@ -9,12 +9,11 @@
 
     <TextView
         android:id="@+id/tv_year_title"
-        style="@style/Text.Bookshelf.Metric"
+        style="@style/Text.Bookshelf.Metric.Small"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="@dimen/space_md"
-        android:gravity="center"
-        android:textColor="?attr/on_surface" />
+        android:gravity="center" />
 
     <LinearLayout
         android:id="@+id/ll_year_summary"

@@ -86,6 +86,12 @@
     <color name="outline">#E6E0D5</color>
     <!-- 强描边：聚焦态、强调元素 -->
     <color name="outline_strong">#CFC5B4</color>
+    <!-- 打卡月历邻月日号：米白纸上约 3.3:1，比本月 on_surface 弱一档但仍可读 -->
+    <color name="checkin_adjacent_text">#8E8880</color>
+    <!-- 夜读：炭黑上约 4.1:1（比浅色那档更暗，才压得住亮金与纸白） -->
+    <color name="checkin_adjacent_text_night">#7E766C</color>
+    <!-- 今天实心圆里的反色字：浅色主题白字（对 #8A5A1A 约 5.9:1），夜读改走 night_ink -->
+    <color name="checkin_on_today">#FFFFFF</color>
     <!-- 封面占位底色（替代写死的 #EEE） -->
     <color name="cover_placeholder_bg">#E9E3D8</color>
     <!-- 浮动 dock 专用面（v5.8.26）：比 surface 更亮一档，去掉描边后靠底色与阴影分层；

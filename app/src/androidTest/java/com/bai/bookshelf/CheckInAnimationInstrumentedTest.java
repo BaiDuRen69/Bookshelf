@@ -26,6 +26,9 @@ import com.bai.bookshelf.util.ThemeManager;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+
 /** 批次 D 动画参数与边界的真机结构验收（不启动 Activity，避免应用锁 recreate 挂起）。 */
 @RunWith(AndroidJUnit4.class)
 public class CheckInAnimationInstrumentedTest {
@@ -91,8 +94,8 @@ public class CheckInAnimationInstrumentedTest {
         for (int m = 1; m <= 12; m++) {
             assertNotNull("第 " + m + " 月卡片可放大", yearView.monthCardAt(m));
         }
-        assertEquals("左滑年份变小", -1, CheckInYearGrid.deltaForSwipe(-120f));
-        assertEquals("右滑年份变大", 1, CheckInYearGrid.deltaForSwipe(120f));
+        assertEquals("左滑年份变大", 1, CheckInYearGrid.deltaForSwipe(-120f));
+        assertEquals("右滑年份变小", -1, CheckInYearGrid.deltaForSwipe(120f));
         assertEquals(2021, CheckInYearGrid.minYear(null, 2026));
     }
 
@@ -107,5 +110,27 @@ public class CheckInAnimationInstrumentedTest {
                 root.findViewById(R.id.month_grid));
         assertFalse(switcher.isYearVisible());
         assertFalse(switcher.isAnimating());
+    }
+
+    @Test
+    public void 动画中连续滑动不改变年份() throws Exception {
+        View root = inflate(R.layout.fragment_checkin);
+        CheckInYearView yearView = root.findViewById(R.id.year_view);
+        yearView.bind(2026, 2021, 2027, java.util.Collections.emptyList(), 20261107);
+        CheckInViewSwitcher switcher = new CheckInViewSwitcher(
+                root.findViewById(R.id.view_switch_host),
+                root.findViewById(R.id.month_content),
+                root.findViewById(R.id.year_content),
+                yearView,
+                root.findViewById(R.id.month_grid));
+        yearView.setYearSwitcher(switcher);
+        Field animating = CheckInViewSwitcher.class.getDeclaredField("animating");
+        animating.setAccessible(true);
+        Method shift = CheckInYearView.class.getDeclaredMethod("shift", int.class);
+        shift.setAccessible(true);
+        animating.setBoolean(switcher, true);
+        shift.invoke(yearView, 1);
+        assertEquals("转场中再滑必须被忽略", 2026, yearView.getYear());
+        animating.setBoolean(switcher, false);
     }
 }

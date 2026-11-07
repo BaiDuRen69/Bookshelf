@@ -28,6 +28,21 @@ public class CheckInUiStateTest {
     }
 
     @Test
+    public void 早于开读日整行隐藏且已打卡例外() {
+        int earliest = 20261103;
+        assertTrue("开读日之前不出现",
+                CheckInUiState.hiddenBeforeStart(false, 20261101, earliest));
+        assertFalse("开读日当天出现",
+                CheckInUiState.hiddenBeforeStart(false, earliest, earliest));
+        assertFalse("开读日之后出现",
+                CheckInUiState.hiddenBeforeStart(false, 20261104, earliest));
+        assertFalse("不设下界不隐藏",
+                CheckInUiState.hiddenBeforeStart(false, 20250101, 0));
+        assertFalse("已打卡的历史行留着可撤销",
+                CheckInUiState.hiddenBeforeStart(true, 20261101, earliest));
+    }
+
+    @Test
     public void 副标题含进度与借出人() {
         assertEquals("读到 43%", CheckInUiState.subtitle(43, ""));
         assertEquals("读到 43% · 借给 张三", CheckInUiState.subtitle(43, " 张三 "));

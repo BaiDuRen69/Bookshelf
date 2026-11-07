@@ -63,13 +63,14 @@
                 android:textSize="@dimen/text_caption_large" />
         </LinearLayout>
 
-        <!-- 固定宽度：三态文案长度不同、已打卡还多一个勾，wrap_content 会让按钮左右跳。
-             高/inset/minHeight/内边距/字号三态共用；icon 槽与描边宽度在 Adapter 里统一。 -->
+        <!-- 固定宽度：三态文案长度不同，wrap_content 会让按钮左右跳。
+             高/inset/minHeight/内边距/字号三态共用；只用文字、无图标槽，文字几何居中。 -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_checkin"
             style="@style/Widget.Bookshelf.Button"
             android:layout_width="@dimen/checkin_button_w"
             android:layout_height="48dp"
+            android:gravity="center"
             android:insetBottom="4dp"
             android:insetLeft="0dp"
             android:insetRight="0dp"

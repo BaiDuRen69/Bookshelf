@@ -2,6 +2,7 @@ package com.bai.bookshelf.ui.checkin;
 
 import android.content.Context;
 import android.content.res.ColorStateList;
+import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.ViewGroup;
 
@@ -24,8 +25,8 @@ import java.util.List;
 /**
  * 打卡列表：数据 = readStatus==READING 的书，按 updatedAt 倒序（由 Fragment 排好）。
  *
- * <p>三态按钮共用同一个 viewType、同一个固定宽度、同一个 18dp icon 槽与 1dp 描边，
- * 只有颜色/图标内容不同——打卡前后按钮宽高、内边距、字号完全一致，不再跳。
+ * <p>按钮只用文字：无图标槽，三个状态共用同一个 viewType、固定宽度与 1dp 描边，
+ * 只有底色/文字色不同——打卡前后按钮宽高、内边距、字号完全一致，不再跳。
  * 主题色在第一个 holder 创建时解析一次并缓存，onBind 只用缓存，不会滚动闪底色。
  */
 public class CheckInAdapter extends RecyclerView.Adapter<CheckInAdapter.VH> {
@@ -34,13 +35,11 @@ public class CheckInAdapter extends RecyclerView.Adapter<CheckInAdapter.VH> {
     static final int TYPE_TODAY = 0;
     /** 未打 + 过去：tonal（补卡是次级动作，不该和今天一样抢眼） */
     static final int TYPE_BACKFILL = 1;
-    /** 已打：outlined + 勾选图标 */
+    /** 已打：outlined */
     static final int TYPE_DONE = 2;
 
     /** 已打卡的行封面退后一层 */
     private static final float COVER_DIM = 0.9f;
-    /** actionLabel 里那个手打的「✓」交给 app:icon，文字里不再留勾 */
-    private static final String DONE_GLYPH = " ✓";
 
     public static final class Row {
         public final Book book;
@@ -114,6 +113,9 @@ public class CheckInAdapter extends RecyclerView.Adapter<CheckInAdapter.VH> {
         }
         ItemCheckinBookBinding b = ItemCheckinBookBinding.inflate(
                 LayoutInflater.from(parent.getContext()), parent, false);
+        // 只用文字：没有图标槽，三态几何完全一致
+        b.btnCheckin.setIcon(null);
+        b.btnCheckin.setGravity(Gravity.CENTER);
         return new VH(b);
     }
 
@@ -139,13 +141,11 @@ public class CheckInAdapter extends RecyclerView.Adapter<CheckInAdapter.VH> {
             h.styleState = state;
         }
         String label = CheckInUiState.actionLabel(row.checked, dayKey, todayKey);
-        if (state == TYPE_DONE) {
-            label = label.replace(DONE_GLYPH, "");
-        }
         final boolean backfillable = "补卡".equals(label);
         h.b.btnCheckin.setText(label);
         // 未来日期不可打卡；已打卡的记录仍允许撤销
-        h.b.btnCheckin.setEnabled(CheckInUiState.actionable(dayKey, todayKey) || row.checked);
+        h.b.btnCheckin.setEnabled(CheckInUiState.actionable(dayKey, todayKey)
+                || row.checked);
         h.b.btnCheckin.setContentDescription(CheckInUiState.actionContentDescription(
                 title, row.checked, dayKey, todayKey));
         h.b.btnCheckin.setOnClickListener(v -> {
@@ -153,39 +153,36 @@ public class CheckInAdapter extends RecyclerView.Adapter<CheckInAdapter.VH> {
                 listener.onToggle(h.getBindingAdapterPosition(), row);
             }
         });
-        h.b.btnCheckin.setOnLongClickListener(v -> {
-            if (listener != null && backfillable) {
+        // 只有「补卡」挂长按；复用 holder 时显式清掉，避免上一行的手势残留
+        // setOnLongClickListener(null) 仍会把 longClickable 置 true，要一并复位
+        h.b.btnCheckin.setOnLongClickListener(backfillable ? v -> {
+            if (listener != null) {
                 listener.onBackfillLongPress(dayKey);
                 return true;
             }
             return false;
-        });
+        } : null);
+        h.b.btnCheckin.setLongClickable(backfillable);
     }
 
     /**
-     * 只覆盖底色 / 文字色 / 描边色 / 图标内容；几何参数（宽、高、inset、padding、
-     * 字号、iconSize、iconPadding、strokeWidth）三态完全一致，交给布局一次定死。
+     * 只覆盖底色 / 文字色 / 描边色；几何参数（宽、高、inset、padding、字号、
+     * strokeWidth）与文字居中三态完全一致，交给布局与 holder 创建时一次定死。
      */
     private static void applyButtonStyle(MaterialButton btn, int state, ButtonStyles s) {
         btn.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, s.textSize);
-        btn.setIconGravity(MaterialButton.ICON_GRAVITY_TEXT_START);
-        btn.setIconSize(s.iconSize);
-        btn.setIconPadding(s.iconPadding);
         btn.setStrokeWidth(s.strokeWidth);
         btn.setStrokeColor(ColorStateList.valueOf(
                 state == TYPE_DONE ? s.outlineStrong : s.transparent));
         btn.setBackgroundTintList(new ColorStateList(STATES,
                 new int[]{s.disabledBg, state == TYPE_DONE ? s.transparent
-                        : (state == TYPE_TODAY ? s.primary : s.container)}));
+                        : (state == TYPE_TODAY ? s.todayBg : s.container)}));
         btn.setTextColor(new ColorStateList(STATES,
                 new int[]{s.disabledFg, state == TYPE_DONE ? s.primary
-                        : (state == TYPE_TODAY ? s.onPrimary : s.onContainer)}));
+                        : (state == TYPE_TODAY ? s.onToday : s.onContainer)}));
         btn.setRippleColor(ColorStateList.valueOf(
-                state == TYPE_DONE ? s.primary : s.onPrimary));
-        btn.setIconTint(ColorStateList.valueOf(
-                state == TYPE_DONE ? s.primary : s.onPrimary));
-        btn.setIconResource(state == TYPE_DONE
-                ? R.drawable.ic_check_line : R.drawable.ic_checkin_btn_slot);
+                state == TYPE_DONE ? s.primary
+                        : (state == TYPE_TODAY ? s.onToday : s.onPrimary)));
     }
 
     private static final int[][] STATES = {new int[]{-android.R.attr.state_enabled}, new int[]{}};
@@ -198,14 +195,14 @@ public class CheckInAdapter extends RecyclerView.Adapter<CheckInAdapter.VH> {
     private static final class ButtonStyles {
         final int primary;
         final int onPrimary;
+        final int todayBg;
+        final int onToday;
         final int container;
         final int onContainer;
         final int outlineStrong;
         final int transparent;
         final int disabledBg;
         final int disabledFg;
-        final int iconSize;
-        final int iconPadding;
         final int strokeWidth;
         final float textSize;
 
@@ -213,6 +210,8 @@ public class CheckInAdapter extends RecyclerView.Adapter<CheckInAdapter.VH> {
             primary = ThemeManager.resolveColor(ctx, ThemeManager.ATTR_COLOR_PRIMARY);
             onPrimary = ThemeManager.resolveColor(ctx,
                     com.google.android.material.R.attr.colorOnPrimary);
+            todayBg = ThemeManager.resolveColor(ctx, R.attr.checkin_today_bg);
+            onToday = ThemeManager.resolveColor(ctx, R.attr.checkin_on_today);
             container = ThemeManager.resolveColor(ctx, R.attr.primary_container);
             onContainer = ThemeManager.resolveColor(ctx, R.attr.on_primary_container);
             outlineStrong = ThemeManager.resolveColor(ctx, R.attr.outline_strong);
@@ -220,8 +219,6 @@ public class CheckInAdapter extends RecyclerView.Adapter<CheckInAdapter.VH> {
             int onSurface = ThemeManager.resolveColor(ctx, R.attr.on_surface);
             disabledBg = alpha(onSurface, 0x1F);
             disabledFg = alpha(onSurface, 0x61);
-            iconSize = ctx.getResources().getDimensionPixelSize(R.dimen.checkin_button_icon);
-            iconPadding = ctx.getResources().getDimensionPixelSize(R.dimen.space_xs);
             strokeWidth = ctx.getResources().getDimensionPixelSize(R.dimen.checkin_button_stroke);
             textSize = ctx.getResources().getDimension(R.dimen.text_body_small);
         }

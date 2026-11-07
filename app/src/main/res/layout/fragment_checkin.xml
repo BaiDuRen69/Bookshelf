@@ -1,9 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- 打卡页：Toolbar / 悬浮「今」常驻，view_switch_host 内月视图与年视图互切。
-     动画只作用于 host 内的两个 content：系统状态栏、MainActivity 的 dock 都不在动画树里。 -->
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+     动画只作用于 host 内的两个 content：系统状态栏、MainActivity 的 dock 都不在动画树里。
+     根容器负责纵向收周/展开：整页可滑，列表滚动与横向切月各自保留。 -->
+<com.bai.bookshelf.ui.checkin.CheckInSwipeRoot xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/swipe_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
@@ -12,6 +14,7 @@
         android:layout_height="match_parent"
         android:orientation="vertical">
 
+        <!-- 4.4：年份/相对时间都收进自定义标题行；Toolbar 整块仍是年视图入口 -->
         <com.google.android.material.appbar.MaterialToolbar
             android:id="@+id/toolbar"
             style="@style/Widget.Bookshelf.Toolbar"
@@ -20,28 +23,52 @@
             android:clickable="true"
             android:contentDescription="打开年视图"
             android:foreground="?attr/selectableItemBackground"
-            app:title="11月">
+            app:contentInsetStart="0dp"
+            app:contentInsetStartWithNavigation="0dp">
 
             <LinearLayout
+                android:id="@+id/header_title_row"
                 android:layout_width="wrap_content"
-                android:layout_height="match_parent"
-                android:layout_gravity="end|center_vertical"
+                android:layout_height="wrap_content"
+                android:layout_gravity="start|center_vertical"
+                android:layout_marginStart="@dimen/space_lg"
+                android:gravity="bottom"
                 android:orientation="horizontal">
 
                 <TextView
-                    android:id="@+id/tv_year"
+                    android:id="@+id/tv_month_title"
                     android:layout_width="wrap_content"
-                    android:layout_height="match_parent"
-                    android:background="?attr/selectableItemBackground"
-                    android:clickable="true"
-                    android:contentDescription="打开年视图"
-                    android:fontFamily="sans-serif-medium"
-                    android:gravity="center"
-                    android:letterSpacing="0.04"
-                    android:paddingHorizontal="@dimen/space_md"
-                    android:text="年"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="serif"
+                    android:includeFontPadding="false"
                     android:textColor="?attr/header_fg"
-                    android:textSize="@dimen/text_body_small" />
+                    android:textSize="@dimen/text_headline"
+                    tools:text="11月" />
+
+                <TextView
+                    android:id="@+id/tv_month_relative"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="bottom"
+                    android:layout_marginStart="@dimen/space_xs"
+                    android:alpha="0.7"
+                    android:includeFontPadding="false"
+                    android:textColor="?attr/header_fg"
+                    android:textSize="@dimen/text_caption"
+                    android:visibility="gone"
+                    tools:text="488天前"
+                    tools:visibility="visible" />
+
+                <ImageView
+                    android:id="@+id/iv_year_chevron"
+                    android:layout_width="@dimen/checkin_year_chevron"
+                    android:layout_height="@dimen/checkin_year_chevron"
+                    android:layout_gravity="bottom"
+                    android:layout_marginStart="@dimen/space_xs"
+                    android:alpha="0.7"
+                    android:contentDescription="@null"
+                    android:src="@drawable/ic_chevron_down_line"
+                    app:tint="?attr/header_fg" />
             </LinearLayout>
         </com.google.android.material.appbar.MaterialToolbar>
 
@@ -100,6 +127,36 @@
                     android:layout_height="wrap_content"
                     android:layout_marginHorizontal="@dimen/page_padding" />
 
+                <!-- 5.5：逐日明细的把手；手势之外给 TalkBack / 不知道手势的用户一个入口 -->
+                <LinearLayout
+                    android:id="@+id/ll_month_days_handle"
+                    android:layout_width="match_parent"
+                    android:layout_height="20dp"
+                    android:layout_marginHorizontal="@dimen/page_padding"
+                    android:background="?attr/selectableItemBackground"
+                    android:clickable="true"
+                    android:contentDescription="查看本月逐日明细"
+                    android:focusable="true"
+                    android:gravity="center"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/tv_month_days_label"
+                        style="@style/Text.Bookshelf.Overline"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="本月逐日" />
+
+                    <ImageView
+                        android:id="@+id/iv_month_days_arrow"
+                        android:layout_width="12dp"
+                        android:layout_height="12dp"
+                        android:layout_marginStart="@dimen/space_xs"
+                        android:contentDescription="@null"
+                        android:src="@drawable/ic_chevron_down_line"
+                        app:tint="?attr/on_surface_variant" />
+                </LinearLayout>
+
                 <FrameLayout
                     android:layout_width="match_parent"
                     android:layout_height="0dp"
@@ -111,6 +168,14 @@
                         android:layout_height="match_parent"
                         android:clipToPadding="false"
                         android:paddingBottom="@dimen/dock_reserve" />
+
+                    <androidx.recyclerview.widget.RecyclerView
+                        android:id="@+id/rv_month_days"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:clipToPadding="false"
+                        android:paddingBottom="@dimen/dock_reserve"
+                        android:visibility="gone" />
 
                     <include
                         android:id="@+id/empty_state"
@@ -146,9 +211,9 @@
         android:insetTop="0dp"
         android:padding="0dp"
         android:text="今"
-        android:textColor="?attr/colorOnPrimary"
+        android:textColor="?attr/checkin_on_today"
         android:textSize="@dimen/text_body_large"
-        app:backgroundTint="?attr/colorPrimary"
+        app:backgroundTint="?attr/checkin_today_bg"
         app:cornerRadius="@dimen/fab_corner"
         app:elevation="4dp" />
-</FrameLayout>
+</com.bai.bookshelf.ui.checkin.CheckInSwipeRoot>

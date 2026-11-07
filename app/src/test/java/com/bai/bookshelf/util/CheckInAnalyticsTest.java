@@ -83,12 +83,12 @@ public class CheckInAnalyticsTest {
     }
 
     @Test
-    public void 左滑上一年右滑下一年() {
-        assertEquals(-1, CheckInYearGrid.deltaForSwipe(-120f));
-        assertEquals(1, CheckInYearGrid.deltaForSwipe(120f));
-        assertEquals(2025, CheckInYearGrid.shiftYear(2026,
-                CheckInYearGrid.deltaForSwipe(-120f), 2023, 2027));
+    public void 左滑下一年右滑上一年() {
+        assertEquals(1, CheckInYearGrid.deltaForSwipe(-120f));
+        assertEquals(-1, CheckInYearGrid.deltaForSwipe(120f));
         assertEquals(2027, CheckInYearGrid.shiftYear(2026,
+                CheckInYearGrid.deltaForSwipe(-120f), 2023, 2027));
+        assertEquals(2025, CheckInYearGrid.shiftYear(2026,
                 CheckInYearGrid.deltaForSwipe(120f), 2023, 2027));
     }
 

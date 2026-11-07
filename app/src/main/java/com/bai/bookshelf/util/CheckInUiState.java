@@ -19,6 +19,14 @@ public final class CheckInUiState {
         return dayKey < todayKey ? "补卡" : "打卡";
     }
 
+    /**
+     * 选中日早于开读日：整行不出现，而不是给一个灰掉的「未开始」按钮。
+     * 已打卡的历史行例外——那是用户做过的记录，仍要露出来让他撤销。
+     */
+    public static boolean hiddenBeforeStart(boolean checked, int dayKey, int earliestKey) {
+        return !checked && earliestKey > 0 && dayKey < earliestKey;
+    }
+
     /** 「读到 43%」；有借出记录时追加「 · 借给 张三」 */
     public static String subtitle(int progress, String borrower) {
         StringBuilder sb = new StringBuilder();

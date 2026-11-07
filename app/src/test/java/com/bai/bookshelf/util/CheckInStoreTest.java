@@ -464,6 +464,56 @@ public class CheckInStoreTest {
     }
 
     @Test
+    public void 下界按模式与已记天数分层() {
+        Book fuzzy = readingWithJson(7, "2026-11-01");
+        assertEquals("模糊轮看会话起始日",
+                20261101, CheckInStore.earliestCheckInKey(fuzzy, 0));
+        assertEquals(20261101, CheckInStore.earliestCheckInKey(fuzzy, 5));
+
+        Book precise = preciseReading("2026-10-01", 0); // 本轮 startDate = 11-01
+        assertEquals("精确轮第一次补历史退到拥有日",
+                20261001, CheckInStore.earliestCheckInKey(precise, 0));
+        assertEquals("本轮已有日子就收到该轮起点",
+                20261101, CheckInStore.earliestCheckInKey(precise, 1));
+
+        Book noPurchase = preciseReading("", 0);
+        assertEquals("拥有日、录入日都没有就不设下界",
+                0, CheckInStore.earliestCheckInKey(noPurchase, 0));
+
+        assertEquals(0, CheckInStore.earliestCheckInKey(null, 0));
+    }
+
+    @Test
+    public void 精确轮已有日子后不许再往前补但撤销不受影响() {
+        MemSink sink = new MemSink();
+        Book b = preciseReading("2026-10-01", 0);
+        CheckIn old = ci(7, 20261015, true);
+        old.seq = 1;
+        sink.rows.add(old);
+        assertEquals("已有 1 天后下界收到本轮 11-01",
+                CheckInStore.Result.REJECTED_BEFORE_START,
+                CheckInStore.toggle(sink, b, 20261016, true, TODAY, 1, 1));
+        assertEquals("撤销分支先于范围检查",
+                CheckInStore.Result.REMOVED,
+                CheckInStore.toggle(sink, b, 20261015, true, TODAY, 1, 1));
+        assertTrue(sink.rows.isEmpty());
+    }
+
+    @Test
+    public void 本轮已记天数只数这本书这一轮() {
+        List<CheckIn> all = new ArrayList<>(Arrays.asList(
+                ci(7, 20261013, false), ci(7, 20261015, false), ci(8, 20261015, false)));
+        all.get(0).seq = 2;
+        all.get(1).seq = 1;
+        all.get(2).seq = 1;
+        assertEquals(1, CheckInStore.recordedDays(all, 7, 1));
+        assertEquals(1, CheckInStore.recordedDays(all, 7, 2));
+        assertEquals(0, CheckInStore.recordedDays(all, 7, 3));
+        assertEquals(0, CheckInStore.recordedDays(null, 7, 1));
+        assertEquals(0, CheckInStore.recordedDays(all, 7, 0));
+    }
+
+    @Test
     public void 摘要用的本轮天数只数指定轮且要含选中日() {
         List<CheckIn> all = new ArrayList<>(Arrays.asList(
                 ci(7, 20261013, false), ci(7, 20261015, false), ci(7, 20261016, false)));

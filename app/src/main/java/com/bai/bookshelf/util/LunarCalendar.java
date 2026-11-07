@@ -47,6 +47,11 @@ public final class LunarCalendar {
         return text;
     }
 
+    /** 原始 {农历月, 日, 是否闰月}：节日兜底判定要月/日，不走中文格式化 */
+    public int[] lunar(int dayKey) {
+        return provider == null ? null : provider.lunar(dayKey);
+    }
+
     /** 切月时把当月 42 格一次算完，onDraw 只读缓存，不逐格触发换算 */
     public void precompute(int[] dayKeys) {
         if (dayKeys == null) {

@@ -65,8 +65,15 @@ public final class CheckInStore {
      */
     public static Result toggle(AppDatabase db, Book book, int dayKey, boolean allowBackfill,
                                 int seq) {
+        if (db == null || book == null) {
+            return Result.REJECTED_NOT_READING;
+        }
+        if (seq < 1) {
+            seq = currentSeq(book);
+        }
+        int recorded = db.checkInDao().getDayKeys(book.id, seq).size();
         Result result = toggle(new RoomSink(db), book, dayKey, allowBackfill,
-                DateKeys.todayKey(), seq);
+                DateKeys.todayKey(), seq, recorded);
         if (result == Result.ADDED || result == Result.REMOVED) {
             resyncPreciseRounds(db, book);
         }
@@ -225,11 +232,20 @@ public final class CheckInStore {
 
     /** 可注入实现：单测用固定 todayKey，UI 也走这里以便复用同一套规则 */
     static Result toggle(Sink sink, Book book, int dayKey, boolean allowBackfill, int todayKey) {
-        return toggle(sink, book, dayKey, allowBackfill, todayKey, currentSeq(book));
+        return toggle(sink, book, dayKey, allowBackfill, todayKey, currentSeq(book), 0);
     }
 
     static Result toggle(Sink sink, Book book, int dayKey, boolean allowBackfill, int todayKey,
                          int seq) {
+        return toggle(sink, book, dayKey, allowBackfill, todayKey, seq, 0);
+    }
+
+    /**
+     * @param recordedDays 该轮已记天数；0 表示调用方拿不到日集合（纯规则单测），
+     *                     精确轮按「第一次补历史」处理，仍退到拥有日
+     */
+    static Result toggle(Sink sink, Book book, int dayKey, boolean allowBackfill, int todayKey,
+                         int seq, int recordedDays) {
         if (book == null || sink == null) {
             return Result.REJECTED_NOT_READING;
         }
@@ -246,7 +262,7 @@ public final class CheckInStore {
         if (owned != 0) {
             return Result.REJECTED_OTHER_SEQ;
         }
-        Result reason = rejectReason(book, dayKey, todayKey);
+        Result reason = rejectReason(book, dayKey, todayKey, seq, recordedDays);
         if (reason != null) {
             return reason;
         }
@@ -278,6 +294,11 @@ public final class CheckInStore {
     }
 
     private static Result rejectReason(Book book, int dayKey, int todayKey) {
+        return rejectReason(book, dayKey, todayKey, currentSeq(book), 0);
+    }
+
+    private static Result rejectReason(Book book, int dayKey, int todayKey, int seq,
+                                       int recordedDays) {
         if (book == null) {
             return Result.REJECTED_NOT_READING;
         }
@@ -287,14 +308,65 @@ public final class CheckInStore {
         if (book.readStatus != Book.READING) {
             return Result.REJECTED_NOT_READING;
         }
-        ReadingRecords.Record ongoing =
-                ReadingRecords.ongoingReading(ReadingRecords.load(book));
-        boolean precise = ongoing != null && ongoing.mode == ReadingRecords.MODE_PRECISE;
-        int start = precise ? ownershipStartKey(book) : sessionStartKey(book);
+        int start = earliestCheckInKey(book, seq, recordedDays);
         if (start > 0 && dayKey < start) {
             return Result.REJECTED_BEFORE_START;
         }
         return null;
+    }
+
+    /**
+     * 这一轮允许打卡的最早一天（0 = 不设下界）。
+     *
+     * <p>模糊轮仍看当前 READING 会话的起始日。精确轮的意义是补历史：还没记过日子时
+     * 退到拥有日 / 录入当天；一旦本轮已有日集合，就收到该轮起点，避免「先记今天、
+     * 再无限往前补」把会话起点悄悄挪走。
+     */
+    public static int earliestCheckInKey(Book book, int recordedDays) {
+        return earliestCheckInKey(book, currentSeq(book), recordedDays);
+    }
+
+    static int earliestCheckInKey(Book book, int seq, int recordedDays) {
+        if (book == null) {
+            return 0;
+        }
+        List<ReadingRecords.Record> records = ReadingRecords.load(book);
+        ReadingRecords.Record round = null;
+        for (ReadingRecords.Record r : records) {
+            if (r.seq == seq) {
+                round = r;
+                break;
+            }
+        }
+        if (round == null) {
+            // 指定轮还没写进记录（历史/测试构造）时按当前会话判模式，保旧行为
+            round = ReadingRecords.ongoingReading(records);
+        }
+        boolean precise = round != null && round.mode == ReadingRecords.MODE_PRECISE;
+        if (!precise) {
+            return sessionStartKey(book);
+        }
+        if (recordedDays > 0) {
+            int start = DateKeys.parseKey(round.startDate);
+            if (start > 0) {
+                return start;
+            }
+        }
+        return ownershipStartKey(book);
+    }
+
+    /** 某一轮已记几天；只认这一轮自己的行 */
+    public static int recordedDays(List<CheckIn> all, long bookId, int seq) {
+        if (all == null || seq < 1) {
+            return 0;
+        }
+        int days = 0;
+        for (CheckIn c : all) {
+            if (c != null && c.bookId == bookId && c.seq == seq) {
+                days++;
+            }
+        }
+        return days;
     }
 
     /**

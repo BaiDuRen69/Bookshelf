@@ -12,6 +12,7 @@ import com.bai.bookshelf.util.CheckInMonthGrid;
 import com.bai.bookshelf.util.CheckInStore;
 import com.bai.bookshelf.util.CheckInUiState;
 import com.bai.bookshelf.util.CheckInYearGrid;
+import com.bai.bookshelf.util.HolidayStore;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -43,6 +44,8 @@ public final class CheckInYearPanel {
         summary = root.findViewById(R.id.ll_year_summary);
         legend = root.findViewById(R.id.ll_year_legend);
         yearView = root.findViewById(R.id.year_view);
+        // 切年新层同步取该年节日表：内存命中 API/兜底，网络结果回来后 refreshHolidays()
+        yearView.setHolidaySource(year -> HolidayStore.get(root.getContext(), year));
         yearView.setListener(new CheckInYearView.Listener() {
             @Override
             public void onPick(int yearMonth, int dayKey) {
@@ -71,6 +74,11 @@ public final class CheckInYearPanel {
 
     public void setListener(@Nullable Listener l) {
         this.listener = l;
+    }
+
+    /** 网络结果写回 HolidayStore 内存后重绘当前激活层 */
+    public void refreshHolidays() {
+        yearView.refreshHolidays();
     }
 
     public void renderLegend() {

@@ -32,4 +32,13 @@
     <attr name="header_fg" format="color" />
     <!-- 打卡日历「非今天选中」的正圆描边框色；基线取 outline_strong，各主题自动跟随 -->
     <attr name="checkin_day_ring" format="color" />
+    <!-- 打卡月历的邻月日号：单独一档灰，和本月 on_surface 拉开可辨识的层级 -->
+    <attr name="checkin_adjacent_text" format="color" />
+    <!-- 今天不再吃 colorPrimary：暖色底 + 反色字 + 选中外圈各自独立，
+         否则七套主题里今天和 Toolbar / 主按钮是同一个绿/蓝/红 -->
+    <attr name="checkin_today_bg" format="color" />
+    <attr name="checkin_on_today" format="color" />
+    <attr name="checkin_today_ring" format="color" />
+    <!-- 法定节假日：暖色文字，跟主题走 accent_text；只用于文字，不用于填充 -->
+    <attr name="checkin_holiday_text" format="color" />
 </resources>

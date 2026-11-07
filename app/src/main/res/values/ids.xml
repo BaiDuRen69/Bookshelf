@@ -9,4 +9,8 @@
     <item name="insets_base_pad_bottom" type="id" />
     <!-- 记录工具栏「加 inset 之前」的原始固定高度 -->
     <item name="insets_base_height" type="id" />
+    <!-- 最近一次分发的顶部 inset（页头折叠动画复用它，避免与 DecorView 已消费的口径打架） -->
+    <item name="insets_last_top" type="id" />
+    <!-- 打卡月历：星期表头与 6 行日期之间的裁剪容器（收周时裁掉上移的旧周） -->
+    <item name="month_grid_clip" type="id" />
 </resources>

@@ -50,9 +50,9 @@ public final class CheckInYearGrid {
         return target < min || target > max;
     }
 
-    /** 年视图按用户指定方向：左滑（dx<0）= 上一年，右滑 = 下一年 */
+    /** 年视图按用户指定方向：左滑（dx<0）= 下一年，右滑 = 上一年 */
     public static int deltaForSwipe(float dx) {
-        return dx < 0 ? -1 : 1;
+        return dx < 0 ? 1 : -1;
     }
 
     public static boolean isCurrentMonth(int year, int month1, int todayKey) {

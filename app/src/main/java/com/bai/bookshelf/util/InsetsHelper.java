@@ -47,6 +47,8 @@ public final class InsetsHelper {
     private static final int TAG_BASE_PAD_BOTTOM = com.bai.bookshelf.R.id.insets_base_pad_bottom;
     /** 记录工具栏「加 inset 之前」的原始固定高度 */
     private static final int TAG_BASE_HEIGHT = com.bai.bookshelf.R.id.insets_base_height;
+    /** 最近一次分发的顶部 inset：有的系统会先被 DecorView 消费，不能直接读 root insets */
+    private static final int TAG_LAST_TOP = com.bai.bookshelf.R.id.insets_last_top;
 
     private InsetsHelper() {
     }
@@ -74,15 +76,18 @@ public final class InsetsHelper {
             view.setTag(TAG_BASE_HEIGHT, baseHeight);
         }
         final int basePadTop = (Integer) view.getTag(TAG_BASE_PAD_TOP);
-        final int baseH = baseHeight;
 
         ViewCompat.setOnApplyWindowInsetsListener(view, (v, insets) -> {
             Insets bars = insets.getInsets(
                     WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
+            v.setTag(TAG_LAST_TOP, bars.top);
             v.setPadding(v.getPaddingLeft(), basePadTop + bars.top, v.getPaddingRight(), v.getPaddingBottom());
-            if (baseH > 0 && v.getLayoutParams() != null) {
+            // 基准高度每次从 tag 读：工具栏可能在动画中换成紧凑/常规两档
+            Integer base = (Integer) v.getTag(TAG_BASE_HEIGHT);
+            int baseHNow = base == null ? 0 : base;
+            if (baseHNow > 0 && v.getLayoutParams() != null) {
                 ViewGroup.LayoutParams lp = v.getLayoutParams();
-                int want = baseH + bars.top;
+                int want = baseHNow + bars.top;
                 if (lp.height != want) {
                     lp.height = want;
                     v.setLayoutParams(lp);
@@ -91,6 +96,34 @@ public final class InsetsHelper {
             return insets;
         });
         ViewCompat.requestApplyInsets(view);
+    }
+
+    /**
+     * 更新顶部栏的「不含系统栏」基准高度（v5.9 打卡页页头 48↔40dp）。
+     *
+     * <p>动画过程由调用方直接改 {@code layoutParams.height}（不每帧 requestApplyInsets），
+     * 动画结束调用本方法一次，让 inset 监听器按新基准重算「基准 + 状态栏」。
+     */
+    public static void setBaseHeight(View view, int basePx) {
+        if (view == null) {
+            return;
+        }
+        view.setTag(TAG_BASE_HEIGHT, Math.max(0, basePx));
+        ViewCompat.requestApplyInsets(view);
+    }
+
+    /**
+     * 最近一次实际分发给该视图的顶部 inset（px）；没分发过返回 0。
+     *
+     * <p>与 {@link #systemBars(View)} 的区别：后者读 root insets，在 DecorView 已经
+     * 消费过状态栏的系统上会多算一段，导致折叠时工具栏反而变高。
+     */
+    public static int topInset(View view) {
+        if (view == null) {
+            return 0;
+        }
+        Object tag = view.getTag(TAG_LAST_TOP);
+        return tag instanceof Integer ? Math.max(0, (Integer) tag) : 0;
     }
 
     /**

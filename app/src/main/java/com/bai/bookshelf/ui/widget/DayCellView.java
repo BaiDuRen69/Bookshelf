@@ -3,12 +3,10 @@ package com.bai.bookshelf.ui.widget;
 import android.animation.ValueAnimator;
 import android.content.Context;
 import android.graphics.Canvas;
-import android.graphics.Outline;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.RectF;
 import android.view.View;
-import android.view.ViewOutlineProvider;
 
 import androidx.annotation.Nullable;
 
@@ -32,28 +30,6 @@ public final class DayCellView extends View {
 
     /** 打卡点入场时长（比切月的 110ms 略长，落点要看得见） */
     private static final long DOT_ENTRANCE_MS = 120;
-
-    /** 今日选中格的硬件阴影轮廓：胶囊形，RenderThread 绘制，不切软件层 */
-    private static final ViewOutlineProvider TODAY_OUTLINE = new ViewOutlineProvider() {
-        @Override
-        public void getOutline(View view, Outline outline) {
-            int w = view.getWidth();
-            int h = view.getHeight();
-            if (w <= 0 || h <= 0) {
-                outline.setEmpty();
-                return;
-            }
-            outline.setRoundRect(0, 0, w, h, Math.min(w, h) / 2f);
-            outline.setAlpha(1f);
-        }
-    };
-
-    private static final ViewOutlineProvider EMPTY_OUTLINE = new ViewOutlineProvider() {
-        @Override
-        public void getOutline(View view, Outline outline) {
-            outline.setEmpty();
-        }
-    };
 
     private final Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint bandPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -95,14 +71,15 @@ public final class DayCellView extends View {
     private int selectedBg;
     private int selectedStroke;
     private int onSurfaceVariant;
-    // ===== 打卡日历的新视觉：今日深色阴影、非今日圆框、农历小字 =====
+    private int adjacentText;
+    // ===== 打卡日历的新视觉：今日实心圆、非今日选中圆底、农历小字 =====
     private String lunarText = "";
-    private int todayBg;
-    private int onTodayBg;
     private int ringColor;
     private int lunarColor;
+    private int todayBg;
+    private int onToday;
+    private int todayRing;
     private float lunarTextSize;
-    private float shadowOffset;
     /** 视图切换动画期间暂停打卡点入场，避免两个属性动画抢同一帧 */
     private boolean dotSuspended;
     /** 打卡点入场进度：1 = 已落定；<1 时点半径按 0.6→1 放大、透明度 0→255 */
@@ -145,9 +122,11 @@ public final class DayCellView extends View {
     /**
      * 打卡月视图的状态绑定（新增重载，不改原 bind 签名）。
      *
-     * <p>选中 = {@code checkin_selected_bg} 胶囊（夜读再补一圈描边，淡底本身不够可读）；
-     * 今天 = 主色描边圆，今天且选中时两者叠加，不再因为胶囊把「今天」盖掉；
-     * 未来日 = 文字压到 120 alpha 且不画点；邻月 = 更弱的 110 alpha 且永不画点；
+     * <p>今天 = {@code checkin_today_bg} 实心圆 + {@code checkin_on_today} 字
+     * （常驻高亮，选中时外圈改 {@code checkin_today_ring}）；
+     * 非今天选中 = {@code checkin_selected_bg} 实心圆 + 正圆描边（夜读才可见）；
+     * 未来日 = 文字压到 120 alpha 且不画点；
+     * 邻月 = 只用 {@code checkin_adjacent_text} 一档灰（不叠 alpha）、不画农历与打卡点；
      * 打卡点按本数排，补卡的那几本画空心点、实心在左。
      *
      * <p>{@code anchor} 是选择器模式（v5.9.1 第三步）才用的框选锚点：只描边不填底，
@@ -215,30 +194,47 @@ public final class DayCellView extends View {
     }
 
     /**
-     * 打卡月视图的状态绑定（新增重载，不改原 13 参签名）：额外带今日深色底、
-     * colorOnPrimary 反色字、正圆框、农历小字与 2dp 硬件阴影高度。
+     * 打卡月视图的状态绑定（新增重载，不改原 13 参签名）：额外带今天圆内的
+     * colorOnPrimary 反色字、今天选中外圈、农历小字。
      */
     public void bindCheckIn(int day, int primary, int selectedBg, int selectedStroke,
                             int onSurface, int onSurfaceVariant,
                             boolean selected, boolean today, boolean adjacent, boolean future,
                             int dotTotal, int dotBackfill, boolean anchor,
-                            String lunar, int todayBg, int onTodayBg, int ringColor,
-                            int lunarColor, float lunarTextSize, float shadowOffset) {
+                            String lunar, int onPrimary, int ringColor,
+                            int lunarColor, float lunarTextSize, int adjacentText) {
         bindCheckIn(day, primary, selectedBg, selectedStroke, onSurface, onSurfaceVariant,
                 selected, today, adjacent, future, dotTotal, dotBackfill, anchor);
         this.lunarText = lunar == null ? "" : lunar;
-        this.todayBg = todayBg;
-        this.onTodayBg = onTodayBg;
+        this.onPrimary = onPrimary;
         this.ringColor = ringColor;
         this.lunarColor = lunarColor;
         this.lunarTextSize = lunarTextSize;
-        this.shadowOffset = shadowOffset;
-        // 硬件阴影：ViewOutlineProvider + elevation，由 RenderThread 绘制；
-        // 不用 Paint.setShadowLayer（会切软件层掉帧）。选择器模式不参与。
-        boolean todaySelected = checkInMode && !pickerMode && selected && today && !adjacent;
-        setElevation(todaySelected ? shadowOffset : 0f);
-        setOutlineProvider(todaySelected ? TODAY_OUTLINE : EMPTY_OUTLINE);
-        invalidateOutline();
+        this.adjacentText = adjacentText;
+        // 21 参重载会覆盖这三项；旧调用点保持原来的主色观感
+        this.todayBg = primary;
+        this.onToday = onPrimary;
+        this.todayRing = ringColor;
+        invalidate();
+    }
+
+    /**
+     * 今天改用独立语义色（{@code checkin_today_bg / checkin_on_today / checkin_today_ring}）：
+     * 今天的圆、字数、打卡点、农历都用 onToday，选中外圈用 todayRing。
+     */
+    public void bindCheckIn(int day, int primary, int selectedBg, int selectedStroke,
+                            int onSurface, int onSurfaceVariant,
+                            boolean selected, boolean today, boolean adjacent, boolean future,
+                            int dotTotal, int dotBackfill, boolean anchor,
+                            String lunar, int onPrimary, int ringColor,
+                            int lunarColor, float lunarTextSize, int adjacentText,
+                            int todayBg, int onToday, int todayRing) {
+        bindCheckIn(day, primary, selectedBg, selectedStroke, onSurface, onSurfaceVariant,
+                selected, today, adjacent, future, dotTotal, dotBackfill, anchor,
+                lunar, onPrimary, ringColor, lunarColor, lunarTextSize, adjacentText);
+        this.todayBg = todayBg;
+        this.onToday = onToday;
+        this.todayRing = todayRing;
         invalidate();
     }
 
@@ -321,7 +317,11 @@ public final class DayCellView extends View {
         float cx = w / 2f;
         float cy = h / 2f;
 
-        if (pickerMode) {
+        if (adjacent && !pickerMode) {
+            // 邻月优先级最高：只用这一档灰，不叠 alpha，也不参与今天/选中的任何底色
+            textPaint.setColor(adjacentText);
+            textPaint.setFakeBoldText(false);
+        } else if (pickerMode) {
             // 选择器与打卡页共用这一条绘制链，只是底的取法不同，不再另起第三个绘制函数
             rect.set(dp(2), cy - radius, w - dp(2), cy + radius);
             if (picked) {
@@ -362,21 +362,31 @@ public final class DayCellView extends View {
                 }
             }
             textPaint.setFakeBoldText(picked);
-        } else if (selected) {
-            if (today && !adjacent) {
-                // 今日选中：深色底 + colorOnPrimary 字；阴影交给硬件 elevation
-                rect.set(dp(2), cy - radius, w - dp(2), cy + radius);
-                bandPaint.setColor(todayBg);
-                canvas.drawRoundRect(rect, radius, radius, bandPaint);
-                textPaint.setColor(onTodayBg);
-            } else {
-                // 非今日选中：正圆描边框（未来日退成次级色，仍可辨识选中）
-                ringPaint.setColor(future ? onSurfaceVariant : ringColor);
-                ringPaint.setStrokeWidth(px(R.dimen.checkin_ring_stroke));
-                canvas.drawCircle(cx, cy, radius, ringPaint);
+        } else if (today) {
+            // 今天常驻实心圆：直径 36dp，窄格按格宽收；选中时外圈留 2dp 间隙再描一圈
+            float todayRadius = Math.min(w - px(R.dimen.checkin_today_margin),
+                    px(R.dimen.checkin_today_diameter)) / 2f;
+            bandPaint.setColor(todayBg);
+            canvas.drawCircle(cx, cy, todayRadius, bandPaint);
+            if (selected) {
+                float stroke = px(R.dimen.checkin_ring_stroke);
+                ringPaint.setColor(todayRing);
+                ringPaint.setStrokeWidth(stroke);
+                canvas.drawCircle(cx, cy,
+                        todayRadius + px(R.dimen.checkin_today_ring_gap) + stroke / 2f, ringPaint);
                 ringPaint.setStrokeWidth(ringStroke);
-                textPaint.setColor(primary);
             }
+            textPaint.setColor(onToday);
+            textPaint.setFakeBoldText(true);
+        } else if (selected) {
+            // 非今天选中：独立底色的实心圆 + 1dp 描边（浅色主题描边透明）
+            bandPaint.setColor(selectedBg);
+            canvas.drawCircle(cx, cy, radius, bandPaint);
+            ringPaint.setColor(selectedStroke);
+            ringPaint.setStrokeWidth(px(R.dimen.checkin_selected_stroke_w));
+            canvas.drawCircle(cx, cy, radius, ringPaint);
+            ringPaint.setStrokeWidth(ringStroke);
+            textPaint.setColor(primary);
             textPaint.setFakeBoldText(true);
         } else if (anchor) {
             // 框选锚点：只描边不填底，和「已选入」的实心胶囊一眼分得开
@@ -389,23 +399,19 @@ public final class DayCellView extends View {
             ringPaint.setStrokeWidth(ringStroke);
             textPaint.setColor(primary);
             textPaint.setFakeBoldText(false);
-        } else if (today) {
-            ringPaint.setColor(primary);
-            ringPaint.setStrokeWidth(ringStroke);
-            canvas.drawCircle(cx, cy, radius, ringPaint);
-            textPaint.setColor(primary);
-            textPaint.setFakeBoldText(false);
         } else {
-            textPaint.setColor(adjacent ? onSurfaceVariant : onSurface);
+            textPaint.setColor(onSurface);
             textPaint.setFakeBoldText(false);
         }
         textPaint.setAlpha(pickerMode ? (blocked ? 110 : 255)
-                : (adjacent ? 110 : (future ? 120 : 255)));
+                : (adjacent ? 255 : (future ? 120 : 255)));
         drawCheckInDots(canvas, cx, h);
 
-        boolean showLunar = !pickerMode && !lunarText.isEmpty() && lunarTextSize > 0;
+        // 邻月不画农历，但仍预留农历行：日号基线与本月一致，整行不会错开 5dp
+        boolean lunarRow = !pickerMode && !lunarText.isEmpty() && lunarTextSize > 0;
+        boolean showLunar = lunarRow && !adjacent;
         float baseline = cy - (textPaint.descent() + textPaint.ascent()) / 2f;
-        if (showLunar) {
+        if (lunarRow) {
             baseline -= dp(5);
         }
         canvas.drawText(String.valueOf(day), cx, baseline, textPaint);
@@ -415,9 +421,10 @@ public final class DayCellView extends View {
             int savedAlpha = textPaint.getAlpha();
             boolean savedBold = textPaint.isFakeBoldText();
             textPaint.setTextSize(lunarTextSize);
-            textPaint.setColor(lunarColor);
+            // 今天圆内的小字跟着反色，70% alpha；其它日仍是次级色
+            textPaint.setColor(today ? onToday : lunarColor);
             textPaint.setFakeBoldText(false);
-            textPaint.setAlpha(adjacent ? 90 : 160);
+            textPaint.setAlpha(today ? 179 : 160);
             canvas.drawText(lunarText, cx, cy + lunarTextSize + dp(3), textPaint);
             textPaint.setTextSize(savedSize);
             textPaint.setColor(savedColor);
@@ -447,14 +454,16 @@ public final class DayCellView extends View {
         float left = cx - (count * size + (count - 1) * gap) / 2f + r;
         float bottom = h - px(R.dimen.checkin_dot_bottom);
         int[] fh = CheckInDots.filledHollow(dotTotal, dotBackfill);
-        bandPaint.setColor(primary);
+        // 今天格内的点用 onToday，和今天圆的底色/反色字同一套
+        int dotColor = today ? onToday : primary;
+        bandPaint.setColor(dotColor);
         bandPaint.setAlpha(dotAlpha);
         float x = left;
         for (int i = 0; i < fh[0]; i++) {
             canvas.drawCircle(x, bottom, r, bandPaint);
             x += step;
         }
-        ringPaint.setColor(primary);
+        ringPaint.setColor(dotColor);
         ringPaint.setAlpha(dotAlpha);
         ringPaint.setStrokeWidth(ringStroke);
         for (int i = 0; i < fh[1]; i++) {

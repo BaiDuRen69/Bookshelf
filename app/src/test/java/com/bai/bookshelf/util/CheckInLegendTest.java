@@ -13,7 +13,7 @@ public class CheckInLegendTest {
         assertEquals(4, items.length);
         assertEquals("○", items[0].glyph);
         assertEquals("今天", items[0].label);
-        assertEquals(CheckInLegend.TONE_PRIMARY, items[0].tone);
+        assertEquals(CheckInLegend.TONE_TODAY, items[0].tone);
         assertEquals("已打卡", items[1].label);
         assertEquals("含补卡", items[2].label);
         assertEquals("▭", items[3].glyph);

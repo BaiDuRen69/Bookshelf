@@ -8,11 +8,15 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
 
 import androidx.appcompat.widget.AppCompatImageView;
@@ -23,9 +27,11 @@ import androidx.test.platform.app.InstrumentationRegistry;
 import com.bai.bookshelf.R;
 import com.bai.bookshelf.ui.checkin.CheckInYearView;
 import com.bai.bookshelf.ui.checkin.MonthGridView;
+import com.bai.bookshelf.ui.widget.DayCellView;
 import com.bai.bookshelf.util.CheckInMonthGrid;
 import com.bai.bookshelf.util.DateKeys;
 import com.bai.bookshelf.util.ThemeManager;
+import com.google.android.material.button.MaterialButton;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -93,8 +99,7 @@ public class CheckInUiInstrumentedTest {
     public void 月视图每格都是真实View且可逐格朗读() {
         MonthGridView grid = monthGrid();
         int count = grid.getDayCellCount();
-        assertTrue("格子数应为 rows×7，实际 " + count, count >= 28 && count <= 42);
-        assertEquals(0, count % 7);
+        assertEquals("月历固定 6 行 × 7 格", 42, count);
         for (int i = 0; i < count; i++) {
             View cell = grid.getCellAt(i);
             assertNotNull("第 " + i + " 格不是真实 View", cell);
@@ -112,7 +117,8 @@ public class CheckInUiInstrumentedTest {
     @Test
     public void 左侧周数列每行都有第N周标签且不可点() {
         MonthGridView outer = monthGrid();
-        ViewGroup grid = (ViewGroup) outer.getChildAt(1);
+        ViewGroup clip = outer.findViewById(R.id.month_grid_clip);
+        ViewGroup grid = (ViewGroup) clip.getChildAt(0);
         int rows = outer.getDayCellCount() / 7;
         assertEquals(rows, grid.getChildCount());
         for (int r = 0; r < rows; r++) {
@@ -255,13 +261,257 @@ public class CheckInUiInstrumentedTest {
         for (int m = 1; m <= 12; m++) {
             assertNotNull("第 " + m + " 月卡片是真实 View", yearView.monthCardAt(m));
         }
-        assertNotNull("当前月蓝描边", yearView.monthCardAt(11).getBackground());
+        assertNotNull("当前月主色描边", yearView.monthCardAt(11).getBackground());
         assertNull("其它月不画底", yearView.monthCardAt(10).getBackground());
         LinearLayout layer = (LinearLayout) ((ViewGroup) yearView.getChildAt(0)).getChildAt(0);
-        assertEquals("一年 6 行", 6, layer.getChildCount());
-        for (int r = 0; r < 6; r++) {
-            assertEquals("每行两个月卡片", 2,
+        assertEquals("一年 4 行", 4, layer.getChildCount());
+        for (int r = 0; r < 4; r++) {
+            assertEquals("每行三个月卡片", 3,
                     ((ViewGroup) layer.getChildAt(r)).getChildCount());
+        }
+    }
+
+    @Test
+    public void 页头只保留月标题与相对时间() {
+        View root = checkin();
+        int stale = root.getResources().getIdentifier(
+                "tv_year", "id", root.getContext().getPackageName());
+        assertEquals("旧年份标题不应再存在", 0, stale);
+        assertNotNull("月标题", root.findViewById(R.id.tv_month_title));
+        assertNotNull("相对时间", root.findViewById(R.id.tv_month_relative));
+    }
+
+    @Test
+    public void 月历与年卡都是平的没有阴影() {
+        MonthGridView grid = monthGrid();
+        assertEquals("月历不浮起", 0f, grid.getElevation(), 0f);
+        CheckInYearView yearView = checkin().findViewById(R.id.year_view);
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() ->
+                yearView.bind(2026, 2023, 2027, new java.util.ArrayList<>(), 20261107));
+        for (int m = 1; m <= 12; m++) {
+            assertEquals("第 " + m + " 月卡不应有阴影",
+                    0f, yearView.monthCardAt(m).getElevation(), 0f);
+        }
+    }
+
+    @Test
+    public void 打卡按钮无图标且文字居中() {
+        View row = inflate(R.layout.item_checkin_book);
+        MaterialButton button = row.findViewById(R.id.btn_checkin);
+        assertNull("按钮只用文字，没有勾图标", button.getIcon());
+        int gravity = button.getGravity();
+        assertEquals("水平居中", Gravity.CENTER_HORIZONTAL,
+                gravity & Gravity.CENTER_HORIZONTAL);
+        assertEquals("垂直居中", Gravity.CENTER_VERTICAL,
+                gravity & Gravity.CENTER_VERTICAL);
+    }
+
+    @Test
+    public void 周模式高度收成表头加一行且可恢复() {
+        MonthGridView grid = monthGrid();
+        int cellH = themed().getResources().getDimensionPixelSize(R.dimen.checkin_cell_h);
+        int full = grid.getFullHeightPx();
+        int week = grid.getWeekHeightPx();
+        assertEquals("单周高度 = 整月 - 5 行", cellH * 5, full - week);
+
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+            grid.setWeekMode(true, false);
+            measureUnconstrained(grid);
+        });
+        assertEquals("收起后量高只到表头 + 一行", week, grid.getMeasuredHeight());
+
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+            grid.setWeekMode(false, false);
+            measureUnconstrained(grid);
+        });
+        assertEquals("展开后恢复整月高度", full, grid.getMeasuredHeight());
+    }
+
+    private static void measureUnconstrained(MonthGridView grid) {
+        grid.measure(View.MeasureSpec.makeMeasureSpec(
+                        grid.getResources().getDisplayMetrics().widthPixels,
+                        View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
+    }
+
+    @Test
+    public void 收周时旧周由表头下方的裁剪层切掉() {
+        MonthGridView month = monthGrid();
+        ViewGroup clip = month.findViewById(R.id.month_grid_clip);
+        assertNotNull("表头和日期网格之间要有专用裁剪层", clip);
+        assertSame("裁剪层必须紧跟在星期表头之后", clip, month.getChildAt(1));
+        assertTrue("裁剪层要裁子视图", clip.getClipChildren());
+        assertEquals("裁剪层里只有日期网格", 1, clip.getChildCount());
+        ViewGroup rows = (ViewGroup) clip.getChildAt(0);
+        assertEquals("网格仍按整月 6 行测量", 6, rows.getChildCount());
+
+        int cellH = themed().getResources().getDimensionPixelSize(R.dimen.checkin_cell_h);
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> measureUnconstrained(month));
+        assertTrue("星期表头有实际高度", month.getChildAt(0).getMeasuredHeight() > 0);
+        assertEquals("裁剪层以 6 行高度参与测量", cellH * 6, clip.getMeasuredHeight());
+
+        int selectedRow = 0;
+        for (int i = 0; i < month.getDayCellCount(); i++) {
+            if (month.getDayKeyAt(i) == month.getSelectedDayKey()) {
+                selectedRow = i / 7;
+                break;
+            }
+        }
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+            month.setWeekMode(true, false);
+            measureUnconstrained(month);
+        });
+        assertEquals("收起后裁剪层仍是整月高度，多出来的行由它切",
+                cellH * 6, clip.getMeasuredHeight());
+        assertEquals("选中周上移，停到表头正下方", -selectedRow * cellH,
+                rows.getTranslationY(), 0.5f);
+    }
+
+    @Test
+    public void 邻月日号只走语义色且不画农历() {
+        int adjacentColor = ThemeManager.resolveColor(themed(), R.attr.checkin_adjacent_text);
+        Bitmap adjacent = renderCell("初一", true);
+        Bitmap normal = renderCell("初一", false);
+        int lunarTop = Math.round(adjacent.getHeight() * 0.58f);
+
+        assertEquals("邻月不画农历小字", 0, paintedPixelsFrom(adjacent, lunarTop));
+        assertTrue("本月仍画农历小字", paintedPixelsFrom(normal, lunarTop) > 0);
+        assertTrue("邻月日号不再叠 110 alpha，应出现不透明的语义色像素",
+                countExact(adjacent, adjacentColor, Math.round(adjacent.getHeight() * 0.15f),
+                        Math.round(adjacent.getHeight() * 0.55f)) > 0);
+    }
+
+    @Test
+    public void 今天圆走语义色且和主色分开() {
+        int todayBg = ThemeManager.resolveColor(themed(), R.attr.checkin_today_bg);
+        int onToday = ThemeManager.resolveColor(themed(), R.attr.checkin_on_today);
+        int primary = ThemeManager.resolveColor(themed(), ThemeManager.ATTR_COLOR_PRIMARY);
+        Bitmap today = renderTodayCell();
+        int h = today.getHeight();
+
+        assertTrue("今天圆用 checkin_today_bg 实心填充",
+                countExact(today, todayBg, Math.round(h * 0.30f), Math.round(h * 0.50f))
+                        > 100);
+        assertTrue("今天圆内数字改用 checkin_on_today",
+                countExact(today, onToday, Math.round(h * 0.30f), Math.round(h * 0.62f)) > 0);
+        if (todayBg != primary) {
+            assertEquals("今天不再吃 colorPrimary", 0, countExact(today, primary, 0, h));
+        }
+        assertTrue("圆内文字与底色对比度 ≥ 4.5:1", contrast10(onToday, todayBg) >= 45);
+    }
+
+    private static int contrast10(int fg, int bg) {
+        double l1 = luminance(fg);
+        double l2 = luminance(bg);
+        double lighter = Math.max(l1, l2);
+        double darker = Math.min(l1, l2);
+        return (int) Math.round((lighter + 0.05) / (darker + 0.05) * 10);
+    }
+
+    private static double luminance(int color) {
+        return 0.2126 * linear(android.graphics.Color.red(color) / 255.0)
+                + 0.7152 * linear(android.graphics.Color.green(color) / 255.0)
+                + 0.0722 * linear(android.graphics.Color.blue(color) / 255.0);
+    }
+
+    private static double linear(double channel) {
+        return channel <= 0.03928 ? channel / 12.92
+                : Math.pow((channel + 0.055) / 1.055, 2.4);
+    }
+
+    private Bitmap renderTodayCell() {
+        final Bitmap[] out = new Bitmap[1];
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+            Context ctx = themed();
+            DayCellView cell = new DayCellView(ctx);
+            int primary = ThemeManager.resolveColor(ctx, ThemeManager.ATTR_COLOR_PRIMARY);
+            int selectedBg = ThemeManager.resolveColor(ctx, R.attr.checkin_selected_bg);
+            int selectedStroke = ThemeManager.resolveColor(ctx, R.attr.checkin_selected_stroke);
+            int onSurface = ThemeManager.resolveColor(ctx, R.attr.on_surface);
+            int variant = ThemeManager.resolveColor(ctx, R.attr.on_surface_variant);
+            int onPrimary = ThemeManager.resolveColor(ctx,
+                    com.google.android.material.R.attr.colorOnPrimary);
+            int ring = ThemeManager.resolveColor(ctx, R.attr.checkin_day_ring);
+            int adjacentColor = ThemeManager.resolveColor(ctx, R.attr.checkin_adjacent_text);
+            int todayBg = ThemeManager.resolveColor(ctx, R.attr.checkin_today_bg);
+            int onToday = ThemeManager.resolveColor(ctx, R.attr.checkin_on_today);
+            int todayRing = ThemeManager.resolveColor(ctx, R.attr.checkin_today_ring);
+            int size = ctx.getResources().getDimensionPixelSize(R.dimen.checkin_cell_h);
+            cell.measure(View.MeasureSpec.makeMeasureSpec(size, View.MeasureSpec.EXACTLY),
+                    View.MeasureSpec.makeMeasureSpec(size, View.MeasureSpec.EXACTLY));
+            cell.layout(0, 0, size, size);
+            cell.bindCheckIn(7, primary, selectedBg, selectedStroke, onSurface, variant,
+                    false, true, false, false, 0, 0, false, "初一", onPrimary, ring,
+                    variant, ctx.getResources().getDimension(R.dimen.checkin_lunar_text),
+                    adjacentColor, todayBg, onToday, todayRing);
+            Bitmap bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
+            cell.draw(new Canvas(bitmap));
+            out[0] = bitmap;
+        });
+        return out[0];
+    }
+
+    private Bitmap renderCell(final String lunar, final boolean adjacent) {
+        final Bitmap[] out = new Bitmap[1];
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+            Context ctx = themed();
+            DayCellView cell = new DayCellView(ctx);
+            int primary = ThemeManager.resolveColor(ctx, ThemeManager.ATTR_COLOR_PRIMARY);
+            int selectedBg = ThemeManager.resolveColor(ctx, R.attr.checkin_selected_bg);
+            int selectedStroke = ThemeManager.resolveColor(ctx, R.attr.checkin_selected_stroke);
+            int onSurface = ThemeManager.resolveColor(ctx, R.attr.on_surface);
+            int variant = ThemeManager.resolveColor(ctx, R.attr.on_surface_variant);
+            int onPrimary = ThemeManager.resolveColor(ctx,
+                    com.google.android.material.R.attr.colorOnPrimary);
+            int ring = ThemeManager.resolveColor(ctx, R.attr.checkin_day_ring);
+            int adjacentColor = ThemeManager.resolveColor(ctx, R.attr.checkin_adjacent_text);
+            int size = ctx.getResources().getDimensionPixelSize(R.dimen.checkin_cell_h);
+            cell.measure(View.MeasureSpec.makeMeasureSpec(size, View.MeasureSpec.EXACTLY),
+                    View.MeasureSpec.makeMeasureSpec(size, View.MeasureSpec.EXACTLY));
+            cell.layout(0, 0, size, size);
+            cell.bindCheckIn(7, primary, selectedBg, selectedStroke, onSurface, variant,
+                    false, false, adjacent, false, 0, 0, false, lunar, onPrimary, ring,
+                    variant, ctx.getResources().getDimension(R.dimen.checkin_lunar_text),
+                    adjacentColor);
+            Bitmap bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
+            cell.draw(new Canvas(bitmap));
+            out[0] = bitmap;
+        });
+        return out[0];
+    }
+
+    private static int paintedPixelsFrom(Bitmap bitmap, int fromY) {
+        int count = 0;
+        for (int y = fromY; y < bitmap.getHeight(); y++) {
+            for (int x = 0; x < bitmap.getWidth(); x++) {
+                if ((bitmap.getPixel(x, y) >>> 24) != 0) {
+                    count++;
+                }
+            }
+        }
+        return count;
+    }
+
+    private static int countExact(Bitmap bitmap, int color, int fromY, int toY) {
+        int count = 0;
+        for (int y = fromY; y < toY; y++) {
+            for (int x = 0; x < bitmap.getWidth(); x++) {
+                if (bitmap.getPixel(x, y) == color) {
+                    count++;
+                }
+            }
+        }
+        return count;
+    }
+
+    @Test
+    public void 年视图不是滚动容器且12张卡齐全() {
+        CheckInYearView yearView = checkin().findViewById(R.id.year_view);
+        assertFalse("年视图不再用 ScrollView", ScrollView.class.isInstance(yearView));
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() ->
+                yearView.bind(2026, 2023, 2027, new java.util.ArrayList<>(), 20261107));
+        for (int m = 1; m <= 12; m++) {
+            assertNotNull("第 " + m + " 月卡拿不到", yearView.monthCardAt(m));
         }
     }
 
@@ -432,7 +682,7 @@ public class CheckInUiInstrumentedTest {
                 }
 
                 @Override
-                public void onMonthChanged(int yearMonth) {
+                public void onMonthChanged(int yearMonth, int selectedDayKey) {
                 }
 
                 @Override

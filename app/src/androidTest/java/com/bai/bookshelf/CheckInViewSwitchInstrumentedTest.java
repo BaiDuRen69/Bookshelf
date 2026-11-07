@@ -95,7 +95,7 @@ public class CheckInViewSwitchInstrumentedTest {
     }
 
     @Test
-    public void 年视图当前月蓝色描边其它月无底() {
+    public void 年视图当前月主色描边其它月无底() {
         View root = inflate(R.layout.fragment_checkin);
         CheckInYearView yearView = root.findViewById(R.id.year_view);
         yearView.bind(2026, 2021, 2027, java.util.Collections.emptyList(), 20261107);
@@ -103,7 +103,7 @@ public class CheckInViewSwitchInstrumentedTest {
         View other = yearView.monthCardAt(10);
         assertNotNull(current);
         assertNotNull(other);
-        assertNotNull("当前月要有蓝色描边", current.getBackground());
+        assertNotNull("当前月要有主色描边", current.getBackground());
         assertNull("其它月不画底", other.getBackground());
     }
 
@@ -119,10 +119,55 @@ public class CheckInViewSwitchInstrumentedTest {
     }
 
     @Test
-    public void 无历史记录也能左滑到更小年份() {
+    public void 无历史记录也能翻到更小年份() {
         assertEquals(2021, CheckInYearGrid.minYear(null, 2026));
-        assertEquals(-1, CheckInYearGrid.deltaForSwipe(-120f));
-        assertEquals(1, CheckInYearGrid.deltaForSwipe(120f));
+        assertEquals(1, CheckInYearGrid.deltaForSwipe(-120f));
+        assertEquals(-1, CheckInYearGrid.deltaForSwipe(120f));
+    }
+
+    @Test
+    public void 年视图点月前可静默预置目标月() {
+        View root = inflate(R.layout.fragment_checkin);
+        MonthGridView grid = root.findViewById(R.id.month_grid);
+        final int[] changed = {0};
+        grid.setListener(new MonthGridView.Listener() {
+            @Override
+            public void onSelectDay(int dayKey) {
+            }
+
+            @Override
+            public void onMoveToDay(int dayKey) {
+            }
+
+            @Override
+            public void onMonthChanged(int yearMonth, int selectedDayKey) {
+                changed[0]++;
+            }
+
+            @Override
+            public void onFutureDay(int dayKey) {
+            }
+        });
+        grid.setYearMonthSilently(202512, 20251220);
+        assertEquals(202512, grid.getYearMonth());
+        assertEquals(20251220, grid.getSelectedDayKey());
+        assertEquals("静默预置不能触发 onMonthChanged", 0, changed[0]);
+    }
+
+    @Test
+    public void 月视图下点月转场直接结束不进入动画() {
+        View root = inflate(R.layout.fragment_checkin);
+        CheckInViewSwitcher switcher = new CheckInViewSwitcher(
+                root.findViewById(R.id.view_switch_host),
+                root.findViewById(R.id.month_content),
+                root.findViewById(R.id.year_content),
+                root.findViewById(R.id.year_view),
+                root.findViewById(R.id.month_grid));
+        final int[] ended = {0};
+        switcher.toMonthFromCard(12, () -> ended[0]++);
+        assertEquals(1, ended[0]);
+        assertFalse(switcher.isAnimating());
+        assertFalse(switcher.isYearVisible());
     }
 
     @Test

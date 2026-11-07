@@ -47,11 +47,14 @@
     <dimen name="checkin_dot_bottom">6dp</dimen>
     <!-- 名字沿用规格，实际用途是描边圆的半径内缩（半径 = 半边长 - 这个值），不是线宽 -->
     <dimen name="checkin_ring_stroke">1.5dp</dimen>
-    <!-- 夜读选中胶囊外那一圈描边的线宽（浅色主题这圈是透明的） -->
+    <!-- 夜读选中圆外那一圈描边的线宽（浅色主题这圈是透明的） -->
     <dimen name="checkin_selected_stroke_w">1dp</dimen>
+    <!-- 今天常驻实心圆：直径 36dp，格子窄时按「格宽 - 6dp」收 -->
+    <dimen name="checkin_today_diameter">36dp</dimen>
+    <dimen name="checkin_today_margin">6dp</dimen>
+    <!-- 今天选中时外圈与实心圆之间的留白 -->
+    <dimen name="checkin_today_ring_gap">2dp</dimen>
     <dimen name="checkin_swipe_distance">24dp</dimen>
-    <!-- 切月在横向位移之外再坠这么一点，只平移会像整块被推走 -->
-    <dimen name="checkin_swipe_lift">4dp</dimen>
     <!-- 年视图当前月卡片那一圈主色描边的线宽 -->
     <dimen name="checkin_year_card_stroke">1dp</dimen>
     <dimen name="fab_size">56dp</dimen>
@@ -59,20 +62,21 @@
     <!-- 列表行封面：40×53 ≈ 3:4，比书架的 40×56 略扁，行高更紧 -->
     <dimen name="checkin_cover_w">40dp</dimen>
     <dimen name="checkin_cover_h">53dp</dimen>
-    <dimen name="checkin_button_icon">18dp</dimen>
     <!-- 「已打卡」描边按钮的线宽，和卡片描边同为 1dp -->
     <dimen name="checkin_button_stroke">1dp</dimen>
-    <!-- 三态按钮统一宽度：wrap_content 会随「打卡 / 补卡 / 已打卡 ✓」与图标变化而跳 -->
+    <!-- 三态按钮统一宽度：wrap_content 会随「打卡 / 补卡 / 未开始 / 已打卡 ✓」变化而跳 -->
     <dimen name="checkin_button_w">96dp</dimen>
     <!-- 格内农历小字（字体缩放 ≥1.3 时整行隐藏，避免裁字） -->
     <dimen name="checkin_lunar_text">11sp</dimen>
-    <!-- 今天选中格的硬件阴影高度（ViewOutlineProvider + elevation，不用软件层阴影） -->
-    <dimen name="checkin_today_elevation">2dp</dimen>
+    <!-- 页头「年视图」箭头：16dp 视觉尺寸 -->
+    <dimen name="checkin_year_chevron">16dp</dimen>
     <!-- 年视图切年时新旧页的水平位移量 -->
     <dimen name="checkin_year_shift_dp">120dp</dimen>
 
     <!-- ===== 字阶（v4.24 收敛为 28 / 22 / 17 / 15 / 13 / 11 六档；v4.25 统计 hero 40） ===== -->
     <dimen name="text_micro">9sp</dimen>
+    <!-- 年视图小日历的星期行（自绘 Paint，比 L5 再小一档） -->
+    <dimen name="text_mini">8sp</dimen>
     <dimen name="text_caption_large">12sp</dimen>
     <dimen name="text_body_medium">14sp</dimen>
     <dimen name="text_body_large">16sp</dimen>
@@ -87,6 +91,8 @@
     <dimen name="text_body">15sp</dimen>
     <dimen name="text_body_small">13sp</dimen>
     <dimen name="text_caption">11sp</dimen>
+    <!-- 打卡页收周后的相对时间小字（11sp → 10sp，页头同步收一档） -->
+    <dimen name="text_caption_compact">10sp</dimen>
     <!-- v5.9.1 六级字阶补档：L2 次级数字 / L3 行内数值 / L5 夜读档（样式层用 ?attr 选档） -->
     <dimen name="text_metric_small">20sp</dimen>
     <dimen name="text_row_value">15sp</dimen>
@@ -103,5 +109,7 @@
     <dimen name="card_corner">16dp</dimen>
     <!-- 工具栏：紧凑高度（v4.17 压缩上下留白） -->
     <dimen name="toolbar_h">48dp</dimen>
+    <!-- 打卡页收周/详情态的页头高度 -->
+    <dimen name="toolbar_h_compact">40dp</dimen>
     <dimen name="text_title_toolbar">16sp</dimen>
 </resources>
