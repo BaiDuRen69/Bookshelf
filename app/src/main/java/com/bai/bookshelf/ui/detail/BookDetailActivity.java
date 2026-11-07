@@ -66,6 +66,8 @@ public class BookDetailActivity extends BaseActivity {
     private String categoryDisplay = "";
     private List<BorrowRecord> openRecords = new ArrayList<>(); // 当前所有未归还的借出记录（含 copyIndex）
     private List<BookCopy> copies = new ArrayList<>();
+    /** 各轮阅读的日集合（精确口径天数从这里数，v5.9.1） */
+    private java.util.Map<Integer, List<Integer>> readDayKeys = new java.util.HashMap<>();
     private Map<Long, String> copyLocNames = new HashMap<>();   // 副本地点 id → 名称
     private List<NoteImage> noteImages = new ArrayList<>();     // 备注图片（默认折叠）
     private final DetailNoteImages noteImagesView = new DetailNoteImages();
@@ -666,6 +668,7 @@ public class BookDetailActivity extends BaseActivity {
             locationName = data.location == null ? "未设置地点" : data.location.name;
             openRecords = data.openRecords;
             copies = data.copies;
+            readDayKeys = data.readDayKeys;
             copyLocNames = data.copyLocNames;
             noteImages = data.noteImages;
             excerpts = data.excerpts;
@@ -748,7 +751,7 @@ public class BookDetailActivity extends BaseActivity {
         // ===== 书目 / 藏书 / 我的书房（v5.6 抽到 DetailInfoBlocks） =====
         DetailInfoBlocks.bind(b, book, multi, hasLent, locationName, categoryDisplay,
                 copies, openRecords);
-        DetailRecordLists.bindReading(this, b, book, openRecords, copies);
+        DetailRecordLists.bindReading(this, b, book, openRecords, copies, readDayKeys);
         DetailRecordLists.bindBorrow(this, b, book);
         // v5.7：四个分区可折叠，折叠状态跨书沿用
         DetailSectionCollapse.bind(this, b.ivToggleInfo, b.llInfoGrid,

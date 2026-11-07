@@ -33,6 +33,8 @@ public final class DetailDataLoader {
         public List<Excerpt> excerpts = new ArrayList<>();
         public Map<Integer, List<NoteImage>> copyLendImages = new HashMap<>();
         public String categoryDisplay = "";
+        /** 各轮阅读的日集合（seq → 升序日键），精确口径的天数从这里数（v5.9.1） */
+        public Map<Integer, List<Integer>> readDayKeys = new HashMap<>();
     }
 
     public interface Callback {
@@ -92,6 +94,18 @@ public final class DetailDataLoader {
             List<NoteImage> foundImgs = imgsByOwner.get("book:" + bookId);
             d.noteImages = foundImgs == null ? new ArrayList<>() : foundImgs;
             d.excerpts = app.db().excerptDao().getByBook(bookId);
+            // 精确口径的日集合：一次取全按轮次分组，详情页不再逐场查（v5.9.1）
+            for (com.bai.bookshelf.data.entity.CheckIn c : app.db().checkInDao().getByBook(bookId)) {
+                List<Integer> keys = d.readDayKeys.get(c.seq);
+                if (keys == null) {
+                    keys = new ArrayList<>();
+                    d.readDayKeys.put(c.seq, keys);
+                }
+                keys.add(c.dayKey);
+            }
+            for (List<Integer> keys : d.readDayKeys.values()) {
+                java.util.Collections.sort(keys);
+            }
             // v4.9：分类展示格式「一级-二级」（书里只存名字，需查分类库解析上级）
             d.categoryDisplay = CategoryPropagator.displayPath(
                     fresh.category, app.db().categoryDao().getAll());

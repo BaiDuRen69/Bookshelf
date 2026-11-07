@@ -160,11 +160,18 @@ public final class ReadingFlow {
         return maxSeq + 1;
     }
 
-    /** 新会话：seq 取最大值 +1，开始日 = 今天，结束日与评分留空 */
+    /**
+     * 新会话：seq 取最大值 +1，开始日 = 今天，结束日与评分留空。
+     *
+     * <p>v5.9.1 起新会话默认**精确**口径：往后的日子靠打卡记，起止由日集合派生。
+     * 开始日先落在今天作为锚点，第一次打卡后 deriveRange 会把它改成最早那天；
+     * 历史会话与 derive/load 合成的老记录不走这里，仍是模糊，一个字不改。
+     */
     private static ReadingRecords.Record newRecord(List<ReadingRecords.Record> records,
                                                    String today) {
         ReadingRecords.Record r = new ReadingRecords.Record(nextSeq(records));
         r.startDate = nz(today);
+        r.mode = ReadingRecords.MODE_PRECISE;
         return r;
     }
 

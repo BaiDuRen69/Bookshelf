@@ -314,4 +314,46 @@ public class ReadingFlowTest {
         // 自愈只在内存生效：没调用 syncTo 就不该把会话写回 JSON
         assertEquals("", b.readingRecords);
     }
+
+    /** v5.9.1：新会话默认精确，历史合成出来的老记录仍是模糊 */
+    @Test
+    public void newSessionsDefaultPreciseWhileLegacyStaysFuzzy() {
+        Book b = book();
+        b.readStatus = Book.READ_DONE;
+        b.readingStartDate = "2025-01-01";
+        b.readingFinishDate = "2025-02-01";
+        // 老书没有 JSON：derive 合成一场历史已读，必须是模糊
+        List<ReadingRecords.Record> legacy = ReadingRecords.derive(b);
+        assertEquals(ReadingRecords.MODE_FUZZY, legacy.get(0).mode);
+
+        assertTrue(ReadingFlow.restart(b, "2026-11-01"));
+        List<ReadingRecords.Record> records = ReadingRecords.parse(b.readingRecords);
+        assertEquals(2, records.size());
+        assertEquals("历史那场不被改口径", ReadingRecords.MODE_FUZZY, records.get(0).mode);
+        assertEquals("再读新开的一场默认精确", ReadingRecords.MODE_PRECISE, records.get(1).mode);
+    }
+
+    /** 收尾一场模糊会话不许顺手把它改成精确（历史零改写） */
+    @Test
+    public void finishingAFuzzySessionKeepsItFuzzy() {
+        Book b = book();
+        List<ReadingRecords.Record> records = new java.util.ArrayList<>();
+        records.add(session(1, Book.READING, "2026-10-01", "", 0));
+        ReadingRecords.syncTo(b, records);
+        assertTrue(ReadingFlow.finish(b, "2026-11-01"));
+        List<ReadingRecords.Record> after = ReadingRecords.parse(b.readingRecords);
+        assertEquals(1, after.size());
+        assertEquals(ReadingRecords.MODE_FUZZY, after.get(0).mode);
+        assertEquals(Book.READ_DONE, after.get(0).status);
+    }
+
+    /** 没有历史、直接开始读：第一场就是精确 */
+    @Test
+    public void startOnFreshBookIsPrecise() {
+        Book b = book();
+        assertTrue(ReadingFlow.start(b, "2026-11-01"));
+        List<ReadingRecords.Record> records = ReadingRecords.parse(b.readingRecords);
+        assertEquals(ReadingRecords.MODE_PRECISE, records.get(0).mode);
+        assertEquals("2026-11-01", records.get(0).startDate);
+    }
 }

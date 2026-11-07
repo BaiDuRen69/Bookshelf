@@ -24,17 +24,20 @@ public final class DetailRecordLists {
     }
 
     public static void bindReading(Activity activity, ActivityBookDetailBinding b, Book book) {
-        bindReading(activity, b, book, null, null);
+        bindReading(activity, b, book, null, null, null);
     }
 
     /**
      * @param loans 该书当前的借出记录（详情页已查过，直接递进来）；
      *              给了就把每场阅读天数里「书在外面」的日子扣掉，并在行尾标一句扣了几天（v5.8.33）
      * @param copies 该书的副本行，用来判断是不是「整本都在外面」；只借走一册时不扣
+     * @param dayKeysBySeq 各轮阅读的日集合（seq → 升序日键）；精确轮的天数从这里数，
+     *                     传 null 时精确轮按 0 天显示「还没记日子」（v5.9.1）
      */
     public static void bindReading(Activity activity, ActivityBookDetailBinding b, Book book,
                                    java.util.List<com.bai.bookshelf.data.entity.BorrowRecord> loans,
-                                   java.util.List<com.bai.bookshelf.data.entity.BookCopy> copies) {
+                                   java.util.List<com.bai.bookshelf.data.entity.BookCopy> copies,
+                                   java.util.Map<Integer, java.util.List<Integer>> dayKeysBySeq) {
         java.util.List<ReadingRecords.Record> records = ReadingRecords.load(book);
         b.containerReadingRecordsDetail.removeAllViews();
         b.cardReadingRecords.setVisibility(records.isEmpty()
@@ -43,7 +46,8 @@ public final class DetailRecordLists {
         java.util.List<int[]> spans = com.bai.bookshelf.util.LendSpans
                 .ofIfFullyOut(book, copies, loans);
         for (ReadingRecords.Record r : records) {
-            addRow(activity, b.containerReadingRecordsDetail, readingLine(r, spans));
+            java.util.List<Integer> keys = dayKeysBySeq == null ? null : dayKeysBySeq.get(r.seq);
+            addRow(activity, b.containerReadingRecordsDetail, readingLine(r, spans, keys));
         }
     }
 
@@ -61,25 +65,32 @@ public final class DetailRecordLists {
         }
     }
 
-    private static String readingLine(ReadingRecords.Record r) {
-        return readingLine(r, null);
-    }
-
-    private static String readingLine(ReadingRecords.Record r, java.util.List<int[]> spans) {
+    private static String readingLine(ReadingRecords.Record r, java.util.List<int[]> spans,
+                                      java.util.List<Integer> dayKeys) {
         StringBuilder sb = new StringBuilder("第 ").append(r.seq).append(" 次 · ")
                 .append(StatusText.read(r.status));
+        boolean precise = r.mode == ReadingRecords.MODE_PRECISE;
+        if (precise) {
+            // 精确轮标出来，免得和模糊轮的「区间天数」混着读；模糊是默认档，不加标签免噪
+            sb.append(" · 精确");
+        }
         if (!r.startDate.isEmpty()) {
             sb.append(" · ").append(r.startDate);
             if (!r.endDate.isEmpty()) {
                 sb.append(" — ").append(r.endDate);
             }
         }
-        int days = ReadingRecords.days(r, spans);
-        if (days > 0) {
-            sb.append(" · ").append(days).append(" 天");
-            int raw = ReadingRecords.days(r);
-            if (raw > days) {
-                sb.append("（扣掉借出 ").append(raw - days).append(" 天）");
+        if (precise) {
+            int days = com.bai.bookshelf.util.ReadDays.precise(dayKeys);
+            sb.append(days > 0 ? " · " + days + " 天" : " · 还没记日子");
+        } else {
+            int days = ReadingRecords.days(r, spans);
+            if (days > 0) {
+                sb.append(" · ").append(days).append(" 天");
+                int raw = ReadingRecords.days(r);
+                if (raw > days) {
+                    sb.append("（扣掉借出 ").append(raw - days).append(" 天）");
+                }
             }
         }
         if (r.rating > 0) {
