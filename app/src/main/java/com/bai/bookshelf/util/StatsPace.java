@@ -109,6 +109,9 @@ public final class StatsPace {
         public double medianPagesPerDay;
         public int daySample;
         public int speedSample;
+        /** v5.9.1 第六步：样本里精确口径 / 区间口径各几本，混合时洞察行要注明 */
+        public int preciseSample;
+        public int fuzzySample;
         public int unreadTitles;
         public int unreadCopies;
         /** 未读部分的实付（按册） */
@@ -173,11 +176,25 @@ public final class StatsPace {
                 continue; // 没有完整起止日期的书不参与速度统计
             }
             List<int[]> spans = lendSpans == null ? null : lendSpans.get(book.id);
-            double d = spans == null || spans.isEmpty()
-                    ? DateKeys.daysBetween(startKey, finishKey) + 1
-                    : LendSpans.minusDays(startKey, finishKey, spans);
+            // v5.9.1 第六步：统一走 readDays。精确轮吃日集合；模糊轮用「汇总起止」构造的
+            // 等效会话吃区间口径（含外借扣减），与老算法逐字等价，不改口径定义。
+            // 没传日集合的老调用点拿不到精确轮的日集合，只能退回区间口径（保持老行为）。
+            ReadingRecords.Record last = ReadingRecords.lastOf(ReadingRecords.load(book));
+            java.util.Map<Integer, List<Integer>> bySeq =
+                    preciseByBook == null ? null : preciseByBook.get(book.id);
+            List<Integer> keys = bySeq == null ? null : bySeq.get(last.seq);
+            boolean preciseTrack = last.mode == ReadingRecords.MODE_PRECISE
+                    && preciseByBook != null;
+            ReadingRecords.Record effective = preciseTrack
+                    ? last : summarySession(book, startKey, finishKey);
+            double d = ReadingRecords.readDays(effective, keys, spans);
             if (d <= 0) {
-                continue; // 整段阅读时间都借在外面：没有可算的本地阅读天数
+                continue; // 整段阅读时间都借在外面 / 精确轮没日子：没有可算的本地阅读天数
+            }
+            if (preciseTrack) {
+                p.preciseSample++;
+            } else {
+                p.fuzzySample++;
             }
             days.add(d);
             if (book.pages > 0) {
@@ -289,7 +306,16 @@ public final class StatsPace {
         return b;
     }
 
-    /** yyyyMMdd 键 + N 天 → yyyy-MM-dd */
+    /** 模糊轮的等效会话：起止取书籍汇总字段，保证与老算法（区间含首尾、扣外借）逐字等价 */
+    private static ReadingRecords.Record summarySession(Book book, int startKey, int finishKey) {
+        ReadingRecords.Record r = new ReadingRecords.Record(1);
+        r.status = Book.READ_DONE;
+        r.mode = ReadingRecords.MODE_FUZZY;
+        r.startDate = DateKeys.formatKey(startKey);
+        r.endDate = DateKeys.formatKey(finishKey);
+        return r;
+    }
+
     /** 最后一场是精确且一个日子都没记：起止只是锚点，不该进速度样本 */
     private static boolean preciseRoundWithoutDays(Book book,
                                                    java.util.Map<Long, java.util.Map<Integer, List<Integer>>> byBook) {
@@ -302,6 +328,7 @@ public final class StatsPace {
         return ReadDays.precise(keys) == 0;
     }
 
+    /** yyyyMMdd 键 + N 天 → yyyy-MM-dd */
     private static String plusDays(int dateKey, int days) {
         java.util.Calendar c = java.util.Calendar.getInstance();
         c.set(dateKey / 10000, dateKey / 100 % 100 - 1, dateKey % 100, 0, 0, 0);

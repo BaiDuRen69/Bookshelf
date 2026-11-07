@@ -32,6 +32,23 @@ public class StatsInsightTest {
     }
 
     @Test
+    public void speedLineMarksMixedCaliberOnlyWhenBothSidesExist() {
+        StatsPace.Pace mixed = new StatsPace.Pace();
+        mixed.medianDays = 21;
+        mixed.daySample = 12;
+        mixed.preciseSample = 5;
+        mixed.fuzzySample = 7;
+        assertEquals("阅读速度：中位读完 21 天（样本 12 种 · 其中精确 5 本、区间 7 本）",
+                StatsInsight.speedLine(mixed));
+
+        StatsPace.Pace single = new StatsPace.Pace();
+        single.medianDays = 21;
+        single.daySample = 3;
+        single.preciseSample = 3;
+        assertEquals("阅读速度：中位读完 21 天（样本 3 种）", StatsInsight.speedLine(single));
+    }
+
+    @Test
     public void holdingsLineNoLongerRepeatsHeroTotals() {
         StatsHoldings.Holdings h = new StatsHoldings.Holdings();
         h.titles = 121;

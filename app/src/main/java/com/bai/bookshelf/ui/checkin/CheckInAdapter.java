@@ -50,6 +50,10 @@ public class CheckInAdapter extends RecyclerView.Adapter<CheckInAdapter.VH> {
         public final Book book;
         public boolean checked;
         public String borrower = "";
+        /** 「精确」/「模糊」；空 = 不标口径（老行为） */
+        public String modeLabel = "";
+        /** 当前在读那一轮的 seq：打卡写入时带上，撤销时才认得出是哪一轮 */
+        public int seq = 1;
 
         public Row(Book book, boolean checked) {
             this.book = book;
@@ -180,7 +184,8 @@ public class CheckInAdapter extends RecyclerView.Adapter<CheckInAdapter.VH> {
         String title = BookText.displayTitle(book.title);
         CoverLoader.load(h.b.ivCover, book);
         h.b.tvTitle.setText(title);
-        String subtitle = CheckInUiState.subtitle(book.readingProgress, row.borrower);
+        String subtitle = CheckInUiState.subtitle(
+                book.readingProgress, row.borrower, row.modeLabel);
         if (row.checked) {
             subtitle = CheckInUiState.subtitleChecked(subtitle, dayKey, todayKey);
         }

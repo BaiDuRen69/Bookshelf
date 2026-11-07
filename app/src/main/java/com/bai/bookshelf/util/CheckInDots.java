@@ -42,12 +42,27 @@ public final class CheckInDots {
      * 不查库、不新增 DAO 查询。
      */
     public static Map<Integer, int[]> marks(List<CheckIn> monthList) {
+        return marks(monthList, null);
+    }
+
+    /**
+     * 精确轮只认「该书该轮」的日子（v5.9.1 第六步）：bookId 在 preciseSeq 里，
+     * 就只数 seq 相等的那几条；不在表里的书（模糊轮）照旧全量按天聚合。
+     *
+     * @param preciseSeq bookId → 当前轮 seq；null / 空 = 全部按模糊口径
+     */
+    public static Map<Integer, int[]> marks(List<CheckIn> monthList,
+                                            Map<Long, Integer> preciseSeq) {
         Map<Integer, int[]> out = new HashMap<>();
         if (monthList == null) {
             return out;
         }
         for (CheckIn c : monthList) {
             if (c == null) {
+                continue;
+            }
+            Integer onlySeq = preciseSeq == null ? null : preciseSeq.get(c.bookId);
+            if (onlySeq != null && c.seq != onlySeq) {
                 continue;
             }
             int[] mark = out.get(c.dayKey);

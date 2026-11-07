@@ -439,4 +439,39 @@ public class CheckInStoreTest {
         assertEquals(CheckInStore.Result.REMOVED, toggle(sink, b, 20261015, true));
         assertTrue(sink.rows.isEmpty());
     }
+
+    /** v5.9.1 第六步：UI 带轮次写入，撤销也按同一轮认领 */
+    @Test
+    public void 指定轮次写入而不归当前轮() {
+        MemSink sink = new MemSink();
+        Book b = preciseReading("2026-10-01", 0); // 当前在第 1 轮
+        assertEquals(CheckInStore.Result.ADDED,
+                CheckInStore.toggle(sink, b, 20261015, true, TODAY, 2));
+        assertEquals(2, sink.rows.get(0).seq);
+        assertEquals("同一轮再点才是撤销",
+                CheckInStore.Result.REMOVED,
+                CheckInStore.toggle(sink, b, 20261015, true, TODAY, 2));
+        assertTrue(sink.rows.isEmpty());
+    }
+
+    @Test
+    public void 轮次非法时退回当前轮() {
+        MemSink sink = new MemSink();
+        Book b = preciseReading("2026-10-01", 0);
+        assertEquals(CheckInStore.Result.ADDED,
+                CheckInStore.toggle(sink, b, 20261015, true, TODAY, 0));
+        assertEquals(CheckInStore.currentSeq(b), sink.rows.get(0).seq);
+    }
+
+    @Test
+    public void 摘要用的本轮天数只数指定轮且要含选中日() {
+        List<CheckIn> all = new ArrayList<>(Arrays.asList(
+                ci(7, 20261013, false), ci(7, 20261015, false), ci(7, 20261016, false)));
+        all.get(0).seq = 2; // 第 2 轮的另一天，不能被算进第 1 轮
+        assertEquals(2, CheckInStore.roundDaysAt(all, 7, 1, 20261015));
+        assertEquals(-1, CheckInStore.roundDaysAt(all, 7, 1, 20261014));
+        assertEquals(1, CheckInStore.roundDaysAt(all, 7, 2, 20261013));
+        assertEquals(-1, CheckInStore.roundDaysAt(all, 7, 3, 20261015));
+        assertEquals(-1, CheckInStore.roundDaysAt(null, 7, 1, 20261015));
+    }
 }

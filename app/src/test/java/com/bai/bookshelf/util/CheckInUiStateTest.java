@@ -36,6 +36,17 @@ public class CheckInUiStateTest {
     }
 
     @Test
+    public void 副标题追加记录口径且口径在借出人之前() {
+        assertEquals("读到 43% · 精确记录",
+                CheckInUiState.subtitle(43, "", "精确"));
+        assertEquals("读到 43% · 模糊记录 · 借给 张三",
+                CheckInUiState.subtitle(43, "张三", " 模糊 "));
+        assertEquals("在读 · 精确记录", CheckInUiState.subtitle(0, null, "精确"));
+        // 空口径不写：老调用方不该平白多一段
+        assertEquals("读到 43%", CheckInUiState.subtitle(43, "", ""));
+    }
+
+    @Test
     public void 已打卡行的副标题后缀分今天与往日() {
         assertEquals("读到 43% · 今天已打卡",
                 CheckInUiState.subtitleChecked("读到 43%", TODAY, TODAY));
@@ -181,5 +192,17 @@ public class CheckInUiStateTest {
         assertNull(CheckInUiState.todayNote(202611, TODAY, true));
         // 翻到上月看历史，不该在「本月打卡」旁挂今天的提示
         assertNull(CheckInUiState.todayNote(202610, TODAY, false));
+    }
+
+    @Test
+    public void 摘要提示合并今天未打与精确轮天数() {
+        // 本轮天数只增不减地跟在后面；没有轮就是老文案
+        assertEquals("本轮已记 12 天",
+                CheckInUiState.summaryNote(202611, TODAY, true, 12));
+        assertEquals("今天未打 · 本轮已记 12 天",
+                CheckInUiState.summaryNote(202611, TODAY, false, 12));
+        assertEquals("今天未打",
+                CheckInUiState.summaryNote(202611, TODAY, false, 0));
+        assertNull(CheckInUiState.summaryNote(202610, TODAY, true, 0));
     }
 }

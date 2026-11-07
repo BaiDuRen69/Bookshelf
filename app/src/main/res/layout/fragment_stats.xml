@@ -1138,6 +1138,34 @@
                                 android:layout_marginStart="@dimen/space_sm"
                                 android:text="修复" />
                         </LinearLayout>
+
+                        <!-- v5.9.1 第六步：精确记录体检（0 天 / 起止与打卡日不符 / 跨轮同一天）。
+                             与借阅孤儿同一套「先逐条列出、再执行、8 秒撤销」的样式 -->
+                        <LinearLayout
+                            android:id="@+id/row_mode_repair"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="@dimen/space_sm"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal"
+                            android:visibility="gone">
+
+                            <TextView
+                                android:id="@+id/tv_mode_repair"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:textColor="?attr/on_surface"
+                                android:textSize="@dimen/text_body_small" />
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btn_mode_repair"
+                                style="@style/Widget.Bookshelf.Button.Outlined"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="@dimen/space_sm"
+                                android:text="修复" />
+                        </LinearLayout>
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
 

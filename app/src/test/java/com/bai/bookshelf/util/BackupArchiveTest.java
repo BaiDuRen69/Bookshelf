@@ -221,4 +221,36 @@ public class BackupArchiveTest {
         assertEquals(BackupChecksum.ALGORITHM, m.algorithm);
         assertTrue(m.hasChecksum());
     }
+
+    @Test
+    public void 打卡行没有seq的旧包说明按第一轮处理() throws Exception {
+        String data = "{\"books\":[{\"id\":1}],"
+                + "\"check_ins\":[{\"bookId\":1,\"dayKey\":20261105}]}";
+        BackupInspector.Info info = validate(pack(data, new ArrayList<>(),
+                meta(CURRENT_CODE, CURRENT_DB)));
+        assertTrue(info.checkInsBeforeSeq);
+        assertTrue(info.verifyText().startsWith("校验通过"));
+        assertTrue(info.verifyText().contains("该包早于精确记录，seq 按 1 处理"));
+        assertEquals(1, info.checkIns);
+    }
+
+    @Test
+    public void 带seq的包不多说一句() throws Exception {
+        String data = "{\"books\":[{\"id\":1}],"
+                + "\"check_ins\":[{\"bookId\":1,\"dayKey\":20261105,\"seq\":2}]}";
+        BackupInspector.Info info = validate(pack(data, new ArrayList<>(),
+                meta(CURRENT_CODE, CURRENT_DB)));
+        assertFalse(info.checkInsBeforeSeq);
+        assertEquals("校验通过", info.verifyText());
+    }
+
+    @Test
+    public void seq为零或非数字也按旧包处理() throws Exception {
+        String zero = "{\"check_ins\":[{\"bookId\":1,\"dayKey\":20261105,\"seq\":0}]}";
+        assertTrue(validate(pack(zero, new ArrayList<>(),
+                meta(CURRENT_CODE, CURRENT_DB))).checkInsBeforeSeq);
+        String text = "{\"check_ins\":[{\"bookId\":1,\"dayKey\":20261105,\"seq\":\"x\"}]}";
+        assertTrue(validate(pack(text, new ArrayList<>(),
+                meta(CURRENT_CODE, CURRENT_DB))).checkInsBeforeSeq);
+    }
 }

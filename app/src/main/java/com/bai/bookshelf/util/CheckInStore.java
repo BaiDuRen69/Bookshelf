@@ -56,7 +56,17 @@ public final class CheckInStore {
 
     /** 生产入口：「今天」取系统当前日；打卡落库后顺手把精确轮的派生起止同步掉 */
     public static Result toggle(AppDatabase db, Book book, int dayKey, boolean allowBackfill) {
-        Result result = toggle(new RoomSink(db), book, dayKey, allowBackfill, DateKeys.todayKey());
+        return toggle(db, book, dayKey, allowBackfill, currentSeq(book));
+    }
+
+    /**
+     * 指定轮次的打卡/撤销（v5.9.1 第六步）。UI 在精确轮下传入该轮 seq，
+     * 老入口不传时归到「当前在读的那一轮」，与历史行为一致。
+     */
+    public static Result toggle(AppDatabase db, Book book, int dayKey, boolean allowBackfill,
+                                int seq) {
+        Result result = toggle(new RoomSink(db), book, dayKey, allowBackfill,
+                DateKeys.todayKey(), seq);
         if (result == Result.ADDED || result == Result.REMOVED) {
             resyncPreciseRounds(db, book);
         }
@@ -215,10 +225,17 @@ public final class CheckInStore {
 
     /** 可注入实现：单测用固定 todayKey，UI 也走这里以便复用同一套规则 */
     static Result toggle(Sink sink, Book book, int dayKey, boolean allowBackfill, int todayKey) {
+        return toggle(sink, book, dayKey, allowBackfill, todayKey, currentSeq(book));
+    }
+
+    static Result toggle(Sink sink, Book book, int dayKey, boolean allowBackfill, int todayKey,
+                         int seq) {
         if (book == null || sink == null) {
             return Result.REJECTED_NOT_READING;
         }
-        int seq = currentSeq(book);
+        if (seq < 1) {
+            seq = currentSeq(book);
+        }
         // 撤销只是删一条打卡记录，不改阅读状态；书已读完、日期已过期也允许撤，
         // 所以先于范围检查处理。但只能撤本轮的：别轮的日子要「移到本轮」而不是抢。
         int owned = sink.seqOf(book.id, dayKey);
@@ -367,6 +384,30 @@ public final class CheckInStore {
             out.put(c.dayKey, old == null ? 1 : old + 1);
         }
         return out;
+    }
+
+    /**
+     * 选中日属于某本书的某一轮时，这一轮已经记了几天；不属于返回 -1。
+     *
+     * <p>打卡页摘要行「本轮已记 N 天」用它（v5.9.1 第六步）：只认日集合里的日子，
+     * 没记过的日子没有「这一轮」可指，猜区间会把模糊口径又搬回来。
+     */
+    public static int roundDaysAt(List<CheckIn> all, long bookId, int seq, int dayKey) {
+        if (all == null || seq < 1) {
+            return -1;
+        }
+        int days = 0;
+        boolean hit = false;
+        for (CheckIn c : all) {
+            if (c == null || c.bookId != bookId || c.seq != seq) {
+                continue;
+            }
+            days++;
+            if (c.dayKey == dayKey) {
+                hit = true;
+            }
+        }
+        return hit ? days : -1;
     }
 
     /** @return {打卡天数, 打卡次数, 补卡次数}；同一天两本 = 1 天 2 次 */

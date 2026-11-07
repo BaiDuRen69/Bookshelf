@@ -51,6 +51,16 @@ public final class NextPick {
 
     /** 打分并降序排列；返回的列表可能为空（没有可读的书） */
     public static List<Pick> rank(List<Book> raw, int todayKey) {
+        return rank(raw, todayKey, null);
+    }
+
+    /**
+     * @param preciseByBook 书 → 轮次 → 日集合（{@link ReadDays#byBook}）。v5.9.1 第六步：
+     *                      最后一轮是精确且有日子时，「跑了多久没翻」改用距最后打卡的天数；
+     *                      模糊轮仍按购入/录入时间算。日集合本来就已在内存里，不新增查询。
+     */
+    public static List<Pick> rank(List<Book> raw, int todayKey,
+                                  Map<Long, Map<Integer, List<Integer>>> preciseByBook) {
         List<Book> books = BookSanitizer.normalizeAll(raw);
         Map<String, Integer> affinity = tagAffinity(books);
         List<Pick> picks = new ArrayList<>();
@@ -72,13 +82,20 @@ public final class NextPick {
                 pick.score += 20;
                 pick.reasons.add("你给它标了 " + ReadingRecords.formatRating(own) + " 星");
             }
-            int days = daysSinceArrived(book, todayKey);
+            int checkInKey = lastPreciseDayKey(book, preciseByBook);
+            int days = checkInKey > 0 && checkInKey <= todayKey
+                    ? DateKeys.daysBetween(checkInKey, todayKey)
+                    : daysSinceArrived(book, todayKey);
+            boolean sinceCheckIn = checkInKey > 0 && checkInKey <= todayKey;
             if (days >= 365) {
                 pick.score += 30;
-                pick.reasons.add("到手 " + Math.max(1, Math.round(days / 30.0)) + " 个月没翻开");
+                pick.reasons.add(sinceCheckIn
+                        ? "上次打卡是 " + Math.max(1, Math.round(days / 30.0)) + " 个月前"
+                        : "到手 " + Math.max(1, Math.round(days / 30.0)) + " 个月没翻开");
             } else if (days >= 90) {
                 pick.score += 14;
-                pick.reasons.add("到手 " + days + " 天还没读");
+                pick.reasons.add(sinceCheckIn ? "上次打卡是 " + days + " 天前"
+                        : "到手 " + days + " 天还没读");
             }
             Affinity best = bestAffinity(book, affinity);
             if (best != null) {
@@ -207,6 +224,37 @@ public final class NextPick {
             }
         }
         return out;
+    }
+
+    /**
+     * 最后一轮是精确且有日子时，最后打卡日的 yyyyMMdd 键；其余情况返回 0。
+     * 精确轮一个日子都没记时回落到购入/录入时间，与模糊轮一致。
+     */
+    private static int lastPreciseDayKey(Book book,
+                                         Map<Long, Map<Integer, List<Integer>>> preciseByBook) {
+        if (preciseByBook == null) {
+            return 0;
+        }
+        List<ReadingRecords.Record> records = ReadingRecords.load(book);
+        if (records.isEmpty()) {
+            return 0;
+        }
+        ReadingRecords.Record last = ReadingRecords.lastOf(records);
+        if (last.mode != ReadingRecords.MODE_PRECISE) {
+            return 0;
+        }
+        Map<Integer, List<Integer>> bySeq = preciseByBook.get(book.id);
+        List<Integer> keys = bySeq == null ? null : bySeq.get(last.seq);
+        if (keys == null || keys.isEmpty()) {
+            return 0;
+        }
+        int max = 0;
+        for (int key : keys) {
+            if (key > max) {
+                max = key;
+            }
+        }
+        return max;
     }
 
     /** 到手多久了：优先购入日期，没填就用录入时间 */

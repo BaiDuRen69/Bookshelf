@@ -37,7 +37,9 @@ public final class ExcelExporter {
             "版次", "印次", "页数", "字数", "定价", "豆瓣评分", "分类", "标签",
             "封面", "存放地点", "藏书状态", "阅读状态", "来源", "来源渠道",
             "购买日期", "购买价格", "评分", "备注", "录入时间", "拥有数量",
-            "系列", "卷号", "阅读顺序"
+            "系列", "卷号", "阅读顺序",
+            // v5.9.1 第六步：最后一轮的口径与天数（模糊=区间天数，精确=实际记的日子）
+            "记录方式", "已记天数"
     };
 
     private ExcelExporter() {
@@ -134,9 +136,15 @@ public final class ExcelExporter {
         //    本地封面可直接找回文件，网络封面可重新加载——Excel 不再弄丢封面信息
         List<String[]> rows = new ArrayList<>();
         rows.add(HEADERS);
+        // 第 4.3 步：打卡数据独立成第二张 sheet；没有记录就不生成该 sheet
+        // v5.9.1 第六步：第一张表也要它来算每本书「记录方式 / 已记天数」，所以先取
+        List<com.bai.bookshelf.data.entity.CheckIn> checkIns = loadCheckIns();
+        java.util.Map<Long, java.util.Map<Integer, java.util.List<Integer>>> daysByBook =
+                com.bai.bookshelf.util.ReadDays.byBook(checkIns);
         List<String> coverUrls = new ArrayList<>(); // 各书 coverUrl 原值，供封面解析使用
         for (Book b : books) {
             String cover = b.coverUrl == null ? "" : b.coverUrl.trim();
+            String[] modeDays = modeAndDays(b, daysByBook);
             rows.add(new String[]{
                     b.isbn, b.title, b.author, b.translator, b.country, b.publisher,
                     b.publishDate, b.printing, String.valueOf(b.pages), b.wordCount,
@@ -150,7 +158,8 @@ public final class ExcelExporter {
                     String.valueOf(b.quantity),
                     b.seriesName == null ? "" : b.seriesName,
                     b.seriesVolume == null ? "" : b.seriesVolume,
-                    String.valueOf(b.seriesOrder)
+                    String.valueOf(b.seriesOrder),
+                    modeDays[0], modeDays[1]
             });
             coverUrls.add(cover);
         }
@@ -169,7 +178,6 @@ public final class ExcelExporter {
             }
 
         // 第 4.3 步：打卡数据独立成第二张 sheet；没有记录就不生成该 sheet
-        List<com.bai.bookshelf.data.entity.CheckIn> checkIns = loadCheckIns();
         boolean hasCheckinSheet = CheckInSheet.needed(checkIns);
         java.util.Map<Long, String> titles = new java.util.HashMap<>();
         for (Book b : books) {
@@ -207,6 +215,25 @@ public final class ExcelExporter {
         } finally {
             deleteRecursively(stage);
         }
+    }
+
+    /** 最后一轮的口径与天数：模糊按区间（含首尾）、精确按实际记的日子；没读过留空 */
+    static String[] modeAndDays(Book b,
+                                        java.util.Map<Long, java.util.Map<Integer,
+                                                java.util.List<Integer>>> byBook) {
+        if (b == null) {
+            return new String[]{"", ""};
+        }
+        List<ReadingRecords.Record> records = ReadingRecords.load(b);
+        if (records.isEmpty()) {
+            return new String[]{"", ""};
+        }
+        ReadingRecords.Record last = ReadingRecords.lastOf(records);
+        java.util.Map<Integer, java.util.List<Integer>> bySeq =
+                byBook == null ? null : byBook.get(b.id);
+        java.util.List<Integer> keys = bySeq == null ? null : bySeq.get(last.seq);
+        int days = ReadingRecords.readDays(last, keys, null);
+        return new String[]{ReadingRecords.modeLabel(last), String.valueOf(days)};
     }
 
     /** 第 4.3 步：打卡数据直接从库取；库未就绪 / 单测无 Application 时返回空列表 */

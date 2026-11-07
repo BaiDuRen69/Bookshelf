@@ -21,8 +21,21 @@ public final class CheckInUiState {
 
     /** 「读到 43%」；有借出记录时追加「 · 借给 张三」 */
     public static String subtitle(int progress, String borrower) {
+        return subtitle(progress, borrower, null);
+    }
+
+    /**
+     * 带记录口径的副标题（v5.9.1 第六步）：
+     * 「读到 43% · 精确记录」/「读到 43% · 模糊记录 · 借给 张三」。
+     *
+     * @param modeLabel 「精确」/「模糊」；null 或空 = 不标口径（老行为）
+     */
+    public static String subtitle(int progress, String borrower, String modeLabel) {
         StringBuilder sb = new StringBuilder();
         sb.append(progress > 0 ? "读到 " + progress + "%" : "在读");
+        if (modeLabel != null && !modeLabel.trim().isEmpty()) {
+            sb.append(" · ").append(modeLabel.trim()).append("记录");
+        }
         if (borrower != null && !borrower.trim().isEmpty()) {
             sb.append(" · 借给 ").append(borrower.trim());
         }
@@ -88,6 +101,21 @@ public final class CheckInUiState {
     public static String todayNote(int yearMonth, int todayKey, boolean todayChecked) {
         return !todayChecked && yearMonth == CheckInMonthGrid.yearMonthOf(todayKey)
                 ? "今天未打" : null;
+    }
+
+    /**
+     * 「本月打卡」下面的提示：今天未打 / 精确轮已记天数，两样都有就并成一句。
+     *
+     * @param roundDays 选中日所在精确轮已记天数；0 = 没有可指的轮（见 CheckInFragment）
+     */
+    public static String summaryNote(int yearMonth, int todayKey, boolean todayChecked,
+                                     int roundDays) {
+        String today = todayNote(yearMonth, todayKey, todayChecked);
+        String round = roundDays > 0 ? "本轮已记 " + roundDays + " 天" : null;
+        if (today == null) {
+            return round;
+        }
+        return round == null ? today : today + " · " + round;
     }
 
     /** 统计页阅读栏的一行；今年 0 次时调用方整行隐藏 */

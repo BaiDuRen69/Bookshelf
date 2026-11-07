@@ -45,6 +45,8 @@ public final class BackupInspector {
         public int books = -1;
         /** 打卡条数；-1 表示读不出来 */
         public int checkIns = -1;
+        /** 包里的打卡行早于精确记录（没有 seq 或 seq<=0）：恢复时统一按第 1 轮处理 */
+        public boolean checkInsBeforeSeq;
         public long totalBytes;
         public int mediaCount;
         /** 不可恢复的人话原因；null ⇒ 允许恢复 */
@@ -61,13 +63,16 @@ public final class BackupInspector {
 
         /** 完整性一栏的人话结论 */
         public String verifyText() {
+            String base;
             if (legacy()) {
-                return "旧版备份（无 meta，未校验）";
+                base = "旧版备份（无 meta，未校验）";
+            } else if (!meta.hasChecksum()) {
+                base = "无校验和（未校验）";
+            } else {
+                base = checksumOk ? "校验通过" : "校验不通过";
             }
-            if (!meta.hasChecksum()) {
-                return "无校验和（未校验）";
-            }
-            return checksumOk ? "校验通过" : "校验不通过";
+            // v5.9.1 第六步：v25 之前的包没有 seq 列，恢复后全落第 1 轮，先把话说清楚
+            return checkInsBeforeSeq ? base + "。该包早于精确记录，seq 按 1 处理" : base;
         }
 
         /** 恢复前预览：版本 / 时间 / 册数 / 完整性 */
@@ -235,6 +240,7 @@ public final class BackupInspector {
         }
         i.books = countBooks(dataJson);
         i.checkIns = countCheckIns(dataJson);
+        i.checkInsBeforeSeq = checkInsWithoutSeq(dataJson);
         if (i.books < 0 && i.meta != null) {
             i.books = i.meta.books;
         }
@@ -339,6 +345,35 @@ public final class BackupInspector {
                     ? o.getAsJsonArray("check_ins").size() : 0;
         } catch (Exception e) {
             return 0;
+        }
+    }
+
+    /** 包里只要有打卡行缺 seq（或 seq<=0），恢复时就该按第 1 轮处理并提示 */
+    private static boolean checkInsWithoutSeq(String dataJson) {
+        try {
+            com.google.gson.JsonObject o = JsonParser.parseString(dataJson).getAsJsonObject();
+            if (!o.has("check_ins") || !o.get("check_ins").isJsonArray()) {
+                return false;
+            }
+            for (com.google.gson.JsonElement e : o.getAsJsonArray("check_ins")) {
+                if (!e.isJsonObject()) {
+                    continue;
+                }
+                com.google.gson.JsonObject row = e.getAsJsonObject();
+                if (!row.has("seq")) {
+                    return true;
+                }
+                try {
+                    if (row.get("seq").getAsInt() <= 0) {
+                        return true;
+                    }
+                } catch (Exception ignored) {
+                    return true; // 非数字的 seq 同样不可用
+                }
+            }
+            return false;
+        } catch (Exception e) {
+            return false;
         }
     }
 

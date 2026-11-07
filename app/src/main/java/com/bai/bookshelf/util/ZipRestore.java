@@ -250,9 +250,17 @@ public final class ZipRestore {
                 db.borrowerDao().insert(x);
             }
             // 第 4.3 步：一次批量写回；缺键时整段跳过，保持库里现有打卡不变
+            // v5.9.1 第六步：早于 v26 的包里没有 seq，恢复后统一落到第 1 轮
             if (hasCheckIns) {
-                db.checkInDao().insertAll(readList(root, "check_ins",
-                        new TypeToken<List<com.bai.bookshelf.data.entity.CheckIn>>() {}));
+                List<com.bai.bookshelf.data.entity.CheckIn> restored =
+                        readList(root, "check_ins",
+                                new TypeToken<List<com.bai.bookshelf.data.entity.CheckIn>>() {});
+                for (com.bai.bookshelf.data.entity.CheckIn c : restored) {
+                    if (c.seq < 1) {
+                        c.seq = 1;
+                    }
+                }
+                db.checkInDao().insertAll(restored);
             }
         });
         return result;

@@ -154,4 +154,34 @@ public class NextPickTest {
         assertTrue(ranked.get(0).reasonLine(), ranked.get(0).reasons.size() >= 1);
         assertTrue(ranked.get(0).reasonLine().contains("还没读过"));
     }
+
+    @Test
+    public void 精确轮按最后一次打卡算模糊轮仍按到手时间() {
+        // 同一本「未读」候选：购入很久，但最后一轮精确且上周刚打过卡 → 不再加「久未翻」的分
+        Book precise = unread("刚打过卡");
+        precise.id = 7;
+        precise.purchaseDate = "2021-03-05";
+        ReadingRecords.Record r = new ReadingRecords.Record(1);
+        r.status = Book.READ_NONE;
+        r.mode = ReadingRecords.MODE_PRECISE;
+        r.startDate = "2026-10-20";
+        precise.readingRecords = ReadingRecords.toJson(
+                new ArrayList<>(java.util.List.of(r)));
+        java.util.Map<Integer, List<Integer>> bySeq = new java.util.HashMap<>();
+        bySeq.put(1, java.util.Arrays.asList(20261025, 20261026));
+        java.util.Map<Long, java.util.Map<Integer, List<Integer>>> preciseByBook =
+                new java.util.HashMap<>();
+        preciseByBook.put(7L, bySeq);
+
+        NextPick.Pick withCheckIn = NextPick.rank(
+                new ArrayList<>(java.util.List.of(precise)), TODAY, preciseByBook).get(0);
+        assertTrue(withCheckIn.reasonLine(), !withCheckIn.reasonLine().contains("个月没翻开"));
+        assertEquals("距最后打卡只有 5 天，不该拿久未翻的 30 分", 0.0, withCheckIn.score, 0.001);
+
+        // 同一个调用点不传日集合（模糊轮/老入口）：沿用购入时间，仍拿久未翻的分
+        NextPick.Pick without = NextPick.rank(
+                new ArrayList<>(java.util.List.of(precise)), TODAY).get(0);
+        assertTrue(without.reasonLine(), without.reasonLine().contains("个月没翻开"));
+        assertEquals(30.0, without.score, 0.001);
+    }
 }

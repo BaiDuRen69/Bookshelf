@@ -107,17 +107,27 @@ final class StatsInsight {
     static String anomalyLine(com.bai.bookshelf.util.StatsHealth.Anomalies a,
                                       java.util.List<String> readingOutNames,
                                       int lendDateUnparsable) {
+        return anomalyLine(a, readingOutNames, lendDateUnparsable, null);
+    }
+
+    static String anomalyLine(com.bai.bookshelf.util.StatsHealth.Anomalies a,
+                                      java.util.List<String> readingOutNames,
+                                      int lendDateUnparsable,
+                                      com.bai.bookshelf.util.ReadingModeHealth.Report mode) {
         // v5.8.33：借阅相关的两项单独算，凑不齐全 0 才算「没发现异常」
+        // v5.9.1 第六步：精确记录的三项结构问题也进这行，同一份体检只说一次
+        int modeCount = mode == null ? 0 : mode.total();
         int extra = (readingOutNames == null ? 0 : readingOutNames.size())
-                + lendDateUnparsable;
+                + lendDateUnparsable + modeCount;
         if (a.total() == 0 && extra == 0) {
             return "数据体检：没发现重复或异常记录";
         }
+        String tail = lendingAnomalyTail(readingOutNames, lendDateUnparsable)
+                + modeAnomalyTail(mode);
         if (a.total() == 0) {
-            return "数据体检 " + extra + " 处要看看" + lendingAnomalyTail(
-                    readingOutNames, lendDateUnparsable);
+            return "数据体检 " + extra + " 处要看看" + tail;
         }
-        return "数据体检 " + a.total() + " 处要看看：重复 ISBN "
+        return "数据体检 " + (a.total() + modeCount) + " 处要看看：重复 ISBN "
                 + a.duplicateIsbn.size() + "、同名 " + a.duplicateTitle.size()
                 + "、负价 " + a.negativePrice + "、未来日期 "
                 + a.futureDate + "、价格离群 " + a.overpriced
@@ -126,7 +136,25 @@ final class StatsInsight {
                 + (a.longReadWithDrop == 0 ? ""
                 : "、阅读时长超 " + com.bai.bookshelf.util.StatsHealth.LONG_READ_DAYS
                 + " 天且中途有弃读 " + a.longReadWithDrop + " 本")
-                + lendingAnomalyTail(readingOutNames, lendDateUnparsable);
+                + tail;
+    }
+
+    /** 精确记录三项的尾注；都没有问题时一个字也不加 */
+    static String modeAnomalyTail(com.bai.bookshelf.util.ReadingModeHealth.Report r) {
+        if (r == null || r.isEmpty()) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder();
+        if (r.noDays > 0) {
+            sb.append("、精确记录 0 天 ").append(r.noDays).append(" 轮");
+        }
+        if (r.rangeMismatch > 0) {
+            sb.append("、起止与打卡日不一致 ").append(r.rangeMismatch).append(" 轮");
+        }
+        if (r.crossRound > 0) {
+            sb.append("、跨轮同一天 ").append(r.crossRound).append(" 处");
+        }
+        return sb.toString();
     }
 
     static String lendingAnomalyTail(java.util.List<String> readingOutNames,
@@ -204,7 +232,12 @@ final class StatsInsight {
         if (p.medianPagesPerDay > 0) {
             sb.append("，").append(Math.round(p.medianPagesPerDay)).append(" 页/天");
         }
-        sb.append("（样本 ").append(p.daySample).append(" 种）");
+        sb.append("（样本 ").append(p.daySample).append(" 种");
+        if (p.preciseSample > 0 && p.fuzzySample > 0) {
+            sb.append(" · 其中精确 ").append(p.preciseSample).append(" 本、区间 ")
+                    .append(p.fuzzySample).append(" 本");
+        }
+        sb.append("）");
         return sb.toString();
     }
 
@@ -262,10 +295,20 @@ final class StatsInsight {
                                        com.bai.bookshelf.util.StatsHealth.Anomalies a,
                                        java.util.List<String> readingOutNames,
                                        int lendDateUnparsable) {
+        return booksInsight(h, g, r, a, readingOutNames, lendDateUnparsable, null);
+    }
+
+    static String booksInsight(com.bai.bookshelf.util.StatsHoldings.Holdings h,
+                                       com.bai.bookshelf.util.StatsHealth.Health g,
+                                       com.bai.bookshelf.util.StatsHealth.Rating r,
+                                       com.bai.bookshelf.util.StatsHealth.Anomalies a,
+                                       java.util.List<String> readingOutNames,
+                                       int lendDateUnparsable,
+                                       com.bai.bookshelf.util.ReadingModeHealth.Report mode) {
         StringBuilder sb = new StringBuilder(holdingsLine(h)).append('\n');
         sb.append(healthLine(g)).append('\n');
         sb.append(ratingLine(r)).append('\n');
-        sb.append(anomalyLine(a, readingOutNames, lendDateUnparsable));
+        sb.append(anomalyLine(a, readingOutNames, lendDateUnparsable, mode));
         if (h.copiesLost > 0) {
             sb.append('\n').append("损耗：遗失 ").append(h.copiesLost).append(" 册、")
                     .append(Money.compact(h.lostValue));

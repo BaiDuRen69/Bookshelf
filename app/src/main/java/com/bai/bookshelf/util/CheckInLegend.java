@@ -42,4 +42,9 @@ public final class CheckInLegend {
     public static Item[] yearItems() {
         return new Item[]{new Item("●", "该月有打卡", TONE_PRIMARY)};
     }
+
+    /** 月视图图例下面那句：点从哪来（v5.9.1 第六步，精确轮只画真读过的日子） */
+    public static String monthNote() {
+        return "点 = 实际读过的日子";
+    }
 }

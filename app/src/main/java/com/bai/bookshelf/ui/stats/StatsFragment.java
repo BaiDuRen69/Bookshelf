@@ -156,6 +156,9 @@ public class StatsFragment extends Fragment {
     /** v5.8.32：借阅孤儿（体检文案 + 一次性修复入口共用这一份） */
     private com.bai.bookshelf.util.StatsHealth.BorrowOrphans borrowOrphans;
 
+    /** v5.9.1 第六步：精确记录体检（0 天 / 起止不符 / 跨轮同一天） */
+    private com.bai.bookshelf.util.ReadingModeHealth.Report modeReport;
+
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
@@ -422,6 +425,11 @@ public class StatsFragment extends Fragment {
             default:
                 b.tvInsight.setText(insightBooks);
         }
+        // 两条修复入口各归各的栏：借阅孤儿在「借阅」，精确记录体检在「藏书」
+        b.rowOrphanRepair.setVisibility(statsTab == TAB_LOAN
+                && borrowOrphans != null && !borrowOrphans.isEmpty() ? View.VISIBLE : View.GONE);
+        b.rowModeRepair.setVisibility(statsTab == TAB_BOOKS
+                && modeReport != null && !modeReport.isEmpty() ? View.VISIBLE : View.GONE);
     }
 
     private static void setCardVisible(View view, boolean visible) {
@@ -617,7 +625,7 @@ public class StatsFragment extends Fragment {
                             pace.medianPagesPerDay, todayKey);
             // v5.8.19：「下一本读什么」的候选（加权排序，抽哪一本在 UI 侧按种子决定）
             final java.util.List<com.bai.bookshelf.util.NextPick.Pick> nextRanked =
-                    com.bai.bookshelf.util.NextPick.rank(books, todayKey);
+                    com.bai.bookshelf.util.NextPick.rank(books, todayKey, preciseByBook);
             final com.bai.bookshelf.util.StatsLend.Lend lend =
                     com.bai.bookshelf.util.StatsLend.lend(loanRecords, todayKey);
 
@@ -765,6 +773,10 @@ public class StatsFragment extends Fragment {
                     com.bai.bookshelf.util.StatsHealth.borrowOrphans(
                             books, copyAll, loanRecords, imageAll);
             this.borrowOrphans = orphans;
+            // v5.9.1 第六步：精确记录的三项结构体检（纯函数，日集合直接复用上面的全量打卡行）
+            final com.bai.bookshelf.util.ReadingModeHealth.Report readingModeReport =
+                    com.bai.bookshelf.util.ReadingModeHealth.check(books, allCheckIns);
+            this.modeReport = readingModeReport;
             int boughtThisYear = 0;
             for (Book book : books) {
                 int buy = com.bai.bookshelf.util.DateKeys.parseKey(book.purchaseDate);
@@ -935,7 +947,8 @@ public class StatsFragment extends Fragment {
         }
         b.tvStatsCopies.setText(copies);
         insightBooks = booksInsight(hold, health, rating, anomalies,
-                readingOutNames, lendDateUnparsable);
+                readingOutNames, lendDateUnparsable, modeReport);
+        bindModeRepair();
         renderTreemap();
         renderCohort(cohorts);
         renderSeries(seriesGroups, books);
@@ -1088,6 +1101,48 @@ public class StatsFragment extends Fragment {
                     .setNegativeButton(com.bai.bookshelf.R.string.action_cancel, null)
                     .show();
         });
+    }
+
+    /**
+     * 精确记录体检的修复入口（v5.9.1 第六步）：查出问题才出现，点「修复」先把
+     * 每一条「改哪本、哪一轮、改成什么」列清楚；执行后走 8 秒逐字段撤销。
+     */
+    private void bindModeRepair() {
+        if (b == null) {
+            return;
+        }
+        final com.bai.bookshelf.util.ReadingModeHealth.Report report = modeReport;
+        boolean has = report != null && !report.isEmpty();
+        b.rowModeRepair.setVisibility(has ? View.VISIBLE : View.GONE);
+        if (!has) {
+            return;
+        }
+        b.tvModeRepair.setText(report.line());
+        b.btnModeRepair.setOnClickListener(v -> new com.google.android.material.dialog
+                .MaterialAlertDialogBuilder(requireContext())
+                .setTitle("修复精确阅读记录")
+                .setMessage(report.describePlan() + "\n\n确认后立即执行，8 秒内可撤销。")
+                .setPositiveButton("执行修复", (d, w) -> {
+                    final BookshelfApp app = BookshelfApp.get();
+                    app.io(() -> {
+                        final com.bai.bookshelf.util.ReadingModeRepair.Undo undo =
+                                com.bai.bookshelf.util.ReadingModeRepair.apply(app.db(), report);
+                        app.ui(() -> {
+                            com.bai.bookshelf.ui.widget.ReadingWidgetProvider
+                                    .refresh(requireContext());
+                            ensureComputed();
+                            com.bai.bookshelf.util.UndoBar.offer(b.getRoot(),
+                                    "已修复 " + undo.count() + " 处精确记录",
+                                    () -> app.io(() -> {
+                                        com.bai.bookshelf.util.ReadingModeRepair
+                                                .undo(app.db(), undo);
+                                        app.ui(this::ensureComputed);
+                                    }), null);
+                        });
+                    });
+                })
+                .setNegativeButton(com.bai.bookshelf.R.string.action_cancel, null)
+                .show());
     }
 
     /** 在外清单：逾期与在借分两组（v5.9.1 三步），一行内容和原来一致，点一行可收回 */

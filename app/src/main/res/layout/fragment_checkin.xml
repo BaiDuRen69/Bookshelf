@@ -3,6 +3,7 @@
      底部避让统一用 @dimen/dock_reserve，与书架 / 统计 / 我的三页一致。 -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
@@ -62,6 +63,18 @@
             android:layout_marginTop="@dimen/space_sm"
             android:gravity="center"
             android:orientation="horizontal" />
+
+        <!-- 图例下面一行小字：点的语义（精确轮只画真读过的日子） -->
+        <TextView
+            android:id="@+id/tv_legend_note"
+            style="@style/Text.Bookshelf.Overline"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="@dimen/page_padding"
+            android:layout_marginTop="@dimen/space_xs"
+            android:gravity="center"
+            android:visibility="gone"
+            tools:text="点 = 实际读过的日子" />
 
         <View
             android:layout_width="match_parent"
