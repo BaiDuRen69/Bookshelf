@@ -18,6 +18,7 @@ import com.bai.bookshelf.data.entity.BorrowRecord;
 import com.bai.bookshelf.data.entity.CheckIn;
 import com.bai.bookshelf.databinding.FragmentCheckinBinding;
 import com.bai.bookshelf.ui.MainActivity;
+import com.bai.bookshelf.ui.TabRefresh;
 import com.bai.bookshelf.util.BookSanitizer;
 import com.bai.bookshelf.util.CheckInHabit;
 import com.bai.bookshelf.util.CheckInMonthGrid;
@@ -42,7 +43,7 @@ import java.util.Set;
  * readStatus 与阅读会话。打卡成功后只重绑受影响的一行与一个日历格，不整表重建。
  */
 public class CheckInFragment extends Fragment
-        implements MonthGridView.Listener, CheckInAdapter.Listener {
+        implements MonthGridView.Listener, CheckInAdapter.Listener, TabRefresh {
 
     private FragmentCheckinBinding b;
     private CheckInAdapter adapter;
@@ -493,6 +494,12 @@ public class CheckInFragment extends Fragment
     }
 
     // ==================== 返回 / 切 Tab 的刷新 ====================
+
+    /** MainActivity 的统一可见性钩子：切 Tab 与二级页返回都走这里（节流合并重复调用） */
+    @Override
+    public void onTabShown() {
+        reloadCurrentMonth();
+    }
 
     /** 详情页改完书状态回到本页时，Fragment 实例的旧数据必须重取 */
     @Override

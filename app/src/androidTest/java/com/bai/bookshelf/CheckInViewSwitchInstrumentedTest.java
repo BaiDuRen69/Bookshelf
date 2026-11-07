@@ -16,6 +16,8 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
 
+import com.bai.bookshelf.ui.TabRefresh;
+import com.bai.bookshelf.ui.checkin.CheckInFragment;
 import com.bai.bookshelf.ui.checkin.CheckInViewSwitcher;
 import com.bai.bookshelf.ui.checkin.CheckInYearView;
 import com.bai.bookshelf.ui.checkin.MonthGridView;
@@ -120,5 +122,13 @@ public class CheckInViewSwitchInstrumentedTest {
         assertEquals(2021, CheckInYearGrid.minYear(null, 2026));
         assertEquals(-1, CheckInYearGrid.deltaForSwipe(-120f));
         assertEquals(1, CheckInYearGrid.deltaForSwipe(120f));
+    }
+
+    @Test
+    public void 打卡页接入统一可见性刷新钩子且空视图调用安全() {
+        CheckInFragment fragment = new CheckInFragment();
+        assertTrue(fragment instanceof TabRefresh);
+        // onViewCreated 之前 b == null，钩子必须直接返回，不依赖 Activity/Context
+        ((TabRefresh) fragment).onTabShown();
     }
 }

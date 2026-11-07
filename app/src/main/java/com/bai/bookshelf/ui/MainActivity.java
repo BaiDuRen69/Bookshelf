@@ -212,6 +212,8 @@ public class MainActivity extends BaseActivity {
     protected void onResume() {
         super.onResume();
         refreshTabBadges();
+        // 从书籍详情页/编辑页返回：当前 Tab 重取一次数据（打卡页据此刷新在读列表）
+        notifyVisibleTab();
     }
 
     /**
@@ -224,6 +226,17 @@ public class MainActivity extends BaseActivity {
     public void showTab(int index) {
         if (index >= 0 && index < tabs.length) {
             selectTab(index);
+        }
+    }
+
+    /** 统一可见性刷新钩子：只通知当前可见且实现了接口的 Tab，show/hide 结构不动 */
+    private void notifyVisibleTab() {
+        if (currentTab < 0 || currentTab >= tabs.length) {
+            return;
+        }
+        Fragment visible = tabs[currentTab];
+        if (visible instanceof TabRefresh && visible.isAdded()) {
+            ((TabRefresh) visible).onTabShown();
         }
     }
 
@@ -274,6 +287,7 @@ public class MainActivity extends BaseActivity {
                 targetView.animate().alpha(1f).setDuration(180).start();
             }
         }
+        notifyVisibleTab();
     }
 
     /**

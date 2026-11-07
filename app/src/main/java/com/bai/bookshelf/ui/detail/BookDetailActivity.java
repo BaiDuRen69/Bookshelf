@@ -400,7 +400,12 @@ public class BookDetailActivity extends BaseActivity {
         boolean run(Book book);
     }
 
-    /** 跑一个会话动作：写库 → reload → 8 秒撤销（撤销 = 还原动作前的整本书） */
+    /**
+     * 跑一个会话动作：写库 → reload → 8 秒撤销（撤销 = 还原动作前的整本书）。
+     *
+     * <p>书籍状态变化后返回打卡页，由 MainActivity.onResume 的 TabRefresh 钩子统一重取数据；
+     * 这里不新增广播/结果码，业务逻辑不变。
+     */
     private void applyFlow(String alreadyMessage, FlowOp op, String doneMessage) {
         BookshelfApp app = BookshelfApp.get();
         final Book before = com.bai.bookshelf.util.BookSnapshot.copy(book);
