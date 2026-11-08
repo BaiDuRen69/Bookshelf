@@ -296,6 +296,43 @@ public class CheckInYearView extends FrameLayout {
         }
     }
 
+    /**
+     * 直接跳到目标年（年视图标题快选用）：与左右滑共用同一套两层缓冲与转场。
+     *
+     * <p>动画期间不排队、不打断（与 {@link #shift(int)} 一致）；目标年夹在
+     * 同一条 [minYear, maxYear] 区间内，已在该年则不动。
+     */
+    public void jumpToYear(int target) {
+        if (yearSwitcher != null && yearSwitcher.isAnimating()) {
+            return;
+        }
+        final int nextYear = Math.max(minYear, Math.min(maxYear, target));
+        if (nextYear == year) {
+            return;
+        }
+        final int delta = Integer.compare(nextYear, year);
+        final int nextLayer = 1 - activeLayer;
+        renderLayer(nextLayer, nextYear);
+        final View oldLayer = layers[activeLayer];
+        final View newLayer = layers[nextLayer];
+        activeLayer = nextLayer;
+        year = nextYear;
+        if (yearSwitcher != null) {
+            yearSwitcher.switchYear(delta, oldLayer, newLayer,
+                    () -> {
+                        if (listener != null) {
+                            listener.onYearChanged(nextYear);
+                        }
+                    });
+        } else {
+            oldLayer.setVisibility(View.GONE);
+            newLayer.setVisibility(View.VISIBLE);
+            if (listener != null) {
+                listener.onYearChanged(nextYear);
+            }
+        }
+    }
+
     /** 越界时不换年，做一次 24dp 回弹（Decelerate）：左滑往左弹、右滑往右弹 */
     private void rubberBand(int delta) {
         float distance = dp(CheckInYearGrid.RUBBER_BAND_DP) * (delta < 0 ? 1f : -1f);

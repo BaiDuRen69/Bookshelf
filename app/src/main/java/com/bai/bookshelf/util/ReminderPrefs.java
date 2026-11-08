@@ -22,6 +22,11 @@ public final class ReminderPrefs {
     public static final String KEY_BANNER_BORROW_DUE = "banner_borrow_due";
     /** 第 4.4 步：每日打卡提醒（本轮唯一新增 SharedPreferences 键，默认关） */
     public static final String KEY_NOTIFY_CHECKIN_DAILY = "notify_checkin_daily";
+    /** v5.9.2：每日打卡提醒的触发时刻（24 小时制，默认 21:00） */
+    public static final String KEY_CHECKIN_REMINDER_HOUR = "checkin_reminder_hour";
+    public static final String KEY_CHECKIN_REMINDER_MINUTE = "checkin_reminder_minute";
+    public static final int DEFAULT_CHECKIN_REMINDER_HOUR = 21;
+    public static final int DEFAULT_CHECKIN_REMINDER_MINUTE = 0;
 
     private ReminderPrefs() {
     }
@@ -66,5 +71,30 @@ public final class ReminderPrefs {
 
     public static boolean checkinDaily(Context ctx) {
         return isOn(ctx, KEY_NOTIFY_CHECKIN_DAILY);
+    }
+
+    /** 打卡提醒的整点（0–23）；坏数据按默认 21 点处理，不抛异常 */
+    public static int checkinReminderHour(Context ctx) {
+        int v = prefs(ctx).getInt(KEY_CHECKIN_REMINDER_HOUR, DEFAULT_CHECKIN_REMINDER_HOUR);
+        return v < 0 || v > 23 ? DEFAULT_CHECKIN_REMINDER_HOUR : v;
+    }
+
+    /** 打卡提醒的分钟（0–59） */
+    public static int checkinReminderMinute(Context ctx) {
+        int v = prefs(ctx).getInt(KEY_CHECKIN_REMINDER_MINUTE, DEFAULT_CHECKIN_REMINDER_MINUTE);
+        return v < 0 || v > 59 ? DEFAULT_CHECKIN_REMINDER_MINUTE : v;
+    }
+
+    public static void setCheckinReminderTime(Context ctx, int hour, int minute) {
+        prefs(ctx).edit()
+                .putInt(KEY_CHECKIN_REMINDER_HOUR, hour)
+                .putInt(KEY_CHECKIN_REMINDER_MINUTE, minute)
+                .apply();
+    }
+
+    /** 「21:00」/「7:05」 */
+    public static String checkinReminderTimeText(Context ctx) {
+        return String.format(java.util.Locale.ROOT, "%02d:%02d",
+                checkinReminderHour(ctx), checkinReminderMinute(ctx));
     }
 }

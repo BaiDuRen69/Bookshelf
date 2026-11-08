@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 当天记录明细的一行：书名 + 打卡方式 + 撤销。整行不可点，避免和撤销按钮抢手势。 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="56dp"
+    android:gravity="center_vertical"
+    android:orientation="horizontal">
+
+    <TextView
+        android:id="@+id/tv_record_book"
+        style="@style/Text.Bookshelf.RowName"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:ellipsize="end"
+        android:maxLines="2"
+        tools:text="《三体》" />
+
+    <TextView
+        android:id="@+id/tv_record_kind"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="@dimen/space_sm"
+        android:textColor="?attr/on_surface_variant"
+        android:textSize="@dimen/text_caption_large"
+        tools:text="补卡" />
+
+    <ImageButton
+        android:id="@+id/btn_record_undo"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_marginStart="@dimen/space_xs"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="撤销这条打卡"
+        android:padding="@dimen/space_md"
+        android:src="@drawable/ic_undo"
+        app:tint="?attr/on_surface_variant"
+        tools:ignore="TouchTargetSizeCheck" />
+</LinearLayout>

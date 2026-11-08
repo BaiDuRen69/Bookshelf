@@ -31,6 +31,9 @@ public class CheckInMonthDayAdapter extends RecyclerView.Adapter<CheckInMonthDay
 
     public interface Listener {
         void onDayClick(CheckInDayDetail.Day day);
+
+        /** 当天记录明细（非在读/已删除的书也在这里撤销） */
+        void onDayRecords(CheckInDayDetail.Day day);
     }
 
     private static final String[] WEEKDAYS =
@@ -82,6 +85,15 @@ public class CheckInMonthDayAdapter extends RecyclerView.Adapter<CheckInMonthDay
         holder.itemView.setOnClickListener(v -> {
             if (listener != null) {
                 listener.onDayClick(day);
+            }
+        });
+        // 有记录才有可撤销的东西；0 条的日子不显示入口，免得点开是空面板
+        holder.b.btnDayRecords.setVisibility(day.total > 0 ? View.VISIBLE : View.GONE);
+        holder.b.btnDayRecords.setContentDescription(
+                monthDay(day.dayKey) + "打卡记录，" + day.total + " 条，查看或撤销");
+        holder.b.btnDayRecords.setOnClickListener(v -> {
+            if (listener != null) {
+                listener.onDayRecords(day);
             }
         });
     }

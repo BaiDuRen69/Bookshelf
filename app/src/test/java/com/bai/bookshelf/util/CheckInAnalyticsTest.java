@@ -1,5 +1,6 @@
 package com.bai.bookshelf.util;
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -90,6 +91,14 @@ public class CheckInAnalyticsTest {
                 CheckInYearGrid.deltaForSwipe(-120f), 2023, 2027));
         assertEquals(2025, CheckInYearGrid.shiftYear(2026,
                 CheckInYearGrid.deltaForSwipe(120f), 2023, 2027));
+    }
+
+    @Test
+    public void 可选年份降序含首尾且反序为空() {
+        assertArrayEquals(new int[]{2027, 2026, 2025, 2024, 2023, 2022},
+                CheckInYearGrid.yearsDescending(2022, 2027));
+        assertArrayEquals(new int[]{2026}, CheckInYearGrid.yearsDescending(2026, 2026));
+        assertEquals(0, CheckInYearGrid.yearsDescending(2027, 2022).length);
     }
 
     @Test

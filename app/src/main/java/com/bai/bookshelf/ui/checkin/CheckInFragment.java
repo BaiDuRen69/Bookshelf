@@ -1,29 +1,45 @@
 package com.bai.bookshelf.ui.checkin;
 
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
+import android.animation.ValueAnimator;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.SystemClock;
+import android.util.Log;
+import android.util.LruCache;
 import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 
+import com.bai.bookshelf.BuildConfig;
 import com.bai.bookshelf.R;
 import com.bai.bookshelf.app.BookshelfApp;
 import com.bai.bookshelf.data.entity.Book;
 import com.bai.bookshelf.data.entity.BorrowRecord;
 import com.bai.bookshelf.data.entity.CheckIn;
+import com.bai.bookshelf.data.dao.BookSeqStat;
 import com.bai.bookshelf.databinding.FragmentCheckinBinding;
+import com.bai.bookshelf.ui.BaseActivity;
 import com.bai.bookshelf.ui.MainActivity;
 import com.bai.bookshelf.ui.TabRefresh;
 import com.bai.bookshelf.util.BookSanitizer;
 import com.bai.bookshelf.util.CheckInCalendarState;
 import com.bai.bookshelf.util.CheckInDayDetail;
-import com.bai.bookshelf.util.CheckInHabit;
 import com.bai.bookshelf.util.CheckInHeader;
 import com.bai.bookshelf.util.CheckInMonthGrid;
 import com.bai.bookshelf.util.CheckInStore;
@@ -32,7 +48,7 @@ import com.bai.bookshelf.util.DateKeys;
 import com.bai.bookshelf.util.HolidayCalendar;
 import com.bai.bookshelf.util.HolidayStore;
 import com.bai.bookshelf.util.InsetsHelper;
-import com.bai.bookshelf.util.ReadDays;
+import com.bai.bookshelf.util.Motion;
 import com.bai.bookshelf.util.ReadingRecords;
 
 import java.util.ArrayList;
@@ -52,10 +68,18 @@ public class CheckInFragment extends Fragment
         implements MonthGridView.Listener, CheckInSwipeRoot.Listener,
         CheckInAdapter.Listener, TabRefresh {
 
+    private static final String TAG = "CheckInPerf";
+    /** 5 秒内可撤销的单日批量打卡；换日/换月后按记录的原日期生效 */
+    private static final long BATCH_UNDO_MS = 5000L;
+    /** 撤销按钮出现/收起 */
+    private static final long DAY_UNDO_MS = 160L;
+
     private FragmentCheckinBinding b;
     private CheckInAdapter adapter;
     private int selectedDayKey;
     private int todayKey;
+    /** 今天是否已有任意一本打卡（第 9 项）：缓存命中时也要先把这个状态贴回网格 */
+    private boolean todayChecked;
     private long lastReloadMs;
     private CheckInViewSwitcher switcher;
     private CheckInYearPanel yearPanel;
@@ -66,6 +90,31 @@ public class CheckInFragment extends Fragment
     private boolean dayEmpty;
     /** 年→月转场期间把列表/小结/图例淡掉，数据回来后再显现 */
     private boolean monthChromeHidden;
+    /** 「bookId:dayKey」在途请求：同一格连点、换日回来再点都不会重复写库 */
+    private final Set<String> pendingOps = new HashSet<>();
+    /** 系统改日期/时间/时区后重取今天；分钟级没有轮询，跨天另外用 Handler */
+    private final BroadcastReceiver clockReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            onClockChanged();
+        }
+    };
+    private final Handler midnightHandler = new Handler(Looper.getMainLooper());
+    private final Handler uiHandler = new Handler(Looper.getMainLooper());
+    private final Runnable midnightTask = this::onClockChanged;
+    private boolean clockReceiverRegistered;
+    private boolean batchPending;
+    private long batchUndoGeneration;
+    private List<Long> batchUndoIds = new ArrayList<>();
+    private int batchUndoDayKey;
+    /** 当前可见的日动作条文案；两行 TextView 交叉淡入时用它做去重 */
+    private String dayActionText = "";
+    @Nullable
+    private ValueAnimator dayActionAnim;
+    /** 当月书名表（含非在读与已删书的缺失占位），当天记录明细拿它显示书名 */
+    private Map<Long, String> monthBookTitles = new HashMap<>();
+    /** 相邻月快照：切月时先把打卡点铺上，列表/小结再由 loadMonth 补齐（第 8 项） */
+    private final LruCache<Integer, MonthSnapshot> monthSnapshots = new LruCache<>(4);
 
     // 三态（本轮只接 MONTH↔WEEK；DETAIL 等逐日列表规格）
     private CheckInCalendarState.Mode mode = CheckInCalendarState.Mode.MONTH;
@@ -120,6 +169,11 @@ public class CheckInFragment extends Fragment
         b.swipeRoot.setExcludedView(b.fabToday);
 
         InsetsHelper.applyTopInset(b.toolbar);
+        // v5.9.2：悬浮「今」与两个列表的底部避让要加上导航栏 inset，
+        // 否则屏幕内导航（手势条/三键）机型上会被系统栏压住一截
+        InsetsHelper.applyDockReserveMargin(b.fabToday);
+        InsetsHelper.applyDockReservePadding(b.rvCheckin);
+        InsetsHelper.applyDockReservePadding(b.rvMonthDays);
         toolbarFullPx = getResources().getDimensionPixelSize(R.dimen.toolbar_h);
         toolbarCompactPx = getResources().getDimensionPixelSize(R.dimen.toolbar_h_compact);
         titleFullPx = b.tvMonthTitle.getTextSize();
@@ -138,14 +192,16 @@ public class CheckInFragment extends Fragment
                 final int[] todayPick = yearPanel.todayPick(DateKeys.todayKey());
                 // 「今」返回时缩放中心落在今天格，不是上一次选中的日子
                 b.monthGrid.setSelectedDay(todayPick[1]);
-                switcher.toMonth(b.monthGrid.selectedCellCenterIn(b.viewSwitchHost), () -> {
-                    selectedDayKey = todayPick[1];
-                    b.monthGrid.moveToToday();
-                });
+                switcher.toMonth(b.monthGrid.selectedCellCenterIn(b.viewSwitchHost),
+                        this::goToToday);
             } else {
-                b.monthGrid.moveToToday();
+                goToToday();
             }
         });
+        // 日动作条：同月回到今天必须重取列表，否则只是网格换了选中圈
+        b.btnBackToday.setOnClickListener(v -> goToToday());
+        b.btnBatchCheckin.setOnClickListener(v -> batchCheckIn());
+        b.btnDayUndo.setOnClickListener(v -> undoBatchCheckIn());
 
         adapter = new CheckInAdapter();
         adapter.setListener(this);
@@ -153,7 +209,17 @@ public class CheckInFragment extends Fragment
         b.rvCheckin.setAdapter(adapter);
 
         monthDayAdapter = new CheckInMonthDayAdapter();
-        monthDayAdapter.setListener(this::onMonthDayClick);
+        monthDayAdapter.setListener(new CheckInMonthDayAdapter.Listener() {
+            @Override
+            public void onDayClick(CheckInDayDetail.Day day) {
+                onMonthDayClick(day);
+            }
+
+            @Override
+            public void onDayRecords(CheckInDayDetail.Day day) {
+                onMonthDayRecords(day);
+            }
+        });
         b.rvMonthDays.setLayoutManager(new LinearLayoutManager(requireContext()));
         b.rvMonthDays.setAdapter(monthDayAdapter);
         b.llMonthDaysHandle.setOnClickListener(v -> toggleMonthDays());
@@ -171,6 +237,84 @@ public class CheckInFragment extends Fragment
         applyMode(mode, false); // 初始档位：整月 + 书目列表
         lastReloadMs = android.os.SystemClock.elapsedRealtime();
         BookshelfApp.get().whenDbReady(() -> loadMonth(b.monthGrid.getYearMonth()));
+    }
+
+    /**
+     * 「今」与日动作条「回到今天」共用。同月时 moveToToday 不回调 onMonthChanged，
+     * 只换网格选中圈，列表/日动作条会停在旧日期——这里补一次重取。
+     */
+    private void goToToday() {
+        if (b == null || switcher == null || switcher.isAnimating()) {
+            return;
+        }
+        final int before = b.monthGrid.getYearMonth();
+        b.monthGrid.moveToToday();
+        todayKey = DateKeys.todayKey();
+        selectedDayKey = b.monthGrid.getSelectedDayKey();
+        if (b.monthGrid.getYearMonth() == before) {
+            setToolbarMonth(before);
+            loadMonth(before);
+        }
+        // 换月时 setYearMonth -> onMonthChanged 已经取过数，不重复
+    }
+
+    // ==================== 跨天 / 系统时间变化 ====================
+
+    /** 日期、时间或时区被改后重算「今天」；隐藏分页只更新网格，列表等切回来再取 */
+    private void onClockChanged() {
+        final int prev = todayKey;
+        todayKey = DateKeys.todayKey();
+        if (b != null && isAdded()) {
+            b.monthGrid.refreshTodayKey();
+            if (prev != todayKey) {
+                setToolbarMonth(b.monthGrid.getYearMonth());
+                if (!isHidden()) {
+                    loadMonth(b.monthGrid.getYearMonth());
+                }
+                // 跨 0 点后小组件的「今日已打卡」要归零
+                com.bai.bookshelf.ui.widget.ReadingWidgetProvider.refresh(requireContext());
+            }
+        }
+        scheduleMidnightRefresh();
+    }
+
+    /** 没有分钟级轮询：只在下一次本地零点后 1 秒补一刀，跨天时列表与日动作条自己更新 */
+    private void scheduleMidnightRefresh() {
+        midnightHandler.removeCallbacks(midnightTask);
+        java.util.Calendar now = java.util.Calendar.getInstance();
+        java.util.Calendar next = (java.util.Calendar) now.clone();
+        next.add(java.util.Calendar.DAY_OF_YEAR, 1);
+        next.set(java.util.Calendar.HOUR_OF_DAY, 0);
+        next.set(java.util.Calendar.MINUTE, 0);
+        next.set(java.util.Calendar.SECOND, 1);
+        next.set(java.util.Calendar.MILLISECOND, 0);
+        long delay = Math.max(1000L, next.getTimeInMillis() - now.getTimeInMillis());
+        midnightHandler.postDelayed(midnightTask, delay);
+    }
+
+    @Override
+    public void onStart() {
+        super.onStart();
+        if (!clockReceiverRegistered) {
+            IntentFilter filter = new IntentFilter();
+            filter.addAction(Intent.ACTION_DATE_CHANGED);
+            filter.addAction(Intent.ACTION_TIME_CHANGED);
+            filter.addAction(Intent.ACTION_TIMEZONE_CHANGED);
+            ContextCompat.registerReceiver(requireContext(), clockReceiver, filter,
+                    ContextCompat.RECEIVER_NOT_EXPORTED);
+            clockReceiverRegistered = true;
+        }
+        scheduleMidnightRefresh();
+    }
+
+    @Override
+    public void onStop() {
+        super.onStop();
+        if (clockReceiverRegistered) {
+            requireContext().unregisterReceiver(clockReceiver);
+            clockReceiverRegistered = false;
+        }
+        midnightHandler.removeCallbacks(midnightTask);
     }
 
     /** 标题栏在年视图里就是返回月视图的入口 */
@@ -245,7 +389,7 @@ public class CheckInFragment extends Fragment
             if (b == null) {
                 return;
             }
-            loadMonth(yearMonth, true);
+            loadMonth(yearMonth);
         });
     }
 
@@ -280,6 +424,7 @@ public class CheckInFragment extends Fragment
             return;
         }
         b.llCheckinSummary.setAlpha(alpha);
+        b.llDayActions.setAlpha(alpha);
         b.llCheckinLegend.setAlpha(alpha);
         b.tvLegendNote.setAlpha(alpha);
         b.rvCheckin.setAlpha(alpha);
@@ -296,6 +441,137 @@ public class CheckInFragment extends Fragment
         b.rvCheckin.setVisibility(!detail && !empty ? View.VISIBLE : View.GONE);
         b.emptyState.getRoot().setVisibility(!detail && empty ? View.VISIBLE : View.GONE);
         b.rvMonthDays.setVisibility(detail ? View.VISIBLE : View.GONE);
+        renderDayActions();
+    }
+
+    /**
+     * 选中日动作条：今天/过去/未来的说明 + 未打数 + 回到今天 + 全部打卡/补卡。
+     * 全部走纯文案 {@link CheckInUiState}，没有行（空态）或逐日明细时不占位置。
+     */
+    private void renderDayActions() {
+        if (b == null || adapter == null) {
+            return;
+        }
+        boolean show = mode != CheckInCalendarState.Mode.DETAIL && adapter.getItemCount() > 0;
+        b.llDayActions.setVisibility(show ? View.VISIBLE : View.GONE);
+        if (!show) {
+            return;
+        }
+        int unchecked = 0;
+        for (CheckInAdapter.Row row : adapter.rows()) {
+            if (!row.checked) {
+                unchecked++;
+            }
+        }
+        setDayActionText(CheckInUiState.dayActionNote(
+                selectedDayKey, todayKey, unchecked, adapter.getItemCount()));
+        b.btnBackToday.setVisibility(selectedDayKey == todayKey ? View.GONE : View.VISIBLE);
+        String batch = CheckInUiState.dayActionButton(selectedDayKey, todayKey);
+        boolean canBatch = batch != null && unchecked > 0;
+        b.btnBatchCheckin.setVisibility(canBatch ? View.VISIBLE : View.GONE);
+        if (batch != null) {
+            b.btnBatchCheckin.setText(batchPending ? "打卡中…" : batch);
+        }
+        b.btnBatchCheckin.setEnabled(!batchPending);
+    }
+
+    /** 文案变化时 120ms 交叉淡入，避免整行宽度跳动；两行布局叠在同一个 FrameLayout 里 */
+    private void setDayActionText(CharSequence text) {
+        if (b == null) {
+            return;
+        }
+        String next = text == null ? "" : text.toString();
+        if (next.equals(dayActionText)) {
+            return;
+        }
+        TextView visible = b.tvDayAction.getAlpha() >= b.tvDayActionAlt.getAlpha()
+                ? b.tvDayAction : b.tvDayActionAlt;
+        TextView hidden = visible == b.tvDayAction ? b.tvDayActionAlt : b.tvDayAction;
+        String previous = dayActionText;
+        dayActionText = next;
+        if (dayActionAnim != null) {
+            dayActionAnim.cancel();
+            dayActionAnim = null;
+        }
+        if (previous.isEmpty() || !Motion.enabled(requireContext())) {
+            visible.setText(next);
+            visible.setAlpha(1f);
+            hidden.setText(null);
+            hidden.setAlpha(0f);
+            return;
+        }
+        hidden.setText(next);
+        hidden.setAlpha(0f);
+        ValueAnimator anim = ValueAnimator.ofFloat(0f, 1f);
+        anim.setDuration(Motion.FAST);
+        anim.setInterpolator(Motion.STANDARD);
+        anim.addUpdateListener(a -> {
+            float p = (float) a.getAnimatedValue();
+            hidden.setAlpha(p);
+            visible.setAlpha(1f - p);
+        });
+        anim.addListener(new AnimatorListenerAdapter() {
+            @Override
+            public void onAnimationEnd(Animator a) {
+                if (dayActionAnim != a) {
+                    return;
+                }
+                dayActionAnim = null;
+                visible.setText(null);
+                visible.setAlpha(0f);
+                hidden.setAlpha(1f);
+            }
+        });
+        dayActionAnim = anim;
+        anim.start();
+    }
+
+    /** 撤销按钮出现：右侧 8dp 滑入 + 淡入，行高不变 */
+    private void showDayUndo() {
+        if (b == null) {
+            return;
+        }
+        View v = b.btnDayUndo;
+        v.animate().cancel();
+        v.setVisibility(View.VISIBLE);
+        if (!Motion.enabled(requireContext())) {
+            v.setAlpha(1f);
+            v.setTranslationX(0f);
+            return;
+        }
+        v.setAlpha(0f);
+        v.setTranslationX(undoShiftPx());
+        v.animate().alpha(1f).translationX(0f)
+                .setDuration(DAY_UNDO_MS).setInterpolator(Motion.STANDARD).start();
+    }
+
+    /** 撤销按钮收起：淡出 + 向右让出 8dp；动画结束才 GONE，避免布局跳动 */
+    private void hideDayUndo() {
+        if (b == null) {
+            return;
+        }
+        View v = b.btnDayUndo;
+        v.animate().cancel();
+        if (!Motion.enabled(requireContext())) {
+            v.setAlpha(1f);
+            v.setTranslationX(0f);
+            v.setVisibility(View.GONE);
+            return;
+        }
+        v.animate().alpha(0f).translationX(undoShiftPx())
+                .setDuration(DAY_UNDO_MS).setInterpolator(Motion.STANDARD)
+                .withEndAction(() -> {
+                    if (b == null) {
+                        return;
+                    }
+                    b.btnDayUndo.setVisibility(View.GONE);
+                    b.btnDayUndo.setAlpha(1f);
+                    b.btnDayUndo.setTranslationX(0f);
+                }).start();
+    }
+
+    private float undoShiftPx() {
+        return 8 * getResources().getDisplayMetrics().density;
     }
 
     private void restoreMonthChrome() {
@@ -344,7 +620,7 @@ public class CheckInFragment extends Fragment
             applyMode(CheckInCalendarState.Mode.MONTH, true);
         } else {
             applyMode(CheckInCalendarState.Mode.DETAIL, true);
-            loadMonth(b.monthGrid.getYearMonth(), false);
+            loadMonth(b.monthGrid.getYearMonth());
         }
     }
 
@@ -356,7 +632,24 @@ public class CheckInFragment extends Fragment
         selectedDayKey = day.dayKey;
         b.monthGrid.setSelectedDay(day.dayKey);
         applyMode(CheckInCalendarState.Mode.MONTH, true);
-        loadMonth(b.monthGrid.getYearMonth(), false);
+        loadMonth(b.monthGrid.getYearMonth());
+    }
+
+    /**
+     * 逐日行尾部「⋯」：打开当天记录明细。书目列表只列在读的书，
+     * 改读状态/删书之后那天的打卡只能从这里撤。
+     */
+    private void onMonthDayRecords(CheckInDayDetail.Day day) {
+        if (b == null || day == null || !isAdded() || !(requireActivity() instanceof BaseActivity)) {
+            return;
+        }
+        DayRecordsSheet.show((BaseActivity) requireActivity(), day.dayKey,
+                new HashMap<>(monthBookTitles), () -> {
+                    if (b != null) {
+                        invalidateMonthSnapshot(b.monthGrid.getYearMonth());
+                        loadMonth(b.monthGrid.getYearMonth());
+                    }
+                });
     }
 
     /**
@@ -459,8 +752,14 @@ public class CheckInFragment extends Fragment
     /**
      * 选中日落在精确轮的日集合里时，这一轮已记几天（v5.9.1 第六步）。
      * 多本书同一天都命中时不猜，返回 0 = 摘要不追加。
+     *
+     * <p>命中判定只看当天那几行，天数直接用 SQL 聚合结果，不再全表扫。
      */
-    private static int selectedRoundDays(List<Book> reading, List<CheckIn> all, int dayKey) {
+    private static int selectedRoundDays(List<Book> reading, List<CheckIn> dayRows,
+                                         List<BookSeqStat> stats) {
+        if (dayRows == null || dayRows.isEmpty()) {
+            return 0;
+        }
         int hits = 0;
         int days = 0;
         for (Book book : reading) {
@@ -468,23 +767,107 @@ public class CheckInFragment extends Fragment
             if (current == null || current.mode != ReadingRecords.MODE_PRECISE) {
                 continue;
             }
-            int n = CheckInStore.roundDaysAt(all, book.id, current.seq, dayKey);
-            if (n >= 0) {
-                hits++;
-                days = n;
+            int seq = Math.max(1, current.seq);
+            boolean hit = false;
+            for (CheckIn c : dayRows) {
+                if (c.bookId == book.id && c.seq == seq) {
+                    hit = true;
+                    break;
+                }
             }
+            if (!hit) {
+                continue;
+            }
+            hits++;
+            days = dayCount(stats, book.id, seq);
         }
         return hits == 1 ? days : 0;
     }
 
-    // ==================== 取数 ====================
-
-    private void loadMonth(int yearMonth) {
-        loadMonth(yearMonth, true);
+    /** 从聚合结果里取某本书某一轮的天数；没有行 = 0 */
+    private static int dayCount(List<BookSeqStat> stats, long bookId, int seq) {
+        if (stats == null) {
+            return 0;
+        }
+        for (BookSeqStat s : stats) {
+            if (s.bookId == bookId && s.seq == seq) {
+                return s.dayCount;
+            }
+        }
+        return 0;
     }
 
-    /** @param refreshGrid true = 切月/首载要重画整张月历；false = 只刷列表与小结 */
-    private void loadMonth(int yearMonth, boolean refreshGrid) {
+    /**
+     * 一次 getAllOpen 取代每本书各查一次。旧入口 findOpenListByBook 按 copyIndex
+     * 升序取第一条，这里等价地保留每本书 copyIndex 最小的那位借阅人。
+     */
+    private static Map<Long, String> borrowerByBook(List<BorrowRecord> open) {
+        Map<Long, String> out = new HashMap<>();
+        Map<Long, Integer> copyOf = new HashMap<>();
+        if (open == null) {
+            return out;
+        }
+        for (BorrowRecord r : open) {
+            Integer old = copyOf.get(r.bookId);
+            if (old == null || r.copyIndex < old) {
+                copyOf.put(r.bookId, r.copyIndex);
+                out.put(r.bookId, r.borrower);
+            }
+        }
+        return out;
+    }
+
+    // ==================== 取数 ====================
+
+    /** 一个月的日历快照：切月动画开始前就能把点与节日铺上去 */
+    private static final class MonthSnapshot {
+        final Map<Integer, int[]> dayMarks;
+        final HolidayCalendar holidays;
+
+        MonthSnapshot(Map<Integer, int[]> dayMarks, HolidayCalendar holidays) {
+            this.dayMarks = dayMarks;
+            this.holidays = holidays;
+        }
+    }
+
+    /** 当前月加载完就把前后两个月排进后台；命中缓存时不再重复查 */
+    private void prefetchAdjacentMonths(int yearMonth) {
+        prefetchMonth(CheckInMonthGrid.shiftMonth(yearMonth, -1));
+        prefetchMonth(CheckInMonthGrid.shiftMonth(yearMonth, 1));
+    }
+
+    private void prefetchMonth(int yearMonth) {
+        if (monthSnapshots.get(yearMonth) != null) {
+            return;
+        }
+        BookshelfApp app = BookshelfApp.get();
+        if (app == null) {
+            return;
+        }
+        final int y = CheckInMonthGrid.yearOf(yearMonth);
+        final int m = CheckInMonthGrid.monthOf(yearMonth);
+        final int start = DateKeys.keyOf(y, m, 1);
+        final int end = DateKeys.keyOf(y, m, DateKeys.daysInMonth(y, m));
+        app.io(() -> {
+            final Map<Integer, int[]> marks;
+            final HolidayCalendar cal;
+            try {
+                List<CheckIn> rows = app.db().checkInDao().getInRange(start, end);
+                marks = com.bai.bookshelf.util.CheckInDots.marks(rows, preciseSeqOf(app, rows));
+                cal = HolidayStore.load(app, y);
+            } catch (Exception ignored) {
+                return;
+            }
+            app.ui(() -> monthSnapshots.put(yearMonth, new MonthSnapshot(marks, cal)));
+        });
+    }
+
+    /** 某个月的数据被改过（打卡/撤销/当天明细）：快照作废，等下次加载重算 */
+    private void invalidateMonthSnapshot(int yearMonth) {
+        monthSnapshots.remove(yearMonth);
+    }
+
+    private void loadMonth(int yearMonth) {
         if (b == null || !isAdded()) {
             return;
         }
@@ -495,8 +878,9 @@ public class CheckInFragment extends Fragment
         final int end = DateKeys.keyOf(y, m, DateKeys.daysInMonth(y, m));
         final int day = selectedDayKey;
         app.io(() -> {
+            final long dbStart = BuildConfig.DEBUG ? SystemClock.elapsedRealtime() : 0L;
             final List<CheckIn> monthList;
-            final List<CheckIn> all;
+            final List<CheckIn> dayRows;
             final List<CheckInAdapter.Row> rows = new ArrayList<>();
             final Map<Long, Integer> preciseSeq = new HashMap<>();
             final List<CheckInDayDetail.Day> monthDays;
@@ -505,20 +889,22 @@ public class CheckInFragment extends Fragment
             final int roundDays;
             final HolidayCalendar holidays;
             final boolean anyReading;
+            final boolean todayChecked;
+            final int bookCount;
+            // 逐日明细的书名取全部藏书（不只在读），删掉的书才能落成「（已删除）」
+            final Map<Long, String> bookTitles = new HashMap<>();
             try {
                 monthList = app.db().checkInDao().getInRange(start, end);
-                all = app.db().checkInDao().getInRange(0, 99999999);
+                dayRows = app.db().checkInDao().getByDay(day);
                 Set<Long> marked = new HashSet<>();
                 for (CheckIn c : monthList) {
                     marked.add(c.bookId);
                 }
                 Set<Long> checked = new HashSet<>();
-                for (CheckIn c : app.db().checkInDao().getByDay(day)) {
+                for (CheckIn c : dayRows) {
                     checked.add(c.bookId);
                 }
                 List<Book> reading = new ArrayList<>();
-                // 逐日明细的书名取全部藏书（不只在读），删掉的书才能落成「（已删除）」
-                Map<Long, String> bookTitles = new HashMap<>();
                 for (Book book : BookSanitizer.normalizeAll(app.db().bookDao().getAll())) {
                     bookTitles.put(book.id, book.title);
                     if (book.readStatus == Book.READING) {
@@ -532,54 +918,87 @@ public class CheckInFragment extends Fragment
                         preciseSeq.put(book.id, Math.max(1, current.seq));
                     }
                 }
-                reading.sort((x, z) -> Long.compare(z.updatedAt, x.updatedAt));
+                // 第 11 项：未打卡的排前面（同组仍按最近更新）；只在组装时排，
+                // 打卡/撤销不重排，行不会在手指下跳
+                reading.sort((x, z) -> {
+                    boolean checkedX = checked.contains(x.id);
+                    boolean checkedZ = checked.contains(z.id);
+                    if (checkedX != checkedZ) {
+                        return checkedX ? 1 : -1;
+                    }
+                    return Long.compare(z.updatedAt, x.updatedAt);
+                });
                 anyReading = !reading.isEmpty();
-                // 每本书的阅读天数走唯一口径：精确轮吃日集合，模糊轮按区间算
-                Map<Long, Map<Integer, List<Integer>>> daysByBook = ReadDays.byBook(all);
+                // 只按在读书聚合天数：不再把整张 check_ins 读出来逐行数
+                List<Long> readingIds = new ArrayList<>();
+                for (Book book : reading) {
+                    readingIds.add(book.id);
+                }
+                final List<BookSeqStat> stats = readingIds.isEmpty()
+                        ? new ArrayList<>() : app.db().checkInDao().statsForBooks(readingIds);
+                final Map<Long, String> borrowers =
+                        borrowerByBook(app.db().borrowRecordDao().getAllOpen());
                 for (Book book : reading) {
                     CheckInAdapter.Row row = new CheckInAdapter.Row(
                             book, checked.contains(book.id));
-                    List<BorrowRecord> open =
-                            app.db().borrowRecordDao().findOpenListByBook(book.id);
-                    if (!open.isEmpty()) {
-                        row.borrower = open.get(0).borrower;
+                    String borrower = borrowers.get(book.id);
+                    if (borrower != null) {
+                        row.borrower = borrower;
                     }
                     ReadingRecords.Record current = currentRecord(book);
+                    int recorded = 0;
                     if (current != null) {
                         row.seq = Math.max(1, current.seq);
-                        Map<Integer, List<Integer>> perSeq = daysByBook.get(book.id);
-                        row.readDays = ReadingRecords.readDays(current,
-                                perSeq == null ? null : perSeq.get(row.seq), null);
+                        recorded = dayCount(stats, book.id, row.seq);
+                        // 精确轮的天数就是聚合出的日集合大小；模糊轮仍按区间算
+                        row.readDays = current.mode == ReadingRecords.MODE_PRECISE
+                                ? recorded : ReadingRecords.readDays(current, null, null);
                     }
                     // 选中日早于开读日：该书当天整行不出现；已打卡的历史行仍保留，允许撤销
-                    int recorded = CheckInStore.recordedDays(all, book.id, row.seq);
                     if (CheckInUiState.hiddenBeforeStart(row.checked, day,
-                            CheckInStore.earliestCheckInKey(book, recorded))) {
+                            CheckInStore.earliestCheckInKey(book, row.seq, recorded))) {
                         continue;
                     }
                     rows.add(row);
                 }
                 summary = CheckInStore.monthSummary(monthList, y, m);
-                streak = CheckInStore.streakDays(all, todayKey);
-                roundDays = selectedRoundDays(reading, all, day);
+                streak = CheckInStore.streakDaysOf(
+                        app.db().checkInDao().distinctDaysUpTo(todayKey), todayKey);
+                roundDays = selectedRoundDays(reading, dayRows, stats);
+                todayChecked = app.db().checkInDao().countOnDay(todayKey) > 0;
                 holidays = HolidayStore.load(app, y);
                 monthDays = CheckInDayDetail.ofMonth(monthList, bookTitles, y * 100 + m, todayKey);
+                bookCount = bookTitles.size();
             } catch (Exception ignored) {
                 app.ui(this::restoreMonthChrome); // 别让转场藏起来的 chrome 永远停在 0
                 return; // 库未就绪 / 修复中，等下一次回调
             }
             final Map<Integer, int[]> dayMarks =
                     com.bai.bookshelf.util.CheckInDots.marks(monthList, preciseSeq);
-            final boolean todayChecked = CheckInHabit.dayKeys(all).contains(todayKey);
+            if (BuildConfig.DEBUG) {
+                Log.d(TAG, "loadMonth ym=" + yearMonth + " monthRows=" + monthList.size()
+                        + " books=" + bookCount
+                        + " listRows=" + rows.size()
+                        + " db=" + (SystemClock.elapsedRealtime() - dbStart) + "ms");
+            }
             app.ui(() -> {
                 if (b == null) {
                     return;
                 }
-                b.monthGrid.setHolidays(holidays);
-                if (refreshGrid) {
-                    b.monthGrid.setCheckInMarks(dayMarks);
+                if (yearMonth != b.monthGrid.getYearMonth()) {
+                    return; // 迟到结果：快速切月后网格已经翻走，别把旧月的点贴回来
                 }
+                monthBookTitles = bookTitles;
+                this.todayChecked = todayChecked;
+                b.monthGrid.setTodayChecked(todayChecked);
+                // 节日表与打卡点一次合并：内容没变的日子不再重绑
+                b.monthGrid.setMonthData(holidays, dayMarks);
+                monthSnapshots.put(yearMonth, new MonthSnapshot(dayMarks, holidays));
+                prefetchAdjacentMonths(yearMonth);
                 renderSummary(summary, streak, todayChecked, roundDays);
+                for (CheckInAdapter.Row row : rows) {
+                    row.pending = pendingOps.contains(row.book.id + ":" + day);
+                }
                 adapter.submit(rows, day, todayKey);
                 monthDayAdapter.submit(monthDays, todayKey);
                 readingEmpty = !anyReading;
@@ -592,48 +1011,12 @@ public class CheckInFragment extends Fragment
         });
     }
 
-    /** 打卡/撤销后只重算小结数字，不动网格与列表 */
-    private void refreshSummaryOnly(int yearMonth) {
-        BookshelfApp app = BookshelfApp.get();
-        final int y = CheckInMonthGrid.yearOf(yearMonth);
-        final int m = CheckInMonthGrid.monthOf(yearMonth);
-        final int day = selectedDayKey;
-        app.io(() -> {
-            final int[] summary;
-            final int[] streak;
-            final int roundDays;
-            final boolean todayChecked;
-            try {
-                summary = CheckInStore.monthSummary(app.db().checkInDao().getInRange(
-                        DateKeys.keyOf(y, m, 1),
-                        DateKeys.keyOf(y, m, DateKeys.daysInMonth(y, m))), y, m);
-                List<CheckIn> all = app.db().checkInDao().getInRange(0, 99999999);
-                streak = CheckInStore.streakDays(all, todayKey);
-                List<Book> reading = new ArrayList<>();
-                for (Book book : BookSanitizer.normalizeAll(app.db().bookDao().getAll())) {
-                    if (book.readStatus == Book.READING) {
-                        reading.add(book);
-                    }
-                }
-                roundDays = selectedRoundDays(reading, all, day);
-                todayChecked = CheckInHabit.dayKeys(all).contains(todayKey);
-            } catch (Exception ignored) {
-                return;
-            }
-            app.ui(() -> {
-                if (b != null) {
-                    renderSummary(summary, streak, todayChecked, roundDays);
-                }
-            });
-        });
-    }
-
     // ==================== 交互 ====================
 
     @Override
     public void onSelectDay(int dayKey) {
         selectedDayKey = dayKey;
-        loadMonth(b.monthGrid.getYearMonth(), false);
+        loadMonth(b.monthGrid.getYearMonth());
     }
 
     @Override
@@ -641,7 +1024,7 @@ public class CheckInFragment extends Fragment
         selectedDayKey = dayKey;
         b.monthGrid.setSelectedDay(dayKey);
         b.monthGrid.setYearMonth(CheckInMonthGrid.yearMonthOf(dayKey));
-        loadMonth(b.monthGrid.getYearMonth(), false);
+        loadMonth(b.monthGrid.getYearMonth());
     }
 
     @Override
@@ -660,6 +1043,12 @@ public class CheckInFragment extends Fragment
         }
         this.selectedDayKey = selectedDayKey;
         setToolbarMonth(yearMonth);
+        // 缓存命中就在滑入动画的第一帧前把点铺好；列表/小结仍走 loadMonth
+        MonthSnapshot snap = monthSnapshots.get(yearMonth);
+        if (snap != null) {
+            b.monthGrid.setTodayChecked(todayChecked);
+            b.monthGrid.setMonthData(snap.holidays, snap.dayMarks);
+        }
         loadMonth(yearMonth);
     }
 
@@ -679,47 +1068,239 @@ public class CheckInFragment extends Fragment
         applyMode(next, true);
         if (next == CheckInCalendarState.Mode.DETAIL) {
             // 月份可能刚切过，进明细时用当前月重建一次逐日行
-            loadMonth(b.monthGrid.getYearMonth(), false);
+            loadMonth(b.monthGrid.getYearMonth());
         }
     }
 
     @Override
     public void onToggle(int position, CheckInAdapter.Row row) {
-        if (b == null || row == null) {
+        // 批量事务在途时不做单本读写，避免同一本书先批量加、再被单点撤掉
+        if (b == null || row == null || batchPending) {
             return;
         }
         final int dayKey = selectedDayKey;
+        final long bookId = row.book.id;
+        final int seq = row.seq;
         if (!CheckInUiState.actionable(dayKey, todayKey) && !row.checked) {
             toast(CheckInUiState.rejectText(CheckInStore.Result.REJECTED_FUTURE));
             return;
         }
+        // 在途去重：同一本书同一天连点只写一次；position 也不再作为身份，
+        // 异步回来时行可能已经被别的提交移动/删掉，一律按 bookId 找
+        final String opKey = bookId + ":" + dayKey;
+        if (!pendingOps.add(opKey)) {
+            return;
+        }
+        adapter.setPending(bookId, true);
+        final long clickAt = BuildConfig.DEBUG ? SystemClock.elapsedRealtime() : 0L;
+        final int today = todayKey;
+        final int yearMonth = b.monthGrid.getYearMonth();
+        final int y = CheckInMonthGrid.yearOf(yearMonth);
+        final int m = CheckInMonthGrid.monthOf(yearMonth);
         BookshelfApp app = BookshelfApp.get();
         app.io(() -> {
             final CheckInStore.Result result =
-                    CheckInStore.toggle(app.db(), row.book, dayKey, true, row.seq);
+                    CheckInStore.toggle(app.db(), row.book, dayKey, true, seq);
             if (result != CheckInStore.Result.ADDED
                     && result != CheckInStore.Result.REMOVED) {
-                app.ui(() -> toast(CheckInUiState.rejectText(result)));
+                app.ui(() -> {
+                    pendingOps.remove(opKey);
+                    if (b != null) {
+                        adapter.setPending(bookId, false);
+                    }
+                    toast(CheckInUiState.rejectText(result));
+                });
                 return;
             }
             final boolean added = result == CheckInStore.Result.ADDED;
             final int[] mark;
+            final int newReadDays;
+            final boolean hideRow;
+            final int[] summary;
+            final int[] streak;
+            final int roundDays;
+            final boolean todayChecked;
+            final Book fresh;
             try {
+                // 写入会提升/改写会话与汇总字段：一律按库里最新对象重算，别用点击时抓的行
+                Book loaded = app.db().bookDao().getById(bookId);
+                fresh = loaded != null ? loaded : row.book;
                 List<CheckIn> dayRows = app.db().checkInDao().getByDay(dayKey);
                 mark = dayMark(dayRows, dayKey, preciseSeqOf(app, dayRows));
+                // 天数走唯一口径重算：精确轮按日集合去重，模糊轮仍是区间值（不受勾选影响）
+                ReadingRecords.Record current = currentRecord(fresh);
+                int recorded = app.db().checkInDao().countRoundDays(bookId, seq);
+                newReadDays = current != null && current.mode == ReadingRecords.MODE_PRECISE
+                        && current.seq == seq
+                        ? recorded : ReadingRecords.readDays(current, null, null);
+                // 撤销掉本轮最早那天后，选中日可能落到开读日之前：该行应消失
+                hideRow = CheckInUiState.hiddenBeforeStart(added, dayKey,
+                        CheckInStore.earliestCheckInKey(fresh, seq, recorded));
+                // 小结随这次写入一起算完：不再另起一次 IO 重查整月
+                summary = CheckInStore.monthSummary(app.db().checkInDao().getInRange(
+                        DateKeys.keyOf(y, m, 1),
+                        DateKeys.keyOf(y, m, DateKeys.daysInMonth(y, m))), y, m);
+                streak = CheckInStore.streakDaysOf(
+                        app.db().checkInDao().distinctDaysUpTo(today), today);
+                todayChecked = app.db().checkInDao().countOnDay(today) > 0;
+                List<Book> reading = new ArrayList<>();
+                for (Book book : BookSanitizer.normalizeAll(app.db().bookDao().getAll())) {
+                    if (book.readStatus == Book.READING) {
+                        reading.add(book);
+                    }
+                }
+                List<Long> ids = new ArrayList<>();
+                for (Book book : reading) {
+                    ids.add(book.id);
+                }
+                List<BookSeqStat> stats = ids.isEmpty()
+                        ? new ArrayList<>() : app.db().checkInDao().statsForBooks(ids);
+                roundDays = selectedRoundDays(reading, dayRows, stats);
             } catch (Exception ignored) {
+                app.ui(() -> {
+                    pendingOps.remove(opKey);
+                    if (b != null) {
+                        adapter.setPending(bookId, false);
+                    }
+                });
                 return;
             }
             app.ui(() -> {
+                pendingOps.remove(opKey);
                 if (b == null) {
+                    return;
+                }
+                if (BuildConfig.DEBUG) {
+                    Log.d(TAG, "toggle book=" + bookId + " day=" + dayKey + " result=" + result
+                            + " latency=" + (SystemClock.elapsedRealtime() - clickAt) + "ms");
+                }
+                // 请求途中换了日期：结果不属于当前列表，别按旧行改
+                if (adapter.getDayKey() != dayKey) {
+                    adapter.setPending(bookId, false);
+                    loadMonth(b.monthGrid.getYearMonth());
                     return;
                 }
                 b.getRoot().performHapticFeedback(
                         android.view.HapticFeedbackConstants.KEYBOARD_TAP);
-                adapter.updateRow(position, added);
+                // 手动改过任意一行后，上一次批量撤销的目标就不再可信
+                clearBatchUndo();
+                boolean applied;
+                if (hideRow) {
+                    applied = adapter.removeRowByBook(bookId);
+                    dayEmpty = adapter.getItemCount() == 0;
+                    renderEmptyState();
+                    updateMonthListVisibility();
+                } else {
+                    applied = adapter.applyToggleResult(bookId, added, newReadDays, fresh) >= 0;
+                }
+                if (!applied) {
+                    // 行已被别的刷新换掉：整页重取一次，避免静默丢状态
+                    loadMonth(b.monthGrid.getYearMonth());
+                    return;
+                }
                 b.monthGrid.setDayMarks(dayKey, mark[0], mark[1]);
-                refreshSummaryOnly(b.monthGrid.getYearMonth());
+                this.todayChecked = todayChecked;
+                b.monthGrid.setTodayChecked(todayChecked);
+                renderDayActions();
+                renderSummary(summary, streak, todayChecked, roundDays);
+                invalidateMonthSnapshot(b.monthGrid.getYearMonth());
+                // 第 12 项：桌面小组件的「今日已打卡」跟着这次写入变
+                com.bai.bookshelf.ui.widget.ReadingWidgetProvider.refresh(requireContext());
                 // 打卡与静默撤销都不再弹撤销条（Snackbar）；数据仍可反向 toggle 回退
+            });
+        });
+    }
+
+    /** 单日批量：把当天所有「未打卡」的在读书一次写进同一个事务 */
+    private void batchCheckIn() {
+        if (b == null || batchPending || adapter == null) {
+            return;
+        }
+        final int dayKey = selectedDayKey;
+        if (CheckInUiState.dayActionButton(dayKey, todayKey) == null) {
+            return;
+        }
+        final List<Book> targets = new ArrayList<>();
+        for (CheckInAdapter.Row row : adapter.rows()) {
+            if (!row.checked && !row.pending) {
+                targets.add(row.book);
+            }
+        }
+        if (targets.isEmpty()) {
+            return;
+        }
+        batchPending = true;
+        renderDayActions();
+        final long clickAt = BuildConfig.DEBUG ? SystemClock.elapsedRealtime() : 0L;
+        BookshelfApp app = BookshelfApp.get();
+        app.io(() -> {
+            final CheckInStore.DayBatchResult result =
+                    CheckInStore.addDayForBooks(app.db(), targets, dayKey, todayKey);
+            app.ui(() -> {
+                batchPending = false;
+                if (b == null) {
+                    return;
+                }
+                if (BuildConfig.DEBUG) {
+                    Log.d(TAG, "batch day=" + dayKey + " added=" + result.added
+                            + " skipped=" + result.skipped()
+                            + " latency=" + (SystemClock.elapsedRealtime() - clickAt) + "ms");
+                }
+                if (!result.addedBookIds.isEmpty()) {
+                    showBatchUndo(result.addedBookIds, dayKey);
+                }
+                toast(CheckInUiState.batchDoneText(result.added, result.skipped()));
+                invalidateMonthSnapshot(b.monthGrid.getYearMonth());
+                com.bai.bookshelf.ui.widget.ReadingWidgetProvider.refresh(requireContext());
+                loadMonth(b.monthGrid.getYearMonth());
+            });
+        });
+    }
+
+    private void showBatchUndo(List<Long> bookIds, int dayKey) {
+        if (b == null) {
+            return;
+        }
+        batchUndoIds = new ArrayList<>(bookIds);
+        batchUndoDayKey = dayKey;
+        final long generation = ++batchUndoGeneration;
+        showDayUndo();
+        uiHandler.postDelayed(() -> {
+            if (generation == batchUndoGeneration) {
+                clearBatchUndo();
+            }
+        }, BATCH_UNDO_MS);
+    }
+
+    private void clearBatchUndo() {
+        batchUndoIds = new ArrayList<>();
+        batchUndoGeneration++;
+        if (b != null) {
+            hideDayUndo();
+        }
+    }
+
+    /** 只撤销刚批量加进去的那几本，不动用户此前已有的打卡 */
+    private void undoBatchCheckIn() {
+        if (b == null || batchUndoIds.isEmpty()) {
+            return;
+        }
+        final List<Long> ids = new ArrayList<>(batchUndoIds);
+        final int dayKey = batchUndoDayKey;
+        batchUndoIds = new ArrayList<>();
+        batchUndoGeneration++;
+        hideDayUndo();
+        BookshelfApp app = BookshelfApp.get();
+        app.io(() -> {
+            final int removed = CheckInStore.removeDayForBooks(app.db(), ids, dayKey);
+            app.ui(() -> {
+                if (b == null) {
+                    return;
+                }
+                toast(CheckInUiState.batchUndoText(removed));
+                invalidateMonthSnapshot(b.monthGrid.getYearMonth());
+                com.bai.bookshelf.ui.widget.ReadingWidgetProvider.refresh(requireContext());
+                loadMonth(b.monthGrid.getYearMonth());
             });
         });
     }
@@ -743,10 +1324,38 @@ public class CheckInFragment extends Fragment
         reloadCurrentMonth();
     }
 
+    // ==================== 切 Tab 内容层动效（v5.9.4） ====================
+
+    @Override
+    public void animateIn() {
+        View content = b == null ? null : b.viewSwitchHost;
+        if (content == null) {
+            return;
+        }
+        content.animate().cancel();
+        content.setTranslationY(6 * getResources().getDisplayMetrics().density);
+        content.animate().translationY(0f)
+                .setDuration(Motion.BASE)
+                .setInterpolator(Motion.STANDARD)
+                .start();
+    }
+
+    @Override
+    public void settleContent() {
+        View content = b == null ? null : b.viewSwitchHost;
+        if (content == null) {
+            return;
+        }
+        content.animate().cancel();
+        content.setTranslationY(0f);
+    }
+
     /** 详情页改完书状态回到本页时，Fragment 实例的旧数据必须重取 */
     @Override
     public void onResume() {
         super.onResume();
+        // 别的页面可能改过书/打卡：跨月快照一律作废，等本页重新取
+        monthSnapshots.evictAll();
         reloadCurrentMonth();
     }
 
@@ -804,6 +1413,17 @@ public class CheckInFragment extends Fragment
     @Override
     public void onDestroyView() {
         super.onDestroyView();
+        midnightHandler.removeCallbacks(midnightTask);
+        uiHandler.removeCallbacksAndMessages(null);
+        monthSnapshots.evictAll();
+        batchUndoIds = new ArrayList<>();
+        batchUndoGeneration++;
+        // 视图重建后两行文案都是空的，去重基准要跟着清掉
+        dayActionText = "";
+        if (dayActionAnim != null) {
+            dayActionAnim.cancel();
+            dayActionAnim = null;
+        }
         if (b != null) {
             b.monthGrid.setCollapseProgressListener(null);
             b.monthGrid.setListener(null);

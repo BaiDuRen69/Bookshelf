@@ -224,4 +224,38 @@ public class CheckInUiStateTest {
                 CheckInUiState.summaryNote(202611, TODAY, false, 0));
         assertNull(CheckInUiState.summaryNote(202610, TODAY, true, 0));
     }
+
+    @Test
+    public void 日动作条按今天过去未来给不同句子() {
+        assertEquals("今天 · 还有 3 本未打卡",
+                CheckInUiState.dayActionNote(TODAY, TODAY, 3, 5));
+        assertEquals("今天 · 都打完了",
+                CheckInUiState.dayActionNote(TODAY, TODAY, 0, 5));
+        assertEquals("11月3日 · 还有 2 本未打卡",
+                CheckInUiState.dayActionNote(20261103, TODAY, 2, 4));
+        assertEquals("11月3日 · 都打完了",
+                CheckInUiState.dayActionNote(20261103, TODAY, 0, 4));
+        assertEquals("未来日期 · 还不能打卡",
+                CheckInUiState.dayActionNote(20261106, TODAY, 4, 4));
+        // 没有行时只说日期，不喊「都打完了」
+        assertEquals("11月3日", CheckInUiState.dayActionNote(20261103, TODAY, 0, 0));
+    }
+
+    @Test
+    public void 批量按钮只在今天与过去出现且文案区分打卡补卡() {
+        assertEquals("全部打卡", CheckInUiState.dayActionButton(TODAY, TODAY));
+        assertEquals("全部补卡", CheckInUiState.dayActionButton(20261103, TODAY));
+        assertNull("未来日没有批量动作",
+                CheckInUiState.dayActionButton(20261106, TODAY));
+    }
+
+    @Test
+    public void 批量结果与撤销都报实际条数() {
+        assertEquals("已打卡 4 本", CheckInUiState.batchDoneText(4, 0));
+        assertEquals("已打卡 3 本 · 1 本跳过", CheckInUiState.batchDoneText(3, 1));
+        assertEquals("没有可打卡的书", CheckInUiState.batchDoneText(0, 2));
+        assertEquals("这一天已经打完了", CheckInUiState.batchDoneText(0, 0));
+        assertEquals("已撤销 3 本打卡", CheckInUiState.batchUndoText(3));
+        assertEquals("没有需要撤销的打卡", CheckInUiState.batchUndoText(0));
+    }
 }

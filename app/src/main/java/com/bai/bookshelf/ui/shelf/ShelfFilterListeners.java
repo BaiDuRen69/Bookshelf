@@ -47,7 +47,7 @@ public class ShelfFilterListeners {
         AdapterView.OnItemSelectedListener generic = new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                highlight(parent, position);
+                highlight(parent, position, spinnerReady.getAsBoolean());
                 // v3.3：记住用户的选择，视图重建后据此恢复
                 recordSelection.accept(parent, position);
                 if (spinnerReady.getAsBoolean()) {
@@ -68,11 +68,11 @@ public class ShelfFilterListeners {
         b.spChannel.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                highlight(parent, position);
-                recordSelection.accept(parent, position);
                 // 首个事件来自程序填充（适配器刚装好），不当作用户选择
                 boolean userDriven = lastChannelPos >= 0;
                 lastChannelPos = position;
+                highlight(parent, position, userDriven);
+                recordSelection.accept(parent, position);
                 if (!spinnerReady.getAsBoolean()) {
                     return;
                 }
@@ -100,11 +100,11 @@ public class ShelfFilterListeners {
         b.spCategory.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                highlight(parent, position);
-                recordSelection.accept(parent, position);
                 // 首个事件来自程序填充（适配器刚装好），不当作用户选择
                 boolean userDriven = lastCategoryPos >= 0;
                 lastCategoryPos = position;
+                highlight(parent, position, userDriven);
+                recordSelection.accept(parent, position);
                 if (!spinnerReady.getAsBoolean()) {
                     return;
                 }
@@ -128,9 +128,9 @@ public class ShelfFilterListeners {
         });
     }
 
-    private static void highlight(AdapterView<?> parent, int position) {
+    private static void highlight(AdapterView<?> parent, int position, boolean animate) {
         if (parent.getAdapter() instanceof HighlightAdapter) {
-            ((HighlightAdapter<?>) parent.getAdapter()).setHighlight(position);
+            ((HighlightAdapter<?>) parent.getAdapter()).setHighlight(position, animate);
         }
     }
 }

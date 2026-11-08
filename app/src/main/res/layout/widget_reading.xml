@@ -75,6 +75,18 @@
             android:textStyle="bold" />
     </LinearLayout>
 
+    <!-- 今日打卡一行（v5.9.2 第 12 项）：已打卡本数 / 今天还没打卡 -->
+    <TextView
+        android:id="@+id/widget_today"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:ellipsize="end"
+        android:singleLine="true"
+        android:text="今天还没打卡"
+        android:textColor="@color/widget_sub"
+        android:textSize="11sp" />
+
     <!-- 逾期单独一行、错误色；今日到期另起一行，避免两种情况挤在同一句里 -->
     <TextView
         android:id="@+id/widget_due"

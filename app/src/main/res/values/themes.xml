@@ -39,15 +39,15 @@
         <item name="on_primary_container">@color/green_on_container</item>
         <!-- 打卡选中格：默认就等于各主题的容器色，只有夜读需要更亮一档 + 一圈描边 -->
         <item name="checkin_selected_bg">?attr/primary_container</item>
-        <item name="checkin_selected_stroke">@android:color/transparent</item>
+        <item name="checkin_selected_stroke">?attr/colorPrimary</item>
         <!-- 非今天选中格用一圈圆框；七套主题都继承本基线，夜读会自动取它的 outline_strong -->
         <item name="checkin_day_ring">?attr/outline_strong</item>
         <!-- 邻月日号：六套浅色主题共用一档灰，夜读单独覆盖成更暗的一档 -->
         <item name="checkin_adjacent_text">@color/checkin_adjacent_text</item>
-        <!-- 今天：暖色底 + 反色字 + 选中外圈，和七套主题各自的 colorPrimary 分开 -->
-        <item name="checkin_today_bg">?attr/accent_text</item>
-        <item name="checkin_on_today">@color/checkin_on_today</item>
-        <item name="checkin_today_ring">?attr/on_surface_variant</item>
+        <!-- 今天：跟主题主色，七套主题下都等于各自的 colorPrimary -->
+        <item name="checkin_today_bg">?attr/colorPrimary</item>
+        <item name="checkin_on_today">?attr/colorOnPrimary</item>
+        <item name="checkin_today_ring">?attr/colorPrimary</item>
         <!-- 节日文字：浅色主题跟 accent_text，夜读自动取 night_accent_text -->
         <item name="checkin_holiday_text">?attr/accent_text</item>
         <!-- v4.19：标签底色也给基线默认值（同上） -->
@@ -197,17 +197,15 @@
         <item name="accent_text">@color/night_accent_text</item>
         <item name="primary_container">@color/night_container</item>
         <item name="on_primary_container">@color/night_on_container</item>
-        <!-- v5.9.2 打卡选中格：规格给的 night_chip_bg(#2A2723) 压在 #1E1B18 卡面上只有
-             1.15:1（比原 night_container 的 1.26:1 还低），outline_strong(#4C443B) 也只有
-             1.79:1，两者都够不到 WCAG 1.4.11 的 3:1。底色照规格保留，可识别性交给描边：
-             描边改用 on_surface_variant(#B5AEA3) = 7.79:1。 -->
+        <!-- 夜读打卡选中格：底色照规格保留 night_chip_bg(#2A2723)，压在 #1E1B18 卡面上
+             只有 1.15:1；可识别性交给主色描边（#C9A66B 对 #1E1B18 ≈ 7.5:1，过 WCAG 1.4.11）。 -->
         <item name="checkin_selected_bg">@color/night_chip_bg</item>
-        <item name="checkin_selected_stroke">?attr/on_surface_variant</item>
+        <item name="checkin_selected_stroke">?attr/colorPrimary</item>
         <item name="checkin_adjacent_text">@color/checkin_adjacent_text_night</item>
-        <!-- 夜读：亮金底 + 深墨字（9.5:1）；选中外圈用次级文字色，亮金上仍读得出 -->
-        <item name="checkin_today_bg">@color/night_accent_text</item>
-        <item name="checkin_on_today">@color/night_ink</item>
-        <item name="checkin_today_ring">@color/night_text_sub</item>
+        <!-- 夜读：今天跟主色（暗金 #C9A66B + 深墨字），选中外圈同为主色 -->
+        <item name="checkin_today_bg">?attr/colorPrimary</item>
+        <item name="checkin_on_today">?attr/colorOnPrimary</item>
+        <item name="checkin_today_ring">?attr/colorPrimary</item>
         <item name="android:colorBackground">@color/night_page</item>
         <item name="surface">@color/night_surface</item>
         <!-- v5.8.26：夜读的 dock 要比炭黑卡面亮一档，否则去掉描边后与内容糊在一起 -->

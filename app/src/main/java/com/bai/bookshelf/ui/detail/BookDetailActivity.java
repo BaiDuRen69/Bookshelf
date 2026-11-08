@@ -59,6 +59,23 @@ public class BookDetailActivity extends BaseActivity {
     /** v5.8.15：共享元素转场期间不做视差，否则封面会被拽离转场路径 */
     private boolean transitionRunning;
     private int heroFadeRange = -1;
+
+    /** 分区 chips 选中态：滚动联动，8dp 容差内保持当前项，避免边界抖动 */
+    private static final int CHIP_FADE_MS = 160;
+    private final Map<TextView, View> sectionChips = new java.util.LinkedHashMap<>();
+    private TextView activeSectionChip;
+    private TextView pendingSectionChip;
+    private final android.graphics.Rect sectionRect = new android.graphics.Rect();
+    private boolean sectionChipInitialized;
+    /** 点 chip 后的落定确认：滚动停 120ms 才换选中态，滚动途中不来回跳 */
+    private final Runnable confirmPendingSection = () -> {
+        if (b == null || pendingSectionChip == null) {
+            return;
+        }
+        TextView chip = pendingSectionChip;
+        pendingSectionChip = null;
+        selectSectionChip(chip);
+    };
     /** 滚动每帧都要用，主题色只解析一次 */
     private int toolbarTitleColor;
 
@@ -460,6 +477,7 @@ public class BookDetailActivity extends BaseActivity {
         if (transitionRunning) {
             return;
         }
+        updateSectionChips();
         int heroH = b.hero.getHeight();
         if (heroH <= 0) {
             return;
@@ -982,11 +1000,17 @@ public class BookDetailActivity extends BaseActivity {
 
     // 借出 ⇄ 归还与借出登记见 DetailLending（v5.6 从本类抽出）
 
-    /** 吸顶分区导航：概览 / 阅读 / 借阅 / 笔记只跳到当前存在的分区 */
+    /** 吸顶分区导航：概览 / 阅读 / 借阅 / 笔记只跳到当前存在的分区，滚动时联动选中态 */
     private void bindSectionChips() {
-        b.chipOverview.setOnClickListener(v -> scrollDetailTo(b.hero));
-        b.chipReading.setOnClickListener(v -> scrollDetailTo(b.cardReadingRecords));
-        b.chipBorrow.setOnClickListener(v -> scrollDetailTo(b.cardBorrowRecords));
+        sectionChips.clear();
+        pendingSectionChip = null;
+        b.scrollDetail.removeCallbacks(confirmPendingSection);
+        sectionChips.put(b.chipOverview, b.hero);
+        b.chipOverview.setOnClickListener(v -> beginSectionScroll(b.chipOverview, b.hero));
+        b.chipReading.setOnClickListener(v ->
+                beginSectionScroll(b.chipReading, b.cardReadingRecords));
+        b.chipBorrow.setOnClickListener(v ->
+                beginSectionScroll(b.chipBorrow, b.cardBorrowRecords));
 
         View notesTarget = null;
         for (View candidate : new View[]{b.cardExcerpts, b.tvNote, b.cardTags}) {
@@ -998,12 +1022,122 @@ public class BookDetailActivity extends BaseActivity {
         b.chipNotes.setVisibility(notesTarget == null ? View.GONE : View.VISIBLE);
         if (notesTarget != null) {
             final View target = notesTarget;
-            b.chipNotes.setOnClickListener(v -> scrollDetailTo(target));
+            b.chipNotes.setOnClickListener(v -> beginSectionScroll(b.chipNotes, target));
+            sectionChips.put(b.chipNotes, target);
         }
         b.chipReading.setVisibility(b.cardReadingRecords.getVisibility() == View.VISIBLE
                 ? View.VISIBLE : View.GONE);
         b.chipBorrow.setVisibility(b.cardBorrowRecords.getVisibility() == View.VISIBLE
                 ? View.VISIBLE : View.GONE);
+        if (b.chipReading.getVisibility() == View.VISIBLE) {
+            sectionChips.put(b.chipReading, b.cardReadingRecords);
+        }
+        if (b.chipBorrow.getVisibility() == View.VISIBLE) {
+            sectionChips.put(b.chipBorrow, b.cardBorrowRecords);
+        }
+        // reload 重绘时直接落到当前位置，不重播一次选中动画
+        activeSectionChip = null;
+        sectionChipInitialized = false;
+        b.scrollDetail.post(this::updateSectionChips);
+    }
+
+    private void updateSectionChips() {
+        if (b == null || sectionChips.isEmpty()) {
+            return;
+        }
+        // 点 chip 触发的滚动：途中不换选中态，停稳 120ms 后确认点中的那一个
+        if (pendingSectionChip != null) {
+            b.scrollDetail.removeCallbacks(confirmPendingSection);
+            b.scrollDetail.postDelayed(confirmPendingSection, 120);
+            return;
+        }
+        int scrollY = b.scrollDetail.getScrollY();
+        int viewport = b.scrollDetail.getHeight();
+        View content = b.scrollDetail.getChildAt(0);
+        if (viewport <= 0 || content == null) {
+            return;
+        }
+        int tol = Math.round(8 * getResources().getDisplayMetrics().density);
+        int maxScroll = Math.max(0, content.getBottom() - viewport);
+        // 锚点卡片的顶部不一定能滚到视口顶端（内容不够长，smoothScrollTo 会被截断），
+        // 所以用视口 1/4 处做判定线；滚到底时把最后一段算作当前分区。
+        boolean atBottom = maxScroll > tol && scrollY >= maxScroll - tol;
+        int threshold = atBottom ? viewport : Math.round(viewport * 0.25f);
+        // 8dp 容差内保当前项：手指停在分区边界时 chips 不来回跳
+        if (activeSectionChip != null) {
+            View current = sectionChips.get(activeSectionChip);
+            if (current != null && current.getVisibility() == View.VISIBLE) {
+                sectionRect.set(0, 0, 0, 0);
+                b.scrollDetail.offsetDescendantRectToMyCoords(current, sectionRect);
+                if (Math.abs(sectionRect.top - scrollY - threshold) <= tol) {
+                    return;
+                }
+            }
+        }
+        TextView best = null;
+        int bestTop = Integer.MIN_VALUE;
+        for (Map.Entry<TextView, View> entry : sectionChips.entrySet()) {
+            View anchor = entry.getValue();
+            if (anchor == null || anchor.getVisibility() != View.VISIBLE) {
+                continue;
+            }
+            sectionRect.set(0, 0, 0, 0);
+            b.scrollDetail.offsetDescendantRectToMyCoords(anchor, sectionRect);
+            if (sectionRect.top <= scrollY + threshold && sectionRect.top > bestTop) {
+                best = entry.getKey();
+                bestTop = sectionRect.top;
+            }
+        }
+        if (best == null) {
+            best = sectionChips.keySet().iterator().next();
+        }
+        selectSectionChip(best);
+    }
+
+    private void beginSectionScroll(TextView chip, View target) {
+        pendingSectionChip = chip;
+        scrollDetailTo(target);
+        // 已经滚到位、不会再发滚动事件时，也要把选中态落下去
+        b.scrollDetail.removeCallbacks(confirmPendingSection);
+        b.scrollDetail.postDelayed(confirmPendingSection, 450);
+    }
+
+    private void selectSectionChip(TextView chip) {
+        if (chip == activeSectionChip) {
+            return;
+        }
+        TextView old = activeSectionChip;
+        activeSectionChip = chip;
+        boolean animate = sectionChipInitialized && com.bai.bookshelf.util.Motion.enabled(this);
+        setChipSelected(old, false, animate);
+        setChipSelected(chip, true, animate);
+        sectionChipInitialized = true;
+    }
+
+    private void setChipSelected(TextView chip, boolean selected, boolean animate) {
+        if (chip == null) {
+            return;
+        }
+        int target = selected ? R.drawable.bg_filter_pill_selected : R.drawable.bg_filter_pill;
+        if (!animate) {
+            chip.setBackgroundResource(target);
+            return;
+        }
+        android.graphics.drawable.Drawable plain =
+                ContextCompat.getDrawable(this, R.drawable.bg_filter_pill);
+        android.graphics.drawable.Drawable chosen =
+                ContextCompat.getDrawable(this, R.drawable.bg_filter_pill_selected);
+        final android.graphics.drawable.TransitionDrawable fade =
+                new android.graphics.drawable.TransitionDrawable(selected
+                        ? new android.graphics.drawable.Drawable[]{plain, chosen}
+                        : new android.graphics.drawable.Drawable[]{chosen, plain});
+        chip.setBackground(fade);
+        fade.startTransition(CHIP_FADE_MS);
+        chip.postDelayed(() -> {
+            if (chip.getBackground() == fade) {
+                chip.setBackgroundResource(target);
+            }
+        }, CHIP_FADE_MS);
     }
 
     private void scrollDetailTo(View target) {

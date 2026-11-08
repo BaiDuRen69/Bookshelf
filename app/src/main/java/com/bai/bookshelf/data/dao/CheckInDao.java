@@ -26,6 +26,10 @@ public interface CheckInDao {
     @Query("DELETE FROM check_ins WHERE bookId = :bookId")
     void deleteByBook(long bookId);
 
+    /** 当天明细里撤销已删除书籍的孤儿记录：没有 Book 可走 toggle，只能按主键删 */
+    @Query("DELETE FROM check_ins WHERE bookId = :bookId AND dayKey = :dayKey")
+    int deleteByBookAndDay(long bookId, int dayKey);
+
     /** 月/年视图取数，闭区间 */
     @Query("SELECT * FROM check_ins WHERE dayKey BETWEEN :startKey AND :endKey "
             + "ORDER BY dayKey ASC, bookId ASC")
@@ -61,6 +65,25 @@ public interface CheckInDao {
     /** 只要日期，避免为了数天数把整行读出来 */
     @Query("SELECT dayKey FROM check_ins WHERE bookId = :bookId AND seq = :seq")
     List<Integer> getDayKeys(long bookId, int seq);
+
+    // ===== v5.9.2 第 7 项：打卡页不再全表取行，改按书/轮次聚合 =====
+
+    /** 某本书某一轮已记几天（不同日期数）；空轮返回 0 */
+    @Query("SELECT COUNT(DISTINCT dayKey) FROM check_ins WHERE bookId = :bookId AND seq = :seq")
+    int countRoundDays(long bookId, int seq);
+
+    /** 一本书一次拿到所有轮次的天数；bookIds 不能为空（空列表由调用方先短路） */
+    @Query("SELECT bookId AS bookId, seq AS seq, COUNT(DISTINCT dayKey) AS dayCount "
+            + "FROM check_ins WHERE bookId IN (:bookIds) GROUP BY bookId, seq")
+    List<BookSeqStat> statsForBooks(List<Long> bookIds);
+
+    /** 全部打卡过的自然日（截至今天）：连续天数只要这一列，不读整行 */
+    @Query("SELECT DISTINCT dayKey FROM check_ins WHERE dayKey <= :todayKey")
+    List<Integer> distinctDaysUpTo(int todayKey);
+
+    /** 当天有几条记录（今天是否打过卡） */
+    @Query("SELECT COUNT(*) FROM check_ins WHERE dayKey = :dayKey")
+    int countOnDay(int dayKey);
 
     /** 跨轮移动：把指定几天挪到另一轮（编辑页「这段其实属于第二轮」） */
     @Query("UPDATE check_ins SET seq = :toSeq WHERE bookId = :bookId AND dayKey IN (:keys)")

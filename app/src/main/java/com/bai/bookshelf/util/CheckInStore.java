@@ -5,6 +5,7 @@ import com.bai.bookshelf.data.entity.Book;
 import com.bai.bookshelf.data.entity.CheckIn;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -83,9 +84,13 @@ public final class CheckInStore {
     /**
      * 日集合变了（打卡/撤销/选择器确定/跨轮移动）之后，统一在这里重算派生起止并回写书籍。
      *
-     * <p>只碰精确轮：模糊轮一个字不改（历史零改写）。精确轮的起止本来就是派生值，
+     * <p>只碰精确轮：有日期的模糊轮一个字不改（历史零改写）。精确轮的起止本来就是派生值，
      * 所以每一场都按它自己那轮的日集合重算；日集合没变的轮次算出来还是原值，幂等。
      * 日集合为空时 deriveRange 不写，开始日保留新会话落下的今天锚点。
+     *
+     * <p>无日期、无起止的模糊轮是历史遗留的「只知道在读」：一旦它有了打卡记录，
+     * 打卡日就是唯一的阅读证据，一次性提升成精确轮（v5.9.3）。有日期的模糊轮不动——
+     * 用户填过的区间仍按区间算，要换口径走编辑页的模式切换。
      */
     static void resyncPreciseRounds(AppDatabase db, Book book) {
         if (db == null || book == null) {
@@ -93,17 +98,30 @@ public final class CheckInStore {
         }
         List<ReadingRecords.Record> records = ReadingRecords.load(book);
         boolean touched = false;
+        // syncTo 的评分只取已读会话：在读轮（含提升出来的和撤销到 0 天的）会把它清零，
+        // 先把用户打的分存下来，算完再按需还原
+        final double ratingAvgBefore = book.ratingAvg;
+        final int ratingBefore = book.rating;
         for (ReadingRecords.Record r : records) {
+            List<Integer> keys = db.checkInDao().getDayKeys(book.id, r.seq);
             if (r.mode != ReadingRecords.MODE_PRECISE) {
-                continue;
+                boolean undated = r.startDate.isEmpty() && r.endDate.isEmpty();
+                if (!(r.mode == ReadingRecords.MODE_FUZZY && undated && !keys.isEmpty())) {
+                    continue;
+                }
+                r.mode = ReadingRecords.MODE_PRECISE;
             }
-            ReadingRecords.deriveRange(r, db.checkInDao().getDayKeys(book.id, r.seq));
+            ReadingRecords.deriveRange(r, keys);
             touched = true;
         }
         if (!touched) {
             return;
         }
         ReadingRecords.syncTo(book, records);
+        if (book.ratingAvg == 0 && (ratingAvgBefore > 0 || ratingBefore > 0)) {
+            book.ratingAvg = ratingAvgBefore;
+            book.rating = ratingBefore;
+        }
         book.updatedAt = System.currentTimeMillis();
         book.dirty = true;
         db.bookDao().update(book);
@@ -212,6 +230,119 @@ public final class CheckInStore {
             resyncPreciseRounds(db, book);
         }
         return out;
+    }
+
+    /** 单日批量打卡的结果：UI 只按计数说话，不猜哪些书为什么没进去 */
+    public static final class DayBatchResult {
+        public int added;
+        public int skippedOtherSeq;
+        public int skippedBeforeStart;
+        public int skippedFuture;
+        public int skippedNotReading;
+        public final List<Long> addedBookIds = new ArrayList<>();
+
+        public boolean changed() {
+            return added > 0;
+        }
+
+        public int skipped() {
+            return skippedOtherSeq + skippedBeforeStart + skippedFuture + skippedNotReading;
+        }
+    }
+
+    /**
+     * 同一天一次给多本书打卡：整批一个事务，要么都写、要么都不写。
+     *
+     * <p>只处理「还没记过这一天」的书；已记在本轮的直接跳过，已记在别轮的
+     * 记 skippedOtherSeq（不抢）。写完统一重算每本书的精确轮起止。
+     */
+    public static DayBatchResult addDayForBooks(AppDatabase db, List<Book> books,
+                                                int dayKey, int todayKey) {
+        DayBatchResult out = new DayBatchResult();
+        if (db == null || books == null || books.isEmpty()) {
+            return out;
+        }
+        if (dayKey > todayKey) {
+            out.skippedFuture = books.size();
+            return out;
+        }
+        final Set<Long> seen = new HashSet<>();
+        final List<Book> added = new ArrayList<>();
+        db.runInTransaction(() -> {
+            for (Book input : books) {
+                if (input == null || !seen.add(input.id)) {
+                    continue;
+                }
+                Book book = db.bookDao().getById(input.id);
+                if (book == null) {
+                    continue;
+                }
+                if (book.readStatus != Book.READING) {
+                    out.skippedNotReading++;
+                    continue;
+                }
+                int seq = currentSeq(book);
+                int owned = seqOf(db, book.id, dayKey);
+                if (owned != 0) {
+                    // 已打卡（同轮）视为完成；别轮交给调用方的「移到本轮」
+                    if (owned != seq) {
+                        out.skippedOtherSeq++;
+                    }
+                    continue;
+                }
+                int recorded = db.checkInDao().getDayKeys(book.id, seq).size();
+                Result r = toggle(new RoomSink(db), book, dayKey, true, todayKey, seq, recorded);
+                if (r == Result.ADDED) {
+                    out.added++;
+                    added.add(book);
+                } else if (r == Result.REJECTED_OTHER_SEQ) {
+                    out.skippedOtherSeq++;
+                } else if (r == Result.REJECTED_FUTURE) {
+                    out.skippedFuture++;
+                } else if (r != Result.REMOVED) {
+                    out.skippedBeforeStart++;
+                }
+            }
+            for (Book book : added) {
+                resyncPreciseRounds(db, book);
+            }
+        });
+        for (Book book : added) {
+            out.addedBookIds.add(book.id);
+        }
+        return out;
+    }
+
+    /** 撤销一次单日批量：只删这些书这一天的行，返回真的删掉几条 */
+    public static int removeDayForBooks(AppDatabase db, List<Long> bookIds, int dayKey) {
+        if (db == null || bookIds == null || bookIds.isEmpty()) {
+            return 0;
+        }
+        final int[] removed = {0};
+        db.runInTransaction(() -> {
+            Set<Long> existing = new HashSet<>();
+            for (CheckIn c : db.checkInDao().getByDay(dayKey)) {
+                existing.add(c.bookId);
+            }
+            Set<Long> touched = new HashSet<>();
+            for (Long id : bookIds) {
+                if (id == null || !touched.add(id) || !existing.contains(id)) {
+                    continue;
+                }
+                CheckIn pk = new CheckIn();
+                pk.bookId = id;
+                pk.dayKey = dayKey;
+                db.checkInDao().delete(pk);
+                removed[0]++;
+            }
+            for (long id : touched) {
+                Book book = db.bookDao().getById(id);
+                if (book != null) {
+                    resyncPreciseRounds(db, book);
+                }
+            }
+        });
+        return removed[0];
     }
 
     /** 该日现在记在哪一轮；0 = 没记过 */
@@ -326,7 +457,8 @@ public final class CheckInStore {
         return earliestCheckInKey(book, currentSeq(book), recordedDays);
     }
 
-    static int earliestCheckInKey(Book book, int seq, int recordedDays) {
+    /** 指定轮的最早可打卡日（撤销后行是否还该显示，UI 也要按同一口径判） */
+    public static int earliestCheckInKey(Book book, int seq, int recordedDays) {
         if (book == null) {
             return 0;
         }
@@ -408,8 +540,18 @@ public final class CheckInStore {
 
     /** @return {连续天数, 最近一次打卡日}；无记录时 {0, 0} */
     public static int[] streakDays(List<CheckIn> all, int todayKey) {
-        Set<Integer> days = distinctDays(all);
-        if (days.isEmpty()) {
+        return streakDaysOf(distinctDays(all), todayKey);
+    }
+
+    /**
+     * 同上，但直接吃「已去重的自然日」：打卡页现在只需 SQL 的 DISTINCT dayKey，
+     * 不必把整张表读成 CheckIn 行再逐行聚合。
+     *
+     * <p>不叫 streakDays 重载：{@code streakDays(null, ...)} / 空列表字面量会在
+     * List&lt;CheckIn&gt; 与 Collection&lt;Integer&gt; 之间产生歧义，旧测试因此编不过。
+     */
+    public static int[] streakDaysOf(Collection<Integer> days, int todayKey) {
+        if (days == null || days.isEmpty()) {
             return new int[]{0, 0};
         }
         int last = 0;

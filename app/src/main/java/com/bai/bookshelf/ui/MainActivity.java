@@ -2,10 +2,14 @@ package com.bai.bookshelf.ui;
 
 import com.bai.bookshelf.app.BookshelfApp;
 import android.animation.ValueAnimator;
+import android.content.Context;
 import android.os.Bundle;
+import android.view.Gravity;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.animation.PathInterpolator;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -20,8 +24,13 @@ import com.bai.bookshelf.ui.mine.MineFragment;
 import com.bai.bookshelf.ui.shelf.ShelfFragment;
 import com.bai.bookshelf.ui.stats.StatsFragment;
 import com.bai.bookshelf.util.InsetsHelper;
+import com.bai.bookshelf.util.NavOrder;
+import com.bai.bookshelf.util.NavPrefs;
 import com.bai.bookshelf.util.SplashExit;
 import com.bai.bookshelf.util.ThemeManager;
+
+import java.util.Objects;
+import java.util.Set;
 
 /**
  * 主界面：承载底部四 Tab（书架 / 统计 / 打卡 / 我的）。
@@ -81,6 +90,10 @@ public class MainActivity extends BaseActivity {
         setContentView(binding.getRoot());
 
         InsetsHelper.applyBottomInset(binding.bottomNav);
+        // v5.9.4：状态栏垫片按 inset 精确设高（旧系统 inset 被 DecorView 消费时为 0）
+        InsetsHelper.applyTopBand(binding.statusBarScrim);
+        // 先按用户配置排好底栏子 View，再建指示器、选 Tab
+        applyNavConfig();
         bindNavIndicator();
 
         // 优先复用 FragmentManager 还原的实例（带 tag 找回），没有才新建
@@ -121,15 +134,18 @@ public class MainActivity extends BaseActivity {
             selectTab(TAB_MINE);
         });
 
-        int restoredTab = 0;
+        int initialTab;
         if (savedInstanceState != null) {
             // 一次性兼容规则抽到纯 JVM 的 TabRestore（TabRestoreTest 覆盖）：
             // 旧存档里 2 = 我的 → 3；新存档带 KEY_TAB_MIGRATED，2 已是打卡，不转换。
-            restoredTab = com.bai.bookshelf.util.TabRestore.restore(
+            initialTab = com.bai.bookshelf.util.TabRestore.restore(
                     savedInstanceState.getInt(KEY_TAB, 0),
                     savedInstanceState.getBoolean(KEY_TAB_MIGRATED, false));
+        } else {
+            // 冷启动：进入用户配置的首页（被隐藏时 NavPrefs 已退到第一个可见 Tab）
+            initialTab = NavPrefs.startTab(this);
         }
-        selectTab(restoredTab);
+        selectTab(initialTab);
         refreshTabBadges();
 
         handleSearchIntent(getIntent());
@@ -212,6 +228,14 @@ public class MainActivity extends BaseActivity {
     protected void onResume() {
         super.onResume();
         refreshTabBadges();
+        // 设置页可能刚改过底栏：只有配置真的变了、且当前页被隐藏，才踢回第一个可见页；
+        // 深链打开隐藏页后返回不会立刻被踢走
+        String before = navSignature;
+        applyNavConfig();
+        if (!Objects.equals(before, navSignature)
+                && !NavOrder.visible(currentTab, NavPrefs.hidden(this))) {
+            selectTab(NavOrder.firstVisible(NavPrefs.order(this), NavPrefs.hidden(this)));
+        }
         // 从书籍详情页/编辑页返回：当前 Tab 重取一次数据（打卡页据此刷新在读列表）
         notifyVisibleTab();
     }
@@ -244,8 +268,9 @@ public class MainActivity extends BaseActivity {
         int previousTab = currentTab;
         currentTab = index;
         Fragment target = tabs[index];
-        if (!fragmentsAdded) {
-            // 首次进入：一次性挂载四个 Tab 的 Fragment（add + show/hide 复用实例）
+        boolean firstMount = !fragmentsAdded;
+        if (firstMount) {
+            // 首次进入：一次性挂载四个 Tab 的 Fragment（add + show/hide 复用实例），首帧不播动画
             androidx.fragment.app.FragmentManager fm = getSupportFragmentManager();
             androidx.fragment.app.FragmentTransaction tx = fm.beginTransaction();
             for (int i = 0; i < tabs.length; i++) {
@@ -261,15 +286,24 @@ public class MainActivity extends BaseActivity {
             tx.commitNowAllowingStateLoss();
             fragmentsAdded = true;
         } else {
+            boolean animate = previousTab >= 0 && previousTab < tabs.length
+                    && tabs[previousTab] != target
+                    && com.bai.bookshelf.util.Motion.enabled(this);
+            // 先把四个页面都复位：上一次动画停在哪一帧，都不会带进这一页
+            settleTabViews();
+            // v5.9.4：同步提交，旧页在本帧消失，屏上始终只有一个活页
             androidx.fragment.app.FragmentTransaction tx = getSupportFragmentManager().beginTransaction();
+            tx.show(target);
             for (int i = 0; i < tabs.length; i++) {
-                if (i == index) {
-                    tx.show(tabs[i]);
-                } else {
+                if (tabs[i] != target) {
                     tx.hide(tabs[i]);
                 }
             }
-            tx.commit();
+            tx.commitNowAllowingStateLoss();
+            // v5.9.4：只动内容层 6dp 上浮，不做整页透明度，避免半透明活页
+            if (animate && target instanceof TabRefresh) {
+                ((TabRefresh) target).animateIn();
+            }
         }
 
         // v4.24：未选中用线性图标，只有选中的 Tab 换成填充图标
@@ -280,14 +314,22 @@ public class MainActivity extends BaseActivity {
         setTab(binding.ivTabMine, TAB_MINE, index == TAB_MINE);
         moveNavIndicator(index, navAnimated);
         navAnimated = true;
-        if (previousTab != index) {
-            android.view.View targetView = target.getView();
-            if (targetView != null) {
-                targetView.setAlpha(0f);
-                targetView.animate().alpha(1f).setDuration(180).start();
+        notifyVisibleTab();
+    }
+
+    /** 统一复位四个页面：根视图与内容层都取消动画、恢复不透明无位移 */
+    private void settleTabViews() {
+        for (Fragment fragment : tabs) {
+            View view = fragment.getView();
+            if (view != null) {
+                view.animate().cancel();
+                view.setAlpha(1f);
+                view.setTranslationY(0f);
+            }
+            if (fragment instanceof TabRefresh) {
+                ((TabRefresh) fragment).settleContent();
             }
         }
-        notifyVisibleTab();
     }
 
     /**
@@ -301,22 +343,110 @@ public class MainActivity extends BaseActivity {
     /** 指示器滑动动画：同一个 ValueAnimator 同时驱动 translationX 与 scaleX */
     private ValueAnimator navSlide;
 
-    /** 把圆形指示器移到第 index 个 tab 的中心；animate=false 用于首次布局 */
-    private void moveNavIndicator(int index, boolean animate) {
-        View[] items = {binding.tabShelf, binding.tabStats,
+    /** 上一次应用的底栏配置签名（顺序|隐藏）；没变就不重排，避免每次 onResume 抖一下 */
+    private String navSignature;
+
+    private View[] tabViews() {
+        return new View[]{binding.tabShelf, binding.tabStats,
                 binding.tabCheckin, binding.tabMine};
-        View target = items[index];
-        if (target.getWidth() == 0) {
-            target.post(() -> moveNavIndicator(index, false));
+    }
+
+    private void applyNavConfig() {
+        int[] order = NavPrefs.order(this);
+        Set<Integer> hidden = NavPrefs.hidden(this);
+        String sig = NavOrder.join(order) + "|" + NavOrder.joinSet(hidden);
+        if (sig.equals(navSignature)) {
             return;
         }
+        navSignature = sig;
+        layoutTabs(binding, order, hidden);
+        binding.navDock.post(() -> moveNavIndicator(currentTab, false));
+    }
+
+    /**
+     * 按顺序 / 隐藏集重排 dock 里的四个 Tab，并切换「4 格等分」与「84dp 定宽居中」两种版式。
+     * 抽成包内静态方法，DockNavTest 可以直接跑，不必启动 Activity（应用锁会让启动挂起）。
+     */
+    static void layoutTabs(ActivityMainBinding binding, int[] order, Set<Integer> hidden) {
+        View[] views = {binding.tabShelf, binding.tabStats,
+                binding.tabCheckin, binding.tabMine};
+        LinearLayout items = binding.navItems;
+        for (View v : views) {
+            items.removeView(v);
+        }
+        int visibleCount = 0;
+        for (int tab : order) {
+            if (NavOrder.visible(tab, hidden)) {
+                visibleCount++;
+            }
+        }
+        boolean full = visibleCount == NavOrder.TAB_COUNT;
+        Context ctx = items.getContext();
+        for (int tab : order) {
+            boolean show = NavOrder.visible(tab, hidden);
+            View v = views[tab];
+            v.setVisibility(show ? View.VISIBLE : View.GONE);
+            items.addView(v, tabLp(ctx, show, full));
+        }
+        items.setGravity(full ? Gravity.NO_GRAVITY : Gravity.CENTER);
+
+        ViewGroup.LayoutParams ilp = items.getLayoutParams();
+        ilp.width = full ? ViewGroup.LayoutParams.MATCH_PARENT
+                : ViewGroup.LayoutParams.WRAP_CONTENT;
+        items.setLayoutParams(ilp);
+
+        // 不满 4 格时 dock 收成内容宽，否则一格会占满整条胶囊
+        ViewGroup.LayoutParams dlp = binding.navDock.getLayoutParams();
+        dlp.width = full ? ViewGroup.LayoutParams.MATCH_PARENT
+                : ViewGroup.LayoutParams.WRAP_CONTENT;
+        binding.navDock.setLayoutParams(dlp);
+    }
+
+    private static LinearLayout.LayoutParams tabLp(Context ctx, boolean show, boolean full) {
+        if (!show) {
+            return new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT);
+        }
+        if (full) {
+            // 4 格等分：0dp + weight=1（与 DockNavTest 的既有断言一致）
+            return new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f);
+        }
+        int slot = ctx.getResources().getDimensionPixelSize(R.dimen.nav_slot_w);
+        return new LinearLayout.LayoutParams(slot, ViewGroup.LayoutParams.MATCH_PARENT);
+    }
+
+    /** 把圆形指示器移到第 index 个 tab 的中心；animate=false 用于首次布局 */
+    private void moveNavIndicator(int index, boolean animate) {
+        View[] items = tabViews();
+        if (index < 0 || index >= items.length) {
+            return;
+        }
+        View target = items[index];
         View pill = binding.navIndicator;
-        float to = target.getX() + target.getWidth() / 2f - pill.getWidth() / 2f;
+        if (target.getVisibility() != View.VISIBLE) {
+            // 当前内容页不在底栏（深链/通知打开隐藏页）：不假装它有一个位置
+            if (navSlide != null && navSlide.isRunning()) {
+                navSlide.cancel();
+            }
+            pill.setAlpha(0f);
+            return;
+        }
+        pill.setAlpha(1f);
+        if (target.getWidth() == 0) {
+            // 首帧宽度未就绪时延迟摆位；期间可能已经切页（冷启动 + 深链直达隐藏页），
+            // 过期回调会把指示器点亮到旧格子上，必须核对当前页仍是 index
+            target.post(() -> {
+                if (currentTab == index) {
+                    moveNavIndicator(index, false);
+                }
+            });
+            return;
+        }
+        float to = indicatorTranslationX(binding.navItems, target, pill);
         if (navSlide != null && navSlide.isRunning()) {
             navSlide.cancel();
         }
         if (!animate) {
-            pill.setTranslationX(to);
+            placeIndicator(binding.navItems, target, pill);
             pill.setScaleX(1f);
             return;
         }
@@ -334,6 +464,26 @@ public class MainActivity extends BaseActivity {
             pill.setScaleX(1f + 0.12f * (float) Math.sin(Math.PI * f));
         });
         navSlide.start();
+    }
+
+    /** 同步摆位（首帧 / 配置重排后）：隐藏页让指示器淡出，可见页放到格子中心 */
+    static void placeIndicator(View items, View target, View pill) {
+        if (target.getVisibility() != View.VISIBLE) {
+            pill.setAlpha(0f);
+            return;
+        }
+        pill.setAlpha(1f);
+        if (target.getWidth() > 0) {
+            pill.setTranslationX(indicatorTranslationX(items, target, pill));
+        }
+    }
+
+    /** 指示器位移：nav_items 不满 4 格时会居中，必须叠加它自身相对 dock 的 x 偏移 */
+    static float indicatorTranslationX(View items, View target, View pill) {
+        // pill.getLeft() 已含 dock 的左内边距，两个坐标同属 dock，直接相减即可
+        float targetCenter = items.getX() + target.getX() + target.getWidth() / 2f;
+        float pillCenterBase = pill.getLeft() + pill.getWidth() / 2f;
+        return targetCenter - pillCenterBase;
     }
 
     @Override

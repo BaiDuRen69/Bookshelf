@@ -11,6 +11,8 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
+import com.bai.bookshelf.R;
+
 /**
  * 系统栏内边距处理（v4.18）。
  *
@@ -99,6 +101,31 @@ public final class InsetsHelper {
     }
 
     /**
+     * 让视图高度恰好等于状态栏 + 刘海高度（不改内边距，也不读原始高度）。
+     *
+     * <p>用于状态栏垫片。注意不能用 {@link #applyTopInset(View)} + wrap_content：
+     * 空 View 在 FrameLayout 里拿到的是 AT_MOST 测量规格，{@code View.getDefaultSize}
+     * 会直接返回父容器高度，垫片会铺满整屏。这里显式按 inset 设高，旧系统
+     * （DecorView 已消费 inset）自然为 0。
+     */
+    public static void applyTopBand(final View view) {
+        if (view == null) {
+            return;
+        }
+        ViewCompat.setOnApplyWindowInsetsListener(view, (v, insets) -> {
+            Insets bars = insets.getInsets(
+                    WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
+            ViewGroup.LayoutParams lp = v.getLayoutParams();
+            if (lp != null && lp.height != bars.top) {
+                lp.height = bars.top;
+                v.setLayoutParams(lp);
+            }
+            return insets;
+        });
+        ViewCompat.requestApplyInsets(view);
+    }
+
+    /**
      * 更新顶部栏的「不含系统栏」基准高度（v5.9 打卡页页头 48↔40dp）。
      *
      * <p>动画过程由调用方直接改 {@code layoutParams.height}（不每帧 requestApplyInsets），
@@ -173,6 +200,55 @@ public final class InsetsHelper {
             int bottom = Math.max(bars.bottom, ime.bottom);
             v.setPadding(v.getPaddingLeft(), v.getPaddingTop(), v.getPaddingRight(),
                     basePadBottom + bottom);
+            return insets;
+        });
+        ViewCompat.requestApplyInsets(view);
+    }
+
+    /**
+     * 底部外边距 = dock_reserve + 导航栏 inset（v5.9.2）：给 FAB / 选择模式条用。
+     *
+     * <p>底部 dock（bottom_nav）已经在 {@link #applyBottomInset(View)} 里避开导航栏，
+     * 但悬浮控件只按 {@code @dimen/dock_reserve} 上移。手势条/三键导航实际占 24–48dp，
+     * 屏幕内导航的机型上按钮会被压住一截。基准值固定取 dimen 而不是当前外边距：
+     * 同一个 View 每次重建都可能带着上一次算过的值。
+     */
+    public static void applyDockReserveMargin(final View view) {
+        if (view == null || !(view.getLayoutParams() instanceof ViewGroup.MarginLayoutParams)) {
+            return;
+        }
+        final int base = view.getResources().getDimensionPixelSize(R.dimen.dock_reserve);
+        ViewCompat.setOnApplyWindowInsetsListener(view, (v, insets) -> {
+            int bottom = insets.getInsets(WindowInsetsCompat.Type.systemBars()
+                    | WindowInsetsCompat.Type.displayCutout()).bottom;
+            ViewGroup.MarginLayoutParams lp = (ViewGroup.MarginLayoutParams) v.getLayoutParams();
+            if (lp.bottomMargin != base + bottom) {
+                lp.bottomMargin = base + bottom;
+                v.setLayoutParams(lp);
+            }
+            return insets;
+        });
+        ViewCompat.requestApplyInsets(view);
+    }
+
+    /**
+     * 底部内边距 = dock_reserve + 导航栏 inset（v5.9.2）：给列表 / 年视图用。
+     *
+     * <p>与 {@link #applyDockReserveMargin(View)} 同理，只是列表靠 padding 留白
+     * （配 {@code clipToPadding="false"}），保证最后一项能滚到 dock 上沿之上。
+     */
+    public static void applyDockReservePadding(final View view) {
+        if (view == null) {
+            return;
+        }
+        final int base = view.getResources().getDimensionPixelSize(R.dimen.dock_reserve);
+        ViewCompat.setOnApplyWindowInsetsListener(view, (v, insets) -> {
+            int bottom = insets.getInsets(WindowInsetsCompat.Type.systemBars()
+                    | WindowInsetsCompat.Type.displayCutout()).bottom;
+            if (v.getPaddingBottom() != base + bottom) {
+                v.setPadding(v.getPaddingLeft(), v.getPaddingTop(),
+                        v.getPaddingRight(), base + bottom);
+            }
             return insets;
         });
         ViewCompat.requestApplyInsets(view);

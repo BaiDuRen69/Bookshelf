@@ -8,6 +8,7 @@ import android.util.AttributeSet;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -111,6 +112,10 @@ public class MonthGridView extends LinearLayout {
     private int structureMonth;
     private int selectedDayKey;
     private int todayKey;
+    /** 已经播过入场动画的那个「今天」；切月回来、每次打卡刷新都不再重播 */
+    private int animatedTodayKey;
+    /** 今天是否已有任意一本打卡（第 9 项）：顶部点实心 / 空心由它决定 */
+    private boolean todayChecked;
     /** dayKey → {打卡本数, 其中补卡本数}，由 Fragment 用当月已有结果组装 */
     private Map<Integer, int[]> marks = Collections.emptyMap();
     private int colorPrimary;
@@ -143,6 +148,10 @@ public class MonthGridView extends LinearLayout {
     private PickerListener pickerListener;
     private final DayPickerState picker = new DayPickerState();
     private boolean scrolling;
+    /** 切月转场期间为 true：重建出来的格子也直接跳过打卡点入场动画 */
+    private boolean dotSuspended;
+    /** 切月动画令牌：后一次切月取消前一次的回调，避免旧的结束事件解冻点动画 */
+    private int monthAnimSeq;
     private int[] dayKeys = new int[0];
     private final DayCellView[] cells = new DayCellView[CheckInMonthGrid.DAYS_PER_WEEK
             * CheckInMonthGrid.MAX_ROWS];
@@ -173,6 +182,20 @@ public class MonthGridView extends LinearLayout {
         addView(clip, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
         setClipChildren(true);
         setClipToPadding(true);
+
+        // 第 10 项：把格子容器声明成「行=周、列=周数+7 天」的单选集合，
+        // 每格再带 CollectionItemInfo，TalkBack 才会报「第 x 行第 y 列」。
+        // heading 只留在本视图上，不要再叠到 grid。
+        grid.setAccessibilityDelegate(new View.AccessibilityDelegate() {
+            @Override
+            public void onInitializeAccessibilityNodeInfo(View host, AccessibilityNodeInfo info) {
+                super.onInitializeAccessibilityNodeInfo(host, info);
+                info.setCollectionInfo(AccessibilityNodeInfo.CollectionInfo.obtain(
+                        Math.max(1, dayKeys.length / CheckInMonthGrid.DAYS_PER_WEEK),
+                        CheckInMonthGrid.DAYS_PER_WEEK + 1, false,
+                        AccessibilityNodeInfo.CollectionInfo.SELECTION_MODE_SINGLE));
+            }
+        });
 
         detector = new GestureDetector(ctx, new GestureDetector.SimpleOnGestureListener() {
             @Override
@@ -371,12 +394,30 @@ public class MonthGridView extends LinearLayout {
 
     /** 跨天/从详情页返回时只更新「今天 / 未来」分界，不抢走用户选中的日期 */
     public void refreshTodayKey() {
-        todayKey = DateKeys.todayKey();
-        refreshAllCells();
+        final int prev = todayKey;
+        final int now = DateKeys.todayKey();
+        if (prev == now) {
+            return;
+        }
+        todayKey = now;
+        if (structureMonth != yearMonth) {
+            rebuildStructure();
+            refreshAllCells();
+            return;
+        }
+        // 通常只差相邻两天：旧「今天」圈与新「今天」圈各重绑一次即可；
+        // 跨月/跨年时旧日期不在本月，退回整表
+        if (CheckInMonthGrid.yearMonthOf(prev) == yearMonth
+                && CheckInMonthGrid.yearMonthOf(now) == yearMonth) {
+            refreshCells(new int[]{prev, now});
+        } else {
+            refreshAllCells();
+        }
     }
 
-    /** 月↔年切换动画期间暂停 42 个格子的打卡点入场动画，保持帧率 */
+    /** 月↔年切换/切月动画期间暂停格子的打卡点入场动画，保持帧率 */
     public void suspendDotAnimations(boolean suspended) {
+        dotSuspended = suspended;
         for (DayCellView cell : cells) {
             if (cell != null) {
                 cell.setDotAnimationSuspended(suspended);
@@ -486,23 +527,36 @@ public class MonthGridView extends LinearLayout {
     }
 
     /**
-     * @param dayMarks dayKey → {打卡本数, 其中补卡本数}，由 CheckInDots.marks 组装
+     * 节日表与打卡点一次合并：打卡点只重绑差异格；节日表内容变了才整表重绑
+     * （节日名顶替农历小字，影响的是当日格里的另一行字）。
      */
-    public void setCheckInMarks(@Nullable Map<Integer, int[]> dayMarks) {
-        Map<Integer, int[]> old = marks;
+    public void setMonthData(@Nullable HolidayCalendar cal, @Nullable Map<Integer, int[]> dayMarks) {
+        final Map<Integer, int[]> old = marks;
+        final boolean holidayChanged = holidays == null ? cal != null : !holidays.equals(cal);
+        holidays = cal;
         marks = dayMarks == null ? Collections.emptyMap() : new HashMap<>(dayMarks);
         if (structureMonth != yearMonth) {
             rebuildStructure();
+            refreshAllCells();
+            return;
         }
-        refreshCells(diffKeys(old, marks));
+        if (holidayChanged) {
+            refreshAllCells();
+        } else {
+            refreshCells(diffKeys(old, marks));
+        }
     }
 
-    /** 年度节日表；null = 只显示农历。切年或网络结果回来后重贴整表 */
+    /**
+     * @param dayMarks dayKey → {打卡本数, 其中补卡本数}，由 CheckInDots.marks 组装
+     */
+    public void setCheckInMarks(@Nullable Map<Integer, int[]> dayMarks) {
+        setMonthData(holidays, dayMarks);
+    }
+
+    /** 年度节日表；null = 只显示农历。内容没变（网络结果与缓存一致）时不动格子 */
     public void setHolidays(@Nullable HolidayCalendar cal) {
-        this.holidays = cal;
-        if (role == ROLE_CHECKIN) {
-            refreshAllCells();
-        }
+        setMonthData(cal, marks);
     }
 
     public void setSelectedDay(int dayKey) {
@@ -608,6 +662,16 @@ public class MonthGridView extends LinearLayout {
             TextView week = weekLabel(String.valueOf(weeks[r]));
             week.setTextColor(colorVariant);
             week.setContentDescription(String.format(Locale.ROOT, "第 %d 周", weeks[r]));
+            // 周数占第 0 列（第 10 项），只是普通单元格，不是标题
+            final int weekRow = r;
+            week.setAccessibilityDelegate(new View.AccessibilityDelegate() {
+                @Override
+                public void onInitializeAccessibilityNodeInfo(View host, AccessibilityNodeInfo info) {
+                    super.onInitializeAccessibilityNodeInfo(host, info);
+                    info.setCollectionItemInfo(AccessibilityNodeInfo.CollectionItemInfo.obtain(
+                            weekRow, 1, 0, 1, false, false));
+                }
+            });
             row.addView(week, weekColumnLp());
 
             for (int c = 0; c < CheckInMonthGrid.DAYS_PER_WEEK; c++) {
@@ -615,6 +679,9 @@ public class MonthGridView extends LinearLayout {
                 DayCellView cell = new DayCellView(getContext());
                 final int cellIndex = index;
                 cell.setOnClickListener(v -> onCellTouched(cellIndex));
+                // 转场中重建：新格子也要保持「冻结点动画」，否则滑入时会再播一遍
+                cell.setDotAnimationSuspended(dotSuspended);
+                cell.setGridCell(r, c + 1);
                 cells[index] = cell;
                 // 只有打卡月历需要农历行（56dp）；精确日期选择器保持原来的 48dp
                 int cellH = getResources().getDimensionPixelSize(role == ROLE_PICKER
@@ -652,15 +719,16 @@ public class MonthGridView extends LinearLayout {
             cell.setContentDescription(describePick(key, today, blocked));
             return;
         }
-        // 节日名顶替农历小字；邻月不参与。今天/选中的小字颜色在 DayCellView 里另有分支
-        String holidayName = adjacent || holidays == null ? null : holidays.nameOf(key);
+        // 节日名顶替农历小字；邻月同样取节日/农历，只靠颜色与 alpha 压暗
+        String holidayName = holidays == null ? null : holidays.nameOf(key);
         String label = holidayName != null
                 ? holidayName
                 : (lunarTextSize > 0 ? lunar.label(key) : "");
         int dayColor = holidayName != null ? colorHoliday : colorOnSurface;
-        int labelColor = today ? colorOnToday
-                : (key == selectedDayKey ? colorPrimary
-                : (holidayName != null ? colorHoliday : colorLunar));
+        // 小字颜色只看「节日/农历」：今天与选中不再改它；邻月农历走灰、邻月节日仍走暖色
+        int labelColor = holidayName != null
+                ? colorHoliday
+                : (adjacent ? colorAdjacentText : colorLunar);
         cell.bindCheckIn(key % 100, colorPrimary, colorSelectedBg, colorSelectedStroke,
                 dayColor, colorVariant, key == selectedDayKey, today, adjacent, future,
                 adjacent ? 0 : total, backfill, false,
@@ -669,6 +737,10 @@ public class MonthGridView extends LinearLayout {
                 colorTodayBg, colorOnToday, colorTodayRing);
         cell.setContentDescription(
                 describe(key, today, total, backfill, adjacent, key == selectedDayKey, future));
+        if (today && !adjacent && key != animatedTodayKey) {
+            animatedTodayKey = key;
+            cell.startTodayEntrance();
+        }
     }
 
     private void refreshAllCells() {
@@ -870,7 +942,8 @@ public class MonthGridView extends LinearLayout {
         if (future) {
             sb.append("，未来日期");
         }
-        String holiday = adjacent || holidays == null ? null : holidays.nameOf(dayKey);
+        // 邻月也念节日名（「邻月」已先念过），农历仍不朗读，避免 42 格全变长句
+        String holiday = holidays == null ? null : holidays.nameOf(dayKey);
         if (holiday != null) {
             sb.append("，").append(holiday);
         }
@@ -880,6 +953,9 @@ public class MonthGridView extends LinearLayout {
                 sb.append(" · 含 ").append(backfill).append(" 笔补卡");
             }
             sb.append("）");
+        } else if (today && todayChecked) {
+            // 邻月格的 total 恒为 0，今天的真实状态要另看（第 9 项）
+            sb.append("，已打卡");
         } else {
             sb.append("，未打卡");
         }
@@ -889,6 +965,9 @@ public class MonthGridView extends LinearLayout {
     // ==================== 切月动画与手势 ====================
 
     private void animateToMonth(int target, boolean forward) {
+        final int token = ++monthAnimSeq;
+        // 转场期间 42 个格子的点入场全部冻结；重建出来的新格子同样跳过
+        suspendDotAnimations(true);
         float dir = forward ? -1f : 1f; // 旧网格退场方向
         float distance = getResources().getDimensionPixelSize(R.dimen.checkin_swipe_distance);
         ValueAnimator out = ValueAnimator.ofFloat(0f, 1f);
@@ -901,6 +980,9 @@ public class MonthGridView extends LinearLayout {
         out.addListener(new AnimatorListenerAdapter() {
             @Override
             public void onAnimationEnd(Animator animation) {
+                if (token != monthAnimSeq) {
+                    return; // 又被滑了一次：这次转场的结果让新的那次接管
+                }
                 yearMonth = target;
                 selectedDayKey = CheckInMonthGrid.clampDayKey(selectedDayKey, target);
                 rebuildStructure();
@@ -913,6 +995,16 @@ public class MonthGridView extends LinearLayout {
                     float g = (float) b.getAnimatedValue();
                     grid.setAlpha(g);
                     grid.setTranslationX(-dir * distance * (1f - g));
+                });
+                in.addListener(new AnimatorListenerAdapter() {
+                    @Override
+                    public void onAnimationEnd(Animator animation) {
+                        if (token == monthAnimSeq) {
+                            grid.setAlpha(1f);
+                            grid.setTranslationX(0f);
+                            suspendDotAnimations(false);
+                        }
+                    }
                 });
                 in.start();
                 announceMonth();
@@ -957,6 +1049,18 @@ public class MonthGridView extends LinearLayout {
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
         scrolling = false;
+    }
+
+    /**
+     * 今天有没有打卡（第 9 项）：只重绑今天所在格，点由实心/空心切换。
+     * 跨天、切月重建后的全部格子由 {@link #bindCell} 重新取值。
+     */
+    public void setTodayChecked(boolean checked) {
+        if (todayChecked == checked) {
+            return;
+        }
+        todayChecked = checked;
+        refreshCells(new int[]{todayKey});
     }
 
     /**

@@ -213,6 +213,46 @@ public final class CheckInUiState {
         return dayKey <= todayKey;
     }
 
+    /** 日动作条左侧一句：今天/过去/未来 + 未打本数；全部打过时给确定的完成感 */
+    public static String dayActionNote(int dayKey, int todayKey, int unchecked, int total) {
+        if (dayKey > todayKey) {
+            return "未来日期 · 还不能打卡";
+        }
+        String day = dayKey == todayKey ? "今天" : dayText(dayKey);
+        if (total <= 0) {
+            return day;
+        }
+        return unchecked > 0 ? day + " · 还有 " + unchecked + " 本未打卡" : day + " · 都打完了";
+    }
+
+    /** 批量按钮文案：未来日没有批量动作；今天「打卡」，过去「补卡」 */
+    public static String dayActionButton(int dayKey, int todayKey) {
+        if (dayKey > todayKey) {
+            return null;
+        }
+        return dayKey == todayKey ? "全部打卡" : "全部补卡";
+    }
+
+    /** 批量打卡后的提示：一定要说清有几本没进去 */
+    public static String batchDoneText(int added, int skipped) {
+        if (added <= 0) {
+            return skipped > 0 ? "没有可打卡的书" : "这一天已经打完了";
+        }
+        return skipped > 0
+                ? "已打卡 " + added + " 本 · " + skipped + " 本跳过"
+                : "已打卡 " + added + " 本";
+    }
+
+    /** 批量撤销的提示 */
+    public static String batchUndoText(int removed) {
+        return removed > 0 ? "已撤销 " + removed + " 本打卡" : "没有需要撤销的打卡";
+    }
+
+    /** 当天记录明细「撤销这一天全部」的提示 */
+    public static String recordsClearedText(int removed) {
+        return removed > 0 ? "已撤销这一天的 " + removed + " 条记录" : "这一天已经没有记录了";
+    }
+
     /** 读屏朗读：「为《三体》打卡」/「为《三体》补卡」/「《三体》已打卡，点击撤销」 */
     public static String actionContentDescription(String title, boolean checked,
                                                   int dayKey, int todayKey) {

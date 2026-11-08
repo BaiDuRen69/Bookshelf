@@ -14,6 +14,7 @@ import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -25,11 +26,13 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.bai.bookshelf.R;
+import com.bai.bookshelf.ui.checkin.CheckInYearPanel;
 import com.bai.bookshelf.ui.checkin.CheckInYearView;
 import com.bai.bookshelf.ui.checkin.MonthGridView;
 import com.bai.bookshelf.ui.widget.DayCellView;
 import com.bai.bookshelf.util.CheckInMonthGrid;
 import com.bai.bookshelf.util.DateKeys;
+import com.bai.bookshelf.util.InsetsHelper;
 import com.bai.bookshelf.util.ThemeManager;
 import com.google.android.material.button.MaterialButton;
 
@@ -197,7 +200,9 @@ public class CheckInUiInstrumentedTest {
         assertNotNull(fab);
         assertEquals("今", ((TextView) fab).getText().toString());
         int reserve = Math.round(themed().getResources().getDimension(R.dimen.dock_reserve));
-        assertEquals("今按钮要按 dock_reserve 上移", reserve,
+        // v5.9.2：底部避让 = dock_reserve + 导航栏 inset（未挂窗时 inset 为 0）
+        int inset = InsetsHelper.systemBars(fab).bottom;
+        assertEquals("今按钮要按 dock_reserve + 导航栏上移", reserve + inset,
                 ((ViewGroup.MarginLayoutParams) fab.getLayoutParams()).bottomMargin);
         View empty = checkin().findViewById(R.id.empty_state);
         assertNotNull("空态要复用 view_empty_state", empty);
@@ -206,7 +211,7 @@ public class CheckInUiInstrumentedTest {
         assertNotNull(empty.findViewById(R.id.btn_empty_cta));
         ViewGroup recycler = checkin().findViewById(R.id.rv_checkin);
         assertFalse("列表要允许内容滚到 padding 区外", recycler.getClipToPadding());
-        assertEquals(reserve, recycler.getPaddingBottom());
+        assertEquals(reserve + inset, recycler.getPaddingBottom());
     }
 
     @Test
@@ -269,6 +274,62 @@ public class CheckInUiInstrumentedTest {
             assertEquals("每行三个月卡片", 3,
                     ((ViewGroup) layer.getChildAt(r)).getChildCount());
         }
+    }
+
+    @Test
+    public void 年视图标题可点选年份并直接跳到目标年() {
+        View root = checkin();
+        CheckInYearPanel panel = new CheckInYearPanel(root.findViewById(R.id.year_content));
+        final int[] changed = {0};
+        panel.setListener(new CheckInYearPanel.Listener() {
+            @Override
+            public void onPick(int yearMonth, int dayKey) {
+            }
+
+            @Override
+            public void onYearChanged(int year) {
+                changed[0] = year;
+            }
+        });
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() ->
+                panel.bind(202611, new java.util.ArrayList<>(), 20261108));
+
+        TextView title = root.findViewById(R.id.tv_year_title);
+        assertEquals("2026", title.getText().toString());
+        assertTrue("年份标题整块可点", title.isClickable());
+        assertEquals("2026年，点击选择年份", title.getContentDescription().toString());
+        assertNotNull("年份后面要有下拉箭头", title.getCompoundDrawablesRelative()[2]);
+
+        View panelRoot = root.findViewById(R.id.year_content);
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+            float density = panelRoot.getResources().getDisplayMetrics().density;
+            int w = Math.round(360 * density);
+            int h = Math.round(640 * density);
+            panelRoot.measure(View.MeasureSpec.makeMeasureSpec(w, View.MeasureSpec.EXACTLY),
+                    View.MeasureSpec.makeMeasureSpec(h, View.MeasureSpec.EXACTLY));
+            panelRoot.layout(0, 0, w, h);
+        });
+        assertTrue("标题只占文字宽度：" + title.getWidth() + " / " + panelRoot.getWidth(),
+                title.getWidth() > 0 && title.getWidth() < panelRoot.getWidth());
+        assertNotNull("标题要有 TouchDelegate 把点击区补到 48dp",
+                panelRoot.getTouchDelegate());
+
+        CheckInYearView yearView = root.findViewById(R.id.year_view);
+        ViewGroup switcher = (ViewGroup) yearView.getChildAt(0);
+        InstrumentationRegistry.getInstrumentation()
+                .runOnMainSync(() -> yearView.jumpToYear(2024));
+        assertEquals("跳到目标年", 2024, yearView.getYear());
+        assertEquals("标题跟随目标年", "2024", title.getText().toString());
+        assertEquals("面板收到换年回调", 2024, changed[0]);
+        assertEquals("旧层隐藏", View.GONE, switcher.getChildAt(0).getVisibility());
+        assertEquals("新层可见", View.VISIBLE, switcher.getChildAt(1).getVisibility());
+
+        // 反向再跳一次，激活层要换回来（不是只在两层里叠着显示）
+        InstrumentationRegistry.getInstrumentation()
+                .runOnMainSync(() -> yearView.jumpToYear(2026));
+        assertEquals(2026, yearView.getYear());
+        assertEquals(View.VISIBLE, switcher.getChildAt(0).getVisibility());
+        assertEquals(View.GONE, switcher.getChildAt(1).getVisibility());
     }
 
     @Test
@@ -368,55 +429,264 @@ public class CheckInUiInstrumentedTest {
     }
 
     @Test
-    public void 邻月日号只走语义色且不画农历() {
+    public void 邻月也画农历且用灰色低对比() {
         int adjacentColor = ThemeManager.resolveColor(themed(), R.attr.checkin_adjacent_text);
         Bitmap adjacent = renderCell("初一", true);
         Bitmap normal = renderCell("初一", false);
         int lunarTop = Math.round(adjacent.getHeight() * 0.58f);
 
-        assertEquals("邻月不画农历小字", 0, paintedPixelsFrom(adjacent, lunarTop));
+        assertTrue("邻月也要画农历小字", paintedPixelsFrom(adjacent, lunarTop) > 0);
         assertTrue("本月仍画农历小字", paintedPixelsFrom(normal, lunarTop) > 0);
-        assertTrue("邻月日号不再叠 110 alpha，应出现不透明的语义色像素",
-                countExact(adjacent, adjacentColor, Math.round(adjacent.getHeight() * 0.15f),
-                        Math.round(adjacent.getHeight() * 0.55f)) > 0);
+
+        int adjacentMaxAlpha = maxAlphaWithRgb(adjacent, adjacentColor & 0x00FFFFFF, lunarTop);
+        assertTrue("邻月农历应取 checkin_adjacent_text 的灰色", adjacentMaxAlpha > 0);
+        assertTrue("邻月小字要压暗（150 alpha），不能和本月一样亮", adjacentMaxAlpha < 160);
+
+        int normalMaxAlpha = maxAlphaFrom(normal, lunarTop);
+        assertTrue("邻月对比必须低于本月，实测 " + adjacentMaxAlpha + " vs " + normalMaxAlpha,
+                adjacentMaxAlpha < normalMaxAlpha);
     }
 
     @Test
-    public void 今天圆走语义色且和主色分开() {
-        int todayBg = ThemeManager.resolveColor(themed(), R.attr.checkin_today_bg);
-        int onToday = ThemeManager.resolveColor(themed(), R.attr.checkin_on_today);
-        int primary = ThemeManager.resolveColor(themed(), ThemeManager.ATTR_COLOR_PRIMARY);
-        Bitmap today = renderTodayCell();
-        int h = today.getHeight();
-
-        assertTrue("今天圆用 checkin_today_bg 实心填充",
-                countExact(today, todayBg, Math.round(h * 0.30f), Math.round(h * 0.50f))
-                        > 100);
-        assertTrue("今天圆内数字改用 checkin_on_today",
-                countExact(today, onToday, Math.round(h * 0.30f), Math.round(h * 0.62f)) > 0);
-        if (todayBg != primary) {
-            assertEquals("今天不再吃 colorPrimary", 0, countExact(today, primary, 0, h));
+    public void 今天三件套跟主题主色走() {
+        Context app = ApplicationProvider.getApplicationContext();
+        int onPrimaryAttr = com.google.android.material.R.attr.colorOnPrimary;
+        for (int theme = 0; theme < ThemeManager.names().length; theme++) {
+            Context ctx = new android.view.ContextThemeWrapper(app,
+                    ThemeManager.styleRes(theme));
+            String name = ThemeManager.names()[theme];
+            int primary = ThemeManager.resolveColor(ctx, ThemeManager.ATTR_COLOR_PRIMARY);
+            int onPrimary = ThemeManager.resolveColor(ctx, onPrimaryAttr);
+            assertEquals(name + " 今天圆底色", primary,
+                    ThemeManager.resolveColor(ctx, R.attr.checkin_today_bg));
+            assertEquals(name + " 今天圆外圈", primary,
+                    ThemeManager.resolveColor(ctx, R.attr.checkin_today_ring));
+            assertEquals(name + " 选中描边", primary,
+                    ThemeManager.resolveColor(ctx, R.attr.checkin_selected_stroke));
+            assertEquals(name + " 圆内文字", onPrimary,
+                    ThemeManager.resolveColor(ctx, R.attr.checkin_on_today));
         }
-        assertTrue("圆内文字与底色对比度 ≥ 4.5:1", contrast10(onToday, todayBg) >= 45);
     }
 
-    private static int contrast10(int fg, int bg) {
-        double l1 = luminance(fg);
-        double l2 = luminance(bg);
-        double lighter = Math.max(l1, l2);
-        double darker = Math.min(l1, l2);
-        return (int) Math.round((lighter + 0.05) / (darker + 0.05) * 10);
+    @Test
+    public void 今天打卡点跟主色不走反白() {
+        final int[] sampled = new int[1];
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+            Context ctx = themed();
+            DayCellView cell = new DayCellView(ctx);
+            int primary = ThemeManager.resolveColor(ctx, ThemeManager.ATTR_COLOR_PRIMARY);
+            int selectedBg = ThemeManager.resolveColor(ctx, R.attr.checkin_selected_bg);
+            int selectedStroke = ThemeManager.resolveColor(ctx, R.attr.checkin_selected_stroke);
+            int onSurface = ThemeManager.resolveColor(ctx, R.attr.on_surface);
+            int variant = ThemeManager.resolveColor(ctx, R.attr.on_surface_variant);
+            int onPrimary = ThemeManager.resolveColor(ctx,
+                    com.google.android.material.R.attr.colorOnPrimary);
+            int ring = ThemeManager.resolveColor(ctx, R.attr.checkin_day_ring);
+            int adjacentColor = ThemeManager.resolveColor(ctx, R.attr.checkin_adjacent_text);
+            int todayBg = ThemeManager.resolveColor(ctx, R.attr.checkin_today_bg);
+            int onToday = ThemeManager.resolveColor(ctx, R.attr.checkin_on_today);
+            int todayRing = ThemeManager.resolveColor(ctx, R.attr.checkin_today_ring);
+            int size = ctx.getResources().getDimensionPixelSize(R.dimen.checkin_cell_h);
+            // 入场动画在未挂载 View 上不推进，先挂起让点以最终尺寸落定
+            cell.setDotAnimationSuspended(true);
+            cell.measure(View.MeasureSpec.makeMeasureSpec(size, View.MeasureSpec.EXACTLY),
+                    View.MeasureSpec.makeMeasureSpec(size, View.MeasureSpec.EXACTLY));
+            cell.layout(0, 0, size, size);
+            cell.bindCheckIn(7, primary, selectedBg, selectedStroke, onSurface, variant,
+                    false, true, false, false, 1, 0, false, "初一", onPrimary, ring,
+                    variant, ctx.getResources().getDimension(R.dimen.checkin_lunar_text),
+                    adjacentColor, todayBg, onToday, todayRing);
+            Bitmap bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
+            cell.draw(new Canvas(bitmap));
+            float dotY = size - ctx.getResources().getDimension(R.dimen.checkin_dot_bottom);
+            sampled[0] = bitmap.getPixel(size / 2, Math.round(dotY));
+        });
+        Context ctx = themed();
+        int primary = ThemeManager.resolveColor(ctx, ThemeManager.ATTR_COLOR_PRIMARY);
+        assertEquals("今天打卡点应为主色 px=" + Integer.toHexString(sampled[0])
+                + " primary=" + Integer.toHexString(primary), primary, sampled[0]);
     }
 
-    private static double luminance(int color) {
-        return 0.2126 * linear(android.graphics.Color.red(color) / 255.0)
-                + 0.7152 * linear(android.graphics.Color.green(color) / 255.0)
-                + 0.0722 * linear(android.graphics.Color.blue(color) / 255.0);
+    @Test
+    public void 选中日是空心主色环且中心无填充() {
+        Context ctx = themed();
+        int primary = ThemeManager.resolveColor(ctx, ThemeManager.ATTR_COLOR_PRIMARY);
+        int ringStroke = ctx.getResources().getDimensionPixelSize(R.dimen.checkin_ring_stroke);
+        Bitmap cell = renderCheckInCell(7, true, false);
+        int cx = cell.getWidth() / 2;
+        int cy = cell.getHeight() / 2;
+        float radius = Math.min(cell.getWidth(), cell.getHeight()) / 2f - ringStroke;
+
+        int inner = cell.getPixel(cx, Math.round(cy + radius * 0.55f));
+        assertEquals("选中日中心应是卡片背景（空心），不能有实心底", 0, inner >>> 24);
+        assertTrue("选中日底部要有主色环",
+                countExact(cell, primary, Math.round(cy + radius) - 3,
+                        Math.round(cy + radius) + 4) > 0);
+        assertTrue("环不能是整块实心圆",
+                countExact(cell, primary, 0, cell.getHeight()) < 4000);
     }
 
-    private static double linear(double channel) {
-        return channel <= 0.03928 ? channel / 12.92
-                : Math.pow((channel + 0.055) / 1.055, 2.4);
+    @Test
+    public void 今天未选中时只有实心圆() {
+        Context ctx = themed();
+        int todayBg = ThemeManager.resolveColor(ctx, R.attr.checkin_today_bg);
+        int onToday = ThemeManager.resolveColor(ctx, R.attr.checkin_on_today);
+        int ringStroke = ctx.getResources().getDimensionPixelSize(R.dimen.checkin_ring_stroke);
+        float density = ctx.getResources().getDisplayMetrics().density;
+        float discR = ctx.getResources().getDimension(R.dimen.checkin_today_diameter) / 2f;
+        Bitmap cell = renderTodayCell();
+        int cx = cell.getWidth() / 2;
+        int cy = cell.getHeight() / 2;
+
+        int discProbeX = cx + Math.round(12 * density);
+        assertEquals("今天日号右侧应是语义色实心圆", todayBg, cell.getPixel(discProbeX, cy));
+        int[] span = verticalSpan(cell, cx, todayBg);
+        assertEquals("实心圆直径走 36dp 令牌", Math.round(36 * density),
+                span[1] - span[0] + 1, Math.round(2 * density));
+        assertEquals("没选中时今天不带外圈环", 0,
+                cell.getPixel(cx, Math.round(cy + discR + ringStroke)) >>> 24);
+        assertTrue("今天日号要用反白色",
+                countExact(cell, onToday, 0, cell.getHeight()) > 0);
+    }
+
+    @Test
+    public void 今天选中时实心圆外再套选中环() {
+        Context ctx = themed();
+        int todayBg = ThemeManager.resolveColor(ctx, R.attr.checkin_today_bg);
+        int onToday = ThemeManager.resolveColor(ctx, R.attr.checkin_on_today);
+        int primary = ThemeManager.resolveColor(ctx, ThemeManager.ATTR_COLOR_PRIMARY);
+        int ringStroke = ctx.getResources().getDimensionPixelSize(R.dimen.checkin_ring_stroke);
+        float density = ctx.getResources().getDisplayMetrics().density;
+        float discR = ctx.getResources().getDimension(R.dimen.checkin_today_diameter) / 2f;
+        float gap = ctx.getResources().getDimension(R.dimen.checkin_today_ring_gap);
+        Bitmap cell = renderCheckInCell(7, true, true);
+        int cx = cell.getWidth() / 2;
+        int cy = cell.getHeight() / 2;
+
+        int discProbeX = cx + Math.round(12 * density);
+        assertEquals("今天 + 选中：圆内仍是语义色实心", todayBg, cell.getPixel(discProbeX, cy));
+        // 环心在「实心圆 + 2dp 空隙 + 半个描边」处
+        int ringProbe = Math.round(cy + discR + gap + ringStroke / 2f);
+        assertTrue("今天 + 选中：实心圆外要有选中环",
+                countExact(cell, primary, ringProbe - 2, ringProbe + 3) > 0);
+        int gapProbe = Math.round(cy + discR + gap / 2f);
+        assertEquals("实心圆与选中环之间要留空隙", 0, cell.getPixel(cx, gapProbe));
+        assertTrue("今天日号要用反白色",
+                countExact(cell, onToday, 0, cell.getHeight()) > 0);
+    }
+
+    @Test
+    public void 邻月的今天也按真实打卡状态朗读() {
+        final MonthGridView[] holder = new MonthGridView[1];
+        InstrumentationRegistry.getInstrumentation()
+                .runOnMainSync(() -> holder[0] = new MonthGridView(themed()));
+        final MonthGridView grid = holder[0];
+        // 2026-10-31 在 11 月网格里是邻月格；把它当「今天」就能覆盖邻月朗读分支
+        final int adjacentToday = 20261031;
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+            setField(grid, "todayKey", adjacentToday);
+            setField(grid, "yearMonth", 202611);
+            invoke(grid, "rebuildStructure");
+            invoke(grid, "refreshAllCells");
+        });
+        DayCellView cell = null;
+        for (int i = 0; i < grid.getDayCellCount(); i++) {
+            if (grid.getDayKeyAt(i) == adjacentToday) {
+                cell = grid.getCellAt(i);
+                break;
+            }
+        }
+        assertNotNull("11 月网格要包含 10 月 31 日这个邻月格", cell);
+        String before = cell.getContentDescription().toString();
+        assertTrue("邻月今天的朗读：" + before, before.contains("今天"));
+        assertTrue("邻月今天的朗读要带未打卡：" + before, before.contains("未打卡"));
+
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> grid.setTodayChecked(true));
+        String after = cell.getContentDescription().toString();
+        assertTrue("邻月今天已打卡要念已打卡：" + after, after.contains("已打卡"));
+        assertFalse("不能在邻月今天身上同时念未打卡：" + after, after.contains("未打卡"));
+    }
+
+    @Test
+    public void 网格声明为六行八列单选集合且每格带行列() {
+        ViewGroup clip = monthGrid().findViewById(R.id.month_grid_clip);
+        final ViewGroup grid = (ViewGroup) clip.getChildAt(0);
+        final AccessibilityNodeInfo gridInfo = AccessibilityNodeInfo.obtain();
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+            View.AccessibilityDelegate delegate = grid.getAccessibilityDelegate();
+            assertNotNull("网格容器要挂集合信息", delegate);
+            delegate.onInitializeAccessibilityNodeInfo(grid, gridInfo);
+        });
+        AccessibilityNodeInfo.CollectionInfo collection = gridInfo.getCollectionInfo();
+        assertNotNull("网格对 TalkBack 应是集合", collection);
+        assertEquals("行 = 周数", grid.getChildCount(), collection.getRowCount());
+        assertEquals("列 = 周数 + 7 天", 8, collection.getColumnCount());
+        assertEquals(AccessibilityNodeInfo.CollectionInfo.SELECTION_MODE_SINGLE,
+                collection.getSelectionMode());
+        assertTrue("标题只留在 MonthGridView 上",
+                androidx.core.view.ViewCompat.isAccessibilityHeading(monthGrid()));
+
+        MonthGridView month = monthGrid();
+        final int selectedIndex = indexOfDay(month, month.getSelectedDayKey());
+        for (int index : new int[]{9, selectedIndex}) {
+            final DayCellView cell = month.getCellAt(index);
+            final AccessibilityNodeInfo info = AccessibilityNodeInfo.obtain();
+            InstrumentationRegistry.getInstrumentation()
+                    .runOnMainSync(() -> cell.onInitializeAccessibilityNodeInfo(info));
+            AccessibilityNodeInfo.CollectionItemInfo item = info.getCollectionItemInfo();
+            assertNotNull("第 " + index + " 格要有行列信息", item);
+            assertEquals("行号", index / 7, item.getRowIndex());
+            assertEquals("列号（0 列是周数）", index % 7 + 1, item.getColumnIndex());
+            assertEquals(1, item.getRowSpan());
+            assertEquals(1, item.getColumnSpan());
+            assertFalse("日期格不是标题", item.isHeading());
+            assertEquals("selected 要跟视觉选中同步", index == selectedIndex, info.isSelected());
+            assertEquals(index == selectedIndex, item.isSelected());
+        }
+
+        ViewGroup firstRow = (ViewGroup) grid.getChildAt(0);
+        final View week = firstRow.getChildAt(0);
+        final AccessibilityNodeInfo weekInfo = AccessibilityNodeInfo.obtain();
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+            View.AccessibilityDelegate delegate = week.getAccessibilityDelegate();
+            assertNotNull("周数格也要带行列信息", delegate);
+            delegate.onInitializeAccessibilityNodeInfo(week, weekInfo);
+        });
+        AccessibilityNodeInfo.CollectionItemInfo weekItem = weekInfo.getCollectionItemInfo();
+        assertNotNull(weekItem);
+        assertEquals(0, weekItem.getRowIndex());
+        assertEquals("周数占第 0 列", 0, weekItem.getColumnIndex());
+        assertFalse("周数不是标题", weekItem.isHeading());
+        assertFalse("周数不是标题", androidx.core.view.ViewCompat.isAccessibilityHeading(week));
+    }
+
+    private static int indexOfDay(MonthGridView grid, int dayKey) {
+        for (int i = 0; i < grid.getDayCellCount(); i++) {
+            if (grid.getDayKeyAt(i) == dayKey) {
+                return i;
+            }
+        }
+        return 0;
+    }
+
+    private static void setField(Object target, String name, Object value) {
+        try {
+            java.lang.reflect.Field f = target.getClass().getDeclaredField(name);
+            f.setAccessible(true);
+            f.set(target, value);
+        } catch (Exception e) {
+            throw new AssertionError("无法设置 " + name, e);
+        }
+    }
+
+    private static void invoke(Object target, String name) {
+        try {
+            java.lang.reflect.Method m = target.getClass().getDeclaredMethod(name);
+            m.setAccessible(true);
+            m.invoke(target);
+        } catch (Exception e) {
+            throw new AssertionError("无法调用 " + name, e);
+        }
     }
 
     private Bitmap renderTodayCell() {
@@ -437,12 +707,46 @@ public class CheckInUiInstrumentedTest {
             int onToday = ThemeManager.resolveColor(ctx, R.attr.checkin_on_today);
             int todayRing = ThemeManager.resolveColor(ctx, R.attr.checkin_today_ring);
             int size = ctx.getResources().getDimensionPixelSize(R.dimen.checkin_cell_h);
+            cell.setDotAnimationSuspended(true);
             cell.measure(View.MeasureSpec.makeMeasureSpec(size, View.MeasureSpec.EXACTLY),
                     View.MeasureSpec.makeMeasureSpec(size, View.MeasureSpec.EXACTLY));
             cell.layout(0, 0, size, size);
             cell.bindCheckIn(7, primary, selectedBg, selectedStroke, onSurface, variant,
-                    false, true, false, false, 0, 0, false, "初一", onPrimary, ring,
-                    variant, ctx.getResources().getDimension(R.dimen.checkin_lunar_text),
+                    false, true, false, false, 0, 0, false, "", onPrimary, ring,
+                    onSurface, ctx.getResources().getDimension(R.dimen.checkin_lunar_text),
+                    adjacentColor, todayBg, onToday, todayRing);
+            Bitmap bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
+            cell.draw(new Canvas(bitmap));
+            out[0] = bitmap;
+        });
+        return out[0];
+    }
+
+    private Bitmap renderCheckInCell(final int day, final boolean selected, final boolean today) {
+        final Bitmap[] out = new Bitmap[1];
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+            Context ctx = themed();
+            DayCellView cell = new DayCellView(ctx);
+            int primary = ThemeManager.resolveColor(ctx, ThemeManager.ATTR_COLOR_PRIMARY);
+            int selectedBg = ThemeManager.resolveColor(ctx, R.attr.checkin_selected_bg);
+            int selectedStroke = ThemeManager.resolveColor(ctx, R.attr.checkin_selected_stroke);
+            int onSurface = ThemeManager.resolveColor(ctx, R.attr.on_surface);
+            int variant = ThemeManager.resolveColor(ctx, R.attr.on_surface_variant);
+            int onPrimary = ThemeManager.resolveColor(ctx,
+                    com.google.android.material.R.attr.colorOnPrimary);
+            int ring = ThemeManager.resolveColor(ctx, R.attr.checkin_day_ring);
+            int adjacentColor = ThemeManager.resolveColor(ctx, R.attr.checkin_adjacent_text);
+            int todayBg = ThemeManager.resolveColor(ctx, R.attr.checkin_today_bg);
+            int onToday = ThemeManager.resolveColor(ctx, R.attr.checkin_on_today);
+            int todayRing = ThemeManager.resolveColor(ctx, R.attr.checkin_today_ring);
+            int size = ctx.getResources().getDimensionPixelSize(R.dimen.checkin_cell_h);
+            cell.setDotAnimationSuspended(true);
+            cell.measure(View.MeasureSpec.makeMeasureSpec(size, View.MeasureSpec.EXACTLY),
+                    View.MeasureSpec.makeMeasureSpec(size, View.MeasureSpec.EXACTLY));
+            cell.layout(0, 0, size, size);
+            cell.bindCheckIn(day, primary, selectedBg, selectedStroke, onSurface, variant,
+                    selected, today, false, false, 0, 0, false, "", onPrimary, ring,
+                    onSurface, ctx.getResources().getDimension(R.dimen.checkin_lunar_text),
                     adjacentColor, todayBg, onToday, todayRing);
             Bitmap bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
             cell.draw(new Canvas(bitmap));
@@ -471,7 +775,8 @@ public class CheckInUiInstrumentedTest {
             cell.layout(0, 0, size, size);
             cell.bindCheckIn(7, primary, selectedBg, selectedStroke, onSurface, variant,
                     false, false, adjacent, false, 0, 0, false, lunar, onPrimary, ring,
-                    variant, ctx.getResources().getDimension(R.dimen.checkin_lunar_text),
+                    adjacent ? adjacentColor : variant,
+                    ctx.getResources().getDimension(R.dimen.checkin_lunar_text),
                     adjacentColor);
             Bitmap bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
             cell.draw(new Canvas(bitmap));
@@ -492,6 +797,31 @@ public class CheckInUiInstrumentedTest {
         return count;
     }
 
+    /** 指定 RGB 的像素里最高的 alpha：用来核对小字颜色与压暗程度 */
+    private static int maxAlphaWithRgb(Bitmap bitmap, int rgb, int fromY) {
+        int max = 0;
+        for (int y = fromY; y < bitmap.getHeight(); y++) {
+            for (int x = 0; x < bitmap.getWidth(); x++) {
+                int p = bitmap.getPixel(x, y);
+                if ((p & 0x00FFFFFF) == rgb) {
+                    max = Math.max(max, p >>> 24);
+                }
+            }
+        }
+        return max;
+    }
+
+    /** 指定区域内所有非透明像素的最高 alpha */
+    private static int maxAlphaFrom(Bitmap bitmap, int fromY) {
+        int max = 0;
+        for (int y = fromY; y < bitmap.getHeight(); y++) {
+            for (int x = 0; x < bitmap.getWidth(); x++) {
+                max = Math.max(max, bitmap.getPixel(x, y) >>> 24);
+            }
+        }
+        return max;
+    }
+
     private static int countExact(Bitmap bitmap, int color, int fromY, int toY) {
         int count = 0;
         for (int y = fromY; y < toY; y++) {
@@ -502,6 +832,21 @@ public class CheckInUiInstrumentedTest {
             }
         }
         return count;
+    }
+
+    /** 指定列上某颜色的首末像素行：[0] 顶、[1] 底；没有则返回 -1 */
+    private static int[] verticalSpan(Bitmap bitmap, int x, int color) {
+        int top = -1;
+        int bottom = -1;
+        for (int y = 0; y < bitmap.getHeight(); y++) {
+            if (bitmap.getPixel(x, y) == color) {
+                if (top < 0) {
+                    top = y;
+                }
+                bottom = y;
+            }
+        }
+        return new int[]{top, bottom};
     }
 
     @Test

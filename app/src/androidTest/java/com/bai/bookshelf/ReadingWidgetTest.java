@@ -47,5 +47,9 @@ public class ReadingWidgetTest {
         assertTrue("目标行应带 40：" + s.goal, s.goal.contains("/ 40"));
         assertTrue("进度应在 0~100：" + s.progress,
                 s.progress >= 0 && s.progress <= 100);
+        assertTrue("今日打卡行要有文案：" + s.todayCheckIn,
+                s.todayCheckIn != null
+                        && (s.todayCheckIn.equals("今天还没打卡")
+                        || s.todayCheckIn.startsWith("今日已打卡 ")));
     }
 }

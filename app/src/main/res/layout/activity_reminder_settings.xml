@@ -4,6 +4,7 @@
      开关沿用 MineRow 的行高与令牌间距，控件用 Material3 的 MaterialSwitch。 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical">
@@ -145,6 +146,7 @@
                                     android:text="每日打卡提醒" />
 
                                 <TextView
+                                    android:id="@+id/tv_checkin_daily_note"
                                     style="@style/MineRowSubtitle"
                                     android:text="每天 21:00 提醒当天还没打卡；关掉后通知立即撤下、闹钟取消。没有系统通知权限时需先去系统设置开启" />
                             </LinearLayout>
@@ -157,6 +159,39 @@
                                 android:clickable="false"
                                 android:focusable="false"
                                 android:importantForAccessibility="no" />
+                        </LinearLayout>
+
+                        <View style="@style/MineRowDivider" />
+
+                        <!-- v5.9.2：提醒时刻；开关关掉时整行置灰，但仍可点开看说明 -->
+                        <LinearLayout
+                            android:id="@+id/row_checkin_reminder_time"
+                            style="@style/MineRow">
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    style="@style/MineRowTitle"
+                                    android:text="提醒时间" />
+
+                                <TextView
+                                    android:id="@+id/tv_checkin_reminder_time_note"
+                                    style="@style/MineRowSubtitle"
+                                    android:text="每天 21:00 · 到点提醒当天还没打卡" />
+                            </LinearLayout>
+
+                            <TextView
+                                android:id="@+id/tv_checkin_reminder_time"
+                                style="@style/Text.Bookshelf.RowValue"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="@dimen/space_md"
+                                android:textColor="?attr/on_surface_variant"
+                                tools:text="21:00" />
                         </LinearLayout>
 
                         <View style="@style/MineRowDivider" />

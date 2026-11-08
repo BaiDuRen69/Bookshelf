@@ -39,6 +39,8 @@ public class ShelfSecondaryChips {
 
     private String categorySub = "";
     private String channelSub = "";
+    /** 刚被点中的 chip：重建后只对这一枚播选中反馈，其余直接落终态 */
+    private String animateNextText;
 
     public ShelfSecondaryChips(FragmentShelfBinding b, Host host) {
         this.b = b;
@@ -133,13 +135,25 @@ public class ShelfSecondaryChips {
         Typo.text(tv, R.dimen.text_caption_large);
         tv.setGravity(android.view.Gravity.CENTER);
         tv.setPadding(dp(10), dp(5), dp(10), dp(5));
-        tv.setBackgroundResource(selected
-                ? R.drawable.bg_filter_pill_selected : R.drawable.bg_filter_pill);
+        if (selected && text.equals(animateNextText)) {
+            // 切换反馈：新选中的这枚 120ms 由未选中态交叉到选中态
+            com.bai.bookshelf.util.PillMotion.toggle(tv, true);
+        } else {
+            tv.setBackgroundResource(selected
+                    ? R.drawable.bg_filter_pill_selected : R.drawable.bg_filter_pill);
+        }
         // v4.16：选中态文字用当前主题主色（原先写死 R.color.primary，换肤后不跟随）
         tv.setTextColor(selected
                 ? ThemeManager.resolveColor(ctx, ThemeManager.ATTR_COLOR_PRIMARY)
                 : ThemeManager.resolveColor(ctx, R.attr.on_surface));
-        tv.setOnClickListener(listener);
+        tv.setOnClickListener(v -> {
+            animateNextText = text;
+            try {
+                listener.onClick(v);
+            } finally {
+                animateNextText = null;
+            }
+        });
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         lp.setMargins(0, 0, dp(6), 0);

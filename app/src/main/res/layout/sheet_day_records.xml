@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 当天记录明细（v5.9.2）：按月历逐日行尾部「⋯」打开，列出这一天所有打卡
+     （含已改成已读/想读的书，以及删书后残留的孤儿记录），逐条可撤销。 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingHorizontal="@dimen/space_xl"
+    android:paddingTop="@dimen/space_md"
+    android:paddingBottom="@dimen/space_lg">
+
+    <View
+        android:layout_width="@dimen/space_xl"
+        android:layout_height="@dimen/space_xs"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginBottom="@dimen/space_md"
+        android:background="@drawable/bg_sheet_handle"
+        android:importantForAccessibility="no" />
+
+    <TextView
+        android:id="@+id/tv_records_title"
+        style="@style/Text.Bookshelf.RowValue"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        tools:text="11月3日 · 3 条记录" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/space_xs"
+        android:text="撤销只删打卡记录，不改书的阅读状态"
+        android:textColor="?attr/on_surface_variant"
+        android:textSize="@dimen/text_caption_large" />
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rv_records"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/space_sm"
+        android:clipToPadding="false"
+        tools:itemCount="3"
+        tools:listitem="@layout/item_day_record" />
+
+    <TextView
+        android:id="@+id/tv_records_empty"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:paddingVertical="@dimen/space_xl"
+        android:text="这一天没有打卡记录了"
+        android:textColor="?attr/on_surface_variant"
+        android:textSize="@dimen/text_body_small"
+        android:visibility="gone" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btn_records_clear"
+        style="@style/Widget.Bookshelf.Button.Outlined"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/space_md"
+        android:text="撤销这一天全部"
+        app:icon="@drawable/ic_undo"
+        app:iconTint="?attr/on_surface_variant" />
+</LinearLayout>

@@ -110,6 +110,9 @@ public final class ReadingRecords {
             r.startDate = nz(book.readingStartDate);
             r.endDate = nz(book.readingFinishDate);
             r.rating = book.ratingAvg > 0 ? book.ratingAvg : book.rating;
+            // 合成的会话也要继承书上的进度：否则 syncTo 会按 0 写回，把 60% 归零
+            r.progress = book.readStatus == Book.READ_DONE ? 100
+                    : Math.max(0, Math.min(100, book.readingProgress));
             records.add(r);
         }
         return records;

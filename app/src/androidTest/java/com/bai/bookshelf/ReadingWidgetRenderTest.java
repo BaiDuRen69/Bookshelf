@@ -44,6 +44,7 @@ public class ReadingWidgetRenderTest {
         s.reading = "在读：测试之书";
         s.goal = "今年 5 / 24 种";
         s.progress = 20;
+        s.todayCheckIn = "今日已打卡 2 本";
         s.overdue = "逾期 1 本";
         s.overdueVisible = true;
         s.due = "今日到期 2 本";
@@ -70,6 +71,12 @@ public class ReadingWidgetRenderTest {
 
                 TextView percent = root.findViewById(R.id.widget_percent);
                 assertEquals("20%", percent.getText().toString());
+
+                TextView todayLine = root.findViewById(R.id.widget_today);
+                assertNotNull("第 12 项：小组件要有今日打卡行", todayLine);
+                assertEquals("今日已打卡 2 本", todayLine.getText().toString());
+                assertEquals(ThemeManager.resolveColor(themed, R.attr.on_surface_variant),
+                        todayLine.getCurrentTextColor());
 
                 ImageView bar = root.findViewById(R.id.widget_progress);
                 Drawable drawable = bar.getDrawable();

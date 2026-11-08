@@ -19,6 +19,9 @@ import com.bai.bookshelf.util.DateKeys;
 import com.bai.bookshelf.util.ReminderPrefs;
 import com.bai.bookshelf.util.UpdateChecker;
 
+import com.google.android.material.timepicker.MaterialTimePicker;
+import com.google.android.material.timepicker.TimeFormat;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -64,6 +67,7 @@ public class ReminderSettingsActivity extends BaseActivity {
                     : "已开启：发现新版本时提示我");
         });
         b.btnNotifySettings.setOnClickListener(v -> openNotificationSettings());
+        b.rowCheckinReminderTime.setOnClickListener(v -> pickCheckinTime());
         refresh();
     }
 
@@ -85,7 +89,7 @@ public class ReminderSettingsActivity extends BaseActivity {
     private void toggle(String key, boolean value) {
         ReminderPrefs.setOn(this, key, value);
         if (ReminderPrefs.KEY_NOTIFY_CHECKIN_DAILY.equals(key)) {
-            // 开：立刻排 21:00 闹钟；关：撤通知 + 撤闹钟
+            // 开：立刻按设定时刻排闹钟；关：撤通知 + 撤闹钟
             if (value) {
                 com.bai.bookshelf.util.CheckInReminder.schedule(this);
             } else {
@@ -100,6 +104,10 @@ public class ReminderSettingsActivity extends BaseActivity {
             } else {
                 BorrowReminder.cancelDueReminder(this);
             }
+        }
+        if (ReminderPrefs.KEY_WIDGET_ENABLED.equals(key) && value) {
+            // 重新打开后立刻补一次内容，不然停在关闭时的旧画面
+            com.bai.bookshelf.ui.widget.ReadingWidgetProvider.refresh(this);
         }
         refresh();
         toast(value ? ON : OFF);
@@ -127,8 +135,38 @@ public class ReminderSettingsActivity extends BaseActivity {
                 + state(ReminderPrefs.bannerBorrowDue(this)));
         b.rowPromptNewVersion.setContentDescription("发现新版本时提示我，"
                 + state(!UpdateChecker.isNeverPrompt(this)));
+        String time = ReminderPrefs.checkinReminderTimeText(this);
+        b.tvCheckinReminderTime.setText(time);
+        b.tvCheckinReminderTimeNote.setText("每天 " + time + " · 到点提醒当天还没打卡");
+        b.tvCheckinDailyNote.setText("每天 " + time + " 提醒当天还没打卡；关掉后通知立即撤下、"
+                + "闹钟取消。没有系统通知权限时需先去系统设置开启");
         refreshPermission();
         refreshSummary();
+    }
+
+    /** 24 小时制时刻选择：确定后立刻重排闹钟，不用等下次重启 */
+    private void pickCheckinTime() {
+        if (!ReminderPrefs.checkinDaily(this)) {
+            toast("先打开「每日打卡提醒」，再设置时间");
+            return;
+        }
+        if (!BorrowReminder.notificationsEnabled(this)) {
+            openNotificationSettings();
+            return;
+        }
+        MaterialTimePicker picker = new MaterialTimePicker.Builder()
+                .setTimeFormat(TimeFormat.CLOCK_24H)
+                .setHour(ReminderPrefs.checkinReminderHour(this))
+                .setMinute(ReminderPrefs.checkinReminderMinute(this))
+                .setTitleText("每日打卡提醒时间")
+                .build();
+        picker.addOnPositiveButtonClickListener(v -> {
+            ReminderPrefs.setCheckinReminderTime(this, picker.getHour(), picker.getMinute());
+            com.bai.bookshelf.util.CheckInReminder.schedule(this);
+            refresh();
+            toast("提醒时间已改为 " + ReminderPrefs.checkinReminderTimeText(this));
+        });
+        picker.show(getSupportFragmentManager(), "checkin_reminder_time");
     }
 
     private static String state(boolean on) {
@@ -142,6 +180,12 @@ public class ReminderSettingsActivity extends BaseActivity {
         b.rowNotifyCheckinDaily.setAlpha(granted ? 1f : 0.5f);
         b.swNotifyCheckinDaily.setEnabled(granted);
         b.swNotifyCheckinDaily.setChecked(granted && ReminderPrefs.checkinDaily(this));
+        // 提醒时间跟随开关：关掉（或系统通知被撤）时整行置灰
+        boolean timeEnabled = granted && ReminderPrefs.checkinDaily(this);
+        b.rowCheckinReminderTime.setAlpha(timeEnabled ? 1f : 0.5f);
+        b.rowCheckinReminderTime.setContentDescription("提醒时间，"
+                + ReminderPrefs.checkinReminderTimeText(this)
+                + (timeEnabled ? "" : "，每日打卡提醒未开启"));
     }
 
     /** 摘要：逾期 / 今天到期 / 通知授权 / 闹钟，全部来自已有查询，不新增 DAO 方法 */

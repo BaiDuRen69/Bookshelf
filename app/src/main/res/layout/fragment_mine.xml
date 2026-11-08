@@ -14,6 +14,7 @@
         app:title="我的" />
 
     <androidx.core.widget.NestedScrollView
+        android:id="@+id/scroll_mine"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
@@ -211,7 +212,9 @@
                 <androidx.cardview.widget.CardView
                     style="@style/Widget.Bookshelf.Card"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content">
+                    android:layout_height="wrap_content"
+                    app:cardBackgroundColor="?attr/surface_dim"
+                    app:strokeWidth="0dp">
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -987,6 +990,37 @@
                                     android:id="@+id/tv_reminder_settings_state"
                                     style="@style/MineRowSubtitle"
                                     android:text="到期通知、角标、提示条、小组件与更新提醒" />
+                            </LinearLayout>
+
+                            <ImageView style="@style/MineRowChevron" />
+                        </LinearLayout>
+
+                        <View style="@style/MineRowDivider" />
+
+                        <!-- v5.11：底栏顺序 / 隐藏 / 启动页 -->
+                        <LinearLayout
+                            android:id="@+id/row_nav_settings"
+                            style="@style/MineRow">
+
+                            <ImageView
+                                style="@style/MineRowIcon"
+                                android:contentDescription="底栏与启动页"
+                                android:src="@drawable/ic_view_grid" />
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="@dimen/space_md"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    style="@style/MineRowTitle"
+                                    android:text="底栏与启动页" />
+
+                                <TextView
+                                    style="@style/MineRowSubtitle"
+                                    android:text="自定义顺序、隐藏不用的 Tab、选择启动页" />
                             </LinearLayout>
 
                             <ImageView style="@style/MineRowChevron" />

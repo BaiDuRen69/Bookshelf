@@ -127,6 +127,88 @@
                     android:layout_height="wrap_content"
                     android:layout_marginHorizontal="@dimen/page_padding" />
 
+                <!-- 选中日动作条：一句说明 + 回到今天 + 全部打卡/补卡；撤销只在 5 秒内出现。
+                     按钮用文本样式但压到 36dp 高，整行固定 40dp，不挤占列表。 -->
+                <LinearLayout
+                    android:id="@+id/ll_day_actions"
+                    android:layout_width="match_parent"
+                    android:layout_height="40dp"
+                    android:layout_marginHorizontal="@dimen/page_padding"
+                    android:baselineAligned="false"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <FrameLayout
+                        android:id="@+id/fl_day_action"
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_weight="1">
+
+                        <TextView
+                            android:id="@+id/tv_day_action"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="start|center_vertical"
+                            android:ellipsize="end"
+                            android:maxLines="1"
+                            android:textColor="?attr/on_surface_variant"
+                            android:textSize="@dimen/text_body_small"
+                            tools:text="今天 · 还有 3 本未打卡" />
+
+                        <TextView
+                            android:id="@+id/tv_day_action_alt"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="start|center_vertical"
+                            android:alpha="0"
+                            android:ellipsize="end"
+                            android:maxLines="1"
+                            android:textColor="?attr/on_surface_variant"
+                            android:textSize="@dimen/text_body_small" />
+                    </FrameLayout>
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btn_day_undo"
+                        style="@style/Widget.Bookshelf.Button.Text"
+                        android:layout_width="wrap_content"
+                        android:layout_height="36dp"
+                        android:insetBottom="0dp"
+                        android:insetTop="0dp"
+                        android:minHeight="0dp"
+                        android:minWidth="0dp"
+                        android:paddingHorizontal="@dimen/space_sm"
+                        android:text="撤销"
+                        android:visibility="gone"
+                        tools:visibility="visible" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btn_back_today"
+                        style="@style/Widget.Bookshelf.Button.Text"
+                        android:layout_width="wrap_content"
+                        android:layout_height="36dp"
+                        android:insetBottom="0dp"
+                        android:insetTop="0dp"
+                        android:minHeight="0dp"
+                        android:minWidth="0dp"
+                        android:paddingHorizontal="@dimen/space_sm"
+                        android:text="回到今天"
+                        android:visibility="gone"
+                        tools:visibility="visible" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btn_batch_checkin"
+                        style="@style/Widget.Bookshelf.Button.Text"
+                        android:layout_width="wrap_content"
+                        android:layout_height="36dp"
+                        android:insetBottom="0dp"
+                        android:insetTop="0dp"
+                        android:maxLines="1"
+                        android:minHeight="0dp"
+                        android:minWidth="0dp"
+                        android:paddingHorizontal="@dimen/space_sm"
+                        android:text="全部打卡" />
+                </LinearLayout>
+
                 <!-- 5.5：逐日明细的把手；手势之外给 TalkBack / 不知道手势的用户一个入口 -->
                 <LinearLayout
                     android:id="@+id/ll_month_days_handle"

@@ -13,7 +13,19 @@
     <FrameLayout
         android:id="@+id/container"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="match_parent"
+        android:background="?android:attr/colorBackground" />
+
+    <!-- v5.9.4：状态栏垫片。API 35+ 强制 edge-to-edge，页头自己画到状态栏区域；
+         切 Tab 淡入期间页头是半透明的，这一条始终铺当前主题页头色，
+         既不露纸色白带，也保证状态栏图标对比度。高度 = 状态栏 inset（旧系统为 0）。 -->
+    <View
+        android:id="@+id/status_bar_scrim"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_gravity="top"
+        android:background="?attr/header_bg"
+        android:importantForAccessibility="no" />
 
     <!-- 必须在 bottom_nav 之前添加：画在 dock 下面、内容上面 -->
     <View
@@ -56,6 +68,7 @@
 
             <!-- 4 格等分：子项 0dp + weight=1，父容器必须 match_parent 才生效 -->
             <LinearLayout
+                android:id="@+id/nav_items"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:orientation="horizontal">

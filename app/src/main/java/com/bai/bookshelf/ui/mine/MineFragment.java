@@ -19,12 +19,14 @@ import com.bai.bookshelf.app.BookshelfApp;
 import com.bai.bookshelf.data.entity.Book;
 import com.bai.bookshelf.data.entity.Location;
 import com.bai.bookshelf.databinding.FragmentMineBinding;
+import com.bai.bookshelf.ui.TabRefresh;
 import com.bai.bookshelf.util.BackupManager;
 import com.bai.bookshelf.util.BookFlags;
 import com.bai.bookshelf.util.InsetsHelper;
 import com.bai.bookshelf.ui.scan.ScanActivity;
 import com.bai.bookshelf.BuildConfig;
 import com.bai.bookshelf.util.ExcelExporter;
+import com.bai.bookshelf.util.Motion;
 import com.bai.bookshelf.util.ThemeManager;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
@@ -36,11 +38,19 @@ import java.util.Map;
  * 我的页：数据概览 + 分区功能入口（藏书管理 / 数据与备份 / 设置）。
  * v2.7 起按 Material Design 设置页规范分组：分区标题具体、高频入口置顶。
  */
-public class MineFragment extends Fragment {
+public class MineFragment extends Fragment implements TabRefresh {
 
     private FragmentMineBinding b;
     /** 需要补全的藏书数（封面/分类/存放地点任一缺失），任务清单用 */
     private int incompleteCount;
+
+    /** 任务卡动效：只在状态真正变化时播放，首次绑定直接落终态 */
+    private final boolean[] taskIconDone = new boolean[4];
+    private boolean taskIconBound;
+    private int taskProgressShown = -1;
+    private android.animation.ValueAnimator taskProgressAnim;
+    /** 四项完成后的收起只跑一次（本次视图生命周期内） */
+    private boolean tasksCollapsed;
 
     /** 导出 Excel 的目标文件夹选择器（SAF） */
     private androidx.activity.result.ActivityResultLauncher<Uri> exportTreeLauncher;
@@ -145,6 +155,8 @@ public class MineFragment extends Fragment {
         });
         b.rowReminderSettings.setOnClickListener(v -> startActivity(new Intent(requireContext(),
                 com.bai.bookshelf.ui.settings.ReminderSettingsActivity.class)));
+        b.rowNavSettings.setOnClickListener(v -> startActivity(new Intent(requireContext(),
+                com.bai.bookshelf.ui.settings.NavSettingsActivity.class)));
         // v4.15：API 设置从弹窗改为二级页（API 配置 / 用量查询 分开）
         b.rowApi.setOnClickListener(v -> startActivity(new Intent(requireContext(),
                 ApiSettingsActivity.class)));
@@ -326,21 +338,138 @@ public class MineFragment extends Fragment {
         }
         boolean info = incompleteCount == 0;
         int done = (backup ? 1 : 0) + (folder ? 1 : 0) + (goal ? 1 : 0) + (info ? 1 : 0);
-        b.tvTaskProgress.setText(done + " / 4");
-        bindTask(b.ivTaskBackup, backup);
-        bindTask(b.ivTaskFolder, folder);
-        bindTask(b.ivTaskGoal, goal);
-        bindTask(b.ivTaskInfo, info);
+        boolean firstBind = !taskIconBound;
+        animateTaskProgress(done);
+        bindTask(b.ivTaskBackup, backup, 0);
+        bindTask(b.ivTaskFolder, folder, 1);
+        bindTask(b.ivTaskGoal, goal, 2);
+        bindTask(b.ivTaskInfo, info, 3);
         b.tvTaskInfo.setText(info
                 ? "封面 / 分类 / 存放地点都齐了"
                 : "补全书的封面 / 分类 / 存放地点（还差 " + incompleteCount + " 种）");
         b.tvTaskSkipFolder.setVisibility(folder ? View.GONE : View.VISIBLE);
-        b.cardTasks.setVisibility(done >= 4 || dismissed ? View.GONE : View.VISIBLE);
+        if (dismissed) {
+            tasksCollapsed = true;
+            b.cardTasks.setVisibility(View.GONE);
+        } else if (done >= 4) {
+            // 首次打开就是已完成：直接收掉；本页停留期间刚完成才播放收起
+            if (firstBind) {
+                tasksCollapsed = true;
+                b.cardTasks.setVisibility(View.GONE);
+            } else {
+                collapseTaskCard();
+            }
+        } else {
+            b.cardTasks.setVisibility(View.VISIBLE);
+        }
+        taskIconBound = true;
     }
 
-    private static void bindTask(android.widget.ImageView icon, boolean done) {
-        icon.setAlpha(done ? 1f : 0.25f);
+    private void bindTask(android.widget.ImageView icon, boolean done, int index) {
+        boolean prev = taskIconDone[index];
+        taskIconDone[index] = done;
         icon.setContentDescription(done ? "已完成" : "待完成");
+        if (!taskIconBound) {
+            icon.setAlpha(done ? 1f : 0.25f);
+            return;
+        }
+        if (done == prev) {
+            return;
+        }
+        icon.animate().cancel();
+        icon.setScaleX(1f);
+        icon.setScaleY(1f);
+        if (!com.bai.bookshelf.util.Motion.enabled(requireContext())) {
+            icon.setAlpha(done ? 1f : 0.25f);
+            return;
+        }
+        if (done) {
+            icon.setAlpha(1f);
+            icon.setScaleX(0.8f);
+            icon.setScaleY(0.8f);
+            icon.animate().scaleX(1f).scaleY(1f)
+                    .setDuration(180)
+                    .setInterpolator(new android.view.animation.OvershootInterpolator(1.4f))
+                    .start();
+        } else {
+            icon.setAlpha(0.25f);
+        }
+    }
+
+    private void animateTaskProgress(int done) {
+        if (b == null) {
+            return;
+        }
+        final TextView tv = b.tvTaskProgress;
+        int from = taskProgressShown;
+        if (taskProgressAnim != null && taskProgressAnim.isRunning() && from == done) {
+            return;
+        }
+        taskProgressShown = done;
+        if (from < 0 || from == done
+                || !com.bai.bookshelf.util.Motion.enabled(requireContext())) {
+            tv.setText(done + " / 4");
+            return;
+        }
+        if (taskProgressAnim != null) {
+            taskProgressAnim.cancel();
+        }
+        taskProgressAnim = android.animation.ValueAnimator.ofInt(from, done);
+        taskProgressAnim.setDuration(300);
+        taskProgressAnim.setInterpolator(com.bai.bookshelf.util.Motion.STANDARD);
+        taskProgressAnim.addUpdateListener(a -> {
+            if (b != null) {
+                b.tvTaskProgress.setText(a.getAnimatedValue() + " / 4");
+            }
+        });
+        taskProgressAnim.start();
+    }
+
+    /** 四项全完成的收起：alpha + 高度 220ms，结束再 GONE（全应用唯一动 layout 的地方） */
+    private void collapseTaskCard() {
+        if (tasksCollapsed || b == null) {
+            return;
+        }
+        tasksCollapsed = true;
+        final View card = b.cardTasks;
+        if (!com.bai.bookshelf.util.Motion.enabled(requireContext())) {
+            card.setVisibility(View.GONE);
+            return;
+        }
+        card.post(() -> {
+            if (b == null) {
+                return;
+            }
+            int height = card.getHeight();
+            if (height <= 0) {
+                card.setVisibility(View.GONE);
+                return;
+            }
+            final ViewGroup.LayoutParams lp = card.getLayoutParams();
+            android.animation.ValueAnimator anim =
+                    android.animation.ValueAnimator.ofFloat(0f, 1f);
+            anim.setDuration(220);
+            anim.setInterpolator(com.bai.bookshelf.util.Motion.STANDARD);
+            anim.addUpdateListener(a -> {
+                float f = (float) a.getAnimatedValue();
+                lp.height = Math.round(height * (1f - f));
+                card.setLayoutParams(lp);
+                card.setAlpha(1f - f);
+            });
+            anim.addListener(new android.animation.AnimatorListenerAdapter() {
+                @Override
+                public void onAnimationEnd(android.animation.Animator a) {
+                    if (b == null) {
+                        return;
+                    }
+                    lp.height = ViewGroup.LayoutParams.WRAP_CONTENT;
+                    card.setLayoutParams(lp);
+                    card.setAlpha(1f);
+                    card.setVisibility(View.GONE);
+                }
+            });
+            anim.start();
+        });
     }
 
     /** 概览：藏书 / 已读 / 在读 + 已读比例 + 地点/来源/标签数量（v4.24 hero 区） */
@@ -531,8 +660,38 @@ public class MineFragment extends Fragment {
         return (int) (value * getResources().getDisplayMetrics().density);
     }
 
+    // ==================== 切 Tab 内容层动效（v5.9.4） ====================
+
+    @Override
+    public void animateIn() {
+        View content = b == null ? null : b.scrollMine;
+        if (content == null) {
+            return;
+        }
+        content.animate().cancel();
+        content.setTranslationY(6 * getResources().getDisplayMetrics().density);
+        content.animate().translationY(0f)
+                .setDuration(Motion.BASE)
+                .setInterpolator(Motion.STANDARD)
+                .start();
+    }
+
+    @Override
+    public void settleContent() {
+        View content = b == null ? null : b.scrollMine;
+        if (content == null) {
+            return;
+        }
+        content.animate().cancel();
+        content.setTranslationY(0f);
+    }
+
     @Override
     public void onDestroyView() {
+        if (taskProgressAnim != null) {
+            taskProgressAnim.cancel();
+            taskProgressAnim = null;
+        }
         super.onDestroyView();
         b = null;
     }

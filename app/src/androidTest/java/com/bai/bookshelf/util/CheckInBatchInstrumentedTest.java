@@ -139,4 +139,147 @@ public class CheckInBatchInstrumentedTest {
         assertEquals(ReadingRecords.MODE_PRECISE, records.get(0).mode);
         assertEquals("在读不写结束日", "", records.get(0).endDate);
     }
+
+    @Test
+    public void 单日批量一次给多本打卡并跳过别轮() {
+        Book a = preciseBook();
+        Book b = preciseBook();
+        seed(b.id, 2, TODAY); // 同一天已记在另一轮
+        CheckInStore.DayBatchResult r =
+                CheckInStore.addDayForBooks(db, Arrays.asList(a, b), TODAY, TODAY);
+        assertEquals(1, r.added);
+        assertEquals(1, r.skippedOtherSeq);
+        assertEquals(Collections.singletonList(a.id), r.addedBookIds);
+        assertEquals(Arrays.asList(TODAY), db.checkInDao().getDayKeys(a.id, 1));
+        assertEquals("别轮的行不抢", Arrays.asList(TODAY), db.checkInDao().getDayKeys(b.id, 2));
+    }
+
+    @Test
+    public void 单日批量撤销只删这一批() {
+        Book a = preciseBook();
+        Book b = preciseBook();
+        seed(b.id, 1, TODAY);
+        CheckInStore.DayBatchResult r =
+                CheckInStore.addDayForBooks(db, Arrays.asList(a, b), TODAY, TODAY);
+        assertEquals(1, r.added);
+        assertEquals("已打卡的那本不重复计", 0, r.skippedOtherSeq);
+        assertEquals(1, CheckInStore.removeDayForBooks(db, r.addedBookIds, TODAY));
+        assertTrue(db.checkInDao().getDayKeys(a.id, 1).isEmpty());
+        assertEquals("不在本批的旧打卡保留", Arrays.asList(TODAY),
+                db.checkInDao().getDayKeys(b.id, 1));
+    }
+
+    @Test
+    public void 未来日的批量一条也不写() {
+        Book a = preciseBook();
+        CheckInStore.DayBatchResult r = CheckInStore.addDayForBooks(
+                db, Collections.singletonList(a), 20261106, TODAY);
+        assertEquals(0, r.added);
+        assertEquals(1, r.skippedFuture);
+        assertTrue(db.checkInDao().getByBookSeq(a.id, 1).isEmpty());
+    }
+
+    /** 只有阅读状态、没有会话 JSON 也没有起止日的老书（真机里那批「已读 0 天」的样本） */
+    private Book undatedFuzzyBook(int progress, int rating) {
+        Book b = new Book();
+        b.title = "合成阅读";
+        b.pages = 100;
+        b.listPrice = 10;
+        b.purchasePrice = 10;
+        b.quantity = 1;
+        b.readStatus = Book.READING;
+        b.readingProgress = progress;
+        b.rating = rating;
+        b.createdAt = 1700000000000L;
+        b.updatedAt = 1700000000000L;
+        b.readingRecords = "";
+        b.id = db.bookDao().insert(b);
+        return b;
+    }
+
+    private Book datedFuzzyBook(String startDate, int progress, int rating) {
+        Book b = undatedFuzzyBook(progress, rating);
+        ReadingRecords.Record r = new ReadingRecords.Record(1);
+        r.status = Book.READING;
+        r.startDate = startDate;
+        r.progress = progress;
+        r.rating = rating;
+        b.readingStartDate = startDate;
+        b.readingRecords = ReadingRecords.toJson(Collections.singletonList(r));
+        db.bookDao().update(b);
+        return b;
+    }
+
+    @Test
+    public void 无日期模糊轮打卡后提升为精确轮且保留进度评分() {
+        Book b = undatedFuzzyBook(60, 1);
+        seed(b.id, 1, 20261101, 20261103);
+        assertEquals(CheckInStore.Result.ADDED,
+                CheckInStore.toggle(db, b, TODAY, true, 1));
+        Book fresh = db.bookDao().getById(b.id);
+        assertEquals(Arrays.asList(20261101, 20261103, TODAY),
+                db.checkInDao().getDayKeys(b.id, 1));
+        List<ReadingRecords.Record> records = ReadingRecords.parse(fresh.readingRecords);
+        assertEquals("合成会话只有一场", 1, records.size());
+        assertEquals("无日期的模糊轮应提升", ReadingRecords.MODE_PRECISE, records.get(0).mode);
+        assertEquals("开始日 = 最早打卡日", "2026-11-01", records.get(0).startDate);
+        assertEquals("在读提升后不写结束日", "", records.get(0).endDate);
+        assertEquals("2026-11-01", fresh.readingStartDate);
+        assertEquals("", fresh.readingFinishDate);
+        assertEquals("进度不能被归零", 60, fresh.readingProgress);
+        assertEquals("评分不能被抹掉", 1, fresh.rating);
+    }
+
+    @Test
+    public void 有日期的模糊轮打卡后仍保持模糊() {
+        Book b = datedFuzzyBook("2026-10-01", 30, 4);
+        seed(b.id, 1, 20261102);
+        assertEquals(CheckInStore.Result.ADDED,
+                CheckInStore.toggle(db, b, TODAY, true, 1));
+        Book fresh = db.bookDao().getById(b.id);
+        List<ReadingRecords.Record> records = ReadingRecords.parse(fresh.readingRecords);
+        assertEquals("用户填过日期的模糊轮保持零改写", ReadingRecords.MODE_FUZZY,
+                records.get(0).mode);
+        assertEquals("2026-10-01", records.get(0).startDate);
+        assertEquals("2026-10-01", fresh.readingStartDate);
+    }
+
+    @Test
+    public void 撤销最后一天后精确轮零天且日集合为空() {
+        Book b = undatedFuzzyBook(40, 2);
+        b.ratingAvg = 2;
+        db.bookDao().update(b);
+        assertEquals(CheckInStore.Result.ADDED,
+                CheckInStore.toggle(db, b, TODAY, true, 1));
+        assertEquals(CheckInStore.Result.REMOVED,
+                CheckInStore.toggle(db, db.bookDao().getById(b.id), TODAY, true, 1));
+        Book fresh = db.bookDao().getById(b.id);
+        assertTrue(db.checkInDao().getDayKeys(b.id, 1).isEmpty());
+        List<ReadingRecords.Record> records = ReadingRecords.parse(fresh.readingRecords);
+        assertEquals("撤回后保留精确轮（不降回模糊）", ReadingRecords.MODE_PRECISE,
+                records.get(0).mode);
+        assertEquals("日集合为空 = 0 天", 0,
+                ReadingRecords.readDays(records.get(0),
+                        db.checkInDao().getDayKeys(b.id, 1), null));
+        assertEquals("撤销不冲掉用户评分", 2, fresh.rating);
+        assertEquals(2.0, fresh.ratingAvg, 0.001);
+        assertEquals("撤销不丢进度", 40, fresh.readingProgress);
+    }
+
+    @Test
+    public void 提升幂等_多次打卡始终只有一条精确轮() {
+        Book b = undatedFuzzyBook(50, 0);
+        assertEquals(CheckInStore.Result.ADDED,
+                CheckInStore.toggle(db, b, TODAY, true, 1));
+        assertEquals(CheckInStore.Result.ADDED,
+                CheckInStore.toggle(db, db.bookDao().getById(b.id), 20261106, true, 1));
+        Book fresh = db.bookDao().getById(b.id);
+        List<ReadingRecords.Record> records = ReadingRecords.parse(fresh.readingRecords);
+        assertEquals("提升不新增会话", 1, records.size());
+        assertEquals(ReadingRecords.MODE_PRECISE, records.get(0).mode);
+        assertEquals("开始日跟着最早一天走", "2026-11-05", records.get(0).startDate);
+        assertEquals("在读仍不写结束日", "", records.get(0).endDate);
+        assertEquals(Arrays.asList(20261105, 20261106),
+                db.checkInDao().getDayKeys(b.id, 1));
+    }
 }

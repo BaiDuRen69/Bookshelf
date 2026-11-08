@@ -42,13 +42,15 @@ public class CheckInAdapter extends RecyclerView.Adapter<CheckInAdapter.VH> {
     private static final float COVER_DIM = 0.9f;
 
     public static final class Row {
-        public final Book book;
+        public Book book;
         public boolean checked;
         public String borrower = "";
         /** 当前轮的阅读天数（ReadingRecords.readDays 唯一口径） */
         public int readDays;
         /** 当前在读那一轮的 seq：打卡写入时带上，撤销时才认得出是哪一轮 */
         public int seq = 1;
+        /** 该行有一次写入在途：按钮显示「处理中」并禁用，防连点重复提交 */
+        public boolean pending;
 
         public Row(Book book, boolean checked) {
             this.book = book;
@@ -82,13 +84,63 @@ public class CheckInAdapter extends RecyclerView.Adapter<CheckInAdapter.VH> {
         notifyDataSetChanged();
     }
 
-    /** 只重绑被点的那一行，不整表重建 */
-    public void updateRow(int position, boolean checked) {
-        if (position < 0 || position >= rows.size()) {
+    public int indexOfBook(long bookId) {
+        for (int i = 0; i < rows.size(); i++) {
+            if (rows.get(i).book.id == bookId) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /** 异步请求在途标记；按 bookId 找行，position 在提交期间可能已经变了 */
+    public void setPending(long bookId, boolean pending) {
+        int i = indexOfBook(bookId);
+        if (i < 0 || rows.get(i).pending == pending) {
             return;
         }
-        rows.get(position).checked = checked;
-        notifyItemChanged(position);
+        rows.get(i).pending = pending;
+        notifyItemChanged(i);
+    }
+
+    /**
+     * 打卡结果回填：按 bookId 找行，不依赖点击时的 position。
+     *
+     * @return 实际改到的行号；-1 = 该行已被别的刷新换掉，调用方应整页重取
+     */
+    public int applyToggleResult(long bookId, boolean checked, int readDays) {
+        return applyToggleResult(bookId, checked, readDays, null);
+    }
+
+    /**
+     * 写入后行内同步：{@code updated} 是该书写库后的最新对象，换掉旧引用，
+     * 下一次打卡/撤销才不会拿提升前的会话状态做判断。
+     */
+    public int applyToggleResult(long bookId, boolean checked, int readDays, Book updated) {
+        int i = indexOfBook(bookId);
+        if (i < 0) {
+            return -1;
+        }
+        Row row = rows.get(i);
+        row.pending = false;
+        row.checked = checked;
+        row.readDays = readDays;
+        if (updated != null) {
+            row.book = updated;
+        }
+        notifyItemChanged(i);
+        return i;
+    }
+
+    /** 撤销后该行已不满足显示条件（选中日早于开读日）时整行移除，不留下空壳 */
+    public boolean removeRowByBook(long bookId) {
+        int i = indexOfBook(bookId);
+        if (i < 0) {
+            return false;
+        }
+        rows.remove(i);
+        notifyItemRemoved(i);
+        return true;
     }
 
     public List<Row> rows() {
@@ -140,14 +192,16 @@ public class CheckInAdapter extends RecyclerView.Adapter<CheckInAdapter.VH> {
             applyButtonStyle(h.b.btnCheckin, state, styles);
             h.styleState = state;
         }
-        String label = CheckInUiState.actionLabel(row.checked, dayKey, todayKey);
+        String label = row.pending
+                ? "处理中" : CheckInUiState.actionLabel(row.checked, dayKey, todayKey);
         final boolean backfillable = "补卡".equals(label);
         h.b.btnCheckin.setText(label);
-        // 未来日期不可打卡；已打卡的记录仍允许撤销
-        h.b.btnCheckin.setEnabled(CheckInUiState.actionable(dayKey, todayKey)
-                || row.checked);
-        h.b.btnCheckin.setContentDescription(CheckInUiState.actionContentDescription(
-                title, row.checked, dayKey, todayKey));
+        // 未来日期不可打卡；已打卡的记录仍允许撤销；在途期间禁用防连点
+        h.b.btnCheckin.setEnabled(!row.pending
+                && (CheckInUiState.actionable(dayKey, todayKey) || row.checked));
+        h.b.btnCheckin.setContentDescription(row.pending
+                ? "正在处理《" + title + "》的打卡"
+                : CheckInUiState.actionContentDescription(title, row.checked, dayKey, todayKey));
         h.b.btnCheckin.setOnClickListener(v -> {
             if (listener != null) {
                 listener.onToggle(h.getBindingAdapterPosition(), row);

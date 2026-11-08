@@ -21,11 +21,17 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.appcompat.widget.AppCompatImageView;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.bai.bookshelf.R;
+import com.bai.bookshelf.databinding.ActivityMainBinding;
+import com.bai.bookshelf.util.InsetsHelper;
+import com.bai.bookshelf.util.NavOrder;
 import com.bai.bookshelf.util.ThemeManager;
 
 import org.junit.Test;
@@ -219,6 +225,114 @@ public class DockNavTest {
         View recycler = shelf.findViewById(R.id.recycler);
         assertEquals("列表底部留白不是 dock_reserve，最后一本会被 dock 压住",
                 reserve, recycler.getPaddingBottom());
+    }
+
+    @Test
+    public void 底部锚定控件的避让会叠加导航栏高度() {
+        // 不启动 Activity（应用锁 + recreate 会让测试挂起），直接给真实 View 树分发
+        // 一份带底部 inset 的 WindowInsets，验证 dock_reserve 之上确实再加了导航栏高度。
+        Context ctx = ApplicationProvider.getApplicationContext();
+        Context themed = new ContextThemeWrapper(ctx,
+                ThemeManager.styleRes(ThemeManager.current(ctx)));
+        View shelf = LayoutInflater.from(themed).inflate(R.layout.fragment_shelf, null);
+        View fab = shelf.findViewById(R.id.fab_scan);
+        View bar = shelf.findViewById(R.id.selection_bar);
+        View recycler = shelf.findViewById(R.id.recycler);
+        final int extra = px(R.dimen.nav_touch_size);
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+            // 与 ShelfFragment.onViewCreated 的接线保持一致
+            InsetsHelper.applyDockReserveMargin(fab);
+            InsetsHelper.applyDockReserveMargin(bar);
+            InsetsHelper.applyDockReservePadding(recycler);
+            WindowInsetsCompat insets = new WindowInsetsCompat.Builder()
+                    .setInsets(WindowInsetsCompat.Type.systemBars(),
+                            Insets.of(0, 0, 0, extra))
+                    .build();
+            ViewCompat.dispatchApplyWindowInsets(shelf, insets);
+        });
+        int reserve = px(R.dimen.dock_reserve);
+        assertEquals("FAB 要叠加导航栏 inset", reserve + extra,
+                ((ViewGroup.MarginLayoutParams) fab.getLayoutParams()).bottomMargin);
+        assertEquals("选择模式条要叠加导航栏 inset", reserve + extra,
+                ((ViewGroup.MarginLayoutParams) bar.getLayoutParams()).bottomMargin);
+        assertEquals("列表底部留白要叠加导航栏 inset", reserve + extra,
+                recycler.getPaddingBottom());
+    }
+
+    @Test
+    public void 隐藏统计后其余三格定宽且dock收成内容宽() {
+        View root = root();
+        ActivityMainBinding binding = ActivityMainBinding.bind(root);
+        MainActivity.layoutTabs(binding, NavOrder.DEFAULT,
+                new java.util.HashSet<>(java.util.Collections.singletonList(NavOrder.TAB_STATS)));
+
+        assertEquals("统计格应隐藏", View.GONE, root.findViewById(R.id.tab_stats).getVisibility());
+        int slot = px(R.dimen.nav_slot_w);
+        for (int id : new int[]{R.id.tab_shelf, R.id.tab_checkin, R.id.tab_mine}) {
+            View tab = root.findViewById(id);
+            assertEquals(View.VISIBLE, tab.getVisibility());
+            LinearLayout.LayoutParams lp = (LinearLayout.LayoutParams) tab.getLayoutParams();
+            assertEquals("不满 4 格时每格应定宽 nav_slot_w", slot, lp.width);
+            assertEquals(0f, lp.weight, 0.001f);
+        }
+        View dock = root.findViewById(R.id.nav_dock);
+        View items = root.findViewById(R.id.nav_items);
+        assertEquals("只剩三格时 dock 不能铺满整条",
+                ViewGroup.LayoutParams.WRAP_CONTENT, dock.getLayoutParams().width);
+        assertEquals(ViewGroup.LayoutParams.WRAP_CONTENT, items.getLayoutParams().width);
+        assertEquals("不满 4 格时整组居中", android.view.Gravity.CENTER,
+                ((LinearLayout) items).getGravity());
+    }
+
+    @Test
+    public void 自定义顺序按配置重排且四格仍等分() {
+        View root = root();
+        ActivityMainBinding binding = ActivityMainBinding.bind(root);
+        MainActivity.layoutTabs(binding, new int[]{NavOrder.TAB_CHECKIN, NavOrder.TAB_SHELF,
+                NavOrder.TAB_STATS, NavOrder.TAB_MINE}, new java.util.HashSet<>());
+
+        LinearLayout items = root.findViewById(R.id.nav_items);
+        assertEquals(4, items.getChildCount());
+        assertEquals(R.id.tab_checkin, items.getChildAt(0).getId());
+        assertEquals(R.id.tab_shelf, items.getChildAt(1).getId());
+        assertEquals(R.id.tab_stats, items.getChildAt(2).getId());
+        assertEquals(R.id.tab_mine, items.getChildAt(3).getId());
+
+        assertEquals(ViewGroup.LayoutParams.MATCH_PARENT,
+                root.findViewById(R.id.nav_dock).getLayoutParams().width);
+        LinearLayout.LayoutParams lp = (LinearLayout.LayoutParams) items.getChildAt(0)
+                .getLayoutParams();
+        assertEquals(0, lp.width);
+        assertEquals(1f, lp.weight, 0.001f);
+    }
+
+    @Test
+    public void 指示器落在可见格中心且隐藏页淡出() {
+        View root = root();
+        ActivityMainBinding binding = ActivityMainBinding.bind(root);
+        MainActivity.layoutTabs(binding, NavOrder.DEFAULT,
+                new java.util.HashSet<>(java.util.Collections.singletonList(NavOrder.TAB_STATS)));
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+            int w = 1080;
+            int h = 2400;
+            root.measure(View.MeasureSpec.makeMeasureSpec(w, View.MeasureSpec.EXACTLY),
+                    View.MeasureSpec.makeMeasureSpec(h, View.MeasureSpec.EXACTLY));
+            root.layout(0, 0, w, h);
+        });
+
+        View items = root.findViewById(R.id.nav_items);
+        View pill = root.findViewById(R.id.nav_indicator);
+        View shelf = root.findViewById(R.id.tab_shelf);
+        assertTrue("底栏没有真正布局出来", shelf.getWidth() > 0);
+
+        MainActivity.placeIndicator(items, shelf, pill);
+        assertEquals(1f, pill.getAlpha(), 0.001f);
+        float targetCenter = items.getX() + shelf.getX() + shelf.getWidth() / 2f;
+        float pillCenter = pill.getLeft() + pill.getTranslationX() + pill.getWidth() / 2f;
+        assertEquals("指示器要落在格子的中心", targetCenter, pillCenter, 1f);
+
+        MainActivity.placeIndicator(items, root.findViewById(R.id.tab_stats), pill);
+        assertEquals("隐藏页不该假装有自己的位置", 0f, pill.getAlpha(), 0.001f);
     }
 
     private void collect(View v, List<TextView> texts, List<ImageView> icons) {

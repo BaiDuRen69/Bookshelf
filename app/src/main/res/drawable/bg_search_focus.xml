@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 搜索框聚焦态（v5.9.3）：描边换成主色，与 bg_search 做 160ms 交叉。
+     描边若画在 view 边缘，外侧一半会被裁掉；而书架页头底色本身就是主色，外沿也看不出来。
+     所以整圈往内缩 2dp 画，靠它与纸色填充的对比出可见的聚焦圈 -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="?attr/surface" />
+            <corners android:radius="@dimen/radius_pill" />
+        </shape>
+    </item>
+    <item
+        android:bottom="2dp"
+        android:left="2dp"
+        android:right="2dp"
+        android:top="2dp">
+        <shape android:shape="rectangle">
+            <stroke
+                android:width="2dp"
+                android:color="?attr/colorPrimary" />
+            <!-- 内缩 2dp，圆角同步减 2dp 才与外圈同心 -->
+            <corners android:radius="20dp" />
+        </shape>
+    </item>
+</layer-list>

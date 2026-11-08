@@ -12,6 +12,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.bai.bookshelf.R;
+import com.bai.bookshelf.util.PillMotion;
 import com.bai.bookshelf.util.ThemeManager;
 
 import java.util.Arrays;
@@ -24,6 +25,10 @@ import java.util.List;
 final class HighlightAdapter<T> extends ArrayAdapter<T> {
 
     private int highlight = 0; // 当前选中项下标（下拉弹层里高亮它）
+    /** 上次显示的下标：只有真正的切换才播 120ms 胶囊反馈，首次绑定/重建不播 */
+    private int shownPosition = -1;
+    /** 本次切换是否由用户触发（冷启动恢复选中项不播动效） */
+    private boolean animateNext;
 
     HighlightAdapter(Context context, int arrayRes) {
         super(context, R.layout.spinner_item,
@@ -36,8 +41,9 @@ final class HighlightAdapter<T> extends ArrayAdapter<T> {
         setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
     }
 
-    void setHighlight(int position) {
+    void setHighlight(int position, boolean animate) {
         highlight = position;
+        animateNext = animate;
     }
 
     @NonNull
@@ -56,6 +62,13 @@ final class HighlightAdapter<T> extends ArrayAdapter<T> {
         tv.setCompoundDrawableTintList(ColorStateList.valueOf(active ? primary
                 : ThemeManager.resolveColor(context, R.attr.on_surface_variant)));
         tv.setCompoundDrawablePadding((int) context.getResources().getDisplayMetrics().density);
+        // 闭合态胶囊切换：120ms scale 0.96→1 + 底色交叉，与行内 chips 一致
+        boolean pop = animateNext && shownPosition >= 0 && shownPosition != position;
+        animateNext = false;
+        if (pop) {
+            PillMotion.toggle(tv, active);
+        }
+        shownPosition = position;
         return tv;
     }
 

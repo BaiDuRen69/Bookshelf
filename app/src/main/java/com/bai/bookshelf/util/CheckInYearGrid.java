@@ -39,6 +39,18 @@ public final class CheckInYearGrid {
         return currentYear + 1;
     }
 
+    /** 可选年份，降序（最新在上）；含首尾 */
+    public static int[] yearsDescending(int min, int max) {
+        if (max < min) {
+            return new int[0];
+        }
+        int[] out = new int[max - min + 1];
+        for (int i = 0; i < out.length; i++) {
+            out[i] = max - i;
+        }
+        return out;
+    }
+
     /** delta = -1 上一年 / +1 下一年；越界仍返回被夹住的年，调用方据此做回弹 */
     public static int shiftYear(int current, int delta, int min, int max) {
         int target = current + delta;

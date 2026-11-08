@@ -126,7 +126,9 @@
                     style="@style/Widget.Bookshelf.Card"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    app:cardCornerRadius="@dimen/radius_xl">
+                    app:cardBackgroundColor="?attr/surface_dim"
+                    app:cardCornerRadius="@dimen/radius_xl"
+                    app:strokeWidth="0dp">
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -352,6 +354,15 @@
                         </LinearLayout>
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
+
+                <!-- 概览（摘要 + hero）与内容卡之间的分区线；空库时连同卡片一起隐藏 -->
+                <View
+                    android:id="@+id/div_stats_section"
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginTop="@dimen/space_sm"
+                    android:alpha="0.7"
+                    android:background="?attr/outline" />
 
                 <!-- ==================== 购书概览（v5.7 从 hero 拆出） ==================== -->
                 <androidx.cardview.widget.CardView
@@ -697,8 +708,10 @@
 
                     <TextView
                         android:id="@+id/tv_extremes_title"
-                        style="@style/CardTitle"
-                        android:layout_marginTop="@dimen/space_md"
+                        style="@style/Text.Bookshelf.Overline"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/space_xl"
                         android:layout_marginBottom="@dimen/space_sm"
                         android:text="藏书之最" />
 

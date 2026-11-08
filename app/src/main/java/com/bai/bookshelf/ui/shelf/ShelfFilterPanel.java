@@ -28,6 +28,9 @@ public class ShelfFilterPanel {
     private final java.util.function.IntConsumer onChannelPicked;
     private final Runnable onFilterChanged;
     private final java.util.function.Consumer<LinearLayout> appendExtraRows;
+    /** 「更多」胶囊上一帧的选中态：只有切换时才播反馈 */
+    private boolean morePillOn;
+    private boolean morePillReady;
 
     public ShelfFilterPanel(FragmentShelfBinding b, ShelfFilterState state,
                             Runnable clearAllFilters,
@@ -172,8 +175,14 @@ public class ShelfFilterPanel {
         boolean on = active > 0;
         Context ctx = b.getRoot().getContext();
         b.tvMoreFilters.setText("更多");
-        b.tvMoreFilters.setBackgroundResource(on
-                ? R.drawable.bg_filter_pill_selected : R.drawable.bg_filter_pill);
+        if (morePillReady && morePillOn != on) {
+            com.bai.bookshelf.util.PillMotion.toggle(b.tvMoreFilters, on);
+        } else {
+            b.tvMoreFilters.setBackgroundResource(on
+                    ? R.drawable.bg_filter_pill_selected : R.drawable.bg_filter_pill);
+        }
+        morePillOn = on;
+        morePillReady = true;
         int textColor = on
                 ? ThemeManager.resolveColor(ctx, ThemeManager.ATTR_COLOR_PRIMARY)
                 : ThemeManager.resolveColor(ctx, R.attr.on_surface);

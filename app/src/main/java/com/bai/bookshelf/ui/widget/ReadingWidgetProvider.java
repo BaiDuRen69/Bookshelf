@@ -40,6 +40,9 @@ import java.util.List;
  *
  * <p>第 4.4 步：小组件暂不含打卡（本期不改桌面组件，避免一次动太多），
  * 打卡数据只在应用内第 4 个 Tab / 年视图 / 统计与备份里呈现。
+ *
+ * <p>v5.9.2 第 12 项：补一行「今日已打卡 N 本 / 今天还没打卡」，点击整块直达打卡页；
+ * 打卡/撤销、跨 0 点、时间/时区变化都会刷新；小组件开关关掉后不再跟着数据变。
  */
 public class ReadingWidgetProvider extends AppWidgetProvider {
 
@@ -48,6 +51,7 @@ public class ReadingWidgetProvider extends AppWidgetProvider {
         public String reading;      // 「在读：xxx」或「书架空着」
         public String goal;         // 「今年 12 / 24 种」
         public int progress;        // 0~100
+        public String todayCheckIn; // 「今日已打卡 2 本」/「今天还没打卡」
         public String overdue;      // 「逾期 2 本」
         public boolean overdueVisible;
         public String due;          // 「今日到期 1 本」
@@ -56,6 +60,10 @@ public class ReadingWidgetProvider extends AppWidgetProvider {
 
     @Override
     public void onUpdate(Context context, AppWidgetManager manager, int[] ids) {
+        // 与 refresh() 同一口径：关掉「桌面小组件」后停在最后一次内容
+        if (!com.bai.bookshelf.util.ReminderPrefs.widgetEnabled(context)) {
+            return;
+        }
         final Context appCtx = context.getApplicationContext();
         BookshelfApp.get().io(() -> {
             try {
@@ -127,6 +135,12 @@ public class ReadingWidgetProvider extends AppWidgetProvider {
         s.progress = Math.min(100, finishedThisYear * 100 / Math.max(1, goal));
 
         int today = DateKeys.todayKey();
+        try {
+            int todayCount = app.db().checkInDao().countOnDay(today);
+            s.todayCheckIn = todayCount > 0 ? "今日已打卡 " + todayCount + " 本" : "今天还没打卡";
+        } catch (Exception ignored) {
+            s.todayCheckIn = "今天还没打卡";
+        }
         int overdue = 0;
         int dueToday = 0;
         try {
@@ -168,12 +182,14 @@ public class ReadingWidgetProvider extends AppWidgetProvider {
         views.setTextColor(R.id.widget_reading, text);
         views.setTextColor(R.id.widget_goal, sub);
         views.setTextColor(R.id.widget_percent, primary);
+        views.setTextColor(R.id.widget_today, sub);
         views.setTextColor(R.id.widget_due, error);
         views.setTextColor(R.id.widget_due_today, sub);
 
         views.setTextViewText(R.id.widget_reading, s.reading);
         views.setTextViewText(R.id.widget_goal, s.goal);
         views.setTextViewText(R.id.widget_percent, s.progress + "%");
+        views.setTextViewText(R.id.widget_today, s.todayCheckIn);
         views.setImageViewBitmap(R.id.widget_progress, progressBitmap(s.progress, track, primary));
 
         views.setViewVisibility(R.id.widget_due,
@@ -189,6 +205,9 @@ public class ReadingWidgetProvider extends AppWidgetProvider {
 
         Intent open = new Intent(ctx, com.bai.bookshelf.ui.MainActivity.class);
         open.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        // 第 12 项：点整块直达打卡页（原来只打开首页）
+        open.putExtra(com.bai.bookshelf.ui.MainActivity.EXTRA_TAB,
+                com.bai.bookshelf.ui.MainActivity.TAB_CHECKIN);
         PendingIntent pi = PendingIntent.getActivity(ctx, 0, open,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         views.setOnClickPendingIntent(R.id.widget_root, pi);

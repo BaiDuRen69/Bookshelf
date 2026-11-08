@@ -11,12 +11,12 @@ public class CheckInLegendTest {
     public void 月视图四项图例() {
         CheckInLegend.Item[] items = CheckInLegend.monthItems();
         assertEquals(4, items.length);
-        assertEquals("○", items[0].glyph);
+        assertEquals("●", items[0].glyph);
         assertEquals("今天", items[0].label);
         assertEquals(CheckInLegend.TONE_TODAY, items[0].tone);
         assertEquals("已打卡", items[1].label);
         assertEquals("含补卡", items[2].label);
-        assertEquals("▭", items[3].glyph);
+        assertEquals("○", items[3].glyph);
         assertEquals("已选中", items[3].label);
         assertEquals(CheckInLegend.TONE_OUTLINE, items[3].tone);
     }

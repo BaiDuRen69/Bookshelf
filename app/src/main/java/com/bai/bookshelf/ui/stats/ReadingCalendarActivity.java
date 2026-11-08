@@ -44,7 +44,15 @@ public class ReadingCalendarActivity extends BaseActivity {
             llp.weight = 1;
             b.calendarPanel.calendarScroll.setLayoutParams(llp);
         }
+    }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (b == null) {
+            return;
+        }
+        // 后台回来也要刷新：打卡后返回本页，日历必须补上当天
         load();
     }
 

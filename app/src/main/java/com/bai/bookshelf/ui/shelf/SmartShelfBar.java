@@ -40,6 +40,9 @@ public final class SmartShelfBar {
     /** 默认收起：有可用入口时由筛选行的「智能」胶囊手动展开 */
     private boolean expanded;
     private boolean anyVisible;
+    /** 上一帧各 chip 的选中态：只有真正切换时才播 120ms 反馈 */
+    private final boolean[] activeShown = new boolean[com.bai.bookshelf.util.SmartShelf.NAMES.length];
+    private boolean activeShownReady;
 
     public SmartShelfBar(Activity activity, LinearLayout container,
                          HorizontalScrollView scroll, OnSelected listener) {
@@ -102,10 +105,16 @@ public final class SmartShelfBar {
             any = true;
             boolean active = selected == i;
             chip.setText(SmartShelf.NAMES[i] + " " + counts[i]);
-            chip.setBackgroundResource(active
-                    ? R.drawable.bg_filter_pill_selected : R.drawable.bg_filter_pill);
+            if (activeShownReady && activeShown[i] != active) {
+                com.bai.bookshelf.util.PillMotion.toggle(chip, active);
+            } else {
+                chip.setBackgroundResource(active
+                        ? R.drawable.bg_filter_pill_selected : R.drawable.bg_filter_pill);
+            }
+            activeShown[i] = active;
             chip.setTextColor(active ? primary : normal);
         }
+        activeShownReady = true;
         anyVisible = any;
         applyVisibility();
         return any;

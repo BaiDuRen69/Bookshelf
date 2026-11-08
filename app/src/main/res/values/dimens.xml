@@ -31,6 +31,8 @@
     <dimen name="nav_indicator_size">56dp</dimen>
     <dimen name="nav_icon_size">26dp</dimen>
     <dimen name="nav_touch_size">56dp</dimen>
+    <!-- 不满 4 格时每格的固定宽：沿用 v5.10 之前的 84dp，整组居中不占满胶囊 -->
+    <dimen name="nav_slot_w">84dp</dimen>
     <!-- 内容避让：dock_h 68 + dock_margin_bottom 12 + 8dp 呼吸 -->
     <dimen name="dock_reserve">88dp</dimen>
     <!-- dock 下方那层渐隐遮罩的高度，让内容滚到 dock 底下时不生硬 -->
@@ -54,6 +56,11 @@
     <dimen name="checkin_today_margin">6dp</dimen>
     <!-- 今天选中时外圈与实心圆之间的留白 -->
     <dimen name="checkin_today_ring_gap">2dp</dimen>
+    <!-- 摘要三单元之间的竖分隔：24dp 高、1dp 线宽 -->
+    <dimen name="checkin_summary_divider_w">1dp</dimen>
+    <dimen name="checkin_summary_divider_h">24dp</dimen>
+    <!-- 图例「今天」的实心圆直径（内部再画一圈 1dp 高光） -->
+    <dimen name="checkin_legend_dot">12dp</dimen>
     <dimen name="checkin_swipe_distance">24dp</dimen>
     <!-- 年视图当前月卡片那一圈主色描边的线宽 -->
     <dimen name="checkin_year_card_stroke">1dp</dimen>

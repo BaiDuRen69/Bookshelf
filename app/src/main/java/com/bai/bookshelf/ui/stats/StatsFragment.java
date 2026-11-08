@@ -38,10 +38,12 @@ import com.bai.bookshelf.data.entity.Book;
 import com.bai.bookshelf.util.BookFlags;
 import com.bai.bookshelf.databinding.FragmentStatsBinding;
 import com.bai.bookshelf.databinding.ItemStatsExtremeBinding;
+import com.bai.bookshelf.ui.TabRefresh;
 import com.bai.bookshelf.ui.detail.BookDetailActivity;
 import com.bai.bookshelf.util.BookSanitizer;
 import com.bai.bookshelf.util.BookText;
 import com.bai.bookshelf.util.InsetsHelper;
+import com.bai.bookshelf.util.Motion;
 import com.bai.bookshelf.util.ShelfNavigator;
 
 import java.util.ArrayList;
@@ -49,12 +51,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * 统计页：藏书总览、藏书之最、购书统计入口、作者/出版社/国家分布 Top 8。
  * 数据量小，直接在内存中聚合；分布行统一由 {@link DistRowBuilder} 渲染。
  */
-public class StatsFragment extends Fragment {
+public class StatsFragment extends Fragment implements TabRefresh {
 
     private static final int TAB_BOOKS = 0;
     private static final int TAB_READING = 1;
@@ -62,6 +66,16 @@ public class StatsFragment extends Fragment {
     private static final int TAB_LOAN = 3;
     /** Top 分布卡分段记忆（ui_prefs，与书架视图设置同库） */
     private static final String PREF_DIST_SEG = "stats_dist_seg";
+    /** 各栏 hero 与摘要行的入场：每栏只播一次，切回来不重播 */
+    private static final long HERO_COUNT_MS = 420;
+    private static final long SUMMARY_COUNT_MS = 320;
+    /** 分区卡片首批入场：前 6 张，32ms 错峰 */
+    private static final long CARD_ENTER_MS = 200;
+    private static final long CARD_STAGGER_MS = 32;
+    private static final int CARD_ENTER_MAX = 6;
+    /** 摘要数值里的数字核心：保留前后缀（¥ / % / 折 / k），只把中间的数动起来 */
+    private static final Pattern METRIC_NUM =
+            Pattern.compile("^(\\D*)([0-9][0-9,]*(?:\\.[0-9]+)?)(.*)$");
 
     private FragmentStatsBinding b;
     private int lastFinishedThisYear;
@@ -72,7 +86,11 @@ public class StatsFragment extends Fragment {
     private java.util.List<Book> statsBooks = new java.util.ArrayList<>();
     private boolean statsComputed;
     private boolean statsVisible;
-    private boolean heroAnimated;
+    /** 每栏各自的 hero / 摘要行是否已经播过入场（切回来不重播） */
+    private final boolean[] heroAnimated = new boolean[4];
+    private final boolean[] summaryAnimated = new boolean[4];
+    /** 分区卡片入场的数据签名：同一份数据刷新不重播 */
+    private final String[] cardEntranceKey = new String[4];
     /** 本年「还按 N 种吗」弹窗是否已弹过（进程内 + 持久化各一道） */
     private boolean goalPrompted;
     /** 切栏过渡进行中（防止连点） */
@@ -323,6 +341,8 @@ public class StatsFragment extends Fragment {
         setCardVisible(b.llSummaryReading, reading);
         setCardVisible(b.llSummaryPurchase, purchase);
         setCardVisible(b.llSummaryLoan, loan);
+        // 概览与内容卡之间的分区线，空库时一起隐藏
+        b.divStatsSection.setVisibility(empty ? View.GONE : View.VISIBLE);
         if (!empty && statsComputed) {
             renderSummary();
         }
@@ -339,6 +359,7 @@ public class StatsFragment extends Fragment {
         } else {
             applyInsightForTab();
         }
+        applyCardEntrance();
     }
 
     /**
@@ -347,33 +368,54 @@ public class StatsFragment extends Fragment {
      */
     private void renderSummary() {
         android.widget.LinearLayout container;
-        String[][] units;
+        String[][] units = summaryUnits();
         switch (statsTab) {
             case TAB_READING:
                 container = b.llSummaryReading;
-                units = StatsSummary.reading(hold, habit);
                 break;
             case TAB_PURCHASE:
                 container = b.llSummaryPurchase;
-                units = StatsSummary.purchase(spend);
                 break;
             case TAB_LOAN:
                 container = b.llSummaryLoan;
-                units = StatsSummary.loan(hold, lend);
                 break;
             default:
                 container = b.llSummaryBooks;
-                units = StatsSummary.books(hold, spend);
                 break;
         }
         container.removeAllViews();
+        boolean animateList = !summaryAnimated[statsTab];
+        // 藏书栏的 hero 是卡片上的总数；其余三栏 hero 就是摘要行第一个数
+        boolean animateHero = statsTab != TAB_BOOKS && !heroAnimated[statsTab];
         for (int i = 0; i < units.length; i++) {
-            container.addView(summaryUnit(units[i][0], units[i][1], units[i][2], i == 0));
+            boolean lead = i == 0;
+            boolean heroUnit = lead && statsTab != TAB_BOOKS;
+            container.addView(summaryUnit(units[i][0], units[i][1], units[i][2], lead,
+                    heroUnit ? animateHero : animateList,
+                    heroUnit ? HERO_COUNT_MS : SUMMARY_COUNT_MS));
+        }
+        summaryAnimated[statsTab] = true;
+        if (statsTab != TAB_BOOKS) {
+            heroAnimated[statsTab] = true;
+        }
+    }
+
+    /** 当前栏三个摘要单元的 {标签, 数字, 单位}；算不出来由 StatsSummary 给「—」 */
+    private String[][] summaryUnits() {
+        switch (statsTab) {
+            case TAB_READING:
+                return StatsSummary.reading(hold, habit);
+            case TAB_PURCHASE:
+                return StatsSummary.purchase(spend);
+            case TAB_LOAN:
+                return StatsSummary.loan(hold, lend);
+            default:
+                return StatsSummary.books(hold, spend);
         }
     }
 
     private android.view.View summaryUnit(String label, String value, String suffix,
-                                          boolean lead) {
+                                          boolean lead, boolean animate, long duration) {
         android.widget.LinearLayout cell = new android.widget.LinearLayout(requireContext());
         cell.setOrientation(android.widget.LinearLayout.VERTICAL);
         android.widget.TextView tvLabel = new android.widget.TextView(requireContext());
@@ -388,7 +430,12 @@ public class StatsFragment extends Fragment {
                 ? R.style.Text_Bookshelf_Metric : R.style.Text_Bookshelf_Metric_Small);
         tvValue.setGravity(android.view.Gravity.CENTER_HORIZONTAL);
         // 单位靠 span 缩到 0.45em，不再用第二段 TextView 对基线
-        tvValue.setText(StatsText.metric(value, suffix));
+        if (animate) {
+            countUpMetric(tvValue, value, suffix, duration,
+                    duration == HERO_COUNT_MS ? Motion.DECEL : Motion.STANDARD, 0);
+        } else {
+            tvValue.setText(StatsText.metric(value, suffix));
+        }
         android.widget.LinearLayout.LayoutParams vLp = new android.widget.LinearLayout.LayoutParams(
                 android.view.ViewGroup.LayoutParams.MATCH_PARENT,
                 android.view.ViewGroup.LayoutParams.WRAP_CONTENT);
@@ -398,6 +445,164 @@ public class StatsFragment extends Fragment {
                 0, android.view.ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
         cell.setLayoutParams(lp);
         return cell;
+    }
+
+    /**
+     * 数字从 0 走到目标值：只动数字核心，前后缀（¥、%、折、k）原样保留；
+     * 非数值（「—」「数据不足」）和关闭系统动画时直接落终态。
+     */
+    private void countUpMetric(android.widget.TextView tv, String value, String unit,
+                               long duration, android.view.animation.Interpolator interp,
+                               int unitColor) {
+        Matcher m = METRIC_NUM.matcher(value == null ? "" : value);
+        if (value == null || !m.matches() || !Motion.enabled(requireContext())) {
+            tv.setText(metricText(value, unit, unitColor));
+            return;
+        }
+        final String prefix = m.group(1);
+        final String core = m.group(2);
+        final String tail = m.group(3);
+        final String plain = core.replace(",", "");
+        final int decimals = plain.contains(".") ? plain.length() - plain.indexOf('.') - 1 : 0;
+        final boolean grouped = core.contains(",");
+        final double target;
+        try {
+            target = Double.parseDouble(plain);
+        } catch (NumberFormatException e) {
+            tv.setText(metricText(value, unit, unitColor));
+            return;
+        }
+        tv.setText(metricText(prefix + formatCount(0, decimals, grouped) + tail, unit, unitColor));
+        android.animation.ValueAnimator anim =
+                android.animation.ValueAnimator.ofFloat(0f, 1f);
+        anim.setDuration(duration);
+        anim.setInterpolator(interp);
+        anim.addUpdateListener(a -> tv.setText(metricText(
+                prefix + formatCount(target * (float) a.getAnimatedValue(), decimals, grouped)
+                        + tail, unit, unitColor)));
+        anim.start();
+    }
+
+    /** unitColor = 0 表示单位跟正文同色（摘要行）；hero 的单位走次级色 */
+    private static CharSequence metricText(String value, String unit, int unitColor) {
+        return unitColor == 0
+                ? StatsText.metric(value, unit)
+                : StatsText.metric(value, unit, unitColor);
+    }
+
+    private static String formatCount(double value, int decimals, boolean grouped) {
+        String pattern = (grouped ? "%,." : "%.") + decimals + "f";
+        return String.format(Locale.ROOT, pattern, value);
+    }
+
+    /** 当前栏可见的分区卡片（hero + 各分区卡），洞察卡固定排在最后 */
+    private java.util.List<android.view.View> visibleTabCards() {
+        java.util.List<android.view.View> cards = new ArrayList<>(8);
+        switch (statsTab) {
+            case TAB_READING:
+                cards.add(b.cardReadingGoal);
+                cards.add(b.cardReadingCalendar);
+                cards.add(b.cardHabit);
+                cards.add(b.cardNextPick);
+                cards.add(b.cardStructure);
+                cards.add(b.cardYearReport);
+                break;
+            case TAB_PURCHASE:
+                cards.add(b.cardPurchaseOverview);
+                cards.add(b.cardReading);
+                cards.add(b.cardChannel);
+                cards.add(b.cardTrend);
+                break;
+            case TAB_LOAN:
+                cards.add(b.cardOpenLoans);
+                cards.add(b.cardBorrowers);
+                cards.add(b.cardReturnTrend);
+                break;
+            default:
+                cards.add(b.cardStatsHero);
+                cards.add(b.cardTreemap);
+                cards.add(b.cardCohort);
+                cards.add(b.sectionExtremes);
+                cards.add(b.cardDist);
+                cards.add(b.cardSeries);
+                break;
+        }
+        cards.add(b.cardInsight);
+        return cards;
+    }
+
+    /**
+     * 分区卡片首批入场：前 6 张从 8dp 下滑 + 淡入，32ms 错峰；
+     * key = 当前栏 + 数据签名，同一份数据刷新不重播，切栏/首次加载才播。
+     */
+    private void applyCardEntrance() {
+        if (b == null || !statsComputed || statsEmpty) {
+            return;
+        }
+        java.util.List<android.view.View> cards = visibleTabCards();
+        boolean animate = Motion.enabled(requireContext());
+        String key = cardEntranceSignature();
+        if (!animate || key.equals(cardEntranceKey[statsTab])) {
+            if (animate) {
+                return;
+            }
+            // 关掉系统动画：所有卡片直接落终态
+            for (android.view.View card : cards) {
+                card.animate().cancel();
+                card.setAlpha(1f);
+                card.setTranslationY(0f);
+            }
+            cardEntranceKey[statsTab] = key;
+            return;
+        }
+        cardEntranceKey[statsTab] = key;
+        float shift = 8 * getResources().getDisplayMetrics().density;
+        int n = Math.min(cards.size(), CARD_ENTER_MAX);
+        for (int i = 0; i < cards.size(); i++) {
+            android.view.View card = cards.get(i);
+            card.animate().cancel();
+            if (i >= n) {
+                card.setAlpha(1f);
+                card.setTranslationY(0f);
+                continue;
+            }
+            card.setAlpha(0f);
+            card.setTranslationY(shift);
+            card.animate().alpha(1f).translationY(0f)
+                    .setStartDelay(i * CARD_STAGGER_MS)
+                    .setDuration(CARD_ENTER_MS)
+                    .setInterpolator(Motion.DECEL)
+                    .start();
+        }
+    }
+
+    private String cardEntranceSignature() {
+        StringBuilder sb = new StringBuilder(64);
+        sb.append(statsTab).append('|');
+        String[][] units = summaryUnits();
+        if (units != null) {
+            for (String[] unit : units) {
+                sb.append(unit[1]).append('/').append(unit[2]).append(';');
+            }
+        }
+        sb.append(insightTextForTab()).append('|')
+                .append(fTotal).append('|')
+                .append(hold == null ? -1 : hold.reading).append('|')
+                .append(lend == null ? -1 : lend.out);
+        return sb.toString();
+    }
+
+    private String insightTextForTab() {
+        switch (statsTab) {
+            case TAB_READING:
+                return insightReading;
+            case TAB_PURCHASE:
+                return insightPurchase;
+            case TAB_LOAN:
+                return insightLend;
+            default:
+                return insightBooks;
+        }
     }
 
     private void applyInsightForTab() {
@@ -913,18 +1118,14 @@ public class StatsFragment extends Fragment {
         if (hold == null) {
             return;
         }
-        // v4.30：藏书总数 600ms count-up，只在第一次进本页时跑
+        // v4.30：藏书总数 count-up，只在第一次进本页时跑（v5.9.2 统一到 420ms / DECEL）
         // v5.9.1：数字与「种」合成一段，单位靠 span 缩小并降色，不再用两段 TextView 对基线
         final int unitColor = com.bai.bookshelf.util.ThemeManager.resolveColor(
                 requireContext(), R.attr.on_surface_variant);
-        if (!heroAnimated) {
-            heroAnimated = true;
-            android.animation.ValueAnimator countUp =
-                    android.animation.ValueAnimator.ofInt(0, fTotal);
-            countUp.setDuration(600);
-            countUp.addUpdateListener(a -> b.tvStatsTotal.setText(
-                    StatsText.metric(String.valueOf(a.getAnimatedValue()), "种", unitColor)));
-            countUp.start();
+        if (!heroAnimated[TAB_BOOKS]) {
+            heroAnimated[TAB_BOOKS] = true;
+            countUpMetric(b.tvStatsTotal, String.valueOf(fTotal), "种",
+                    HERO_COUNT_MS, Motion.DECEL, unitColor);
         } else {
             b.tvStatsTotal.setText(StatsText.metric(String.valueOf(fTotal), "种", unitColor));
         }
@@ -1730,6 +1931,32 @@ public class StatsFragment extends Fragment {
             default:
                 return topAuthors;
         }
+    }
+
+    // ==================== 切 Tab 内容层动效（v5.9.4） ====================
+
+    @Override
+    public void animateIn() {
+        View content = b == null ? null : b.scrollStats;
+        if (content == null) {
+            return;
+        }
+        content.animate().cancel();
+        content.setTranslationY(6 * getResources().getDisplayMetrics().density);
+        content.animate().translationY(0f)
+                .setDuration(Motion.BASE)
+                .setInterpolator(Motion.STANDARD)
+                .start();
+    }
+
+    @Override
+    public void settleContent() {
+        View content = b == null ? null : b.scrollStats;
+        if (content == null) {
+            return;
+        }
+        content.animate().cancel();
+        content.setTranslationY(0f);
     }
 
     private Class<? extends android.app.Activity> distDetailClass() {

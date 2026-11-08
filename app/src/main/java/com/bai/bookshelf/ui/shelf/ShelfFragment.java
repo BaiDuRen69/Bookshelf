@@ -26,10 +26,12 @@ import com.bai.bookshelf.data.entity.Book;
 import com.bai.bookshelf.data.entity.Category;
 import com.bai.bookshelf.data.entity.Location;
 import com.bai.bookshelf.databinding.FragmentShelfBinding;
+import com.bai.bookshelf.ui.TabRefresh;
 import com.bai.bookshelf.ui.detail.BookDetailActivity;
 import com.bai.bookshelf.ui.scan.ScanActivity;
 import com.bai.bookshelf.util.BookSanitizer;
 import com.bai.bookshelf.util.InsetsHelper;
+import com.bai.bookshelf.util.Motion;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -43,7 +45,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder;
  * 书架页：藏书列表 + 搜索 + 状态/地点筛选 + 排序 + 录入口。
  * 支持列表/封面两种视图；个人藏书量小，筛选排序在内存中完成。
  */
-public class ShelfFragment extends Fragment {
+public class ShelfFragment extends Fragment implements TabRefresh {
 
     private FragmentShelfBinding b;
     private BookAdapter adapter;
@@ -79,6 +81,8 @@ public class ShelfFragment extends Fragment {
     private int sortIndex = 0;            // 排序方式（arrays.xml sort_entries 下标）
     private int viewMode = 0;             // 视图模式：0=列表 1=封面网格 2=纯文字列表
     private boolean shelfEmpty = false;    // 当前结果为空（空态时隐藏 FAB）
+    /** 空态插画呼吸（±3dp / 3200ms，只在空态可见且本页在前台时跑） */
+    private android.animation.ValueAnimator emptyBreathe;
     // v4.36：购入 / 录入日期区间筛选（按日，null = 不限）
     // v4.38/v4.53：系列 / 价格 / 日期区间（v5.6 收敛到 ShelfFilterState）
     private final ShelfFilterState filterState = new ShelfFilterState();
@@ -155,6 +159,10 @@ public class ShelfFragment extends Fragment {
         // 这里显式给头部加状态栏内边距：头部自身是主色背景，
         // 加高后状态栏与头部连成一片（与 v4.16 观感一致），内容下移不被遮挡。
         InsetsHelper.applyTopInset(b.header);
+        // v5.9.2：扫码 FAB / 选择模式条 / 列表的底部避让 = dock_reserve + 导航栏 inset
+        InsetsHelper.applyDockReserveMargin(b.fabScan);
+        InsetsHelper.applyDockReserveMargin(b.selectionBar);
+        InsetsHelper.applyDockReservePadding(b.recycler);
         chips = new ShelfSecondaryChips(b, new ShelfSecondaryChips.Host() {
             @Override
             public List<com.bai.bookshelf.data.entity.SourceChannel> channelRows() {
@@ -890,6 +898,7 @@ public class ShelfFragment extends Fragment {
                     adapter.submit(result, locMap, lenderMap);
                 }
                 statusView.updateEmptyState(result.isEmpty(), fKeyword, filtered);
+                syncEmptyBreathe(result.isEmpty());
             });
         });
     }
@@ -1055,10 +1064,93 @@ public class ShelfFragment extends Fragment {
         if (b != null && booksReceived) {
             loans.refreshAsync(BookshelfApp.get(), this::applyFilters);
         }
+        if (b != null && b.llEmpty.getVisibility() == View.VISIBLE) {
+            syncEmptyBreathe(true);
+        }
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        stopEmptyBreathe();
+    }
+
+    @Override
+    public void onHiddenChanged(boolean hidden) {
+        super.onHiddenChanged(hidden);
+        if (hidden) {
+            stopEmptyBreathe();
+        } else if (b != null && b.llEmpty.getVisibility() == View.VISIBLE) {
+            syncEmptyBreathe(true);
+        }
+    }
+
+    /** 空态插画的呼吸：只有可见且在前台时才转 */
+    private void syncEmptyBreathe(boolean empty) {
+        if (!empty || isHidden() || !isResumed()) {
+            stopEmptyBreathe();
+            return;
+        }
+        startEmptyBreathe();
+    }
+
+    private void startEmptyBreathe() {
+        if (b == null || emptyBreathe != null
+                || !com.bai.bookshelf.util.Motion.enabled(requireContext())) {
+            return;
+        }
+        final View art = b.ivEmptyIllustration;
+        final float amplitude = 3 * getResources().getDisplayMetrics().density;
+        emptyBreathe = android.animation.ValueAnimator.ofFloat(0f, 1f);
+        emptyBreathe.setDuration(3200);
+        emptyBreathe.setRepeatCount(android.animation.ValueAnimator.INFINITE);
+        emptyBreathe.setInterpolator(new android.view.animation.LinearInterpolator());
+        emptyBreathe.addUpdateListener(a -> {
+            float f = (float) a.getAnimatedValue();
+            art.setTranslationY(-amplitude * (float) Math.sin(f * 2 * Math.PI));
+        });
+        emptyBreathe.start();
+    }
+
+    private void stopEmptyBreathe() {
+        if (emptyBreathe != null) {
+            emptyBreathe.cancel();
+            emptyBreathe = null;
+        }
+        if (b != null) {
+            b.ivEmptyIllustration.setTranslationY(0f);
+        }
+    }
+
+    // ==================== 切 Tab 内容层动效（v5.9.4） ====================
+
+    @Override
+    public void animateIn() {
+        View content = b == null ? null : b.contentShelf;
+        if (content == null) {
+            return;
+        }
+        content.animate().cancel();
+        content.setTranslationY(6 * getResources().getDisplayMetrics().density);
+        content.animate().translationY(0f)
+                .setDuration(Motion.BASE)
+                .setInterpolator(Motion.STANDARD)
+                .start();
+    }
+
+    @Override
+    public void settleContent() {
+        View content = b == null ? null : b.contentShelf;
+        if (content == null) {
+            return;
+        }
+        content.animate().cancel();
+        content.setTranslationY(0f);
     }
 
     @Override
     public void onDestroyView() {
+        stopEmptyBreathe();
         loading.cancel();
         if (searchBar != null) {
             searchBar.cancelPending();

@@ -19,8 +19,8 @@ import com.bai.bookshelf.ui.MainActivity;
 import java.util.Calendar;
 
 /**
- * 每日打卡提醒（第 4.4 步，默认关）：每天 21:00 发一条本地通知
- * 「今天还没打卡，N 本书在读」。闹钟/取消写法与 BorrowReminder 一致，
+ * 每日打卡提醒（第 4.4 步，默认关）：每天在用户设定的时刻（默认 21:00）
+ * 发一条本地通知「今天还没打卡，N 本书在读」。闹钟/取消写法与 BorrowReminder 一致，
  * 但不改动借阅提醒的任何逻辑；通知渠道、通知 id、requestCode 全部独立。
  */
 public final class CheckInReminder {
@@ -28,13 +28,12 @@ public final class CheckInReminder {
     private static final String CHANNEL_ID = "checkin_daily";
     private static final int NOTIFY_ID = 4002;
     private static final int REQUEST_CODE = 4002;
-    private static final int HOUR = 21;
     public static final String ACTION_CHECK = "com.bai.bookshelf.action.CHECKIN_DAILY_CHECK";
 
     private CheckInReminder() {
     }
 
-    /** 安排下一次 21:00 检查；开关关掉时把闹钟一并撤掉 */
+    /** 安排下一次提醒；开关关掉时把闹钟一并撤掉 */
     public static void schedule(Context ctx) {
         AlarmManager am = (AlarmManager) ctx.getSystemService(Context.ALARM_SERVICE);
         if (am == null) {
@@ -46,14 +45,15 @@ public final class CheckInReminder {
             return;
         }
         Calendar next = Calendar.getInstance();
-        next.set(Calendar.HOUR_OF_DAY, HOUR);
-        next.set(Calendar.MINUTE, 0);
+        next.set(Calendar.HOUR_OF_DAY, ReminderPrefs.checkinReminderHour(ctx));
+        next.set(Calendar.MINUTE, ReminderPrefs.checkinReminderMinute(ctx));
         next.set(Calendar.SECOND, 0);
         next.set(Calendar.MILLISECOND, 0);
         if (next.getTimeInMillis() <= System.currentTimeMillis()) {
             next.add(Calendar.DAY_OF_MONTH, 1);
         }
         am.cancel(pi);
+        // 不申请精确闹钟权限：Doze 下允许延迟，但不会像 setRepeating 那样整条丢失
         am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, next.getTimeInMillis(), pi);
     }
 

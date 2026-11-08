@@ -3,6 +3,7 @@
      今天行由 Adapter 贴 checkin_selected_bg 淡底，未来日整体 alpha 0.6。
      固定 44dp，保证 28–31 天能在一屏里滚得动。 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="44dp"
@@ -59,4 +60,18 @@
         android:textColor="?attr/on_surface_variant"
         android:textSize="@dimen/text_caption_large"
         tools:text="《三体》、活着" />
+
+    <!-- 当天记录明细：行本身的点击只选日，撤销/清理走这个独立入口（读屏也能找到） -->
+    <ImageButton
+        android:id="@+id/btn_day_records"
+        android:layout_width="44dp"
+        android:layout_height="44dp"
+        android:layout_marginStart="@dimen/space_xs"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="查看这一天的打卡记录"
+        android:padding="@dimen/space_sm"
+        android:src="@drawable/ic_more"
+        android:visibility="gone"
+        app:tint="?attr/on_surface_variant"
+        tools:visibility="visible" />
 </LinearLayout>

@@ -53,6 +53,21 @@ public class ReadingRecordsTest {
     }
 
     @Test
+    public void syntheticSessionInheritsReadingProgress() {
+        Book reading = new Book();
+        reading.readStatus = Book.READING;
+        reading.readingProgress = 60;
+        assertEquals("在读会话继承书上的进度", 60,
+                ReadingRecords.load(reading).get(0).progress);
+
+        Book done = new Book();
+        done.readStatus = Book.READ_DONE;
+        done.readingProgress = 65;
+        assertEquals("已读会话固定 100", 100,
+                ReadingRecords.load(done).get(0).progress);
+    }
+
+    @Test
     public void jsonRoundTripKeepsAllRecords() {
         List<ReadingRecords.Record> records = new ArrayList<>();
         records.add(record(1, Book.READ_DROPPED, "2024-01-01", "2024-01-03", 3));

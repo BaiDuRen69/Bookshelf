@@ -416,6 +416,7 @@
         <item name="android:layout_height">32dp</item>
         <item name="android:layout_marginEnd">6dp</item>
         <item name="android:background">@drawable/bg_filter_pill</item>
+        <item name="android:foreground">?attr/selectableItemBackground</item>
         <item name="android:clickable">true</item>
         <item name="android:focusable">true</item>
         <item name="android:gravity">center</item>
@@ -458,9 +459,10 @@
         <item name="android:layout_marginBottom">@dimen/space_sm</item>
         <item name="android:paddingStart">@dimen/space_xs</item>
         <item name="android:textColor">?attr/on_surface_variant</item>
-        <item name="android:textSize">@dimen/text_body_small</item>
+        <item name="android:textSize">?attr/text_size_overline</item>
         <item name="android:fontFamily">sans-serif-medium</item>
-        <item name="android:letterSpacing">0.04</item>
+        <item name="android:letterSpacing">0.06</item>
+        <item name="android:includeFontPadding">false</item>
     </style>
 
     <!-- 底部面板窗口动画（v4.27）：只做淡入淡出，不位移、不缩放 -->

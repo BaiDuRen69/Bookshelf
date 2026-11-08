@@ -586,6 +586,7 @@
 
         <!-- 列表 + 空态 -->
         <FrameLayout
+            android:id="@+id/content_shelf"
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1">
@@ -634,6 +635,7 @@
                 android:visibility="gone">
 
                 <ImageView
+                    android:id="@+id/iv_empty_illustration"
                     android:layout_width="104dp"
                     android:layout_height="104dp"
                     android:alpha="0.9"

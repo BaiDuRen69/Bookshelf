@@ -50,4 +50,22 @@ public final class HolidayCalendar {
     public int size() {
         return names.size();
     }
+
+    /** 内容相等：网络结果与原表一样时不重绑 42 个格子 */
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof HolidayCalendar)) {
+            return false;
+        }
+        HolidayCalendar other = (HolidayCalendar) o;
+        return complete == other.complete && names.equals(other.names);
+    }
+
+    @Override
+    public int hashCode() {
+        return 31 * names.hashCode() + (complete ? 1 : 0);
+    }
 }
