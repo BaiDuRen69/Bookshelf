@@ -1,0 +1,23 @@
+# 仓库里一律存 LF：本机 core.autocrlf=true，没有这份文件时「谁在 Windows 上首次 add 脚本」
+# 决定脚本以什么行尾入库，Linux runner 上 `sh ./gradlew` 就会因为 CR 而报
+# `bad interpreter: /bin/sh^M`。这里把口径钉死，不依赖每个人的 git 配置。
+* text=auto
+
+# 必须在 Linux 上跑起来的脚本：强制 LF
+gradlew text eol=lf
+*.sh text eol=lf
+
+# Windows 专用脚本：检出成 CRLF（cmd 的 goto/label 对 LF 不可靠）
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# 二进制：禁止任何换行符转换，否则 APK/图片/keystore 会被静默改坏
+*.apk binary
+*.zip binary
+*.jar binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.keystore binary
+*.jks binary

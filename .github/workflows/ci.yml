@@ -1,0 +1,99 @@
+name: CI
+
+# 「改坏了机器知道」：编译 + JVM 单测 + lint（基线之外新增才红）+ tools/ 四条校验。
+# instrumentation（androidTest）需要真机/模拟器，不进 CI；本机用 de5090fb 快进快出跑。
+# gradlew 的执行位已进仓库（100755，见 .gitattributes），仍统一写 `sh ./gradlew`：
+# 这样在本地（Windows，git 有时不回写 mode）和 runner 上都一样能跑。
+
+on:
+  push:
+    # 纯文档改动不烧 gradle 分钟数。代价见「文档数字」一步的注释。
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+  pull_request:
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: 编译 / 单测 / lint / 交付校验
+    runs-on: ubuntu-latest
+    # 免费 runner 没有排队优先级：卡住就让它红，不要占着 runner 到天亮。
+    timeout-minutes: 30
+
+    steps:
+      - name: 取代码
+        uses: actions/checkout@v4
+
+      - name: 装 JDK 21
+        # 口径见总览「构建方式（重要）」：compileOptions 是 Java 17（语言级别），
+        # 工具链用 21——本机所有 APK 都是 JDK 21 产出的，CI 跟本机保持一致。
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: 装 Python
+        # 本机 python 是 3.12.10；四条校验只用标准库，钉住小版本防 runner 默认值漂移。
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 缓存 Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle', 'gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: ${{ runner.os }}-gradle-
+
+      # 下面两步的 -D 覆盖只作用于本次 CI：gradle.properties 里是本机的 -Xmx4g +
+      # parallel=true，而免费 runner 是 2 核 7 GB，AGP + lint + 单测同场最容易 OOM。
+      # 实测生效（init 脚本探针）：不带 -D 时 parallel=true、daemon 命令行带 -Xmx4g；
+      # 带上后 parallel=false、-Xmx3g。
+      - name: assembleRelease + testDebugUnitTest
+        run: sh ./gradlew --no-daemon -Dorg.gradle.jvmargs="-Xmx3g -Dfile.encoding=UTF-8" -Dorg.gradle.parallel=false assembleRelease testDebugUnitTest --console=plain
+
+      - name: lint（存量已冻结在 app/baseline.xml，只对新增负责）
+        run: sh ./gradlew --no-daemon -Dorg.gradle.jvmargs="-Xmx3g -Dfile.encoding=UTF-8" -Dorg.gradle.parallel=false :app:lintRelease --console=plain
+
+      - name: 交付包入库（产完不再丢）
+        # 只存档不发布：release 包用的是 debug keystore，且 versionName 比对仍在本机
+        # pack.ps1 里做（要读交付目录的旧包）。这里红 = 产物压根没产出。
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-run${{ github.run_number }}
+          path: app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: 失败时留存报告（lint / 单测）
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-reports-run${{ github.run_number }}
+          path: |
+            app/build/reports/
+            app/build/test-results/
+          retention-days: 7
+
+      - name: "坑 #41 静态防线——每个 Activity 必须有可达的 setContentView"
+        run: python3 tools/check_activities.py
+
+      - name: 交付包准入——包名 com.bai.bookshelf、ABI 只有 ARM 两套、版本跟 build.gradle 一致
+        run: python3 tools/check_release_package.py
+
+      - name: 文档数字不许比代码旧
+        # 纯 docs/ 提交不触发本 workflow（paths-ignore），所以「只改文档」时这一步不会跑；
+        # 数字漂移会在下一次代码 push 被抓住。真需要文档提交即时判定，再拆独立 workflow。
+        run: python3 tools/check_doc_drift.py
+
+      - name: 负向自测——三条校验在指错目录时必须给出判定性非 0
+        # 守 A1 修掉的两条假绿：空跑（0 比对 / 0 待判定）一律 exit 2，不许 [OK]。
+        run: python3 tools/selftest_checks.py
