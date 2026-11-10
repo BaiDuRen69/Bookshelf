@@ -34,7 +34,9 @@ import androidx.fragment.app.Fragment;
 
 import com.bai.bookshelf.R;
 import com.bai.bookshelf.app.BookshelfApp;
+import com.bai.bookshelf.data.AppDatabase;
 import com.bai.bookshelf.data.entity.Book;
+import com.bai.bookshelf.stats.StatsComputer;
 import com.bai.bookshelf.util.BookFlags;
 import com.bai.bookshelf.databinding.FragmentStatsBinding;
 import com.bai.bookshelf.databinding.ItemStatsExtremeBinding;
@@ -660,7 +662,7 @@ public class StatsFragment extends Fragment implements TabRefresh {
         statsBooks = pushed;
         statsComputed = false;
         if (statsVisible && b != null) {
-            computeFrom(statsBooks);
+            requestCompute(statsBooks);
         } else {
             // 不可见时不查库、不聚合：只把空态定下来，等切到统计页再算
             statsEmpty = com.bai.bookshelf.util.BookFlags.countOwned(pushed) == 0;
@@ -671,7 +673,7 @@ public class StatsFragment extends Fragment implements TabRefresh {
     /** 可见且没算过才算（数据变化后 Mark 成未计算） */
     private void ensureComputed() {
         if (!statsComputed && b != null) {
-            computeFrom(statsBooks);
+            requestCompute(statsBooks);
         }
     }
 
@@ -696,343 +698,15 @@ public class StatsFragment extends Fragment implements TabRefresh {
     }
 
     /** 后台线程聚合数据，回主线程渲染（books 由 LiveData 推送给出） */
-    private void computeFrom(java.util.List<Book> raw) {
+    private void requestCompute(java.util.List<Book> raw) {
         BookshelfApp app = BookshelfApp.get();
         app.io(() -> {
-            List<Book> books = BookSanitizer.normalizeAll(raw);
-
-            // v5.8 口径地基：种 / 册 / 花费统一由 LibraryStats 算，页面只负责摆
-            java.util.Map<Long, java.util.List<com.bai.bookshelf.data.entity.BookCopy>> copiesByBook;
-            try {
-                copiesByBook = com.bai.bookshelf.util.LibraryStats.groupCopies(
-                        BookshelfApp.get().db().bookCopyDao().getAll());
-            } catch (Exception e) {
-                copiesByBook = new java.util.HashMap<>();
-            }
-            // v5.8.33：借出数据一次建好——阅读天数要扣掉「书在别人手上」的日子。
-            // 这里把 loanRecords 的查询提前，下面的借阅栏仍复用同一份，不重复查库。
-            java.util.List<com.bai.bookshelf.data.entity.BorrowRecord> loanRecords;
-            try {
-                loanRecords = BookshelfApp.get().db().borrowRecordDao().getAll();
-            } catch (Exception e) {
-                loanRecords = new ArrayList<>();
-            }
-            final java.util.Map<Long, List<int[]>> lendSpans =
-                    com.bai.bookshelf.util.LendSpans.byBook(loanRecords, books, copiesByBook);
-            final java.util.Map<Long, java.util.Set<Integer>> openCopiesByBook =
-                    new java.util.HashMap<>();
-            for (com.bai.bookshelf.data.entity.BorrowRecord r : loanRecords) {
-                if (r == null || r.status != com.bai.bookshelf.data.entity.BorrowRecord.STATUS_OUT) {
-                    continue;
-                }
-                java.util.Set<Integer> set = openCopiesByBook.get(r.bookId);
-                if (set == null) {
-                    set = new java.util.HashSet<>();
-                    openCopiesByBook.put(r.bookId, set);
-                }
-                set.add(Math.max(1, r.copyIndex));
-            }
-            final int lendDateUnparsable =
-                    com.bai.bookshelf.util.LendSpans.countUnparsable(loanRecords);
-            final com.bai.bookshelf.util.StatsHoldings.Holdings hold =
-                    com.bai.bookshelf.util.StatsHoldings.holdings(
-                            books, copiesByBook, openCopiesByBook);
-
-            // ---- v5.8 洞察卡：花费 / 单位成本 / 阅读速度 / 书债 / 归还率 / 健康分 ----
-            final com.bai.bookshelf.util.StatsSpend.Spend spend =
-                    com.bai.bookshelf.util.StatsSpend.spend(hold);
-            final com.bai.bookshelf.util.StatsHealth.Health health =
-                    com.bai.bookshelf.util.StatsHealth.health(books);
-            int todayKey = com.bai.bookshelf.util.DateKeys.todayKey();
-            int fromKey = com.bai.bookshelf.util.DateKeys.shiftDayKey(todayKey, -364);
-            // 打卡一次取全：习惯栏与阅读日历共用，精确轮按真实日集合铺（v5.9.1）
-            java.util.List<com.bai.bookshelf.data.entity.CheckIn> loadedCheckIns;
-            try {
-                loadedCheckIns = com.bai.bookshelf.app.BookshelfApp.get().db()
-                        .checkInDao().getInRange(0, 99999999);
-            } catch (Exception e) {
-                loadedCheckIns = new ArrayList<>();
-            }
-            final java.util.List<com.bai.bookshelf.data.entity.CheckIn> allCheckIns = loadedCheckIns;
-            final java.util.Map<Long, java.util.Map<Integer, java.util.List<Integer>>> preciseByBook =
-                    com.bai.bookshelf.util.ReadDays.byBook(allCheckIns);
-            // v5.9.5 第 4 项：阅读栏第三格「阅读时长（天）」——阅读日 ∪ 打卡日，去重且只到今天
-            final int allReadingDays = com.bai.bookshelf.util.ReadingCalendar.distinctDays(
-                    books, preciseByBook, allCheckIns, todayKey);
-            int readingDays = 0;
-            for (String day : com.bai.bookshelf.util.ReadingCalendar
-                    .titlesByDay(books, preciseByBook).keySet()) {
-                int k = com.bai.bookshelf.util.DateKeys.parseKey(day);
-                if (k >= fromKey && k <= todayKey) {
-                    readingDays++;
-                }
-            }
-            final com.bai.bookshelf.util.StatsPace.Pace pace =
-                    com.bai.bookshelf.util.StatsPace.pace(
-                            books, copiesByBook, hold, readingDays, lendSpans, preciseByBook);
-            // v5.8.19：在读剩余页数与预计读完日，速度沿用上面的中位页/天
-            final com.bai.bookshelf.util.StatsPace.Backlog backlog =
-                    com.bai.bookshelf.util.StatsPace.backlog(books,
-                            pace.medianPagesPerDay, todayKey);
-            // v5.8.19：「下一本读什么」的候选（加权排序，抽哪一本在 UI 侧按种子决定）
-            final java.util.List<com.bai.bookshelf.util.NextPick.Pick> nextRanked =
-                    com.bai.bookshelf.util.NextPick.rank(books, todayKey, preciseByBook);
-            final com.bai.bookshelf.util.StatsLend.Lend lend =
-                    com.bai.bookshelf.util.StatsLend.lend(loanRecords, todayKey);
-
-            // 分类树状图与买入年份 cohort（v5.8）
-            java.util.List<com.bai.bookshelf.data.entity.Category> cats;
-            try {
-                cats = BookshelfApp.get().db().categoryDao().getAll();
-            } catch (Exception e) {
-                cats = new ArrayList<>();
-            }
-            final java.util.List<com.bai.bookshelf.util.StatsHoldings.Group> categoryTree =
-                    com.bai.bookshelf.util.StatsHoldings.byCategory(
-                            books, copiesByBook, cats, "未分类");
-            final java.util.List<com.bai.bookshelf.util.StatsHoldings.Cohort> cohorts =
-                    com.bai.bookshelf.util.StatsHoldings.cohort(books, todayKey);
-
-            // ---- 总览 ----
-            int total = BookFlags.countOwned(books);
-            double totalPrice = 0;
-            double totalSpent = 0;   // 总花费（购入价求和）
-            double totalWords = 0;   // 总字数（解析「28万字」「320千字」等写法）
-            int finishedThisYear = 0;
-            long readDaysSum = 0;
-            int readDaysCount = 0;
-            final int currentYear = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR);
-            // ---- 之最 ----
-            Book mostExpensive = null, mostPages = null, earliest = null, mostWords = null, mostPrintings = null;
-            // ---- 分布 ----
-            Map<String, Integer> authorCount = new HashMap<>();
-            Map<String, Integer> publisherCount = new HashMap<>();
-            Map<String, Integer> countryCount = new HashMap<>();
-
-            for (Book book : books) {
-                // v5.7：借阅来源的书不计定价/花费，但字数、阅读状态照常统计
-                if (!BookFlags.isBorrowSource(book)) {
-                    totalPrice += book.listPrice;
-                    totalSpent += book.purchasePrice;
-                }
-                totalWords += BookSanitizer.parseWords(book.wordCount);
-                // 弃读的结束日期不算「读完」，也不计入年度阅读天数
-                if (book.readStatus != Book.READ_DROPPED
-                        && !book.readingFinishDate.isEmpty()) {
-                    int finishKey = DateKeys.parseKey(book.readingFinishDate);
-                    if (finishKey / 10000 == currentYear) {
-                        finishedThisYear++;
-                    }
-                    int startKey = DateKeys.parseKey(book.readingStartDate);
-                    if (startKey > 0 && finishKey >= startKey) {
-                        readDaysSum += DateKeys.daysBetween(startKey, finishKey) + 1;
-                        readDaysCount++;
-                    }
-                }
-                if (!BookFlags.isBorrowSource(book)
-                        && (mostExpensive == null || book.listPrice > mostExpensive.listPrice)) {
-                    mostExpensive = book;
-                }
-                if (mostPages == null || book.pages > mostPages.pages) {
-                    mostPages = book;
-                }
-                // 字数最多（wordCount 是字符串，先解析再比较）
-                double words = BookSanitizer.parseWords(book.wordCount);
-                if (words > 0 && (mostWords == null || words > BookSanitizer.parseWords(mostWords.wordCount))) {
-                    mostWords = book;
-                }
-                // 出版日期是字符串，直接按字典序比较（yyyy 开头时等价于时间序）
-                if (!book.publishDate.isEmpty()
-                        && (earliest == null || book.publishDate.compareTo(earliest.publishDate) < 0)) {
-                    earliest = book;
-                }
-                // 印次最多：printing 格式 yyyy-mm|N，取 | 后的数字
-                int printCount = BookSanitizer.parsePrintingCount(book.printing);
-                if (printCount > 0 && (mostPrintings == null
-                        || printCount > BookSanitizer.parsePrintingCount(mostPrintings.printing))) {
-                    mostPrintings = book;
-                }
-                if (!book.author.isEmpty()) {
-                    authorCount.merge(book.author, 1, Integer::sum);
-                }
-                if (!book.publisher.isEmpty()) {
-                    publisherCount.merge(book.publisher, 1, Integer::sum);
-                }
-                if (book.country != null && !book.country.isEmpty()) {
-                    countryCount.merge(book.country, 1, Integer::sum);
-                }
-            }
-
-            final int avgDays = readDaysCount > 0
-                    ? (int) Math.round((double) readDaysSum / readDaysCount) : 0;
-
-            // v4.31：最近录入的 4 本，用于 hero 封面拼贴
-            List<Book> recent = new ArrayList<>();
-            for (Book book : books) {
-                if (BookFlags.countsAsOwned(book)) {
-                    recent.add(book);
-                }
-            }
-            recent.sort((x, y) -> Long.compare(y.createdAt, x.createdAt));
-
-            // ---- v5.8 第二批：阅读习惯 / 该处理的书 / 买读比 / 评分 / 数据体检 / 渠道 ----
-            java.util.List<Integer> dayKeys = new ArrayList<>();
-            // 第 ④ 步：有书累计打卡 ≥3 次就以打卡自然日为事实源，修掉
-            //「在读未填结束日 → 按天铺满整个区间」的虚高；不足则回退区间估算。
-            final boolean habitByCheckIn =
-                    com.bai.bookshelf.util.CheckInHabit.useCheckIns(allCheckIns);
-            if (habitByCheckIn) {
-                dayKeys.addAll(com.bai.bookshelf.util.CheckInHabit.dayKeys(allCheckIns));
-            } else {
-                for (String day : com.bai.bookshelf.util.ReadingCalendar
-                        .titlesByDay(books, preciseByBook).keySet()) {
-                    int k = com.bai.bookshelf.util.DateKeys.parseKey(day);
-                    if (k > 0) {
-                        dayKeys.add(k);
-                    }
-                }
-            }
-            final com.bai.bookshelf.util.StatsPace.Habit habit =
-                    com.bai.bookshelf.util.StatsPace.Habit.of(dayKeys, currentYear, todayKey);
-            habit.fromCheckIns = habitByCheckIn;
-            final int[] yearCheckIn = com.bai.bookshelf.util.CheckInStore
-                    .yearSummary(allCheckIns, currentYear);
-            final String checkInLine = com.bai.bookshelf.util.CheckInUiState.statsLine(
-                    currentYear, yearCheckIn,
-                    com.bai.bookshelf.util.CheckInStore.streakDays(allCheckIns, todayKey));
-            final boolean showCheckInLine = yearCheckIn[1] > 0;
-            final com.bai.bookshelf.util.StatsPace.Stale stale =
-                    com.bai.bookshelf.util.StatsPace.stale(books, todayKey, 3);
-            final com.bai.bookshelf.util.StatsHealth.Rating rating =
-                    com.bai.bookshelf.util.StatsHealth.ratings(books);
-            final com.bai.bookshelf.util.StatsHealth.Anomalies anomalies =
-                    com.bai.bookshelf.util.StatsHealth.anomalies(books, todayKey);
-            // v5.8.32：借阅孤儿体检。两次全表查询跟其它派生指标一样只在这段聚合里跑
-            java.util.List<com.bai.bookshelf.data.entity.BookCopy> copyAll;
-            try {
-                copyAll = BookshelfApp.get().db().bookCopyDao().getAll();
-            } catch (Exception e) {
-                copyAll = new ArrayList<>();
-            }
-            java.util.List<com.bai.bookshelf.data.entity.NoteImage> imageAll;
-            try {
-                imageAll = BookshelfApp.get().db().noteImageDao().getAll();
-            } catch (Exception e) {
-                imageAll = new ArrayList<>();
-            }
-            final com.bai.bookshelf.util.StatsHealth.BorrowOrphans orphans =
-                    com.bai.bookshelf.util.StatsHealth.borrowOrphans(
-                            books, copyAll, loanRecords, imageAll);
-            // v5.9.1 第六步：精确记录的三项结构体检（纯函数，日集合直接复用上面的全量打卡行）
-            final com.bai.bookshelf.util.ReadingModeHealth.Report readingModeReport =
-                    com.bai.bookshelf.util.ReadingModeHealth.check(books, allCheckIns);
-            int boughtThisYear = 0;
-            for (Book book : books) {
-                int buy = com.bai.bookshelf.util.DateKeys.parseKey(book.purchaseDate);
-                if (buy / 10000 == currentYear && !BookFlags.isBorrowSource(book)) {
-                    boughtThisYear++;
-                }
-            }
-            final com.bai.bookshelf.util.StatsPace.BuyRead buyRead =
-                    com.bai.bookshelf.util.StatsPace.BuyRead.of(
-                            boughtThisYear, finishedThisYear, hold.unread, hold.titles);
-            final List<com.bai.bookshelf.util.StatsHoldings.Group> channels =
-                    com.bai.bookshelf.util.StatsHoldings.groupBy(books, copiesByBook,
-                            book -> book.sourceChannel, "未填渠道", false);
-            // 同比 / 环比、读的结构 vs 藏的结构、借阅人可靠性
-            final java.util.List<com.bai.bookshelf.util.StatsSpend.PeriodDelta> periods =
-                    com.bai.bookshelf.util.StatsSpend.periods(books, loanRecords, todayKey);
-            final java.util.List<com.bai.bookshelf.util.StatsHoldings.Share> structure =
-                    com.bai.bookshelf.util.StatsHoldings.structureCompare(books, copiesByBook, cats);
-            final java.util.List<com.bai.bookshelf.util.StatsLend.Lender> lenders =
-                    com.bai.bookshelf.util.StatsLend.lenders(loanRecords, todayKey);
-            final java.util.List<com.bai.bookshelf.util.StatsHoldings.Group> costByCategory =
-                    com.bai.bookshelf.util.StatsHoldings.byCategory(books, copiesByBook, cats, "未分类");
-            // 第三批：花费趋势、价格相关性、摘抄密度、想读转化、借出结构、系列完成度
-            java.util.List<com.bai.bookshelf.data.entity.Excerpt> excerptAll;
-            try {
-                excerptAll = BookshelfApp.get().db().excerptDao().getAll();
-            } catch (Exception e) {
-                excerptAll = new ArrayList<>();
-            }
-            java.util.List<com.bai.bookshelf.data.entity.WishBook> wishAll;
-            try {
-                wishAll = BookshelfApp.get().db().wishBookDao().getAll();
-            } catch (Exception e) {
-                wishAll = new ArrayList<>();
-            }
-            final com.bai.bookshelf.util.StatsSpend.Trend trend =
-                    com.bai.bookshelf.util.StatsSpend.trend(books, currentYear, todayKey);
-            final com.bai.bookshelf.util.StatsSpend.Relation relation =
-                    com.bai.bookshelf.util.StatsSpend.relations(books);
-            final com.bai.bookshelf.util.StatsHealth.NoteStat noteStat =
-                    com.bai.bookshelf.util.StatsHealth.notes(books, excerptAll);
-            final com.bai.bookshelf.util.StatsHealth.WishStat wishStat =
-                    com.bai.bookshelf.util.StatsHealth.wishes(wishAll, books);
-            final com.bai.bookshelf.util.StatsPace.DropRecovery dropRecovery =
-                    com.bai.bookshelf.util.StatsPace.dropRecovery(books);
-            final java.util.List<com.bai.bookshelf.util.StatsHoldings.Group> lendByCategory =
-                    com.bai.bookshelf.util.StatsLend.lendStructure(books, loanRecords,
-                            book -> book.category, "未分类");
-            final java.util.List<com.bai.bookshelf.util.StatsHoldings.Group> seriesGroups =
-                    com.bai.bookshelf.util.StatsHoldings.groupBy(books, copiesByBook,
-                            book -> book.seriesName, "未成系列", true);
-
-            // v5.8.3：聚合结果一次性落成不可变快照，切栏时直接复用，不再重复查库/重算
-            final StatsSnapshot snap = StatsSnapshot.builder()
-                    .hold(hold)
-                    .spend(spend)
-                    .pace(pace)
-                    .backlog(backlog)
-                    .nextRanked(nextRanked)
-                    .lend(lend)
-                    .health(health)
-                    .rating(rating)
-                    .anomalies(anomalies)
-                    .habit(habit)
-                    .totalReadingDays(allReadingDays)
-                    .checkInLine(checkInLine)
-                    .showCheckInLine(showCheckInLine)
-                    .stale(stale)
-                    .buyRead(buyRead)
-                    .relation(relation)
-                    .noteStat(noteStat)
-                    .wishStat(wishStat)
-                    .dropRecovery(dropRecovery)
-                    .trend(trend)
-                    .channels(channels)
-                    .costByCategory(costByCategory)
-                    .structure(structure)
-                    .seriesGroups(seriesGroups)
-                    .cohorts(cohorts)
-                    .lenders(lenders)
-                    .lendByCategory(lendByCategory)
-                    .periods(periods)
-                    .books(books)
-                    .total(total)
-                    .finishedThisYear(finishedThisYear)
-                    .avgDays(avgDays)
-                    .totalPrice(totalPrice)
-                    .totalSpent(totalSpent)
-                    .totalWords(totalWords)
-                    .mostExpensive(mostExpensive)
-                    .mostPages(mostPages)
-                    .mostWords(mostWords)
-                    .earliest(earliest)
-                    .mostPrintings(mostPrintings)
-                    .recent(recent.size() > 4 ? new ArrayList<>(recent.subList(0, 4)) : recent)
-                    .topAuthors(topN(authorCount, 8))
-                    .topPublishers(topN(publisherCount, 8))
-                    .topCountries(topN(countryCount, 8))
-                    .openLoans(OpenLoan.build(books, loanRecords, todayKey))
-                    .returnSeries(ReturnTrend.of(loanRecords, todayKey, ReturnTrend.MONTHS))
-                    .categoryTree(categoryTree)
-                    .lendDateUnparsable(lendDateUnparsable)
-                    .borrowOrphans(orphans)
-                    .modeReport(readingModeReport)
-                    .build();
+            // v5.9.5 卡 2：口径计算整体搬进 StatsComputer（纯 JVM、可读表注入），这里只留线程调度与渲染回调
+            StatsComputer.Result r = new StatsComputer(
+                    new DbStatsSource(app.db()), nextPickSeed).compute(raw);
+            final StatsSnapshot snap = r.snapshot;
             // 种子不变 → 同一批书永远抽到同一本；点「换一本」才换种子
-            this.nextPick = com.bai.bookshelf.util.NextPick.chooseFrom(nextRanked, nextPickSeed);
+            this.nextPick = r.nextPick;
 
             app.ui(() -> {
                 if (b == null) {
@@ -1047,6 +721,53 @@ public class StatsFragment extends Fragment implements TabRefresh {
                 applyStatsTab();
             });
         });
+    }
+
+    /**
+     * 卡 2：StatsComputer 不碰 Room，读表由这里包一层递进去。
+     * 每个方法就是原来 computeFrom 里那一行 DAO 调用，查询失败的空表兜底仍留在计算侧，口径不变。
+     */
+    private static final class DbStatsSource implements StatsComputer.Source {
+        private final AppDatabase db;
+
+        DbStatsSource(AppDatabase db) {
+            this.db = db;
+        }
+
+        @Override
+        public List<com.bai.bookshelf.data.entity.BookCopy> bookCopies() {
+            return db.bookCopyDao().getAll();
+        }
+
+        @Override
+        public List<com.bai.bookshelf.data.entity.BorrowRecord> borrowRecords() {
+            return db.borrowRecordDao().getAll();
+        }
+
+        @Override
+        public List<com.bai.bookshelf.data.entity.CheckIn> checkIns() {
+            return db.checkInDao().getInRange(0, 99999999);
+        }
+
+        @Override
+        public List<com.bai.bookshelf.data.entity.Category> categories() {
+            return db.categoryDao().getAll();
+        }
+
+        @Override
+        public List<com.bai.bookshelf.data.entity.NoteImage> noteImages() {
+            return db.noteImageDao().getAll();
+        }
+
+        @Override
+        public List<com.bai.bookshelf.data.entity.Excerpt> excerpts() {
+            return db.excerptDao().getAll();
+        }
+
+        @Override
+        public List<com.bai.bookshelf.data.entity.WishBook> wishBooks() {
+            return db.wishBookDao().getAll();
+        }
     }
 
     /** 按分栏渲染：切栏只重画这一栏，另外三栏的视图不动（v5.8.3） */
@@ -1470,7 +1191,7 @@ public class StatsFragment extends Fragment implements TabRefresh {
                         "已收回《" + loan.title + "》", android.widget.Toast.LENGTH_SHORT).show();
                 // 逐本借出改的是 book_copies，不会触发 books 的 LiveData，手动重算
                 statsComputed = false;
-                computeFrom(statsBooks);
+                requestCompute(statsBooks);
             });
         });
     }
@@ -1939,12 +1660,5 @@ public class StatsFragment extends Fragment implements TabRefresh {
             default:
                 return AuthorActivity.class;
         }
-    }
-
-    /** 计数 Map → 按数量倒序的前 N 名 */
-    private List<Map.Entry<String, Integer>> topN(Map<String, Integer> map, int n) {
-        List<Map.Entry<String, Integer>> list = new ArrayList<>(map.entrySet());
-        list.sort((x, y) -> y.getValue() - x.getValue());
-        return list.size() > n ? list.subList(0, n) : list;
     }
 }

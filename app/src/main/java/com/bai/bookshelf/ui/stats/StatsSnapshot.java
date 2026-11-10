@@ -10,15 +10,18 @@ import com.bai.bookshelf.util.StatsPace;
 import com.bai.bookshelf.util.StatsSpend;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
 /**
  * 统计页一次聚合的全部结果：纯数据、字段全 final、不引用 Context 与视图。
  *
- * <p>没 set 过的字段保持改造前那些 Fragment 字段的初值（对象为 null、计数为 0、
- * {@link #totalReadingDays} 为 -1、{@link #checkInLine} 为空串），
- * 所以 {@link #empty()} 渲染出来的东西和「还没算过」时一致。
+ * <p>没 set 过的字段保持改造前那些 Fragment 字段的初值（标量对象为 null、计数为 0、
+ * {@link #totalReadingDays} 为 -1、{@link #checkInLine} 为空串），List 字段一律是
+ * <b>空只读列表</b>（Fragment 那几个字段本来就是 {@code new ArrayList<>()}），
+ * 所以 {@link #empty()} 渲染出来的东西和「还没算过」时一致，渲染层拿去遍历时不会踩 null。
+ * 所有 List 都是 {@link #ro(List)} 产出的只读拷贝，事后改传入的列表不会反噬快照。
  */
 public final class StatsSnapshot {
 
@@ -88,9 +91,9 @@ public final class StatsSnapshot {
         this.rating = b.rating;
         this.anomalies = b.anomalies;
         this.borrowOrphans = b.borrowOrphans;
-        this.categoryTree = b.categoryTree;
-        this.seriesGroups = b.seriesGroups;
-        this.cohorts = b.cohorts;
+        this.categoryTree = ro(b.categoryTree);
+        this.seriesGroups = ro(b.seriesGroups);
+        this.cohorts = ro(b.cohorts);
         this.pace = b.pace;
         this.backlog = b.backlog;
         this.habit = b.habit;
@@ -100,24 +103,24 @@ public final class StatsSnapshot {
         this.totalReadingDays = b.totalReadingDays;
         this.checkInLine = b.checkInLine;
         this.showCheckInLine = b.showCheckInLine;
-        this.nextRanked = b.nextRanked;
+        this.nextRanked = ro(b.nextRanked);
         this.modeReport = b.modeReport;
-        this.structure = b.structure;
+        this.structure = ro(b.structure);
         this.spend = b.spend;
         this.relation = b.relation;
         this.trend = b.trend;
-        this.periods = b.periods;
-        this.channels = b.channels;
-        this.costByCategory = b.costByCategory;
+        this.periods = ro(b.periods);
+        this.channels = ro(b.channels);
+        this.costByCategory = ro(b.costByCategory);
         this.noteStat = b.noteStat;
         this.wishStat = b.wishStat;
         this.lend = b.lend;
-        this.lenders = b.lenders;
-        this.lendByCategory = b.lendByCategory;
-        this.openLoans = b.openLoans;
+        this.lenders = ro(b.lenders);
+        this.lendByCategory = ro(b.lendByCategory);
+        this.openLoans = ro(b.openLoans);
         this.returnSeries = b.returnSeries;
         this.lendDateUnparsable = b.lendDateUnparsable;
-        this.books = b.books;
+        this.books = ro(b.books);
         this.total = b.total;
         this.finishedThisYear = b.finishedThisYear;
         this.avgDays = b.avgDays;
@@ -129,10 +132,10 @@ public final class StatsSnapshot {
         this.mostWords = b.mostWords;
         this.earliest = b.earliest;
         this.mostPrintings = b.mostPrintings;
-        this.recent = b.recent;
-        this.topAuthors = b.topAuthors;
-        this.topPublishers = b.topPublishers;
-        this.topCountries = b.topCountries;
+        this.recent = ro(b.recent);
+        this.topAuthors = ro(b.topAuthors);
+        this.topPublishers = ro(b.topPublishers);
+        this.topCountries = ro(b.topCountries);
     }
 
     /** 还没算过时的快照：各字段都是改造前 Fragment 字段的初值。 */
@@ -144,60 +147,14 @@ public final class StatsSnapshot {
         return new Builder();
     }
 
-    /** 以当前快照为底，只换想改的那几个字段。 */
-    public Builder toBuilder() {
-        Builder b = new Builder();
-        b.hold = hold;
-        b.health = health;
-        b.rating = rating;
-        b.anomalies = anomalies;
-        b.borrowOrphans = borrowOrphans;
-        b.categoryTree = categoryTree;
-        b.seriesGroups = seriesGroups;
-        b.cohorts = cohorts;
-        b.pace = pace;
-        b.backlog = backlog;
-        b.habit = habit;
-        b.stale = stale;
-        b.buyRead = buyRead;
-        b.dropRecovery = dropRecovery;
-        b.totalReadingDays = totalReadingDays;
-        b.checkInLine = checkInLine;
-        b.showCheckInLine = showCheckInLine;
-        b.nextRanked = nextRanked;
-        b.modeReport = modeReport;
-        b.structure = structure;
-        b.spend = spend;
-        b.relation = relation;
-        b.trend = trend;
-        b.periods = periods;
-        b.channels = channels;
-        b.costByCategory = costByCategory;
-        b.noteStat = noteStat;
-        b.wishStat = wishStat;
-        b.lend = lend;
-        b.lenders = lenders;
-        b.lendByCategory = lendByCategory;
-        b.openLoans = openLoans;
-        b.returnSeries = returnSeries;
-        b.lendDateUnparsable = lendDateUnparsable;
-        b.books = books;
-        b.total = total;
-        b.finishedThisYear = finishedThisYear;
-        b.avgDays = avgDays;
-        b.totalPrice = totalPrice;
-        b.totalSpent = totalSpent;
-        b.totalWords = totalWords;
-        b.mostExpensive = mostExpensive;
-        b.mostPages = mostPages;
-        b.mostWords = mostWords;
-        b.earliest = earliest;
-        b.mostPrintings = mostPrintings;
-        b.recent = recent;
-        b.topAuthors = topAuthors;
-        b.topPublishers = topPublishers;
-        b.topCountries = topCountries;
-        return b;
+    /**
+     * 快照对外只交只读拷贝：渲染层拿到的 List 被误改，不能反过来污染已经算好的口径。
+     * null 当「没 set」处理，给空只读列表；有值就浅拷贝一层再包起来。
+     */
+    private static <T> List<T> ro(List<T> v) {
+        return v == null
+                ? Collections.emptyList()
+                : Collections.unmodifiableList(new ArrayList<>(v));
     }
 
     /** 链式装配；未 set 的字段保持初值。 */
@@ -207,9 +164,9 @@ public final class StatsSnapshot {
         private StatsHealth.Rating rating;
         private StatsHealth.Anomalies anomalies;
         private StatsHealth.BorrowOrphans borrowOrphans;
-        private List<StatsHoldings.Group> categoryTree;
-        private List<StatsHoldings.Group> seriesGroups;
-        private List<StatsHoldings.Cohort> cohorts;
+        private List<StatsHoldings.Group> categoryTree = Collections.emptyList();
+        private List<StatsHoldings.Group> seriesGroups = Collections.emptyList();
+        private List<StatsHoldings.Cohort> cohorts = Collections.emptyList();
         private StatsPace.Pace pace;
         private StatsPace.Backlog backlog;
         private StatsPace.Habit habit;
@@ -221,22 +178,22 @@ public final class StatsSnapshot {
         private boolean showCheckInLine;
         private List<NextPick.Pick> nextRanked = new ArrayList<>();
         private ReadingModeHealth.Report modeReport;
-        private List<StatsHoldings.Share> structure;
+        private List<StatsHoldings.Share> structure = Collections.emptyList();
         private StatsSpend.Spend spend;
         private StatsSpend.Relation relation;
         private StatsSpend.Trend trend;
-        private List<StatsSpend.PeriodDelta> periods;
-        private List<StatsHoldings.Group> channels;
-        private List<StatsHoldings.Group> costByCategory;
+        private List<StatsSpend.PeriodDelta> periods = Collections.emptyList();
+        private List<StatsHoldings.Group> channels = Collections.emptyList();
+        private List<StatsHoldings.Group> costByCategory = Collections.emptyList();
         private StatsHealth.NoteStat noteStat;
         private StatsHealth.WishStat wishStat;
         private StatsLend.Lend lend;
-        private List<StatsLend.Lender> lenders;
-        private List<StatsHoldings.Group> lendByCategory;
-        private List<OpenLoan> openLoans;
+        private List<StatsLend.Lender> lenders = Collections.emptyList();
+        private List<StatsHoldings.Group> lendByCategory = Collections.emptyList();
+        private List<OpenLoan> openLoans = Collections.emptyList();
         private ReturnTrend.Series returnSeries;
         private int lendDateUnparsable;
-        private List<Book> books;
+        private List<Book> books = Collections.emptyList();
         private int total;
         private int finishedThisYear;
         private int avgDays;
@@ -248,10 +205,10 @@ public final class StatsSnapshot {
         private Book mostWords;
         private Book earliest;
         private Book mostPrintings;
-        private List<Book> recent;
-        private List<Map.Entry<String, Integer>> topAuthors;
-        private List<Map.Entry<String, Integer>> topPublishers;
-        private List<Map.Entry<String, Integer>> topCountries;
+        private List<Book> recent = Collections.emptyList();
+        private List<Map.Entry<String, Integer>> topAuthors = Collections.emptyList();
+        private List<Map.Entry<String, Integer>> topPublishers = Collections.emptyList();
+        private List<Map.Entry<String, Integer>> topCountries = Collections.emptyList();
 
         Builder() {
         }

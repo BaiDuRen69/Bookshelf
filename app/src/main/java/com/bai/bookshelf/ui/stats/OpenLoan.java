@@ -13,7 +13,7 @@ import java.util.Map;
  * 在借清单的一行（v5.9.0 从 StatsFragment 抽出）：一条未归还记录对应一本书，
  * 逾期与今日到期都拿应还日期和当天比较。纯取数与纯计算，不碰 View。
  */
-class OpenLoan {
+public class OpenLoan {
     final BorrowRecord record;
     final Book book;
     final String title;
@@ -29,7 +29,7 @@ class OpenLoan {
     }
 
     /** 未归还记录配上书目信息成清单行；逾期的排最前，其余按应还日期 */
-    static List<OpenLoan> build(List<Book> books, List<BorrowRecord> records, int todayKey) {
+    public static List<OpenLoan> build(List<Book> books, List<BorrowRecord> records, int todayKey) {
         Map<Long, Book> byId = new HashMap<>();
         for (Book bk : books) {
             byId.put(bk.id, bk);

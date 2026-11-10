@@ -31,7 +31,31 @@ public class ShelfFilterSpinners {
     private final List<String> channelCache = new ArrayList<>();
     private final List<String> categoryCache = new ArrayList<>();
     private final List<String> countryCache = new ArrayList<>();
-    private final Map<List<String>, String> selectionCache = new HashMap<>();
+    /** 各维度记住的选中文案（dim → 文案）。来源不在卡 H 的六维里，只留内存不落 prefs。 */
+    private final Map<String, String> remembered = new HashMap<>();
+    /** 视图状态持久化（可空：单测或老调用方不接也能跑） */
+    private ShelfViewPrefs viewPrefs;
+
+    /** 接上持久化：把 prefs 里的文案维记忆当作「上一次视图」的初值 */
+    public void bindViewPrefs(ShelfViewPrefs prefs) {
+        viewPrefs = prefs;
+        if (prefs == null) {
+            return;
+        }
+        seedLabel(prefs, ShelfViewPrefs.DIM_LOCATION);
+        seedLabel(prefs, ShelfViewPrefs.DIM_TAG);
+        seedLabel(prefs, ShelfViewPrefs.DIM_CATEGORY);
+        seedLabel(prefs, ShelfViewPrefs.DIM_COUNTRY);
+    }
+
+    private void seedLabel(ShelfViewPrefs prefs, String dim) {
+        String label = prefs.label(dim);
+        if (label.isEmpty()) {
+            remembered.remove(dim);
+        } else {
+            remembered.put(dim, label);
+        }
+    }
 
     /** 一级分类条目（下拉第 N 项 → entries[N-1]） */
     public List<Category> categoryEntries() {
@@ -43,11 +67,11 @@ public class ShelfFilterSpinners {
         if (b == null) {
             return;
         }
-        remember(b.spCategory, categoryCache);
-        remember(b.spTag, tagCache);
-        remember(b.spLocation, locCache);
-        remember(b.spChannel, channelCache);
-        remember(b.spCountry, countryCache);
+        remember(b.spCategory, categoryCache, ShelfViewPrefs.DIM_CATEGORY);
+        remember(b.spTag, tagCache, ShelfViewPrefs.DIM_TAG);
+        remember(b.spLocation, locCache, ShelfViewPrefs.DIM_LOCATION);
+        remember(b.spChannel, channelCache, "channel");
+        remember(b.spCountry, countryCache, ShelfViewPrefs.DIM_COUNTRY);
     }
 
     /** 新视图创建时调用：清空内容缓存，强制下次重新填充 */
@@ -65,26 +89,49 @@ public class ShelfFilterSpinners {
         filled = true;
     }
 
-    /** Spinner 选中变化时记录选中文案（以对应 cache 为 key） */
+    /**
+     * Spinner 选中变化时按维度记账，并双写进视图状态持久化（卡 H1）。
+     *
+     * <p>下标维（藏书状态/阅读状态）内容写死在 arrays.xml，只需把位置落 prefs；
+     * 文案维（地点/标签/分类/国家/来源）另外在内存里记文案，供视图重建后回填。
+     */
     public void recordSelection(FragmentShelfBinding b, AdapterView<?> parent, int position) {
         if (b == null) {
             return;
         }
-        List<String> cache = cacheOf(b, parent);
-        if (cache == null) {
+        String dim = dimOf(b, parent);
+        if (dim == null) {
             return;
         }
         if (position <= 0) {
             // 用户主动选回首项「不限」——清掉记忆，否则下次视图重建又会被恢复成旧筛选
-            selectionCache.remove(cache);
+            remembered.remove(dim);
+            if (viewPrefs != null) {
+                viewPrefs.select(dim, 0, "");
+            }
             return;
         }
         Object item = parent.getSelectedItem();
         String text = item == null ? "" : item.toString();
-        if (text.isEmpty() || text.equals(cache.get(0))) {
+        if (ShelfViewPrefs.isIndexDim(dim)) {
+            if (viewPrefs != null) {
+                viewPrefs.select(dim, position, text);
+            }
             return;
         }
-        selectionCache.put(cache, text);
+        List<String> cache = cacheOf(b, parent);
+        if (cache == null || cache.isEmpty() || text.isEmpty() || text.equals(cache.get(0))) {
+            return;
+        }
+        remembered.put(dim, text);
+        if (viewPrefs != null) {
+            viewPrefs.select(dim, position, text);
+        }
+    }
+
+    /** 一键清除筛选后调用：内存记忆全清，否则下次视图重建还会把旧筛选恢复回来 */
+    public void clearRemembered() {
+        remembered.clear();
     }
 
     /** 标签筛选下拉：首项「标签」= 不限，其余为标签库中的每个标签 */
@@ -94,7 +141,7 @@ public class ShelfFilterSpinners {
         for (Tag tag : tags) {
             names.add(tag.name);
         }
-        fillIfChanged(b.spTag, names, tagCache);
+        fillIfChanged(b.spTag, names, tagCache, ShelfViewPrefs.DIM_TAG);
     }
 
     /** 地点筛选下拉：首项「地点」= 不限，其余为各地点名 */
@@ -104,7 +151,7 @@ public class ShelfFilterSpinners {
         for (Location loc : locations) {
             names.add(loc.name);
         }
-        fillIfChanged(b.spLocation, names, locCache);
+        fillIfChanged(b.spLocation, names, locCache, ShelfViewPrefs.DIM_LOCATION);
     }
 
     /** 来源筛选下拉（v4.10 两级化）：首项「来源」= 不限，其余为三个来源大类 */
@@ -113,7 +160,7 @@ public class ShelfFilterSpinners {
         List<String> names = new ArrayList<>();
         names.add("来源");
         names.addAll(Arrays.asList(ctx.getResources().getStringArray(R.array.own_type_entries)));
-        fillIfChanged(b.spChannel, names, channelCache);
+        fillIfChanged(b.spChannel, names, channelCache, "channel");
     }
 
     /**
@@ -130,7 +177,7 @@ public class ShelfFilterSpinners {
                 names.add(top.name);
             }
         }
-        fillIfChanged(b.spCategory, names, categoryCache);
+        fillIfChanged(b.spCategory, names, categoryCache, ShelfViewPrefs.DIM_CATEGORY);
     }
 
     /** 国家/地区筛选下拉：首项「国家」= 不限，其余为藏书中出现过的国家/地区 */
@@ -138,10 +185,11 @@ public class ShelfFilterSpinners {
         List<String> items = new ArrayList<>();
         items.add("国家");
         items.addAll(names);
-        fillIfChanged(b.spCountry, items, countryCache);
+        fillIfChanged(b.spCountry, items, countryCache, ShelfViewPrefs.DIM_COUNTRY);
     }
 
-    private void remember(Spinner spinner, List<String> cache) {
+    /** 视图重建前抓取当前选中文案，只进内存（用户驱动的改动已经由 recordSelection 落盘） */
+    private void remember(Spinner spinner, List<String> cache, String dim) {
         if (spinner == null) {
             return;
         }
@@ -149,10 +197,30 @@ public class ShelfFilterSpinners {
         String text = sel == null ? "" : sel.toString();
         if (text.isEmpty() || text.equals(cache.isEmpty() ? "" : cache.get(0))) {
             // 选的是首项「不限」→ 不是筛选，清掉记忆
-            selectionCache.remove(cache);
+            remembered.remove(dim);
             return;
         }
-        selectionCache.put(cache, text);
+        remembered.put(dim, text);
+    }
+
+    /** 由 Spinner 实例反查它对应的维度名（六个持久化维 + 来源；排序不在这里） */
+    private String dimOf(FragmentShelfBinding b, AdapterView<?> parent) {
+        if (parent == b.spStock) {
+            return ShelfViewPrefs.DIM_STOCK;
+        } else if (parent == b.spReadFilter) {
+            return ShelfViewPrefs.DIM_READ;
+        } else if (parent == b.spCategory) {
+            return ShelfViewPrefs.DIM_CATEGORY;
+        } else if (parent == b.spTag) {
+            return ShelfViewPrefs.DIM_TAG;
+        } else if (parent == b.spLocation) {
+            return ShelfViewPrefs.DIM_LOCATION;
+        } else if (parent == b.spCountry) {
+            return ShelfViewPrefs.DIM_COUNTRY;
+        } else if (parent == b.spChannel) {
+            return "channel";   // 只留内存，不落 prefs（不在卡 H 的六维里）
+        }
+        return null;
     }
 
     /** 由 Spinner 实例反查它对应的 cache 字段 */
@@ -182,15 +250,15 @@ public class ShelfFilterSpinners {
      * 缓存内容与全新的空 Spinner 不匹配，会被误判为"没变化"而跳过填充，
      * 导致分类/标签/地点/来源/国家全部空白。
      */
-    private void fillIfChanged(Spinner spinner, List<String> names, List<String> cache) {
+    private void fillIfChanged(Spinner spinner, List<String> names, List<String> cache, String dim) {
         Context ctx = spinner.getContext();
         // Spinner 还没有适配器时必须填，否则永远是空白
         if (spinner.getAdapter() == null) {
             cache.clear();
             cache.addAll(names);
             spinner.setAdapter(new HighlightAdapter<>(ctx, new ArrayList<>(names)));
-            // v3.3：视图重建后恢复用户此前的筛选选择（选中文案存在 selectionCache 里）
-            restoreSelection(spinner, names, cache);
+            // 卡 H2：回填只在 adapter 就绪之后做，且「adapter 为空」本身就是必须填充的兜底判据
+            restoreSelection(spinner, names, dim);
             return;
         }
         if (filled && names.equals(cache)) {
@@ -209,10 +277,15 @@ public class ShelfFilterSpinners {
         }
     }
 
-    /** 视图重建后恢复筛选选中项：用重建前记住的已选项文案 */
-    private void restoreSelection(Spinner spinner, List<String> names, List<String> cache) {
-        String remembered = selectionCache.get(cache);
-        int idx = remembered == null ? -1 : names.indexOf(remembered);
+    /**
+     * 视图重建后恢复筛选选中项：用记住的已选项文案（内存或 prefs 带来的）。
+     *
+     * <p>按文案而非按位置恢复：选项来自数据库，某条地点/标签被删或改名后位置会变，
+     * 文案找不到就保持「不限」，不会把用户筛到另一本书上。
+     */
+    private void restoreSelection(Spinner spinner, List<String> names, String dim) {
+        String label = remembered.get(dim);
+        int idx = label == null ? -1 : names.indexOf(label);
         if (idx > 0) {
             spinner.setSelection(idx, false);
         }

@@ -134,6 +134,8 @@ public class ShelfFragment extends Fragment implements TabRefresh {
 
     /** 筛选下拉的内容缓存与选中记忆（v5.6 从本类抽出） */
     private final ShelfFilterSpinners filterSpinners = new ShelfFilterSpinners();
+    /** 书架视图状态持久化（卡 H：排序 + 六维筛选，重启后仍是上次视图） */
+    private ShelfViewPrefs viewPrefs;
 
     @Nullable
     @Override
@@ -229,6 +231,13 @@ public class ShelfFragment extends Fragment implements TabRefresh {
         gridAdapter.setOnBookLongClick(selection::enter);
         selection.bind(b, adapter, textAdapter, gridAdapter);
 
+        // 卡 H1：视图状态回读。放在排序图标与下拉接线之前，
+        // 让「排序方式文案」「倒序箭头」「筛选初值」都基于同一份 prefs 状态。
+        viewPrefs = new ShelfViewPrefs(requireContext());
+        filterSpinners.bindViewPrefs(viewPrefs);
+        sortIndex = viewPrefs.sortIndex();
+        sortReversed = viewPrefs.sortReversed();
+
         statusView = new ShelfStatusView(b,
                 () -> {
                     String[] names = getResources().getStringArray(R.array.sort_entries);
@@ -254,6 +263,9 @@ public class ShelfFragment extends Fragment implements TabRefresh {
         // 倒序开关：切换后立即重排
         b.btnSortReverse.setOnClickListener(v -> {
             sortReversed = !sortReversed;
+            if (viewPrefs != null) {
+                viewPrefs.setSortReversed(sortReversed);
+            }
             viewModeCtl.updateIcons();
             applyFilters();
         });
@@ -261,6 +273,9 @@ public class ShelfFragment extends Fragment implements TabRefresh {
         b.btnSort.setOnClickListener(v -> ShelfDisplayMenu.showSort(
                 requireActivity(), sortIndex, which -> {
                     sortIndex = which;
+                    if (viewPrefs != null) {
+                        viewPrefs.setSortIndex(which);
+                    }
                     viewModeCtl.updateIcons();
                     applyFilters();
                 }));
@@ -280,6 +295,13 @@ public class ShelfFragment extends Fragment implements TabRefresh {
         // 全部使用紧凑闭合样式（小字号小内边距），下拉弹层保持系统默认
         b.spStock.setAdapter(new HighlightAdapter<>(requireContext(), R.array.filter_stock_entries));
         b.spReadFilter.setAdapter(new HighlightAdapter<>(requireContext(), R.array.filter_read_entries));
+        // 卡 H1/H2：这两个是「下标维」（选项写死在 arrays.xml，下标稳定），
+        // 回填紧跟 setAdapter、且在选中监听挂载之前，不依赖任何手工脏标志；
+        // 文案维（地点/标签/分类/国家）由 ShelfFilterSpinners 在适配器就绪后按文案回填
+        if (viewPrefs != null) {
+            b.spStock.setSelection(viewPrefs.position(ShelfViewPrefs.DIM_STOCK), false);
+            b.spReadFilter.setSelection(viewPrefs.position(ShelfViewPrefs.DIM_READ), false);
+        }
 
         filterListeners = new ShelfFilterListeners(b,
                 () -> spinnerReady,
@@ -450,6 +472,12 @@ public class ShelfFragment extends Fragment implements TabRefresh {
         b.spLocation.setSelection(0);
         b.spChannel.setSelection(0);
         b.spCountry.setSelection(0);
+        // 卡 H1：持久化的记忆要跟着清，否则「清除筛选」之后重启又会把上次的筛选捡回来。
+        // 这里不能指望选中监听补刀——Spinner 已经是第 0 项时 setSelection(0) 不发事件
+        filterSpinners.clearRemembered();
+        if (viewPrefs != null) {
+            viewPrefs.clearFilters();
+        }
         chips.showCategory(null);
         chips.showChannel(-1);
         filterPanel.updateMoreFilterPill();

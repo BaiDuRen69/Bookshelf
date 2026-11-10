@@ -3,20 +3,14 @@ package com.bai.bookshelf.ui.stats;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.bai.bookshelf.data.entity.Book;
-import com.bai.bookshelf.data.entity.BorrowRecord;
-import com.bai.bookshelf.util.NextPick;
-import com.bai.bookshelf.util.ReadingModeHealth;
-import com.bai.bookshelf.util.StatsHealth;
 import com.bai.bookshelf.util.StatsHoldings;
-import com.bai.bookshelf.util.StatsLend;
-import com.bai.bookshelf.util.StatsPace;
-import com.bai.bookshelf.util.StatsSpend;
 
 import org.junit.Test;
 
@@ -31,12 +25,14 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 3.1 快照契约：字段全 final、不碰 Android、Builder 一个不漏、toBuilder 一个不丢。
+ * 3.1 快照契约：字段全 final、不碰 Android、Builder 一个不漏、List 一律「空只读拷贝」。
  * 四栏「关键数字」的断言在 3.2 的 StatsComputerTest 里，这里只钉容器本身。
+ * toBuilder 已删：主代码零调用方，留着只会被测试自己喂自己（坑 58）。
  */
 public class StatsSnapshotTest {
 
-    private static final int TODAY = 20261110;
+    /** Builder 里 List 字段的应有个数（16 个，见 {@link #没set的List字段是空只读而不是null}）。 */
+    private static final int LIST_FIELD_COUNT = 16;
 
     private static List<Field> instanceFields() {
         List<Field> out = new ArrayList<>();
@@ -55,144 +51,6 @@ public class StatsSnapshotTest {
         b.author = "某作者";
         b.pages = 200;
         return b;
-    }
-
-    private static StatsHoldings.Group group(String name) {
-        StatsHoldings.Group g = new StatsHoldings.Group(name);
-        g.titles = 2;
-        return g;
-    }
-
-    /** List 字段按字段名给样本：泛型擦除后类型分不出元素。 */
-    private static Object sampleList(String name) {
-        Book one = book(2L, "样本二");
-        switch (name) {
-            case "categoryTree":
-            case "seriesGroups":
-            case "channels":
-            case "costByCategory":
-            case "lendByCategory":
-                return Collections.singletonList(group("历史"));
-            case "cohorts":
-                return Collections.singletonList(new StatsHoldings.Cohort());
-            case "structure":
-                return Collections.singletonList(new StatsHoldings.Share());
-            case "periods":
-                return Collections.singletonList(new StatsSpend.PeriodDelta());
-            case "lenders":
-                return StatsLend.lenders(Collections.<BorrowRecord>emptyList(), TODAY);
-            case "nextRanked":
-                return NextPick.rank(Collections.singletonList(one), TODAY);
-            case "openLoans": {
-                BorrowRecord r = new BorrowRecord();
-                r.bookId = one.id;
-                r.borrower = "同学甲";
-                r.dueDate = "2026-11-01";
-                return OpenLoan.build(Collections.singletonList(one),
-                        Collections.singletonList(r), TODAY);
-            }
-            case "books":
-            case "recent":
-                return new ArrayList<>(Collections.singletonList(one));
-            case "topAuthors":
-            case "topPublishers":
-            case "topCountries":
-                return new ArrayList<>(Collections.singletonList(
-                        (Map.Entry<String, Integer>) new AbstractMap.SimpleEntry<>("某作者", 3)));
-            default:
-                throw new IllegalStateException("List 字段没有样本值，请补 sampleList：" + name);
-        }
-    }
-
-    /** 每个字段都给一个「非默认值」，否则 toBuilder 漏抄也测不出来。 */
-    private static Object sampleValue(Class<?> type) {
-        if (type == int.class) {
-            return 7;
-        }
-        if (type == double.class) {
-            return 1.5d;
-        }
-        if (type == boolean.class) {
-            return Boolean.TRUE;
-        }
-        if (type == String.class) {
-            return "样本";
-        }
-        if (type == Book.class) {
-            return book(1L, "样本一");
-        }
-        if (type == StatsHoldings.Holdings.class) {
-            StatsHoldings.Holdings v = new StatsHoldings.Holdings();
-            v.titles = 3;
-            return v;
-        }
-        if (type == StatsHoldings.Group.class) {
-            return group("文学");
-        }
-        if (type == StatsPace.Pace.class) {
-            return new StatsPace.Pace();
-        }
-        if (type == StatsPace.Backlog.class) {
-            return new StatsPace.Backlog();
-        }
-        if (type == StatsPace.Habit.class) {
-            return new StatsPace.Habit();
-        }
-        if (type == StatsPace.Stale.class) {
-            return new StatsPace.Stale();
-        }
-        if (type == StatsPace.BuyRead.class) {
-            return new StatsPace.BuyRead();
-        }
-        if (type == StatsPace.DropRecovery.class) {
-            return new StatsPace.DropRecovery();
-        }
-        if (type == ReadingModeHealth.Report.class) {
-            return new ReadingModeHealth.Report();
-        }
-        if (type == StatsSpend.Spend.class) {
-            return new StatsSpend.Spend();
-        }
-        if (type == StatsSpend.Relation.class) {
-            return new StatsSpend.Relation();
-        }
-        if (type == StatsSpend.Trend.class) {
-            return new StatsSpend.Trend();
-        }
-        if (type == StatsHealth.Health.class) {
-            return new StatsHealth.Health();
-        }
-        if (type == StatsHealth.Rating.class) {
-            return new StatsHealth.Rating();
-        }
-        if (type == StatsHealth.Anomalies.class) {
-            return new StatsHealth.Anomalies();
-        }
-        if (type == StatsHealth.BorrowOrphans.class) {
-            return new StatsHealth.BorrowOrphans();
-        }
-        if (type == StatsHealth.NoteStat.class) {
-            return new StatsHealth.NoteStat();
-        }
-        if (type == StatsHealth.WishStat.class) {
-            return new StatsHealth.WishStat();
-        }
-        if (type == StatsLend.Lend.class) {
-            return new StatsLend.Lend();
-        }
-        if (type == ReturnTrend.Series.class) {
-            return ReturnTrend.of(Collections.<BorrowRecord>emptyList(), TODAY, ReturnTrend.MONTHS);
-        }
-        throw new IllegalStateException("新字段没有样本值，请补 sampleValue：" + type.getName());
-    }
-
-    private static StatsSnapshot fullyPopulated() throws Exception {
-        StatsSnapshot.Builder builder = StatsSnapshot.builder();
-        for (Field f : instanceFields()) {
-            Object v = f.getType() == List.class ? sampleList(f.getName()) : sampleValue(f.getType());
-            StatsSnapshot.Builder.class.getMethod(f.getName(), f.getType()).invoke(builder, v);
-        }
-        return builder.build();
     }
 
     @Test
@@ -242,12 +100,13 @@ public class StatsSnapshotTest {
         assertNull(s.spend);
         assertNull(s.pace);
         assertNull(s.lend);
-        assertNull(s.books);
         assertNull(s.mostExpensive);
+        // List 字段不再给 null：Fragment 那几个字段本来就是 new ArrayList<>()
+        assertTrue(s.books.isEmpty());
     }
 
     @Test
-    public void 装配后逐字段取回同一个对象() {
+    public void 装配后对象字段同一List只给只读拷贝() {
         StatsHoldings.Holdings hold = new StatsHoldings.Holdings();
         hold.titles = 55;
         hold.copies = 61;
@@ -259,38 +118,62 @@ public class StatsSnapshotTest {
 
         assertSame(hold, s.hold);
         assertSame(expensive, s.mostExpensive);
-        assertSame(authors, s.topAuthors);
+        assertEquals(authors, s.topAuthors);
+        assertNotSame("List 必须是拷贝，不能把外面那个引用直接交出去", authors, s.topAuthors);
         assertEquals(55, s.total);
         assertEquals(3, s.totalReadingDays);
         assertEquals("今年 3 天", s.checkInLine);
     }
 
+    /** 卡 1：只 set 一个字段，其余 16 个 List 都得是「非 null 的空只读列表」。 */
     @Test
-    public void toBuilder一个字段都不丢() throws Exception {
-        StatsSnapshot s = fullyPopulated();
-        StatsSnapshot again = s.toBuilder().build();
+    public void 没set的List字段是空只读而不是null() throws Exception {
+        StatsSnapshot s = StatsSnapshot.builder().total(3).build();
+        int lists = 0;
         for (Field f : instanceFields()) {
-            Object before = f.get(s);
-            Object after = f.get(again);
-            if (f.getType().isPrimitive()) {
-                assertEquals("toBuilder 漏抄了 " + f.getName(), before, after);
-            } else {
-                // 引用按同一个对象比：空 List 用 equals 会漏掉「没抄」这种情况
-                assertSame("toBuilder 漏抄了 " + f.getName(), before, after);
+            if (f.getType() != List.class) {
+                continue;
+            }
+            lists++;
+            Object value = f.get(s);
+            assertNotNull("List 字段不该是 null：" + f.getName(), value);
+            assertEquals("没 set 的 List 应该是空列表：" + f.getName(), 0, ((List<?>) value).size());
+            try {
+                ((List<Object>) value).add("往里塞一个");
+                fail("快照交出去的 List 必须只读，" + f.getName() + " 竟然能 add");
+            } catch (UnsupportedOperationException expected) {
+                // 只读包装生效
             }
         }
+        assertEquals("List 字段个数变了要同步改这条", LIST_FIELD_COUNT, lists);
     }
 
+    /** 卡 1：build 之后再改传进来的列表，快照不受影响（防御性拷贝）。 */
     @Test
-    public void toBuilder改一个字段不影响原快照() throws Exception {
-        StatsSnapshot s = fullyPopulated();
-        StatsHoldings.Holdings replaced = new StatsHoldings.Holdings();
-        replaced.titles = 1;
-        StatsSnapshot edited = s.toBuilder().hold(replaced).build();
+    public void 装配用的列表事后再改不影响快照() {
+        List<Book> src = new ArrayList<>();
+        src.add(book(1L, "第一本"));
+        StatsSnapshot s = StatsSnapshot.builder().books(src).recent(src).build();
+        src.add(book(2L, "第二本"));
+        assertEquals(1, s.books.size());
+        assertEquals(1, s.recent.size());
+    }
 
-        assertNotSame(s.hold, edited.hold);
-        assertEquals(1, edited.hold.titles);
-        assertEquals(3, s.hold.titles);
+    /** 卡 1：显式 set null 也按「没有」处理，拿到空只读列表而不是 NPE。 */
+    @Test
+    public void 显式setnull也回落到空只读() {
+        StatsSnapshot s = StatsSnapshot.builder()
+                .openLoans(null)
+                .topCountries(Collections.<Map.Entry<String, Integer>>emptyList())
+                .build();
+        assertTrue(s.openLoans.isEmpty());
+        assertTrue(s.topCountries.isEmpty());
+        try {
+            s.openLoans.add(null);
+            fail("openLoans 必须只读");
+        } catch (UnsupportedOperationException expected) {
+            // 只读包装生效
+        }
     }
 
     /** 四栏分组清单：字段增减必须回来看这条，快照是渲染层唯一的数据来源。 */

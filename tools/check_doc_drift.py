@@ -8,7 +8,9 @@ app/src/test 与 app/src/androidTest 的 @Test 计数，（可选）lint 报告�
 
 用法：
     python -X utf8 tools/check_doc_drift.py [--doc <路径> ...] [--project <工程根>]
-默认文档 = 仓库内 docs/ 的小书房-项目总览.md + 小书房-功能清单.md + 发版记录.md。
+默认文档 = 仓库根的 README.md + docs/ 的小书房-项目总览.md + 小书房-功能清单.md + 发版记录.md。
+README 也在清单里是因为它最容易被当成「营销文案」而放着旧版本号不管：v5.9.5 那轮它是唯一
+写着「最新版本 v5.9.0（versionCode 136，Room 数据库 v24）」的文件，比不到它等于漏一整类漂移。
 **不再兜底上一级工作空间**：CI 只 checkout 本仓库，上位目录在 CI 上必然不存在，
 留着兜底就等于让本机比到 0 处还报绿（v5.9.5 那次假绿就是这么来的）。
 退出码：0 = 零差异；1 = 有差异；2 = 读不到代码真值 / 一句当前态都没比到。
@@ -126,8 +128,9 @@ def main():
     args = parser.parse_args()
 
     project = os.path.abspath(args.project)
-    docs = args.doc or [os.path.join(project, 'docs', name) for name in
-                        (u'小书房-项目总览.md', u'小书房-功能清单.md', u'发版记录.md')]
+    docs = args.doc or ([os.path.join(project, 'README.md')] +
+                        [os.path.join(project, 'docs', name) for name in
+                         (u'小书房-项目总览.md', u'小书房-功能清单.md', u'发版记录.md')])
     values = truth(project)
     if values is None:
         print('[FAIL] 读不到代码真值（--project 指对了吗）：%s' % project)

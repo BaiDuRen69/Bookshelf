@@ -4,13 +4,14 @@
     流程：assembleRelease → aapt dump badging 读包名/版本/ABI → 校验「包名必须是正式版、
     native-code 只能是 ARM 两套、包内版本等于 build.gradle 声明」→ 与 docs/发版记录.md 的
     上一条可交付行比 SHA-256 与体积（±5%）→ 扫一遍交付目录里所有 XiaoShuFang-*.apk →
-    全部判定通过才复制成 XiaoShuFang-v{versionName}.apk，并打印 SHA-256 与体积。
+    全部判定通过才复制成 XiaoShuFang-v{versionName}.apk，并打印 SHA-256 与体积 →
+    工作区干净时把这包的 HEAD / SHA / 体积自动追加成台账新行（不干净只打印原因，不写行）。
 
     工具链默认值一律从仓库/环境推导（卡 A2：本机绝对路径不再当默认值），参数只做 override：
         -GradleExe  默认 <工程根>/gradlew.bat（Windows）或 ./gradlew
         -JavaHome   默认取环境变量 JAVA_HOME；没有就用 PATH 上的 java（gradlew 自己能找）
         -SdkDir     默认取 local.properties 的 sdk.dir，再退到 ANDROID_HOME / ANDROID_SDK_ROOT
-        -OutDir     默认工程根的上一级（工作空间根）
+        -OutDir     默认工作空间根的 dist/（卡 G2：交付产物不再散在工作空间根）
 
     用法（在任意目录均可）：
         powershell -NoProfile -ExecutionPolicy Bypass -File scripts\pack.ps1
@@ -25,6 +26,9 @@
     注意：aapt 打不开含中文的路径（静默无输出），所以校验一律先拷到 %TEMP% 的纯英文路径再做。
     体积基准是「上一条**可交付**行」而不是字面上一行：交付目录里混过 debug 包时，字面上一行是
     74 MB 的 .devtest 产物，拿它当基线会给正常版本报出 -49% 的假告警。
+    台账（docs/发版记录.md）的取列下标写在文件开头的 $Col* 常量里，改表头必须同步改那里；
+    体积列的千分位只用空格（基准解析的正则认空格不认逗号）。
+    只想验证判定、不想覆盖交付目录里的正式包时：-SkipBuild -OutDir %TEMP%\某个空目录。
 #>
 [CmdletBinding()]
 param(
@@ -45,12 +49,28 @@ try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch { }
 $AllowedAbis = @('arm64-v8a', 'armeabi-v7a')
 $SizeTolerancePct = 5.0
 
-# scripts/ 的上一级是工程目录 Bookshelf/，再上一级是工作空间根（交付目录默认放这里）
+# scripts/ 的上一级是工程目录 Bookshelf/，再上一级是工作空间根；交付目录是它下面的 dist/
 $ProjectDir = Split-Path -Parent $PSScriptRoot
 if (-not $OutDir) {
-    $OutDir = Split-Path -Parent $ProjectDir
+    $OutDir = Join-Path (Split-Path -Parent $ProjectDir) 'dist'
 }
 $DocRelease = Join-Path $ProjectDir 'docs\发版记录.md'
+
+# 台账表的列下标（Split('|') 后 cells[0] 是行首竖线前的空串）：
+# | 日期 | 文件名 | versionCode | versionName | SHA-256 | 体积 | 产出时 HEAD | 工作区 | 正式槽位安装 | androidTest 复跑 | 判定 |
+# 改这张表的列顺序时必须同步改这里，否则基准解析会静默拿到错的列（比对口径见 docs/发版记录.md）。
+$LedgerCells = 12   # 至少这么多个分段才算一行台账（判定下标 11 存在）
+$ColDate = 1
+$ColName = 2
+$ColCode = 3
+$ColVer = 4
+$ColSha = 5
+$ColSize = 6
+$ColHead = 7
+$ColWork = 8
+$ColSlot = 9
+$ColTest = 10
+$ColVerdict = 11
 
 # ---------- 判定计数：硬失败当场退，判定失败逐条累计 ----------
 $script:FailCount = 0
@@ -122,6 +142,83 @@ function Read-PackageInfo([string[]]$Badging) {
     }
 }
 
+# ---------- 台账写行：git 状态 + 追加一行 ----------
+# 「工作区不干净」= 跟踪文件有改动，或 app/ 下有新文件没提交——这两种情况下产出的 APK 归不到
+# 任何一个提交上（v5.9.5 就是这么交付的：包比仓库里的源码早一天）。其余目录的未跟踪文件
+# （辅助脚本、截图）不参与构建，只计数不拦。
+function Get-GitState([string]$Repo) {
+    $unknown = New-Object psobject -Property @{
+        Available = $false; Head = $null; Reason = ''; Dirty = @(); Other = 0
+    }
+    if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
+        $unknown.Reason = 'PATH 上没有 git，读不出 HEAD 与工作区状态'
+        return $unknown
+    }
+    $rev = RunNative { & git -C $Repo rev-parse --short HEAD 2>&1 }
+    if ($rev.Code -ne 0 -or -not $rev.Lines) {
+        $unknown.Reason = "git rev-parse 失败（$Repo 不是 git 仓库？）"
+        return $unknown
+    }
+    $head = ("$($rev.Lines[0])").Trim()
+    $st = RunNative { & git -C $Repo status --porcelain 2>&1 }
+    if ($st.Code -ne 0) {
+        $unknown.Reason = 'git status --porcelain 失败'
+        return $unknown
+    }
+    $entries = @($st.Lines | ForEach-Object { "$_".TrimEnd() } | Where-Object { $_.Trim() })
+    # M/A/D/R/C/U 开头都是跟踪文件的改动；?? 里只有 app/ 下的会影响产物
+    $dirty = @($entries | Where-Object {
+        $_ -notmatch '^\?\?' -or $_ -match '^\?\?\s+"?app/'
+    })
+    New-Object psobject -Property @{
+        Available = $true; Head = $head; Reason = ''
+        # 注意别写 @(a - b)：@() 会把标量包成 Object[]，下游 [int] 参数绑定会直接报错
+        Dirty = $dirty; Other = ($entries.Count - $dirty.Count)
+    }
+}
+
+function Get-LedgerRow([string]$ApkPath, [string]$FileName, [string]$Code, [string]$Ver,
+                       [string]$Sha, [long]$Bytes, [string]$Head, [int]$Other) {
+    $inv = [System.Globalization.CultureInfo]::InvariantCulture
+    $date = (Get-Item -LiteralPath $ApkPath).LastWriteTime.ToString('yyyy-MM-dd', $inv)
+    $mb = [Math]::Round($Bytes / 1MB, 2).ToString('0.00', $inv)
+    # 体积分组只用空格：与表里历史行写法一致，且基准解析的正则是 (\d[\d ]{4,})\s*B——
+    # 认空格、认不出逗号，N0 格式默认带逗号会把这一列读成 0。
+    $nfi = New-Object System.Globalization.NumberFormatInfo
+    $nfi.NumberGroupSeparator = ' '
+    $size = $Bytes.ToString('#,0', $nfi)
+    '| {0} | `{1}` | {2} | {3} | `{4}` | {5} B（{6} MB） | `{7}` | 干净（另有 {8} 个与构建无关的未跟踪文件） | 待填 | 待填 | 可交付（pack.ps1 自动写入） |' `
+        -f $date, $FileName, $Code, $Ver, $Sha, $size, $mb, $Head, $Other
+}
+
+# 把新行插到台账最后一行数据之后；返回 $null 表示成功，否则返回失败原因
+function Set-LedgerRow([string]$Path, [string]$Row, [string]$Sha) {
+    if (-not (Test-Path -LiteralPath $Path)) { return "台账不存在：$Path" }
+    $text = [System.IO.File]::ReadAllText($Path, [System.Text.Encoding]::UTF8)
+    $lines = @($text -split "`n")
+    $dataIdx = @()
+    for ($i = 0; $i -lt $lines.Count; $i++) {
+        if ($lines[$i] -match '^\|\s*\d{4}-\d{2}-\d{2}\s*\|') { $dataIdx += $i }
+    }
+    if ($dataIdx.Count -eq 0) { return "$Path 里找不到以日期开头的台账数据行（表头被改了？）" }
+    # 查重只看数据行：正文里引用过的 SHA（「重建得到 eb4e1ce…」那段）不是登记，
+    # 按全文匹配会把该写的新行误判成「已存在」。
+    $needle = $Sha.ToLowerInvariant()
+    foreach ($i in $dataIdx) {
+        if ($lines[$i].ToLowerInvariant().Contains($needle)) { return 'SKIP' }
+    }
+    $last = $dataIdx[$dataIdx.Count - 1]
+    # 台账是 CRLF 检出（core.autocrlf=true）时，新行跟着用 CRLF，别把这一节写成混合换行
+    $newRow = if ($lines[$last].EndsWith("`r")) { $Row + "`r" } else { $Row }
+    $out = @()
+    $out += $lines[0..$last]
+    $out += $newRow
+    if ($last + 1 -lt $lines.Count) { $out += $lines[($last + 1)..($lines.Count - 1)] }
+    $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+    [System.IO.File]::WriteAllText($Path, ($out -join "`n"), $utf8NoBom)
+    return $null
+}
+
 # ---------- 0. 工具链：默认值从仓库/环境推导，参数只做 override ----------
 if (-not $GradleExe) {
     $wrapper = if ($env:OS -eq 'Windows_NT') { 'gradlew.bat' } else { 'gradlew' }
@@ -146,6 +243,20 @@ if (-not $aaptCandidates) {
     Fail "在 $SdkDir\build-tools 下找不到 aapt.exe（local.properties 的 sdk.dir 对不对，或用 -SdkDir 指定）"
 }
 $aapt = ($aaptCandidates | Sort-Object DirectoryName -Descending | Select-Object -First 1).FullName
+
+# 台账的「产出时 HEAD / 工作区」在构建之前取：构建只动 app/build/（gitignore 之内），
+# 但判定与复制之后不该再让别的操作污染这个读数。
+$GitState = Get-GitState $ProjectDir
+if (-not $GitState.Available) {
+    Write-Host ("> 台账 git       = 不可用（{0}）：本轮只交付，不写台账行" -f $GitState.Reason)
+}
+elseif ($GitState.Dirty.Count -gt 0) {
+    Write-Host ("> 台账 HEAD      = {0} / 工作区 = 不干净（{1} 处与构建有关）" -f $GitState.Head, $GitState.Dirty.Count)
+    foreach ($d in $GitState.Dirty) { Write-Host (">   {0}" -f $d) }
+}
+else {
+    Write-Host ("> 台账 HEAD      = {0} / 工作区 = 干净（另有 {1} 个与构建无关的未跟踪文件）" -f $GitState.Head, $GitState.Other)
+}
 
 # ---------- 1. assembleRelease ----------
 $ApkPath = Join-Path $ProjectDir 'app\build\outputs\apk\release\app-release.apk'
@@ -228,15 +339,15 @@ else {
     foreach ($line in @(Get-Content -LiteralPath $DocRelease -Encoding UTF8)) {
         if ($line.TrimStart() -notmatch '^\|') { continue }
         $cells = $line.Split('|')
-        if ($cells.Count -lt 10) { continue }
-        $verdict = $cells[9]
+        if ($cells.Count -lt $LedgerCells) { continue }
+        $verdict = $cells[$ColVerdict]
         if ($verdict -match '不可交付') { continue }
         if ($verdict -notmatch '可交付') { continue }
-        $shaMatch = [regex]::Match($cells[8], '([0-9a-fA-F]{64})')
-        $sizeMatch = [regex]::Match($cells[7], '(\d[\d ]{4,})\s*B')
+        $shaMatch = [regex]::Match($cells[$ColSha], '([0-9a-fA-F]{64})')
+        $sizeMatch = [regex]::Match($cells[$ColSize], '(\d[\d ]{4,})\s*B')
         if (-not $shaMatch.Success -or -not $sizeMatch.Success) { continue }
         $Baseline = New-Object psobject -Property @{
-            Name  = $cells[2].Trim().Trim('`')
+            Name  = $cells[$ColName].Trim().Trim('`')
             Sha   = $shaMatch.Value.ToLower()
             Bytes = [long]($sizeMatch.Value -replace '\D', '')
         }
@@ -319,5 +430,28 @@ if (-not (Test-Path -LiteralPath $OutDir)) {
 }
 Copy-Item -LiteralPath $ApkPath -Destination $Target -Force
 Write-Host ("交付路径: {0}" -f $Target)
-Write-Host '[OK] 全部判定通过，已交付。记得把这一行补进 docs/发版记录.md（新行加在表末，判定列写「可交付」）。'
+
+# 台账写行：一行 = 一个包 = 一个提交。工作区不干净时这个包归不到任何提交上（v5.9.5 就是），
+# 只打印原因不写行——宁可让人手工补，也不要表里留一条 SHA 和 HEAD 对不上的记录。
+if (-not $GitState.Available) {
+    Write-Host ("[台账未写入] {0}（交付已完成，这一行请人工补）" -f $GitState.Reason)
+}
+elseif ($GitState.Dirty.Count -gt 0) {
+    Write-Host ("[台账未写入] 工作区不干净（{0} 处与构建有关的改动）：HEAD {1} 复现不出这个包，" -f $GitState.Dirty.Count, $GitState.Head)
+    Write-Host (">            先提交源码、在干净的树上重打一次，同号不要用覆盖发布（把 versionName/Code 往前抬一位）")
+}
+else {
+    $Row = Get-LedgerRow $ApkPath ([System.IO.Path]::GetFileName($Target)) $VersionCode $VersionName $Hash $Size $GitState.Head $GitState.Other
+    $written = Set-LedgerRow $DocRelease $Row $Hash
+    if ($null -eq $written) {
+        Write-Host ("[台账已写入] {0}：HEAD {1} / {2} B（正式槽位安装、androidTest 复跑两列请人工补，补完跑 tools/check_doc_drift.py）" -f `
+                  (Split-Path -Leaf $DocRelease), $GitState.Head, $Size)
+    }
+    elseif ($written -eq 'SKIP') {
+        Write-Host ("[台账已存在] SHA {0}… 这一行已在 {1} 里，不重复追加" -f $Hash.Substring(0, 12), (Split-Path -Leaf $DocRelease))
+    }
+    else {
+        Write-Host ("[台账未写入] {0}（交付已完成，这一行请人工补）" -f $written)
+    }
+}
 exit 0
