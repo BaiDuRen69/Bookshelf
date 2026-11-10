@@ -10,8 +10,13 @@ android {
         applicationId "com.bai.bookshelf"
         minSdk 24
         targetSdk 36
-        versionCode 138
-        versionName "5.9.4"
+        versionCode 139
+        versionName "5.9.5"
+
+        // v4.51：OCR 模型让 x86 库变成大头；交付包只带手机用得到的 ARM 两套 ABI。
+        // 移到 defaultConfig 后 debug/devtest 包同样只含 ARM，x86 模拟器装不上任何构建；
+        // 模拟器验证请临时注释该行，不要留全 ABI 的默认构建。
+        ndk { abiFilters 'arm64-v8a', 'armeabi-v7a' }
 
         // v5.8.4：真机（androidTest）跑数据库修复流程
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
@@ -39,8 +44,6 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             // 与 debug 同签名：覆盖安装互不影响数据（applicationId 相同）
             signingConfig signingConfigs.debug
-            // v4.51：OCR 模型让 x86 库变成大头；交付包只带手机用得到的 ARM 两套 ABI
-            ndk { abiFilters 'arm64-v8a', 'armeabi-v7a' }
         }
     }
     compileOptions {
@@ -50,6 +53,12 @@ android {
     buildFeatures {
         viewBinding true
         buildConfig true
+    }
+    lint {
+        // v5.9.5：存量告警/错误冻结进基线（app/baseline.xml），CI 只对新增的那条负责。
+        // 重生成基线：删掉本文件再跑 ./gradlew :app:lintRelease，然后人工看一眼 diff 再提交。
+        baseline = file('baseline.xml')
+        textReport = true
     }
 }
 

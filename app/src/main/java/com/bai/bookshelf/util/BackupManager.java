@@ -5,6 +5,7 @@ import android.content.SharedPreferences;
 import android.database.Cursor;
 import android.net.Uri;
 import android.provider.DocumentsContract;
+import android.util.Log;
 
 import com.bai.bookshelf.app.BookshelfApp;
 
@@ -35,6 +36,8 @@ import java.util.Locale;
  */
 public final class BackupManager {
 
+    private static final String TAG = "BackupManager";
+
     private static final String PREFS = "backup_prefs";
     private static final String KEY_ENABLED = "auto_enabled";
     private static final String KEY_TREE_URI = "tree_uri";
@@ -47,6 +50,16 @@ public final class BackupManager {
     private static final String KEY_REMINDER_OFF_AT = "reminder_off_at";
     /** 上一次打包成功时的内容指纹（v5.8.21：状态没变就连包都不打） */
     private static final String KEY_CONTENT_FP = "content_fp";
+    /**
+     * 最近一次备份 / 恢复的结果（4.3）。
+     * 自动备份失败原先只有 logcat，用户看不见；这里落进 prefs 让备份页能说实话。
+     */
+    private static final String KEY_BACKUP_AT = "last_result_backup_at";
+    private static final String KEY_BACKUP_OK = "last_result_backup_ok";
+    private static final String KEY_BACKUP_MSG = "last_result_backup_msg";
+    private static final String KEY_RESTORE_AT = "last_result_restore_at";
+    private static final String KEY_RESTORE_OK = "last_result_restore_ok";
+    private static final String KEY_RESTORE_MSG = "last_result_restore_msg";
     /** 最新备份超过这个天数就提醒一次 */
     public static final int STALE_DAYS = 30;
     /** 关掉提醒后安静多少天 */
@@ -196,6 +209,7 @@ public final class BackupManager {
                 // v5.8.21 规则 0：内容和上次打包时一模一样就跳过（省掉整包压缩与 I/O）
                 String fp = BackupFingerprint.of(ctx, app.db());
                 if (canSkipAuto(ctx, fp)) {
+                    Log.i(TAG, "自动备份跳过：内容指纹与上次打包一致");
                     return;
                 }
                 // v5.8.11：打包直接落临时文件，外部副本从文件流式读，整包不再进内存
@@ -211,16 +225,22 @@ public final class BackupManager {
                             // 内部备份随后会写成，外部副本失败只记账不在后台弹窗；
                             // 我的页会显示「外部副本自 X 起未更新」
                             markSafFail(ctx, e);
+                            Log.w(TAG, "自动备份的外部副本没写进去", e);
                         }
                     }
                     writeInternal(ctx, tmp, meta.checksum);
                     rememberFingerprint(ctx, fp);
+                    File written = latestInternalBackup(ctx);
+                    recordBackupResult(ctx, true, "自动备份 " + meta.books + " 种 · 压缩包 "
+                            + humanBytes(written == null ? tmp.length() : written.length()));
                 } finally {
                     //noinspection ResultOfMethodCallIgnored
                     tmp.delete();
                 }
-            } catch (Exception ignored) {
+            } catch (Exception e) {
                 // 内部备份失败：装不下/IO 异常，用户下次手动备份时能立刻看到
+                // 4.3：自动备份是静默跑的，失败只落 logcat 就等于没说
+                recordBackupResult(ctx, false, "自动备份异常：" + e);
             }
         });
     }
@@ -247,6 +267,71 @@ public final class BackupManager {
             return;
         }
         prefs(ctx).edit().putString(KEY_CONTENT_FP, fp).apply();
+    }
+
+    // ======================= 最近一次备份 / 恢复的结果（4.3） =======================
+
+    /** 最近一次备份或恢复留下的事实，供「备份文件管理」页说实话 */
+    public static class LastResult {
+        /** 发生时刻；0 表示本机从没做过这件事 */
+        public final long at;
+        public final boolean ok;
+        public final String msg;
+
+        LastResult(long at, boolean ok, String msg) {
+            this.at = at;
+            this.ok = ok;
+            this.msg = msg == null ? "" : msg;
+        }
+    }
+
+    /** 记下最近一次备份的结果（成功失败都记；自动备份的失败原先只有 logcat） */
+    public static void recordBackupResult(Context ctx, boolean ok, String msg) {
+        prefs(ctx).edit()
+                .putLong(KEY_BACKUP_AT, System.currentTimeMillis())
+                .putBoolean(KEY_BACKUP_OK, ok)
+                .putString(KEY_BACKUP_MSG, msg == null ? "" : msg)
+                .apply();
+        if (ok) {
+            Log.i(TAG, "备份成功：" + msg);
+        } else {
+            Log.w(TAG, "备份失败：" + msg);
+        }
+    }
+
+    /** 记下最近一次恢复的结果 */
+    public static void recordRestoreResult(Context ctx, boolean ok, String msg) {
+        prefs(ctx).edit()
+                .putLong(KEY_RESTORE_AT, System.currentTimeMillis())
+                .putBoolean(KEY_RESTORE_OK, ok)
+                .putString(KEY_RESTORE_MSG, msg == null ? "" : msg)
+                .apply();
+        if (ok) {
+            Log.i(TAG, "恢复成功：" + msg);
+        } else {
+            Log.w(TAG, "恢复失败：" + msg);
+        }
+    }
+
+    public static LastResult lastBackup(Context ctx) {
+        SharedPreferences p = prefs(ctx);
+        return new LastResult(p.getLong(KEY_BACKUP_AT, 0),
+                p.getBoolean(KEY_BACKUP_OK, false),
+                p.getString(KEY_BACKUP_MSG, ""));
+    }
+
+    public static LastResult lastRestore(Context ctx) {
+        SharedPreferences p = prefs(ctx);
+        return new LastResult(p.getLong(KEY_RESTORE_AT, 0),
+                p.getBoolean(KEY_RESTORE_OK, false),
+                p.getString(KEY_RESTORE_MSG, ""));
+    }
+
+    /** 结果文案里的大小：给用户看的不该是一串字节数 */
+    private static String humanBytes(long bytes) {
+        return bytes < 1024 * 1024
+                ? String.format(Locale.US, "%.0f KB", bytes / 1024f)
+                : String.format(Locale.US, "%.1f MB", bytes / 1024f / 1024f);
     }
 
     /** 最近一份内部备份（没有则 null） */
@@ -279,6 +364,7 @@ public final class BackupManager {
             BookshelfApp app = BookshelfApp.get();
             if (app.db().bookDao().count() == 0) {
                 o.empty = true;
+                Log.i(TAG, "手动备份跳过：藏书为零");
                 return o;
             }
             File tmp = tempZip(ctx);
@@ -308,9 +394,13 @@ public final class BackupManager {
                 //noinspection ResultOfMethodCallIgnored
                 tmp.delete();
             }
+            recordBackupResult(ctx, !o.failed,
+                    "手动备份 " + o.meta.books + " 种 · 压缩包 " + humanBytes(o.bytes)
+                            + (o.safFailed ? "（外部副本没写进去：" + o.safError + "）" : ""));
             return o;
         } catch (Exception e) {
             o.failed = true;
+            recordBackupResult(ctx, false, "手动备份异常：" + e);
             return o;
         }
     }
@@ -377,10 +467,12 @@ public final class BackupManager {
     private static File writeInternal(Context ctx, File src, String checksum) {
         File dir = new File(ctx.getFilesDir(), INTERNAL_DIR);
         if (!dir.exists() && !dir.mkdirs()) {
+            Log.w(TAG, "backups/ 目录建不出来，这次没有落下内部备份：" + dir.getAbsolutePath());
             return null;
         }
         File[] existing = listInternal(dir);
         if (existing.length > 0 && unchanged(existing[existing.length - 1], checksum)) {
+            Log.i(TAG, "内容与最近一份备份校验和一致，跳过写入");
             return null; // 规则 2：内容没变，跳过
         }
         File out = new File(dir, BACKUP_PREFIX + timestamp() + BACKUP_EXT);
@@ -392,6 +484,7 @@ public final class BackupManager {
         File[] all = listInternal(dir);
         while (all.length > MAX_KEEP) {
             if (!all[0].delete()) {
+                Log.w(TAG, "旧备份删不掉，超出保留 " + MAX_KEEP + " 份的上限：" + all[0].getName());
                 break; // 删不掉就停下，下轮再试
             }
             all = listInternal(dir);
@@ -426,8 +519,9 @@ public final class BackupManager {
             while ((len = in.read(buf)) > 0) {
                 out.write(buf, 0, len);
             }
-        } catch (Exception ignored) {
+        } catch (Exception e) {
             // 复制失败：保留临时文件，下一次会重来
+            Log.w(TAG, "备份从临时文件复制到 " + dst.getName() + " 失败", e);
         }
     }
 
@@ -589,5 +683,10 @@ public final class BackupManager {
 
     private static String timestamp() {
         return new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(new Date());
+    }
+
+    /** 导出用的默认文件名：与内部备份同前缀同时刻格式，用户在选择器里可再改 */
+    public static String suggestExportFileName() {
+        return BACKUP_PREFIX + timestamp() + BACKUP_EXT;
     }
 }

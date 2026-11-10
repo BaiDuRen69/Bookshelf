@@ -1,21 +1,16 @@
 package com.bai.bookshelf.ui.stats;
 
 import android.text.Spannable;
-import android.text.SpannableString;
 import android.text.SpannableStringBuilder;
 import android.text.Spanned;
-import android.text.style.AbsoluteSizeSpan;
 import android.text.style.ForegroundColorSpan;
 import android.text.style.RelativeSizeSpan;
-import android.text.style.StyleSpan;
-import android.text.style.TypefaceSpan;
-import android.graphics.Typeface;
 
 import java.util.Calendar;
 import java.util.Locale;
 
 /**
- * 统计页的文案格式：日期/金额/星期/当天详情，以及「已阅读 X 小时 X 分钟」的混排样式。
+ * 统计页的文案格式：日期/金额/星期/当天详情，以及「数字 + 单位」的混排样式。
  * 纯字符串逻辑集中在这里，便于单测。
  */
 public final class StatsText {
@@ -154,36 +149,5 @@ public final class StatsText {
             return NO_DATA;
         }
         return value;
-    }
-
-    /** 「已阅读 X 小时 X 分钟」：单位 15sp、数字 28sp 衬线，突出但不笨重 */
-    public static CharSequence buildDurationText(long hours, long minutes) {
-        SpannableStringBuilder sb = new SpannableStringBuilder();
-        sb.append(span("已阅读 ", 15, false));
-        sb.append(serifNumber(String.valueOf(hours)));
-        sb.append(span(" 小时 ", 15, false));
-        sb.append(serifNumber(String.valueOf(minutes)));
-        sb.append(span(" 分钟", 15, false));
-        return sb;
-    }
-
-    private static CharSequence serifNumber(String s) {
-        SpannableString ss = new SpannableString(s);
-        ss.setSpan(new AbsoluteSizeSpan(28, true),
-                0, s.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-        ss.setSpan(new TypefaceSpan("serif"),
-                0, s.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-        return ss;
-    }
-
-    static CharSequence span(String s, int spSize, boolean bold) {
-        SpannableString ss = new SpannableString(s);
-        ss.setSpan(new AbsoluteSizeSpan(spSize, true),
-                0, s.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-        if (bold) {
-            ss.setSpan(new StyleSpan(Typeface.BOLD),
-                    0, s.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-        }
-        return ss;
     }
 }

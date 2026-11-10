@@ -25,6 +25,18 @@ public class ApiConfigActivity extends BaseActivity {
 
         ApiPrefs prefs = new ApiPrefs(this);
 
+        // 密钥存储状态（4.2）：加密失败会静默降级成明文，页顶这一行是唯一能看见的地方。
+        // 必须在 new ApiPrefs 之后读——isEncrypted() 记的就是这次构造的结果。
+        boolean encrypted = ApiPrefs.isEncrypted();
+        b.tvSecureState.setText(encrypted ? com.bai.bookshelf.R.string.api_secure_on
+                : com.bai.bookshelf.R.string.api_secure_off);
+        b.tvSecureNote.setVisibility(encrypted ? View.GONE : View.VISIBLE);
+        b.tvSecureNote.setText(com.bai.bookshelf.R.string.api_secure_off_note);
+        if (!encrypted) {
+            b.tvSecureState.setTextColor(com.bai.bookshelf.util.ThemeManager.resolveColor(
+                    this, com.google.android.material.R.attr.colorError));
+        }
+
         // 回显已保存的配置
         b.etBaseUrl.setText(prefs.getBaseUrl());
         b.etSecretId.setText(prefs.getSecretId());

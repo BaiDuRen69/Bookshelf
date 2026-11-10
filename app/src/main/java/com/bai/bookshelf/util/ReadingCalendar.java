@@ -1,11 +1,14 @@
 package com.bai.bookshelf.util;
 
 import com.bai.bookshelf.data.entity.Book;
+import com.bai.bookshelf.data.entity.CheckIn;
 
 import java.util.Calendar;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * 阅读日历（v5.7）：把阅读记录的起止区间铺成「每天是否阅读」，
@@ -74,6 +77,32 @@ public final class ReadingCalendar {
             }
         }
         return out;
+    }
+
+    /**
+     * v5.9.5 第 4 项：累计阅读天数 =「阅读记录铺出的自然日」∪「打卡自然日」去重，
+     * 只算 {@code ≤ todayKey} 的日子。与阅读日历上能看到的日子同口径，用户可以自己数。
+     *
+     * @param preciseByBook 书 → 轮次 → 日集合；精确轮只铺真实日子，集合缺失就不铺
+     * @param checkIns      全部打卡行（含补卡），未来日一律排除
+     * @return 天数；空库为 0
+     */
+    public static int distinctDays(List<Book> books,
+                                   Map<Long, Map<Integer, List<Integer>>> preciseByBook,
+                                   List<CheckIn> checkIns, int todayKey) {
+        Set<Integer> days = new HashSet<>();
+        for (String key : titlesByDay(books, preciseByBook).keySet()) {
+            int k = DateKeys.parseKey(key);
+            if (k > 0 && k <= todayKey) {
+                days.add(k);
+            }
+        }
+        for (int k : CheckInHabit.dayKeys(checkIns)) {
+            if (k > 0 && k <= todayKey) {
+                days.add(k);
+            }
+        }
+        return days.size();
     }
 
     /** 最近一个有阅读记录的 {年, 月(0-based)}；没有记录返回当前年月 */

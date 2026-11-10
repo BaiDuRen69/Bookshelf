@@ -1,39 +1,30 @@
 package com.bai.bookshelf.ui.checkin;
 
-import android.animation.Animator;
-import android.animation.AnimatorListenerAdapter;
-import android.animation.ValueAnimator;
 import android.content.Context;
 import android.util.AttributeSet;
-import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.View;
-import android.view.accessibility.AccessibilityNodeInfo;
+import android.view.ViewConfiguration;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 import androidx.core.view.ViewCompat;
-import androidx.interpolator.view.animation.FastOutSlowInInterpolator;
 
 import com.bai.bookshelf.R;
 import com.bai.bookshelf.ui.widget.DayCellView;
 import com.bai.bookshelf.util.CheckInCalendarState;
-import com.bai.bookshelf.util.CheckInDots;
 import com.bai.bookshelf.util.CheckInMonthGrid;
 import com.bai.bookshelf.util.DateKeys;
 import com.bai.bookshelf.util.HolidayCalendar;
 import com.bai.bookshelf.util.LunarCalendar;
 import com.bai.bookshelf.util.LunarCalendarIcu;
-import com.bai.bookshelf.util.ThemeManager;
-import com.bai.bookshelf.util.Typo;
 
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -43,7 +34,7 @@ import java.util.Set;
  *
  * <p>颜色只取 ?attr 语义色（primary / primary_container / on_surface /
  * on_surface_variant），沿圆角与字阶令牌，不新增硬编码色值。
- * 切月用 GestureDetector + ValueAnimator，不引入 ViewPager2 或日历库。
+ * 切月用自定义 VelocityTracker 手势 + 双层 ValueAnimator，不引入 ViewPager2 或日历库。
  */
 public class MonthGridView extends LinearLayout {
 
@@ -63,7 +54,32 @@ public class MonthGridView extends LinearLayout {
 
     /** 折叠进度 p 的逐帧回调（0 = 整月，1 = 单周），页头用它同步收高一档 */
     public interface CollapseProgressListener {
-        void onCollapseProgress(float progress);
+        /**
+         * @param live true = 手指正在拖，页头据此决定哪些属性每帧改、哪些只在端点改
+         */
+        void onCollapseProgress(float progress, boolean live);
+    }
+
+    /**
+     * 邻月数据供给（v5.9.5 第 3 项）：横向拖动时邻页要立刻有内容，
+     * 拿不到就只铺日期，提交后由 {@code loadMonth} 补全。
+     */
+    public interface NeighborDataProvider {
+        @Nullable
+        MonthData dataFor(int yearMonth);
+    }
+
+    /** 一个月的日历数据：节日表 + 打卡点 */
+    public static final class MonthData {
+        @Nullable
+        public final HolidayCalendar holidays;
+        public final Map<Integer, int[]> dayMarks;
+
+        public MonthData(@Nullable HolidayCalendar holidays,
+                         @Nullable Map<Integer, int[]> dayMarks) {
+            this.holidays = holidays;
+            this.dayMarks = dayMarks == null ? Collections.<Integer, int[]>emptyMap() : dayMarks;
+        }
     }
 
     /**
@@ -88,58 +104,28 @@ public class MonthGridView extends LinearLayout {
     /** 精确日期选择器角色：勾/框选「哪几天读过」 */
     public static final int ROLE_PICKER = 1;
 
-    private static final long ANIM_HALF_MS = 110; // 两段共 220ms
-    private static final long COLLAPSE_MS = 220L;
-    private static final float SWIPE_DISTANCE_DP = 60f;
-    private static final float MIN_FLING_VELOCITY = 200f;
-
-    private final LinearLayout grid;
-    private final GestureDetector detector;
+    /** 表头下方那层裁剪容器：当前页与邻页都挂在它上面 */
+    private final FrameLayout clip;
+    /** 当前页：格子、日期表、月份与它自己的 marks/holidays 全在这里，不再有散装副本 */
+    private MonthPage cur;
+    /** 横向翻月：位移、邻页、动画与测速全在它手里，门面只管建页/摘页/转正 */
+    private final MonthPager pager;
+    /** 纵向折叠：进度、目标态与收尾动画在它手里，测量与平移回到门面 */
+    private final CollapseController collapse = new CollapseController(this::applyCollapseProgress);
     private final float density;
-    private final FastOutSlowInInterpolator collapseInterpolator =
-            new FastOutSlowInInterpolator();
-    /** 目标态：true = 只显示选中那一周 */
-    private boolean weekMode;
-    /** 折叠进度 0..1；手势/动画只改它，测量与位移都从这里派生 */
-    private float collapseP;
-    @Nullable
-    private ValueAnimator collapseAnim;
+    private final int touchSlopPx;
     @Nullable
     private CollapseProgressListener collapseProgressListener;
 
     private int yearMonth;                 // yyyymm
-    /** 当前结构（行/格子）对应的那个月；与 yearMonth 不一致说明该重建了 */
-    private int structureMonth;
     private int selectedDayKey;
     private int todayKey;
     /** 已经播过入场动画的那个「今天」；切月回来、每次打卡刷新都不再重播 */
     private int animatedTodayKey;
     /** 今天是否已有任意一本打卡（第 9 项）：顶部点实心 / 空心由它决定 */
     private boolean todayChecked;
-    /** dayKey → {打卡本数, 其中补卡本数}，由 Fragment 用当月已有结果组装 */
-    private Map<Integer, int[]> marks = Collections.emptyMap();
-    private int colorPrimary;
-    private int colorSelectedBg;
-    private int colorSelectedStroke;
-    private int colorOnSurface;
-    private int colorVariant;
-    private int colorPickedBg;
-    private int colorReferenceBg;
-    private int colorPreviewBg;
-    // 今日实心圆的反色字 / 今天选中外圈 / 农历小字：全部取现有 ?attr 语义色
-    private int colorOnPrimary;
-    private int colorRing;
-    private int colorLunar;
-    private int colorHoliday;
-    private int colorAdjacentText;
-    private int colorTodayBg;
-    private int colorOnToday;
-    private int colorTodayRing;
-    private float lunarTextSize;
+    private final MonthPalette palette;
     private final LunarCalendar lunar;
-    /** 年度节日表：有节日名的日子用节日名替换农历小字 */
-    @Nullable
-    private HolidayCalendar holidays;
     @Nullable
     private Listener listener;
     // ===== 选择器角色（默认 ROLE_CHECKIN；切回去后与打卡页一字不差）=====
@@ -147,14 +133,18 @@ public class MonthGridView extends LinearLayout {
     @Nullable
     private PickerListener pickerListener;
     private final DayPickerState picker = new DayPickerState();
-    private boolean scrolling;
+    @Nullable
+    private NeighborDataProvider neighborData;
     /** 切月转场期间为 true：重建出来的格子也直接跳过打卡点入场动画 */
     private boolean dotSuspended;
-    /** 切月动画令牌：后一次切月取消前一次的回调，避免旧的结束事件解冻点动画 */
-    private int monthAnimSeq;
-    private int[] dayKeys = new int[0];
-    private final DayCellView[] cells = new DayCellView[CheckInMonthGrid.DAYS_PER_WEEK
-            * CheckInMonthGrid.MAX_ROWS];
+    // ===== 纵向实时折叠（v5.9.5 第 3 项）：进度与动画在 CollapseController，这里只留测量缓存 =====
+    /** 上一次真正下发的测量高度，相同就别再 requestLayout */
+    private int lastCollapseHeight = -1;
+    private int cachedCellH = -1;
+    private int cachedHeaderH = -1;
+    /** 结构脏了才重测 42 个格子；拖动期间只改自身高度 */
+    private boolean structureDirty = true;
+    private int lastMeasuredWidth = -1;
 
     public MonthGridView(Context ctx) {
         this(ctx, null);
@@ -164,99 +154,54 @@ public class MonthGridView extends LinearLayout {
         super(ctx, attrs);
         setOrientation(VERTICAL);
         density = ctx.getResources().getDisplayMetrics().density;
+        touchSlopPx = ViewConfiguration.get(ctx).getScaledTouchSlop();
+        pager = new MonthPager(new PagerHost(), density, touchSlopPx);
+        palette = MonthPalette.resolve(ctx);
         lunar = new LunarCalendar(new LunarCalendarIcu());
         ViewCompat.setAccessibilityHeading(this, true);
 
         addView(buildHeader(), new LayoutParams(LayoutParams.MATCH_PARENT,
                 LayoutParams.WRAP_CONTENT));
-        // 收周时 grid 整体上移，必须由「表头正下方」这层裁剪：
+        // 收周时格子容器整体上移，必须由「表头正下方」这层裁剪：
         // 只裁 MonthGridView 自身的话，上移的旧周会从星期表头那一带透出来
-        FrameLayout clip = new FrameLayout(ctx);
+        clip = new FrameLayout(ctx);
         clip.setId(R.id.month_grid_clip);
         clip.setClipChildren(true);
         clip.setClipToPadding(true);
-        grid = new LinearLayout(ctx);
-        grid.setOrientation(VERTICAL);
-        clip.addView(grid, new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.WRAP_CONTENT));
         addView(clip, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
         setClipChildren(true);
         setClipToPadding(true);
 
-        // 第 10 项：把格子容器声明成「行=周、列=周数+7 天」的单选集合，
-        // 每格再带 CollectionItemInfo，TalkBack 才会报「第 x 行第 y 列」。
-        // heading 只留在本视图上，不要再叠到 grid。
-        grid.setAccessibilityDelegate(new View.AccessibilityDelegate() {
-            @Override
-            public void onInitializeAccessibilityNodeInfo(View host, AccessibilityNodeInfo info) {
-                super.onInitializeAccessibilityNodeInfo(host, info);
-                info.setCollectionInfo(AccessibilityNodeInfo.CollectionInfo.obtain(
-                        Math.max(1, dayKeys.length / CheckInMonthGrid.DAYS_PER_WEEK),
-                        CheckInMonthGrid.DAYS_PER_WEEK + 1, false,
-                        AccessibilityNodeInfo.CollectionInfo.SELECTION_MODE_SINGLE));
-            }
-        });
-
-        detector = new GestureDetector(ctx, new GestureDetector.SimpleOnGestureListener() {
-            @Override
-            public boolean onScroll(MotionEvent e1, MotionEvent e2, float dx, float dy) {
-                if (Math.abs(e2.getX() - e1.getX()) > dp(SWIPE_DISTANCE_DP)
-                        && Math.abs(e2.getX() - e1.getX()) > Math.abs(e2.getY() - e1.getY())) {
-                    scrolling = true; // 拦截后续事件，避免滑动结束误触发格子点击
-                }
-                return scrolling;
-            }
-
-            @Override
-            public boolean onFling(MotionEvent e1, MotionEvent e2, float vx, float vy) {
-                float dx = e2.getX() - e1.getX();
-                float dy = e2.getY() - e1.getY();
-                if (Math.abs(dx) < dp(SWIPE_DISTANCE_DP)
-                        || Math.abs(vx) < MIN_FLING_VELOCITY
-                        || Math.abs(dx) < Math.abs(dy)) {
-                    return false;
-                }
-                shiftMonth(dx < 0 ? 1 : -1); // 左滑看下一月，右滑看上一月
-                return true;
-            }
-        });
-
         yearMonth = CheckInMonthGrid.yearMonthOf(DateKeys.todayKey());
         todayKey = DateKeys.todayKey();
         selectedDayKey = todayKey;
-        rebuildStructure();
-        refreshAllCells();
+        cur = newPage(yearMonth, null);
+        clip.addView(cur.root, pageLp());
+        updatePickerHeading();
+    }
+
+    private FrameLayout.LayoutParams pageLp() {
+        return new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT);
     }
 
     private View buildHeader() {
         LinearLayout row = new LinearLayout(getContext());
         row.setOrientation(HORIZONTAL);
         String[] names = {"一", "二", "三", "四", "五", "六", "日"};
-        int variant = ThemeManager.resolveColor(getContext(), R.attr.on_surface_variant);
-        row.addView(weekLabel(""), weekColumnLp());
+        row.addView(MonthPage.weekLabel(getContext(), ""), weekColumnLp(getContext()));
         for (String name : names) {
-            TextView tv = weekLabel(name);
-            tv.setTextColor(variant);
+            TextView tv = MonthPage.weekLabel(getContext(), name);
+            tv.setTextColor(palette.variant);
             row.addView(tv, dayColumnLp());
         }
         return row;
     }
 
-    private TextView weekLabel(String text) {
-        TextView tv = new TextView(getContext());
-        tv.setText(text);
-        Typo.text(tv, R.dimen.text_caption); // 周数与星期表头同档（L5）
-        tv.setGravity(android.view.Gravity.CENTER);
-        tv.setClickable(false);
-        tv.setFocusable(false);
-        return tv;
-    }
-
-    private LayoutParams weekColumnLp() {
-        LayoutParams lp = new LayoutParams(
-                getResources().getDimensionPixelSize(R.dimen.checkin_week_w),
-                LayoutParams.WRAP_CONTENT);
-        return lp;
+    static LinearLayout.LayoutParams weekColumnLp(Context ctx) {
+        return new LinearLayout.LayoutParams(
+                ctx.getResources().getDimensionPixelSize(R.dimen.checkin_week_w),
+                LinearLayout.LayoutParams.WRAP_CONTENT);
     }
 
     private LayoutParams dayColumnLp() {
@@ -275,36 +220,32 @@ public class MonthGridView extends LinearLayout {
 
     /**
      * 5.1：整月 ↔ 单周。只改自身测量高度与 grid 的 translationY，
-     * 不 removeAllViews、不改格子的可见性；220ms FastOutSlowIn。
+     * 不 removeAllViews、不改格子的可见性。
      */
     public void setWeekMode(boolean week, boolean animate) {
-        weekMode = week;
-        float target = week ? 1f : 0f;
-        cancelCollapseAnim();
-        if (!animate || Math.abs(collapseP - target) < 0.001f) {
-            setCollapseProgress(target);
-            return;
-        }
-        ValueAnimator anim = ValueAnimator.ofFloat(collapseP, target);
-        anim.setDuration(COLLAPSE_MS);
-        anim.setInterpolator(collapseInterpolator);
-        anim.addUpdateListener(a -> setCollapseProgress((float) a.getAnimatedValue()));
-        anim.addListener(new AnimatorListenerAdapter() {
-            @Override
-            public void onAnimationEnd(Animator animation) {
-                if (collapseAnim != animation) {
-                    return; // 已被新的手势打断
-                }
-                collapseAnim = null;
-                setCollapseProgress(weekMode ? 1f : 0f);
-            }
-        });
-        collapseAnim = anim;
-        anim.start();
+        collapse.setWeekMode(week, animate, 0L);
+    }
+
+    /**
+     * v5.9.5 第 3 项：拖动收尾时按剩余距离给时长，{@code durationMs <= 0} 用默认 220ms。
+     * 手指还在拖（{@link #setDragging(boolean)} 为 true）时动画一律不接管，避免和手指抢进度。
+     */
+    public void setWeekMode(boolean week, boolean animate, long durationMs) {
+        collapse.setWeekMode(week, animate, durationMs);
     }
 
     public boolean isWeekMode() {
-        return weekMode;
+        return collapse.weekMode();
+    }
+
+    /** 当前折叠进度：拖动起点要从这里取，不能假设从 0 开始 */
+    public float getCollapseProgress() {
+        return collapse.progress();
+    }
+
+    /** 手指接管期间动画让位；置 true 顺手打断正在跑的收起动画 */
+    public void setDragging(boolean dragging) {
+        collapse.setDragging(dragging);
     }
 
     /** 整月高度：星期表头 + 6 行 + 上下内边距 */
@@ -319,36 +260,57 @@ public class MonthGridView extends LinearLayout {
                 + currentCellHeightPx() + getPaddingBottom();
     }
 
-    /** 折叠进度变化时同步自身高度与选中周的位移，并通知页头 */
-    private void setCollapseProgress(float p) {
-        collapseP = Math.max(0f, Math.min(1f, p));
+    /**
+     * 折叠进度变化时同步自身高度与选中周的位移，并通知页头。
+     *
+     * <p>高度没变就不 {@code requestLayout()}：一格 8dp 的抖动不值得重排整页。
+     */
+    public void setCollapseProgress(float p, boolean live) {
+        collapse.setProgress(p, live);
+    }
+
+    /** {@link CollapseController} 每推进一帧就回到这里：门面对应做的高度、位移与页头同步 */
+    private void applyCollapseProgress(float p, boolean live) {
+        int newH = CheckInCalendarState.heightAt(getFullHeightPx(), getWeekHeightPx(), p);
+        if (newH != lastCollapseHeight) {
+            lastCollapseHeight = newH;
+            requestLayout();
+        }
         updateCollapseTranslation();
-        requestLayout();
         if (collapseProgressListener != null) {
-            collapseProgressListener.onCollapseProgress(collapseP);
+            collapseProgressListener.onCollapseProgress(p, live);
         }
     }
 
-    /** 选中那一周在收起后停在星期表头正下方 */
+    /** 选中那一周在收起后停在星期表头正下方；拖动中的邻页按它自己的选中行 */
     private void updateCollapseTranslation() {
-        grid.setTranslationY(-selectedRow() * currentCellHeightPx() * collapseP);
-    }
-
-    private int selectedRow() {
-        for (int i = 0; i < dayKeys.length; i++) {
-            if (dayKeys[i] == selectedDayKey) {
-                return i / CheckInMonthGrid.DAYS_PER_WEEK;
-            }
+        int cellH = currentCellHeightPx();
+        float p = collapse.progress();
+        cur.root.setTranslationY(-selectedRow(cur) * cellH * p);
+        MonthPage nb = pager.neighborPage();
+        if (nb != null) {
+            nb.root.setTranslationY(-selectedRow(nb) * cellH * p);
         }
-        return 0;
     }
 
+    private int selectedRow(MonthPage page) {
+        int index = page.indexOf(CheckInMonthGrid.clampDayKey(selectedDayKey, page.yearMonth));
+        return index < 0 ? 0 : index / CheckInMonthGrid.DAYS_PER_WEEK;
+    }
+
+    /** 格高只在角色/配置变化时重取，拖动期间每帧都查资源是白给 */
     private int currentCellHeightPx() {
-        return getResources().getDimensionPixelSize(role == ROLE_PICKER
-                ? R.dimen.checkin_cell_h_picker : R.dimen.checkin_cell_h);
+        if (cachedCellH < 0) {
+            cachedCellH = getResources().getDimensionPixelSize(role == ROLE_PICKER
+                    ? R.dimen.checkin_cell_h_picker : R.dimen.checkin_cell_h);
+        }
+        return cachedCellH;
     }
 
     private int headerHeightPx() {
+        if (cachedHeaderH > 0) {
+            return cachedHeaderH;
+        }
         if (getChildCount() == 0) {
             return 0;
         }
@@ -363,12 +325,9 @@ public class MonthGridView extends LinearLayout {
         return header.getMeasuredHeight();
     }
 
-    private void cancelCollapseAnim() {
-        ValueAnimator a = collapseAnim;
-        collapseAnim = null;
-        if (a != null) {
-            a.cancel();
-        }
+    /** 手指接管前打断收尾动画：进度停在哪儿就从哪儿继续跟手 */
+    public void cancelCollapseAnim() {
+        collapse.cancel();
     }
 
     public int getYearMonth() {
@@ -380,16 +339,16 @@ public class MonthGridView extends LinearLayout {
     }
 
     public int getDayCellCount() {
-        return dayKeys.length;
+        return cur.count();
     }
 
     @Nullable
     public DayCellView getCellAt(int index) {
-        return index >= 0 && index < dayKeys.length ? cells[index] : null;
+        return cur.cellAt(index);
     }
 
     public int getDayKeyAt(int index) {
-        return index >= 0 && index < dayKeys.length ? dayKeys[index] : 0;
+        return cur.dayKeyAt(index);
     }
 
     /** 跨天/从详情页返回时只更新「今天 / 未来」分界，不抢走用户选中的日期 */
@@ -400,11 +359,6 @@ public class MonthGridView extends LinearLayout {
             return;
         }
         todayKey = now;
-        if (structureMonth != yearMonth) {
-            rebuildStructure();
-            refreshAllCells();
-            return;
-        }
         // 通常只差相邻两天：旧「今天」圈与新「今天」圈各重绑一次即可；
         // 跨月/跨年时旧日期不在本月，退回整表
         if (CheckInMonthGrid.yearMonthOf(prev) == yearMonth
@@ -418,10 +372,10 @@ public class MonthGridView extends LinearLayout {
     /** 月↔年切换/切月动画期间暂停格子的打卡点入场动画，保持帧率 */
     public void suspendDotAnimations(boolean suspended) {
         dotSuspended = suspended;
-        for (DayCellView cell : cells) {
-            if (cell != null) {
-                cell.setDotAnimationSuspended(suspended);
-            }
+        cur.setDotSuspended(suspended);
+        MonthPage nb = pager.neighborPage();
+        if (nb != null) {
+            nb.setDotSuspended(suspended);
         }
     }
 
@@ -432,14 +386,12 @@ public class MonthGridView extends LinearLayout {
     public int[] selectedCellCenterIn(View host) {
         int[] hostLoc = new int[2];
         host.getLocationInWindow(hostLoc);
-        for (int i = 0; i < dayKeys.length; i++) {
-            DayCellView cell = cells[i];
-            if (dayKeys[i] == selectedDayKey && cell != null) {
-                int[] loc = new int[2];
-                cell.getLocationInWindow(loc);
-                return new int[]{loc[0] + cell.getWidth() / 2 - hostLoc[0],
-                        loc[1] + cell.getHeight() / 2 - hostLoc[1]};
-            }
+        DayCellView cell = cur.cellAt(cur.indexOf(selectedDayKey));
+        if (cell != null) {
+            int[] loc = new int[2];
+            cell.getLocationInWindow(loc);
+            return new int[]{loc[0] + cell.getWidth() / 2 - hostLoc[0],
+                    loc[1] + cell.getHeight() / 2 - hostLoc[1]};
         }
         return new int[]{host.getWidth() / 2, host.getHeight() / 2};
     }
@@ -455,9 +407,8 @@ public class MonthGridView extends LinearLayout {
         if (this.role == ROLE_CHECKIN) {
             picker.setRangeMode(false);
         }
-        resolveCellColors();
-        rebuildStructure(); // 角色切换要应用对应的格高（选择器 48dp / 打卡 56dp）
-        refreshAllCells();
+        cachedCellH = -1; // 角色对应不同格高（选择器 48dp / 打卡 56dp）
+        rebuildStructure();
         updatePickerHeading();
     }
 
@@ -531,19 +482,15 @@ public class MonthGridView extends LinearLayout {
      * （节日名顶替农历小字，影响的是当日格里的另一行字）。
      */
     public void setMonthData(@Nullable HolidayCalendar cal, @Nullable Map<Integer, int[]> dayMarks) {
-        final Map<Integer, int[]> old = marks;
-        final boolean holidayChanged = holidays == null ? cal != null : !holidays.equals(cal);
-        holidays = cal;
-        marks = dayMarks == null ? Collections.emptyMap() : new HashMap<>(dayMarks);
-        if (structureMonth != yearMonth) {
-            rebuildStructure();
-            refreshAllCells();
-            return;
-        }
+        final Map<Integer, int[]> old = cur.marks;
+        final boolean holidayChanged = cur.holidays == null ? cal != null : !cur.holidays.equals(cal);
+        cur.holidays = cal;
+        cur.marks = dayMarks == null ? Collections.<Integer, int[]>emptyMap()
+                : new HashMap<>(dayMarks);
         if (holidayChanged) {
             refreshAllCells();
         } else {
-            refreshCells(diffKeys(old, marks));
+            refreshCells(MonthPage.diffKeys(old, cur.marks));
         }
     }
 
@@ -551,22 +498,22 @@ public class MonthGridView extends LinearLayout {
      * @param dayMarks dayKey → {打卡本数, 其中补卡本数}，由 CheckInDots.marks 组装
      */
     public void setCheckInMarks(@Nullable Map<Integer, int[]> dayMarks) {
-        setMonthData(holidays, dayMarks);
+        setMonthData(cur.holidays, dayMarks);
     }
 
     /** 年度节日表；null = 只显示农历。内容没变（网络结果与缓存一致）时不动格子 */
     public void setHolidays(@Nullable HolidayCalendar cal) {
-        setMonthData(cal, marks);
+        setMonthData(cal, cur.marks);
+    }
+
+    /** 邻月数据供给；打卡页拿它把 prefetch 好的快照直接铺到滑进来的那一页 */
+    public void setNeighborDataProvider(@Nullable NeighborDataProvider provider) {
+        neighborData = provider;
     }
 
     public void setSelectedDay(int dayKey) {
         int prev = selectedDayKey;
         selectedDayKey = dayKey;
-        if (structureMonth != yearMonth) {
-            rebuildStructure();
-            refreshAllCells();
-            return;
-        }
         // 只有旧选中格和新选中格的胶囊会变，别的格子保持原样
         refreshCells(new int[]{prev, dayKey});
         // 周模式下选中日换了一行：把新的那一周挪到表头下
@@ -581,7 +528,6 @@ public class MonthGridView extends LinearLayout {
         yearMonth = ym;
         selectedDayKey = CheckInMonthGrid.clampDayKey(selectedDayKey, ym);
         rebuildStructure();
-        refreshAllCells();
         announceMonth();
         fireMonthChanged();
     }
@@ -595,7 +541,6 @@ public class MonthGridView extends LinearLayout {
         this.selectedDayKey = selectedKey > 0
                 ? selectedKey : CheckInMonthGrid.clampDayKey(this.selectedDayKey, yearMonth);
         rebuildStructure();
-        refreshAllCells();
     }
 
     public void moveToToday() {
@@ -611,9 +556,15 @@ public class MonthGridView extends LinearLayout {
         }
     }
 
+    /**
+     * v5.9.5 第 3 项：程序化切月（工具栏、年视图返回）走和手指一样的双层转场：
+     * 建邻页 → 一整段滑到位 → 提交。旧的两段 110ms + 中点重建已经删掉。
+     */
     public void shiftMonth(int delta) {
-        int target = CheckInMonthGrid.shiftMonth(yearMonth, delta);
-        animateToMonth(target, delta > 0);
+        if (delta == 0) {
+            return;
+        }
+        pager.shiftMonth(delta);
     }
 
     /**
@@ -621,172 +572,127 @@ public class MonthGridView extends LinearLayout {
      * 5 行月份的月历比 6 行月份矮一截，列表起始位置也就不会跟着跳。
      *
      * <p>收周时按折叠进度 p 把自身高度在「整月」与「单周」之间插值，
-     * grid 仍按整月高度测量并整体上移，多出来的行由父容器的裁剪去掉。
+     * 格子容器仍按整月高度测量并整体上移，多出来的行由父容器的裁剪去掉。
+     *
+     * <p>v5.9.5：结构没脏且宽度没变就不再 {@code super.onMeasure}——拖动时每帧
+     * 只重算这一个插值高度，42 个格子的测量留给真正变了的那几帧。
      */
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-        super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+        int width = MeasureSpec.getSize(widthMeasureSpec);
+        if (structureDirty || width != lastMeasuredWidth) {
+            super.onMeasure(widthMeasureSpec,
+                    MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED));
+            structureDirty = false;
+            lastMeasuredWidth = width;
+            if (getChildCount() > 0) {
+                cachedHeaderH = getChildAt(0).getMeasuredHeight();
+            }
+        }
         int height = CheckInCalendarState.heightAt(
-                getFullHeightPx(), getWeekHeightPx(), collapseP);
+                getFullHeightPx(), getWeekHeightPx(), collapse.progress());
         if (MeasureSpec.getMode(heightMeasureSpec) != MeasureSpec.UNSPECIFIED) {
             height = Math.min(height, MeasureSpec.getSize(heightMeasureSpec));
         }
-        setMeasuredDimension(getMeasuredWidth(), height);
+        lastCollapseHeight = height;
+        setMeasuredDimension(width, height);
+    }
+
+    @Override
+    protected void onSizeChanged(int w, int h, int oldw, int oldh) {
+        super.onSizeChanged(w, h, oldw, oldh);
+        cachedHeaderH = -1; // 宽度变了表头高度可能跟着变，缓存作废
     }
 
     // ==================== 渲染 ====================
 
-    /**
-     * 建结构：行、周数列、格子。只有月份变了才走这里（42 个 View 的重建是切月唯一的开销）。
-     * 状态一律交给 {@link #bindCell}，选一天、打一次卡都不再 removeAllViews。
-     */
+    /** 换掉当前页：建好新页再摘旧页，选一天、打一次卡都不会走这里 */
     private void rebuildStructure() {
-        grid.removeAllViews();
-        java.util.Arrays.fill(cells, null);
-        int y = CheckInMonthGrid.yearOf(yearMonth);
-        int m = CheckInMonthGrid.monthOf(yearMonth);
-        dayKeys = CheckInMonthGrid.dayKeys(y, m);
-        if (role == ROLE_CHECKIN) {
-            lunar.precompute(dayKeys); // 只有打卡月历显示农历，选择器不做无用换算
+        MonthPage old = cur;
+        cur = newPage(yearMonth, null);
+        clip.addView(cur.root, pageLp());
+        if (old != null) {
+            clip.removeView(old.root);
         }
-        int[] weeks = CheckInMonthGrid.weekNumbers(dayKeys);
-        structureMonth = yearMonth;
-
-        // nonTransitiveRClass=true：项目 R.attr 不含 appcompat 的 colorPrimary，
-        // 走 ThemeManager 暴露的 androidx.appcompat.R.attr.colorPrimary
-        resolveCellColors();
-
-        for (int r = 0; r < weeks.length; r++) {
-            LinearLayout row = new LinearLayout(getContext());
-            row.setOrientation(HORIZONTAL);
-            TextView week = weekLabel(String.valueOf(weeks[r]));
-            week.setTextColor(colorVariant);
-            week.setContentDescription(String.format(Locale.ROOT, "第 %d 周", weeks[r]));
-            // 周数占第 0 列（第 10 项），只是普通单元格，不是标题
-            final int weekRow = r;
-            week.setAccessibilityDelegate(new View.AccessibilityDelegate() {
-                @Override
-                public void onInitializeAccessibilityNodeInfo(View host, AccessibilityNodeInfo info) {
-                    super.onInitializeAccessibilityNodeInfo(host, info);
-                    info.setCollectionItemInfo(AccessibilityNodeInfo.CollectionItemInfo.obtain(
-                            weekRow, 1, 0, 1, false, false));
-                }
-            });
-            row.addView(week, weekColumnLp());
-
-            for (int c = 0; c < CheckInMonthGrid.DAYS_PER_WEEK; c++) {
-                int index = r * CheckInMonthGrid.DAYS_PER_WEEK + c;
-                DayCellView cell = new DayCellView(getContext());
-                final int cellIndex = index;
-                cell.setOnClickListener(v -> onCellTouched(cellIndex));
-                // 转场中重建：新格子也要保持「冻结点动画」，否则滑入时会再播一遍
-                cell.setDotAnimationSuspended(dotSuspended);
-                cell.setGridCell(r, c + 1);
-                cells[index] = cell;
-                // 只有打卡月历需要农历行（56dp）；精确日期选择器保持原来的 48dp
-                int cellH = getResources().getDimensionPixelSize(role == ROLE_PICKER
-                        ? R.dimen.checkin_cell_h_picker : R.dimen.checkin_cell_h);
-                row.addView(cell, new LinearLayout.LayoutParams(0, cellH, 1f));
-            }
-            grid.addView(row, new LayoutParams(LayoutParams.MATCH_PARENT,
-                    LayoutParams.WRAP_CONTENT));
-        }
+        structureDirty = true;
+        cachedCellH = -1;
+        cachedHeaderH = -1;
+        lastCollapseHeight = -1;
         updatePickerHeading();
-        updateCollapseTranslation(); // 切月后 selectedRow 可能变了，周模式下同步平移
+        updateCollapseTranslation(); // 切月后选中行可能变了，周模式下同步平移
+        requestLayout();
     }
 
-    /** 把一格当前的状态贴上去：胶囊、今天圈、灰显、打卡点与朗读文案 */
-    private void bindCell(int index) {
-        DayCellView cell = cells[index];
-        if (cell == null || index >= dayKeys.length) {
-            return;
-        }
-        int key = dayKeys[index];
-        boolean adjacent = CheckInMonthGrid.isAdjacent(key,
-                CheckInMonthGrid.yearOf(yearMonth), CheckInMonthGrid.monthOf(yearMonth));
-        boolean today = key == todayKey;
-        boolean future = key > todayKey;
-        int total = CheckInDots.total(marks, key);
-        // 邻月永远不画点：不然会被读成「这个月打过卡」
-        int backfill = adjacent ? 0 : CheckInDots.backfill(marks, key);
-        if (role == ROLE_PICKER) {
-            // 选择器：已选/参考/锚点/预览四种底，越界日 alpha 110 且不响应点选
-            boolean blocked = future || adjacent;
-            cell.bindPicker(key % 100, colorPrimary, colorPickedBg, colorReferenceBg,
-                    colorPreviewBg, colorOnSurface, colorVariant,
-                    picker.isPicked(key), picker.isReference(key), key == picker.anchor(),
-                    picker.inPreview(key), today, blocked);
-            cell.setContentDescription(describePick(key, today, blocked));
-            return;
-        }
-        // 节日名顶替农历小字；邻月同样取节日/农历，只靠颜色与 alpha 压暗
-        String holidayName = holidays == null ? null : holidays.nameOf(key);
-        String label = holidayName != null
-                ? holidayName
-                : (lunarTextSize > 0 ? lunar.label(key) : "");
-        int dayColor = holidayName != null ? colorHoliday : colorOnSurface;
-        // 小字颜色只看「节日/农历」：今天与选中不再改它；邻月农历走灰、邻月节日仍走暖色
-        int labelColor = holidayName != null
-                ? colorHoliday
-                : (adjacent ? colorAdjacentText : colorLunar);
-        cell.bindCheckIn(key % 100, colorPrimary, colorSelectedBg, colorSelectedStroke,
-                dayColor, colorVariant, key == selectedDayKey, today, adjacent, future,
-                adjacent ? 0 : total, backfill, false,
-                label, colorOnPrimary, colorRing, labelColor,
-                lunarTextSize, colorAdjacentText,
-                colorTodayBg, colorOnToday, colorTodayRing);
-        cell.setContentDescription(
-                describe(key, today, total, backfill, adjacent, key == selectedDayKey, future));
-        if (today && !adjacent && key != animatedTodayKey) {
-            animatedTodayKey = key;
-            cell.startTodayEntrance();
-        }
+    /**
+     * 建一页并把状态贴好。
+     *
+     * @param data null = 当前页，沿用视图现在这份打卡点与节日表；邻页由
+     *             {@link NeighborDataProvider} 给，缓存没命中就传空集合只铺日期
+     */
+    private MonthPage newPage(int ym, @Nullable MonthData data) {
+        MonthData md = data != null ? data
+                : new MonthData(cur == null ? null : cur.holidays,
+                        cur == null ? null : cur.marks);
+        MonthPage page = MonthPage.build(getContext(), ym, md,
+                state(selectedKeyFor(ym), 0), this::onCellTouched, currentCellHeightPx());
+        bindAll(page);
+        return page;
     }
 
+    /** 一轮重绑的输入快照；入场动画的判定不在这里 */
+    private MonthRenderState state(int selectedKey, int entranceKey) {
+        return new MonthRenderState(palette, lunar, role, todayKey, selectedKey, picker,
+                dotSuspended, todayChecked, entranceKey);
+    }
+
+    /** 当前页用选中原值，邻页夹到它自己那个月（与搬出 MonthPage 前逐字一致） */
+    private int selectedKeyOf(MonthPage page) {
+        return page.yearMonth == yearMonth ? selectedDayKey
+                : CheckInMonthGrid.clampDayKey(selectedDayKey, page.yearMonth);
+    }
+
+    private int selectedKeyFor(int ym) {
+        return ym == yearMonth ? selectedDayKey : CheckInMonthGrid.clampDayKey(selectedDayKey, ym);
+    }
+
+    /**
+     * 今天入场该不该播：这个「今天」已经播过就不再播；本页没有这一格、
+     * 或者它在页面里是邻月灰显格，都不播（留给真正的那个月播）。
+     */
+    private int entranceFor(MonthPage page) {
+        if (animatedTodayKey == todayKey || page.indexOf(todayKey) < 0
+                || page.isAdjacent(todayKey)) {
+            return 0;
+        }
+        return todayKey;
+    }
+
+    /** 整表重绑（节日表变了、选择器状态变了、跨月换了今天） */
     private void refreshAllCells() {
-        for (int i = 0; i < dayKeys.length; i++) {
-            bindCell(i);
+        bindAll(cur);
+    }
+
+    private void bindAll(MonthPage page) {
+        int played = page.refreshAll(state(selectedKeyOf(page), entranceFor(page)));
+        if (played != 0) {
+            animatedTodayKey = played;
         }
     }
 
-    /** 只重绑这几个 dayKey 所在的格子；不在本月的（邻月补齐格之外的日期）直接跳过 */
+    /** 只重绑这几天所在的格子；不在本月的（邻月补齐格之外的日期）直接跳过 */
     private void refreshCells(int[] keys) {
-        for (int key : keys) {
-            for (int i = 0; i < dayKeys.length; i++) {
-                if (dayKeys[i] == key) {
-                    bindCell(i);
-                    break;
-                }
-            }
+        int played = cur.refreshCells(keys, state(selectedKeyOf(cur), entranceFor(cur)));
+        if (played != 0) {
+            animatedTodayKey = played;
         }
     }
 
-    /** 两个 map 里取值有差异的 dayKey（含只在一边出现的） */
-    private static int[] diffKeys(Map<Integer, int[]> a, Map<Integer, int[]> b) {
-        Set<Integer> keys = new HashSet<>(a.keySet());
-        keys.addAll(b.keySet());
-        int[] out = new int[keys.size()];
-        int n = 0;
-        for (Integer key : keys) {
-            if (!same(CheckInDots.total(a, key), CheckInDots.backfill(a, key),
-                    CheckInDots.total(b, key), CheckInDots.backfill(b, key))) {
-                out[n++] = key;
-            }
+    private void onCellTouched(MonthPage p, int index) {
+        if (pager.isDragging() || index >= p.count()) {
+            return; // 翻月拖动期间不落点击：手势接管时格子已经收到 CANCEL，这里是双保险
         }
-        return n == out.length ? out : java.util.Arrays.copyOf(out, n);
-    }
-
-    private static boolean same(int totalA, int backfillA, int totalB, int backfillB) {
-        return totalA == totalB && backfillA == backfillB;
-    }
-
-    private void onCellTouched(int index) {
-        if (scrolling || index >= dayKeys.length) {
-            return;
-        }
-        int key = dayKeys[index];
-        boolean adjacent = CheckInMonthGrid.isAdjacent(key,
-                CheckInMonthGrid.yearOf(yearMonth), CheckInMonthGrid.monthOf(yearMonth));
+        int key = p.dayKeyAt(index);
+        boolean adjacent = p.isAdjacent(key);
         if (role == ROLE_PICKER) {
             onPickTouched(key, adjacent);
             return;
@@ -846,7 +752,7 @@ public class MonthGridView extends LinearLayout {
             }
             int index = indexAt(ev.getX(), ev.getY());
             if (index >= 0) {
-                picker.setPreview(picker.anchor(), dayKeys[index]);
+                picker.setPreview(picker.anchor(), cur.dayKeyAt(index));
                 refreshAllCells();
                 return true;
             }
@@ -856,8 +762,8 @@ public class MonthGridView extends LinearLayout {
 
     /** 坐标落在哪个格子（仅本月格）；落空返回 -1 */
     private int indexAt(float x, float y) {
-        for (int i = 0; i < dayKeys.length; i++) {
-            DayCellView cell = cells[i];
+        for (int i = 0; i < cur.count(); i++) {
+            DayCellView cell = cur.cellAt(i);
             if (cell == null) {
                 continue;
             }
@@ -874,144 +780,87 @@ public class MonthGridView extends LinearLayout {
         return -1;
     }
 
-    /** 选择器朗读：「11月5日，已选 / 参考区间 / 不可选」，今天与框选起点一起念 */
-    private String describePick(int dayKey, boolean today, boolean blocked) {
-        StringBuilder sb = new StringBuilder();
-        sb.append(dayKey / 100 % 100).append("月").append(dayKey % 100).append("日");
-        if (today) {
-            sb.append("，今天");
-        }
-        if (dayKey == picker.anchor()) {
-            sb.append("，框选起点");
-        }
-        if (blocked) {
-            sb.append("，不可选");
-        } else if (picker.isPicked(dayKey)) {
-            sb.append("，已选");
-        } else if (picker.isReference(dayKey)) {
-            sb.append("，参考区间");
-        } else {
-            sb.append("，未选");
-        }
-        return sb.toString();
-    }
-
-    /** 一轮渲染解析一次格子用色（切主题会重建视图，不必管热更新） */
-    private void resolveCellColors() {
-        colorPrimary = ThemeManager.resolveColor(getContext(), ThemeManager.ATTR_COLOR_PRIMARY);
-        colorSelectedBg = ThemeManager.resolveColor(getContext(), R.attr.checkin_selected_bg);
-        colorSelectedStroke =
-                ThemeManager.resolveColor(getContext(), R.attr.checkin_selected_stroke);
-        colorOnSurface = ThemeManager.resolveColor(getContext(), R.attr.on_surface);
-        colorVariant = ThemeManager.resolveColor(getContext(), R.attr.on_surface_variant);
-        colorPickedBg = ThemeManager.resolveColor(getContext(), R.attr.primary_container);
-        colorReferenceBg = ThemeManager.resolveColor(getContext(), R.attr.surface_dim);
-        colorPreviewBg = ThemeManager.resolveColor(getContext(), R.attr.outline);
-        // 主色实心圆上的文字走 colorOnPrimary（material attr，nonTransitiveRClass 下要全限定）
-        colorOnPrimary = ThemeManager.resolveColor(getContext(),
-                com.google.android.material.R.attr.colorOnPrimary);
-        colorRing = ThemeManager.resolveColor(getContext(), R.attr.checkin_day_ring);
-        colorLunar = ThemeManager.resolveColor(getContext(), R.attr.on_surface_variant);
-        colorHoliday = ThemeManager.resolveColor(getContext(), R.attr.checkin_holiday_text);
-        colorAdjacentText = ThemeManager.resolveColor(getContext(), R.attr.checkin_adjacent_text);
-        colorTodayBg = ThemeManager.resolveColor(getContext(), R.attr.checkin_today_bg);
-        colorOnToday = ThemeManager.resolveColor(getContext(), R.attr.checkin_on_today);
-        colorTodayRing = ThemeManager.resolveColor(getContext(), R.attr.checkin_today_ring);
-        float scale = getResources().getConfiguration().fontScale;
-        float widthDp = getResources().getDisplayMetrics().widthPixels
-                / getResources().getDisplayMetrics().density;
-        // 大字模式/窄屏把农历整行收掉，公历数字与打卡点不裁
-        lunarTextSize = scale < 1.3f && widthDp >= 360f
-                ? getResources().getDimension(R.dimen.checkin_lunar_text) : 0f;
-    }
-
-    /** 「11月5日，已打卡（3 本 · 含 1 笔补卡）」/「11月20日，未来日期，未打卡」 */
-    private String describe(int dayKey, boolean today, int total, int backfill,
-                            boolean adjacent, boolean selected, boolean future) {
-        StringBuilder sb = new StringBuilder();
-        sb.append(dayKey / 100 % 100).append("月").append(dayKey % 100).append("日");
-        if (adjacent) {
-            sb.append("，邻月");
-        }
-        if (selected) {
-            sb.append("，已选中");
-        }
-        if (today) {
-            sb.append("，今天");
-        }
-        if (future) {
-            sb.append("，未来日期");
-        }
-        // 邻月也念节日名（「邻月」已先念过），农历仍不朗读，避免 42 格全变长句
-        String holiday = holidays == null ? null : holidays.nameOf(dayKey);
-        if (holiday != null) {
-            sb.append("，").append(holiday);
-        }
-        if (total > 0) {
-            sb.append("，已打卡").append("（").append(total).append(" 本");
-            if (backfill > 0) {
-                sb.append(" · 含 ").append(backfill).append(" 笔补卡");
-            }
-            sb.append("）");
-        } else if (today && todayChecked) {
-            // 邻月格的 total 恒为 0，今天的真实状态要另看（第 9 项）
-            sb.append("，已打卡");
-        } else {
-            sb.append("，未打卡");
-        }
-        return sb.toString();
-    }
-
     // ==================== 切月动画与手势 ====================
 
-    private void animateToMonth(int target, boolean forward) {
-        final int token = ++monthAnimSeq;
-        // 转场期间 42 个格子的点入场全部冻结；重建出来的新格子同样跳过
-        suspendDotAnimations(true);
-        float dir = forward ? -1f : 1f; // 旧网格退场方向
-        float distance = getResources().getDimensionPixelSize(R.dimen.checkin_swipe_distance);
-        ValueAnimator out = ValueAnimator.ofFloat(0f, 1f);
-        out.setDuration(ANIM_HALF_MS);
-        out.addUpdateListener(a -> {
-            float f = (float) a.getAnimatedValue();
-            grid.setAlpha(1f - f);
-            grid.setTranslationX(dir * distance * f);
-        });
-        out.addListener(new AnimatorListenerAdapter() {
-            @Override
-            public void onAnimationEnd(Animator animation) {
-                if (token != monthAnimSeq) {
-                    return; // 又被滑了一次：这次转场的结果让新的那次接管
-                }
-                yearMonth = target;
-                selectedDayKey = CheckInMonthGrid.clampDayKey(selectedDayKey, target);
-                rebuildStructure();
-                refreshAllCells();
-                grid.setAlpha(0f);
-                grid.setTranslationX(-dir * distance);
-                ValueAnimator in = ValueAnimator.ofFloat(0f, 1f);
-                in.setDuration(ANIM_HALF_MS);
-                in.addUpdateListener(b -> {
-                    float g = (float) b.getAnimatedValue();
-                    grid.setAlpha(g);
-                    grid.setTranslationX(-dir * distance * (1f - g));
-                });
-                in.addListener(new AnimatorListenerAdapter() {
-                    @Override
-                    public void onAnimationEnd(Animator animation) {
-                        if (token == monthAnimSeq) {
-                            grid.setAlpha(1f);
-                            grid.setTranslationX(0f);
-                            suspendDotAnimations(false);
-                        }
-                    }
-                });
-                in.start();
-                announceMonth();
-                fireMonthChanged();
+    /**
+     * 分页器的另一面：pager 不认识角色、数据与测量，页的建/摘/转正都回到这里。
+     * 邻页的根视图和当前页一样挂在 {@link #clip} 上，最多同时两页。
+     */
+    private final class PagerHost implements MonthPager.Host {
+
+        @Override
+        public MonthPage current() {
+            return cur;
+        }
+
+        /** 邻页数据从供给方要，没命中就只铺日期，提交后由 fragment 补全 */
+        @Override
+        public MonthPage buildNeighbor(int targetYearMonth) {
+            MonthData data = neighborData == null ? null : neighborData.dataFor(targetYearMonth);
+            if (data == null) {
+                data = new MonthData(cur.holidays, null);
             }
-        });
-        out.start();
+            MonthPage page = newPage(targetYearMonth, data);
+            clip.addView(page.root, pageLp());
+            structureDirty = true; // 新页要跟着下一次测量走一遍，否则尺寸是 0
+            requestLayout();
+            return page;
+        }
+
+        @Override
+        public void discardPage(MonthPage page) {
+            clip.removeView(page.root);
+            structureDirty = true;
+            requestLayout();
+        }
+
+        /** 邻页转正：夹选中日、重绑整页、摘掉旧页（新页本来就在 clip 上） */
+        @Override
+        public void adopt(MonthPage page) {
+            MonthPage old = cur;
+            cur = page;
+            yearMonth = page.yearMonth;
+            selectedDayKey = CheckInMonthGrid.clampDayKey(selectedDayKey, yearMonth);
+            clip.removeView(old.root);
+            structureDirty = true;
+            refreshAllCells();
+            updateCollapseTranslation();
+            updatePickerHeading();
+            requestLayout();
+        }
+
+        @Override
+        public void setDotAnimationsSuspended(boolean suspended) {
+            suspendDotAnimations(suspended);
+        }
+
+        @Override
+        public boolean canPage() {
+            return MonthGridView.this.canPage();
+        }
+
+        @Override
+        public int yearMonth() {
+            return yearMonth;
+        }
+
+        @Override
+        public float pageWidthPx() {
+            return pageWidth();
+        }
+
+        /** 提交之后才播报与回调：拖动过程中一次都不发 */
+        @Override
+        public void onMonthSettled() {
+            fireMonthChanged();
+            announceMonth();
+        }
+    }
+
+    private int pageWidth() {
+        int w = clip.getWidth() > 0 ? clip.getWidth()
+                : getWidth() - getPaddingLeft() - getPaddingRight();
+        return Math.max(1, w);
     }
 
     private void fireMonthChanged() {
@@ -1026,29 +875,32 @@ public class MonthGridView extends LinearLayout {
 
     @Override
     public boolean dispatchTouchEvent(MotionEvent ev) {
-        detector.onTouchEvent(ev); // 只喂一次，避免 onFling 触发两遍
-        return super.dispatchTouchEvent(ev);
+        // 测速表在派发前入表、派发后再收：抬手帧得先进去，pager 在派发里才算得出速度
+        pager.track(ev);
+        boolean handled = super.dispatchTouchEvent(ev);
+        pager.finishTracking(ev);
+        return handled;
     }
 
     @Override
     public boolean onInterceptTouchEvent(MotionEvent ev) {
-        // 纵向收周/展开归 CheckInSwipeRoot；这里只拦横向切月，避免滑完误点格子
-        return scrolling || super.onInterceptTouchEvent(ev);
+        return pager.onInterceptTouchEvent(ev);
     }
 
     @Override
     public boolean onTouchEvent(MotionEvent ev) {
-        int action = ev.getActionMasked();
-        if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
-            scrolling = false;
-        }
-        return scrolling || super.onTouchEvent(ev);
+        return pager.onTouchEvent(ev);
     }
 
     @Override
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
-        scrolling = false;
+        pager.cancelTransition();
+    }
+
+    /** 选择器角色自己带月份按钮，不参与翻月拖动 */
+    private boolean canPage() {
+        return role == ROLE_CHECKIN;
     }
 
     /**
@@ -1070,18 +922,51 @@ public class MonthGridView extends LinearLayout {
      * @param backfill 其中补卡的本数
      */
     public void setDayMarks(int dayKey, int total, int backfill) {
-        Map<Integer, int[]> copy = new HashMap<>(marks);
+        Map<Integer, int[]> copy = new HashMap<>(cur.marks);
         if (total > 0) {
             copy.put(dayKey, new int[]{total, backfill});
         } else {
             copy.remove(dayKey);
         }
-        marks = copy;
-        resolveCellColors();
+        cur.marks = copy;
         refreshCells(new int[]{dayKey});
     }
 
-    private float dp(float value) {
-        return value * density;
+    // ==================== 测试钩子 ====================
+
+    /**
+     * 把「今天」按到指定月份重建一遍（邻月今天朗读用例）。
+     *
+     * <p>这条用例原先用反射写私有 {@code todayKey}/{@code yearMonth} 再调私有
+     * {@code rebuildStructure}/{@code refreshAllCells}；P2 把绑定搬进 {@link MonthPage}
+     * 之后反射会指空，所以换成显式钩子。重建本身已经整页贴过一遍状态，
+     * 原先补的那次 refreshAllCells 是多余的。
+     */
+    @VisibleForTesting
+    public void rebuildWithTodayForTest(int today, int yearMonth) {
+        this.todayKey = today;
+        this.yearMonth = yearMonth;
+        rebuildStructure();
+    }
+
+    @VisibleForTesting
+    public boolean hasNeighborPage() {
+        return pager.hasNeighbor();
+    }
+
+    @VisibleForTesting
+    public float pagerOffsetPx() {
+        return pager.offsetPx();
+    }
+
+    @VisibleForTesting
+    public float neighborPageTranslationXPx() {
+        return pager.neighborTranslationXPx();
+    }
+
+    /** 视图没挂窗口时 Choreographer 可能不给帧，直接把提交/回弹动画走完 */
+    @VisibleForTesting
+    public void finishPagerAnimation() {
+        pager.finishAnimation();
     }
 }

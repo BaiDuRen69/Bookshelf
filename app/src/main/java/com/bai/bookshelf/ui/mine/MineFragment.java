@@ -22,6 +22,7 @@ import com.bai.bookshelf.databinding.FragmentMineBinding;
 import com.bai.bookshelf.ui.TabRefresh;
 import com.bai.bookshelf.util.BackupManager;
 import com.bai.bookshelf.util.BookFlags;
+import com.bai.bookshelf.util.DateKeys;
 import com.bai.bookshelf.util.InsetsHelper;
 import com.bai.bookshelf.ui.scan.ScanActivity;
 import com.bai.bookshelf.BuildConfig;
@@ -30,8 +31,10 @@ import com.bai.bookshelf.util.Motion;
 import com.bai.bookshelf.util.ThemeManager;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
+import java.util.Calendar;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -101,6 +104,8 @@ public class MineFragment extends Fragment implements TabRefresh {
         b.rowExport.setOnClickListener(v -> exportExcel());
         // v5.8.19：书摘导出 Markdown（zip 里按书 + 按标签 + 图片）
         b.rowExportMd.setOnClickListener(v -> exportMarkdown());
+        // v5.9.5 第 2 项：一键导出最新整包到任意位置
+        b.rowExportZip.setOnClickListener(v -> dataActions.exportZipNow());
         b.rowImport.setOnClickListener(v -> dataActions.confirmImport());
         b.rowWish.setOnClickListener(v ->
                 startActivity(new android.content.Intent(requireContext(),
@@ -291,6 +296,7 @@ public class MineFragment extends Fragment implements TabRefresh {
     }
 
     private void onVisible() {
+        renderCompanion();
         loadSummary();
         // v4.23：切回本页时同步刷新状态行。原先只刷概览计数——
         // 冷启动后自动备份在后台线程写 zip，晚于 onViewCreated 的
@@ -476,27 +482,11 @@ public class MineFragment extends Fragment implements TabRefresh {
     private void loadSummary() {
         BookshelfApp app = BookshelfApp.get();
         app.io(() -> {
-            int bookCount = 0;
-            int readCount = 0;
-            int readingCount = 0;
             int locCount = 0;
             int channelUsedCount = 0;
             int tagCount = 0;
-            int copyCount = 0;
             try {
                 List<Book> books = app.db().bookDao().getAll();
-                // v5.8 口径：种数排除「已归还借阅（电子书签）」，册数按逐本副本累加
-                bookCount = com.bai.bookshelf.util.BookFlags.countOwned(books);
-                copyCount = com.bai.bookshelf.util.LibraryStats.countOwnedCopies(books,
-                        com.bai.bookshelf.util.LibraryStats.groupCopies(
-                                app.db().bookCopyDao().getAll()));
-                for (Book bk : books) {
-                    if (bk.readStatus == 2) {
-                        readCount++;
-                    } else if (bk.readStatus == 1) {
-                        readingCount++;
-                    }
-                }
                 locCount = app.db().locationDao().count();
                 tagCount = app.db().tagDao().count();
                 // 渠道统计藏书里真正用到的来源（避免字典有 12 个被误读成用了 12 个）
@@ -512,10 +502,6 @@ public class MineFragment extends Fragment implements TabRefresh {
             } catch (Exception ignored) {
                 // 单项查询失败时保持 0，概览不阻塞其它入口
             }
-            final int fBooks = bookCount;
-            final int fCopies = copyCount;
-            final int fRead = readCount;
-            final int fReading = readingCount;
             final int fLoc = locCount;
             final int fChannelUsed = channelUsedCount;
             final int fTag = tagCount;
@@ -523,15 +509,34 @@ public class MineFragment extends Fragment implements TabRefresh {
                 if (b == null) {
                     return;
                 }
-                b.tvHeroSummary.setText("藏书 " + fBooks + " 种"
-                        + (fCopies == fBooks ? "" : " · " + fCopies + " 册")
-                        + " · 已读 " + fRead + " · 在读 " + fReading);
                 b.tvHeroLocations.setText(String.valueOf(fLoc));
                 b.tvHeroChannels.setText(String.valueOf(fChannelUsed));
                 b.tvHeroTags.setText(String.valueOf(fTag));
                 refreshTasks();
             });
         });
+    }
+
+    /** 「与小书房相伴 N 天」：首启时间在安装当天记录，所以同一天多次打开不跳变 */
+    private void renderCompanion() {
+        if (b == null) {
+            return;
+        }
+        long first = BookshelfApp.firstLaunchAt();
+        if (first <= 0) {
+            b.tvHeroCompanion.setText("0 天");
+            b.tvHeroCompanionSince.setText("首次启动时间未记录");
+            return;
+        }
+        int days = DateKeys.daysSince(first, System.currentTimeMillis());
+        b.tvHeroCompanion.setText(
+                com.bai.bookshelf.ui.stats.StatsText.metric(String.valueOf(days), "天"));
+        Calendar c = Calendar.getInstance();
+        c.setTimeInMillis(first);
+        b.tvHeroCompanionSince.setText(String.format(Locale.getDefault(),
+                "自 %d年%d月%d日 起",
+                c.get(Calendar.YEAR), c.get(Calendar.MONTH) + 1, c.get(Calendar.DAY_OF_MONTH)));
+        b.tvHeroCompanion.setContentDescription("与小书房相伴 " + days + " 天");
     }
 
     /** 导出 Excel：先让用户选择导出文件夹，再在后台生成并写入该文件夹 */

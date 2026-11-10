@@ -95,4 +95,22 @@ public class DateKeysTest {
         assertArrayEquals(new int[]{20260101, 20261029}, DateKeys.presetRange(2, now));
         assertArrayEquals(new int[]{20250101, 20251231}, DateKeys.presetRange(3, now));
     }
+
+    @Test
+    public void daysSinceFloorsWholeDays() {
+        long first = 1760000000000L;
+        assertEquals("安装当天算 0 天", 0, DateKeys.daysSince(first, first));
+        assertEquals("不满 24 小时不进位", 0, DateKeys.daysSince(first, first + 23 * 3600000L));
+        assertEquals("满 24 小时才算 1 天", 1, DateKeys.daysSince(first, first + 24 * 3600000L));
+        assertEquals("跨多天按毫秒差 floor", 2,
+                DateKeys.daysSince(first, first + (48 + 23) * 3600000L));
+    }
+
+    @Test
+    public void daysSinceNeverGoesNegativeOrGuesses() {
+        long first = 1760000000000L;
+        assertEquals("时钟被往回调过也不给负数", 0, DateKeys.daysSince(first, first - 3600000L));
+        assertEquals("首启时间没记录时算 0 天", 0, DateKeys.daysSince(0, first));
+        assertEquals("首启时间没记录时算 0 天", 0, DateKeys.daysSince(-1, first));
+    }
 }

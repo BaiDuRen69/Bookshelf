@@ -148,6 +148,18 @@ public final class DateKeys {
     }
 
     /**
+     * 从某个时刻到今天过了多少天（v5.9.5「与小书房相伴」用）：
+     * 按毫秒差 floor，不做日历日重算，所以同一天内多次启动不会跳变；
+     * from 未记录（<=0）或时钟被往回调时给 0，不出现负数。
+     */
+    public static int daysSince(long fromMillis, long toMillis) {
+        if (fromMillis <= 0) {
+            return 0;
+        }
+        return (int) Math.max(0, (toMillis - fromMillis) / 86400000L);
+    }
+
+    /**
      * 两个日键之间的每一天，升序含首尾（精确模式「框选一段」用）。
      *
      * <p>只负责展开区间，不负责「今天之后不能算读过」——上限由调用方夹，

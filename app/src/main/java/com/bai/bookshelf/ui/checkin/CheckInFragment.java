@@ -66,13 +66,23 @@ import java.util.Set;
  */
 public class CheckInFragment extends Fragment
         implements MonthGridView.Listener, CheckInSwipeRoot.Listener,
-        CheckInAdapter.Listener, TabRefresh {
+        CheckInSwipeRoot.DragListener, CheckInAdapter.Listener, TabRefresh {
 
     private static final String TAG = "CheckInPerf";
     /** 5 秒内可撤销的单日批量打卡；换日/换月后按记录的原日期生效 */
     private static final long BATCH_UNDO_MS = 5000L;
     /** 撤销按钮出现/收起 */
     private static final long DAY_UNDO_MS = 160L;
+    /** MONTH 下滑进逐日明细的最小距离：低于它算误触，留在整月 */
+    private static final float DETAIL_MIN_DRAG_DP = 32f;
+    /** 拖动收尾的速度档（dp/s）：超过它按速度方向定档，否则按是否过半 */
+    private static final float DRAG_FLING_DP_PER_SEC = 600f;
+    /** 折叠收尾时长：按剩余进度插值，最短 120ms、满程 220ms；取消固定 140ms */
+    private static final long COLLAPSE_MIN_MS = 120L;
+    private static final long COLLAPSE_FULL_MS = 220L;
+    private static final long COLLAPSE_CANCEL_MS = 140L;
+    /** 页头字阶跟随的最小进度变化：拖动中攒够一档才改字号 */
+    private static final float HEADER_TEXT_STEP = 0.05f;
 
     private FragmentCheckinBinding b;
     private CheckInAdapter adapter;
@@ -126,6 +136,17 @@ public class CheckInFragment extends Fragment
     private float relCompactPx;
     /** 当前已套用的基准高度档（false = 常规 / true = 紧凑），避免每帧 setBaseHeight */
     private boolean headerCompactBase;
+    // ===== v5.9.5 第 3 项：纵向实时折叠 =====
+    /** 手指正在把整月↔单周拖出进度：动画让位，抬手才决定落到哪一档 */
+    private boolean liveDrag;
+    private float dragStartP;
+    private int travelPx;
+    private boolean dragUp;
+    /** 这一手的累计位移：MONTH 下滑进明细要用它判最小距离 */
+    private float dragLastDy;
+    /** 拖动中的字阶只在跨档时改，每帧 setTextSize 会重排整行 */
+    private float lastHeaderTextP = -1f;
+    private float density;
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
@@ -162,6 +183,9 @@ public class CheckInFragment extends Fragment
 
         // 纵向手势的唯一入口：整页可滑，列表/悬浮按钮/年视图分别让行
         b.swipeRoot.setListener(this);
+        // v5.9.5 第 3 项：同一只手改成实时驱动，抬手才决定落档
+        density = getResources().getDisplayMetrics().density;
+        b.swipeRoot.setDragListener(this);
         b.swipeRoot.setGuard(() -> switcher == null
                 || switcher.isYearVisible() || switcher.isAnimating());
         b.swipeRoot.setScrollList(b.rvCheckin);
@@ -180,8 +204,14 @@ public class CheckInFragment extends Fragment
         titleCompactPx = getResources().getDimension(R.dimen.text_body);
         relFullPx = b.tvMonthRelative.getTextSize();
         relCompactPx = getResources().getDimension(R.dimen.text_caption_compact);
-        // 页头与月历折叠共用同一个 220ms 进度：每帧由网格回调，不另起动画
+        // 页头与月历折叠共用同一条进度：每帧由网格回调，不另起动画
         b.monthGrid.setCollapseProgressListener(this::applyHeaderProgress);
+        // 横向滑进来的邻页先吃预取快照：命中就带点与节日，未命中只铺日期
+        b.monthGrid.setNeighborDataProvider(ym -> {
+            MonthSnapshot snap = monthSnapshots.get(ym);
+            return snap == null ? null
+                    : new MonthGridView.MonthData(snap.holidays, snap.dayMarks);
+        });
         setToolbarMonth(b.monthGrid.getYearMonth());
         b.toolbar.setOnClickListener(v -> toggleYearView());
         b.fabToday.setOnClickListener(v -> {
@@ -597,12 +627,17 @@ public class CheckInFragment extends Fragment
      * 书目列表换成逐日明细（同一容器里两套列表互斥）。
      */
     private void applyMode(CheckInCalendarState.Mode next, boolean animate) {
+        applyMode(next, animate, 0L);
+    }
+
+    /** durationMs &gt; 0 = 拖动收尾按剩余距离给的时长；0 走网格默认的 220ms */
+    private void applyMode(CheckInCalendarState.Mode next, boolean animate, long durationMs) {
         if (b == null) {
             return;
         }
         mode = next;
         boolean detail = next == CheckInCalendarState.Mode.DETAIL;
-        b.monthGrid.setWeekMode(next != CheckInCalendarState.Mode.MONTH, animate);
+        b.monthGrid.setWeekMode(next != CheckInCalendarState.Mode.MONTH, animate, durationMs);
         applyCompactHeader(next != CheckInCalendarState.Mode.MONTH, animate);
         updateMonthListVisibility();
         b.ivMonthDaysArrow.setRotation(detail ? 180f : 0f);
@@ -658,20 +693,25 @@ public class CheckInFragment extends Fragment
      */
     private void applyCompactHeader(boolean compact, boolean animate) {
         if (!animate) {
-            applyHeaderProgress(compact ? 1f : 0f);
+            applyHeaderProgress(compact ? 1f : 0f, false);
         }
     }
 
     /** p = 0 整月 / 1 单周；Toolbar 48↔40dp、标题 17↔15sp、相对时间 11↔10sp、图例淡出 */
-    private void applyHeaderProgress(float p) {
+    private void applyHeaderProgress(float p, boolean live) {
         if (b == null) {
             return;
         }
         float t = Math.max(0f, Math.min(1f, p));
-        b.tvMonthTitle.setTextSize(TypedValue.COMPLEX_UNIT_PX,
-                titleFullPx + (titleCompactPx - titleFullPx) * t);
-        b.tvMonthRelative.setTextSize(TypedValue.COMPLEX_UNIT_PX,
-                relFullPx + (relCompactPx - relFullPx) * t);
+        // 拖动中只在跨档时改字号：setTextSize 会重测整行，每帧一次必掉帧
+        if (!live || lastHeaderTextP < 0f || Math.abs(t - lastHeaderTextP) >= HEADER_TEXT_STEP
+                || t <= 0.001f || t >= 0.999f) {
+            lastHeaderTextP = t;
+            b.tvMonthTitle.setTextSize(TypedValue.COMPLEX_UNIT_PX,
+                    titleFullPx + (titleCompactPx - titleFullPx) * t);
+            b.tvMonthRelative.setTextSize(TypedValue.COMPLEX_UNIT_PX,
+                    relFullPx + (relCompactPx - relFullPx) * t);
+        }
         int contentH = Math.round(toolbarFullPx + (toolbarCompactPx - toolbarFullPx) * t);
         int topInset = InsetsHelper.topInset(b.toolbar);
         ViewGroup.LayoutParams lp = b.toolbar.getLayoutParams();
@@ -1070,6 +1110,79 @@ public class CheckInFragment extends Fragment
             // 月份可能刚切过，进明细时用当前月重建一次逐日行
             loadMonth(b.monthGrid.getYearMonth());
         }
+    }
+
+    // ==================== v5.9.5 第 3 项：纵向实时折叠 ====================
+
+    /**
+     * DETAIL 与「已收周再上滑」没有可跟随的进度，保持抬手触发。MONTH 下滑的目标
+     * 是逐日明细，也不是折叠态（进度恒为 0），同样留给抬手，并在 {@link #onDragEnd}
+     * 里补最小距离——slop 降到 8dp 后，随便一动就进明细会误触。
+     */
+    @Override
+    public void onDragBegin(boolean up) {
+        dragUp = up;
+        dragLastDy = 0f;
+        if (b == null || liveDrag) {
+            return;
+        }
+        boolean detailStep = mode == CheckInCalendarState.Mode.MONTH && !up;
+        if (mode == CheckInCalendarState.Mode.DETAIL || detailStep
+                || (mode == CheckInCalendarState.Mode.WEEK && up)) {
+            return;
+        }
+        liveDrag = true;
+        dragStartP = b.monthGrid.getCollapseProgress();
+        travelPx = Math.max(1, b.monthGrid.getFullHeightPx() - b.monthGrid.getWeekHeightPx());
+        b.monthGrid.cancelCollapseAnim();
+        b.monthGrid.setDragging(true);
+    }
+
+    @Override
+    public void onDrag(float dy) {
+        dragLastDy = dy;
+        if (!liveDrag || b == null) {
+            return;
+        }
+        b.monthGrid.setCollapseProgress(
+                CheckInDragMath.progress(dragStartP, dy, travelPx), true);
+    }
+
+    @Override
+    public void onDragEnd(float vy) {
+        if (b == null) {
+            liveDrag = false;
+            return;
+        }
+        if (!liveDrag) {
+            if (mode == CheckInCalendarState.Mode.MONTH && !dragUp
+                    && Math.abs(dragLastDy) < DETAIL_MIN_DRAG_DP * density
+                    && vy < DRAG_FLING_DP_PER_SEC * density) {
+                return; // 距离与速度都不够：这一手下拉留在整月
+            }
+            onVerticalSwipe(dragUp);
+            return;
+        }
+        float p = b.monthGrid.getCollapseProgress();
+        boolean toWeek = CheckInDragMath.settleToWeek(p, vy, DRAG_FLING_DP_PER_SEC * density);
+        long ms = CheckInDragMath.collapseMs(p, toWeek, COLLAPSE_FULL_MS, COLLAPSE_MIN_MS);
+        b.monthGrid.setDragging(false);
+        liveDrag = false;
+        applyMode(toWeek ? CheckInCalendarState.Mode.WEEK
+                : CheckInCalendarState.Mode.MONTH, true, ms);
+    }
+
+    @Override
+    public void onDragCancel() {
+        if (!liveDrag || b == null) {
+            liveDrag = false;
+            return;
+        }
+        float p = b.monthGrid.getCollapseProgress();
+        b.monthGrid.setDragging(false);
+        liveDrag = false;
+        applyMode(p >= 0.5f ? CheckInCalendarState.Mode.WEEK
+                : CheckInCalendarState.Mode.MONTH, true, COLLAPSE_CANCEL_MS);
     }
 
     @Override

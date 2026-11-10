@@ -39,6 +39,8 @@ public final class BackupFingerprint {
             appendDatabase(sb, ctx);
             appendRows(sb, db);
             appendMedia(sb, ctx);
+            // v5.9.5 第 1 项：必须把设置算进来，否则「只改设置没改库」会被当成内容没变跳过
+            appendSettings(sb, ctx);
             if (sb.length() == 0) {
                 return null;
             }
@@ -101,5 +103,13 @@ public final class BackupFingerprint {
                     .append(f.length()).append('|').append(f.lastModified()).append('\n');
         }
         sb.append("m|sum|").append(bytes).append('\n');
+    }
+
+    /**
+     * 白名单设置：与 {@link SettingsBackup#export} 共用同一张表。
+     * 摘要算法缺失时抛到这里，整颗指纹返回 null，自动备份照常做一次。
+     */
+    private static void appendSettings(StringBuilder sb, Context ctx) {
+        sb.append("s|").append(SettingsBackup.fingerprint(ctx)).append('\n');
     }
 }

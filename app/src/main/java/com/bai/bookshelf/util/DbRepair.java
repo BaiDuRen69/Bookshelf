@@ -3,6 +3,7 @@ package com.bai.bookshelf.util;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.net.Uri;
+import android.util.Log;
 
 import com.bai.bookshelf.app.BookshelfApp;
 import com.bai.bookshelf.data.AppDatabase;
@@ -35,6 +36,8 @@ import java.util.Locale;
  * 「备份文件管理」可以看到并导出，万一以后还想捞数据。
  */
 public final class DbRepair {
+
+    private static final String TAG = "DbRepair";
 
     private static final String PREFS = "repair_prefs";
     private static final String KEY_PENDING = "repair_pending";
@@ -170,10 +173,12 @@ public final class DbRepair {
     public static void restoreFromPreMigration(Context ctx) throws Exception {
         List<File> copies = PreMigrationBackup.list(ctx);
         if (copies.isEmpty()) {
+            Log.w(TAG, "没有可用的升级前副本，恢复作罢（当前库没被动过）");
             throw new IOException("没有可用的升级前副本");
         }
         File copyDir = copies.get(copies.size() - 1);
         File srcDb = new File(copyDir, AppDatabase.DB_NAME);
+        Log.i(TAG, "准备从升级前副本恢复：" + copyDir.getName());
         // 1. 校验：SQLite 头不对的副本直接拒绝，不浪费后面的步骤
         validateDatabaseFile(srcDb);
 
@@ -188,10 +193,14 @@ public final class DbRepair {
             copyFile(new File(copyDir, AppDatabase.DB_NAME + "-shm"),
                     new File(tmp.getPath() + "-shm"));
             if (tmp.length() != srcDb.length()) {
+                Log.w(TAG, "临时库写入不完整：" + tmp.length() + " / " + srcDb.length()
+                        + " 字节，旧库保持原样");
                 throw new IOException("临时库写入不完整（" + tmp.length() + " / " + srcDb.length() + " 字节）");
             }
             // 3. 关旧库 → 换文件（失败回滚）
             swapIn(ctx, dbFile, tmp);
+            Log.i(TAG, "升级前副本已换入，数据库重开完成");
+            BackupManager.recordRestoreResult(ctx, true, "从升级前副本恢复：" + copyDir.getName());
         } finally {
             deleteDbFiles(tmp);
         }
@@ -208,6 +217,7 @@ public final class DbRepair {
         // 1. 校验：不合格直接抛，旧库原样不动
         BackupInspector.Info info = BackupInspector.inspect(ctx, uri);
         if (!info.ok()) {
+            Log.w(TAG, "zip 校验没过，旧库一个字节没动：" + info.reject);
             throw new IOException(info.reject);
         }
         BookshelfApp app = BookshelfApp.get();
@@ -224,9 +234,13 @@ public final class DbRepair {
             app.markDbReady();
             ZipRestore.Result r = ZipRestore.restore(ctx, uri, app.db());
             clear(ctx);
+            BackupManager.recordRestoreResult(ctx, true,
+                    "从 zip 重建：" + r.books + " 种 · 图片 " + r.media + " 张");
             return r.books;
         } catch (Throwable t) {
+            Log.w(TAG, "从 zip 重建失败，准备回滚到旧库（旧库在 " + stamp.getName() + "）", t);
             rollback(app, dbFile, stamp);
+            BackupManager.recordRestoreResult(ctx, false, "从 zip 重建失败：" + describe(t));
             throw t instanceof Exception ? (Exception) t : new IOException(describe(t));
         } finally {
             repairing = false;
@@ -254,6 +268,7 @@ public final class DbRepair {
             app.markDbReady();
             clear(ctx);
         } catch (Throwable t) {
+            Log.w(TAG, "换入临时库失败，准备回滚（旧库在 " + brokenTarget.getName() + "）", t);
             rollback(app, dbFile, brokenTarget);
             throw t instanceof Exception ? (Exception) t : new IOException(describe(t));
         } finally {
@@ -275,8 +290,9 @@ public final class DbRepair {
                 moveDbFiles(brokenTarget, dbFile);
             }
             app.reopenDatabase();
-        } catch (Throwable ignored) {
+        } catch (Throwable t) {
             // 回滚都失败就只能等下次启动进修复页（repair_pending 还留着）
+            Log.w(TAG, "回滚旧库失败：库里可能既不是新库也不是原库，下次启动会直接进修复页", t);
         }
     }
 

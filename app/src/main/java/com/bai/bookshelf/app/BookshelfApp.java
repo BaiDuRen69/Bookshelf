@@ -6,6 +6,7 @@ import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;
 
 import androidx.room.Room;
 
@@ -31,6 +32,8 @@ import java.util.concurrent.Executors;
  * 所有 DB/网络耗时操作统一走 {@link #io(Runnable)}，回主线程用 {@link #ui(Runnable)}。
  */
 public class BookshelfApp extends Application {
+
+    private static final String TAG = "BookshelfApp";
 
     /** 首次启动时间戳的 SharedPreferences 名与键（v2.9「与小书房相伴了多少天」统计用） */
     private static final String PREFS_APP = "app_prefs";
@@ -123,8 +126,10 @@ public class BookshelfApp extends Application {
             try {
                 versionBefore = com.bai.bookshelf.util.PreMigrationBackup
                         .prepareBeforeOpen(this);
-            } catch (Throwable ignored) {
-                // 副本失败不阻断启动（与旧行为一致），继续开库
+            } catch (Throwable t) {
+                // 副本失败不阻断启动（与旧行为一致），继续开库；但要留下证据，
+                // 否则「升级前没留副本」这件事只有出事后才知道
+                Log.w(TAG, "升级前副本未留下，本次迁移出问题将没有回退快照", t);
             }
             final int dbVersionBefore = versionBefore;
             try {
@@ -179,8 +184,9 @@ public class BookshelfApp extends Application {
         dbReady = false;
         try {
             db.close();
-        } catch (Exception ignored) {
+        } catch (Exception e) {
             // 库本来就打不开时 close 也可能抛，这里只求把句柄放掉
+            Log.w(TAG, "关闭数据库失败，句柄可能仍占着文件（修复页随后要靠重开换实例绕过去）", e);
         }
     }
 
@@ -266,6 +272,9 @@ public class BookshelfApp extends Application {
             try {
                 r.run();
             } catch (RuntimeException e) {
+                // 4.2：这里是所有后台任务的兜底，下面三条分支有两条会把异常吃掉，
+                // 不留日志就没人知道启动期丢过任务
+                Log.w(TAG, "后台任务抛异常，由 guard 处理", e);
                 String hint = com.bai.bookshelf.util.DbFailure.userMessage(e);
                 if (hint != null) {
                     ui(() -> android.widget.Toast.makeText(this, hint,

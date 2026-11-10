@@ -16,10 +16,13 @@ import androidx.core.content.ContextCompat;
 import com.bai.bookshelf.R;
 import com.bai.bookshelf.app.BookshelfApp;
 import com.bai.bookshelf.data.entity.Book;
+import com.bai.bookshelf.data.entity.BookCopy;
 import com.bai.bookshelf.databinding.ActivityReadingStatsBinding;
 import com.bai.bookshelf.ui.BaseActivity;
 import com.bai.bookshelf.util.BookSanitizer;
 import com.bai.bookshelf.util.BookText;
+import com.bai.bookshelf.util.LibraryStats;
+import com.bai.bookshelf.util.StatsHoldings;
 import com.bai.bookshelf.util.ThemeManager;
 
 import java.util.ArrayList;
@@ -79,6 +82,8 @@ public class ReadingStatsActivity extends BaseActivity {
     private StatsRankView rankView;
     /** 总览区（v5.6 从本类抽出） */
     private StatsTotalView totalView;
+    /** 总量口径（种/册/花费）；「总」视图大字的累计花费来自这里 */
+    private StatsHoldings.Holdings hold;
     /** 购买日历入口（v5.6 从本类抽出） */
     private StatsCalendarLauncher calendarLauncher;
 
@@ -190,6 +195,14 @@ public class ReadingStatsActivity extends BaseActivity {
         app.io(() -> {
             books.clear();
             books.addAll(BookSanitizer.normalizeAll(app.db().bookDao().getAll()));
+            // v5.9.5：累计花费按逐本实付累加，不能用 purchasePrice * quantity 近似
+            Map<Long, List<BookCopy>> copiesByBook;
+            try {
+                copiesByBook = LibraryStats.groupCopies(app.db().bookCopyDao().getAll());
+            } catch (Exception e) {
+                copiesByBook = new java.util.HashMap<>();
+            }
+            hold = StatsHoldings.holdings(books, copiesByBook);
             computeGlobalMax();
             loaded = true;
             app.ui(this::render);
@@ -279,7 +292,7 @@ public class ReadingStatsActivity extends BaseActivity {
         } else if (tab == 1) {
             renderYear();
         } else {
-            totalView.render(books);
+            totalView.render(books, hold);
         }
     }
 

@@ -583,12 +583,8 @@ public class CheckInUiInstrumentedTest {
         final MonthGridView grid = holder[0];
         // 2026-10-31 在 11 月网格里是邻月格；把它当「今天」就能覆盖邻月朗读分支
         final int adjacentToday = 20261031;
-        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
-            setField(grid, "todayKey", adjacentToday);
-            setField(grid, "yearMonth", 202611);
-            invoke(grid, "rebuildStructure");
-            invoke(grid, "refreshAllCells");
-        });
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(
+                () -> grid.rebuildWithTodayForTest(adjacentToday, 202611));
         DayCellView cell = null;
         for (int i = 0; i < grid.getDayCellCount(); i++) {
             if (grid.getDayKeyAt(i) == adjacentToday) {
@@ -667,26 +663,6 @@ public class CheckInUiInstrumentedTest {
             }
         }
         return 0;
-    }
-
-    private static void setField(Object target, String name, Object value) {
-        try {
-            java.lang.reflect.Field f = target.getClass().getDeclaredField(name);
-            f.setAccessible(true);
-            f.set(target, value);
-        } catch (Exception e) {
-            throw new AssertionError("无法设置 " + name, e);
-        }
-    }
-
-    private static void invoke(Object target, String name) {
-        try {
-            java.lang.reflect.Method m = target.getClass().getDeclaredMethod(name);
-            m.setAccessible(true);
-            m.invoke(target);
-        } catch (Exception e) {
-            throw new AssertionError("无法调用 " + name, e);
-        }
     }
 
     private Bitmap renderTodayCell() {

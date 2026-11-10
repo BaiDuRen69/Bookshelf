@@ -4,6 +4,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import com.bai.bookshelf.data.entity.Book;
+import com.bai.bookshelf.data.entity.CheckIn;
 
 import org.junit.Test;
 
@@ -125,5 +126,71 @@ public class ReadingCalendarTest {
         bySeq.put(1, Arrays.asList(20260101));
         assertEquals("模糊轮不受日集合影响，照旧铺区间", 3,
                 ReadingCalendar.dailyDays(book, bySeq).size());
+    }
+
+    // ===== v5.9.5 第 4 项：累计阅读天数 =「铺出来的阅读日」∪「打卡日」去重 =====
+
+    private static CheckIn checkIn(long bookId, int dayKey) {
+        CheckIn c = new CheckIn();
+        c.bookId = bookId;
+        c.dayKey = dayKey;
+        return c;
+    }
+
+    @Test
+    public void distinctDaysUnionsRangeAndCheckInsWithoutDoubleCounting() {
+        // 模糊区间 11/01–11/03 铺出三天；打卡 11/03 与区间重叠、11/05 是区间外新增一天
+        Book book = bookWithRecord(Book.READ_DONE, "2026-11-01", "2026-11-03");
+        int days = ReadingCalendar.distinctDays(Arrays.asList(book), null,
+                Arrays.asList(checkIn(1, 20261103), checkIn(1, 20261105)), 20261108);
+        assertEquals("重叠那天只算一次：01 02 03 05", 4, days);
+    }
+
+    @Test
+    public void distinctDaysIgnoresFutureCheckIns() {
+        Book book = bookWithRecord(Book.READ_DONE, "2026-11-01", "2026-11-03");
+        int days = ReadingCalendar.distinctDays(Arrays.asList(book), null,
+                Arrays.asList(checkIn(1, 20261201)), 20261108);
+        assertEquals("补到未来的卡不计入今天之后的天数", 3, days);
+    }
+
+    @Test
+    public void distinctDaysIgnoresFutureRangesToo() {
+        Book book = bookWithRecord(Book.READING, "2026-11-01", "2026-11-30");
+        int days = ReadingCalendar.distinctDays(Arrays.asList(book), null, null, 20261108);
+        assertEquals("区间铺到今天为止", 8, days);
+    }
+
+    @Test
+    public void preciseRoundWithoutDaySetAddsNoDays() {
+        Book book = new Book();
+        book.id = 7;
+        List<ReadingRecords.Record> records = new ArrayList<>();
+        ReadingRecords.Record r = new ReadingRecords.Record(1);
+        r.status = Book.READ_DONE;
+        r.mode = ReadingRecords.MODE_PRECISE;
+        r.startDate = "2026-11-01";
+        r.endDate = "2026-11-05";
+        records.add(r);
+        ReadingRecords.syncTo(book, records);
+
+        assertEquals("精确轮没有日集合就不铺日，只剩打卡那天", 1,
+                ReadingCalendar.distinctDays(Arrays.asList(book), null,
+                        Arrays.asList(checkIn(7, 20261102)), 20261108));
+
+        Map<Long, Map<Integer, List<Integer>>> precise = new java.util.HashMap<>();
+        Map<Integer, List<Integer>> bySeq = new java.util.HashMap<>();
+        bySeq.put(1, Arrays.asList(20261101, 20261102, 20261103));
+        precise.put(7L, bySeq);
+        assertEquals("给了日集合按集合铺，与打卡去重", 3,
+                ReadingCalendar.distinctDays(Arrays.asList(book), precise,
+                        Arrays.asList(checkIn(7, 20261102)), 20261108));
+    }
+
+    @Test
+    public void emptyLibraryIsZeroDays() {
+        assertEquals("空库是 0 天，不是未知", 0,
+                ReadingCalendar.distinctDays(new ArrayList<Book>(), null,
+                        new ArrayList<CheckIn>(), 20261108));
     }
 }

@@ -1,22 +1,20 @@
 package com.bai.bookshelf.ui.stats;
 
 import android.app.Activity;
-import android.view.View;
 
-import com.bai.bookshelf.app.BookshelfApp;
 import com.bai.bookshelf.data.entity.Book;
 import com.bai.bookshelf.util.BookFlags;
+import com.bai.bookshelf.util.StatsHoldings;
 import com.bai.bookshelf.databinding.ActivityReadingStatsBinding;
 
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.TreeMap;
 
 /**
- * 统计页「总」视图：首购至今的相伴时长、总量数字（买/录入/已读/在读/未读）
+ * 统计页「总」视图：累计花费、总量数字（买/录入/已读/在读/未读）
  * 与每年购买本数的柱状图。
  */
 public class StatsTotalView {
@@ -29,7 +27,7 @@ public class StatsTotalView {
         this.b = b;
     }
 
-    public void render(List<Book> books) {
+    public void render(List<Book> books, StatsHoldings.Holdings hold) {
         int bought = 0;
         int done = 0;
         int reading = 0;
@@ -68,35 +66,21 @@ public class StatsTotalView {
         b.tvTotalNone.setText(String.valueOf(none));
         b.tvTotalDropped.setText(String.valueOf(dropped));
 
+        // v5.9.5：大字改为累计花费（自购实付按册累计），
+        // 原先这里按「首购日→今天的日历时间」换算成小时分钟，口径是错的
+        b.tvTotalCost.setText(hold.paid > 0 ? StatsText.formatMoney(hold.paid) : "暂无花费");
+
         int[] first = StatsText.parseYmd(firstPurchase);
         if (first == null) {
-            b.tvTotalDuration.setText("暂无购买记录");
-            b.tvTotalRange.setText("录入书籍时填写购买日期后即可统计");
-            b.tvTotalCompanion.setVisibility(View.GONE);
+            b.tvTotalRange.setText(hold.paid > 0
+                    ? "购买日期未填，无法按年统计"
+                    : "录入购买价格后即可统计");
             b.chartTotal.setData(new ArrayList<>(), new ArrayList<>());
-            renderCompanionLine(); // 无购买记录也展示「相伴」
             return;
         }
 
-        Calendar firstCal = Calendar.getInstance();
-        firstCal.clear();
-        firstCal.set(first[0], first[1], first[2]);
-        long now = System.currentTimeMillis();
-        long elapsedMillis = Math.max(0, now - firstCal.getTimeInMillis());
-
-        // v2.9：大字改为「已阅读 X 小时 X 分钟」（首购至今换算，数字放大突出）
-        long hours = elapsedMillis / 3600000L;
-        long minutes = (elapsedMillis / 60000L) % 60;
-        b.tvTotalDuration.setText(StatsText.buildDurationText(hours, minutes));
-
-        // 小字 1：首购至今多少天
-        b.tvTotalRange.setText(String.format(Locale.getDefault(),
-                "%s至今，已阅读 %d 天",
-                StatsText.formatYmd(first[0], first[1] + 1, first[2]),
-                elapsedMillis / 86400000L));
-
-        // 小字 2：首次打开 App 至今，与小书房相伴多少天
-        renderCompanionLine();
+        b.tvTotalRange.setText(String.format(Locale.getDefault(), "%s首购至今 · 已购 %d 种",
+                StatsText.formatYmd(first[0], first[1] + 1, first[2]), bought));
 
         // 每年购买本数
         TreeMap<Integer, Integer> yearly = new TreeMap<>();
@@ -119,23 +103,5 @@ public class StatsTotalView {
         b.chartTotal.setData(labels, values);
         // v4.21：切换页签时清掉高亮
         b.chartTotal.setHighlightedIndex(-1);
-    }
-
-    /** 「首次打开 App 至今 · 与小书房相伴了 N 天」（v2.9；first_launch_at 由 BookshelfApp 持久化） */
-    private void renderCompanionLine() {
-        long firstLaunch = BookshelfApp.firstLaunchAt();
-        if (firstLaunch <= 0) {
-            b.tvTotalCompanion.setVisibility(View.GONE);
-            return;
-        }
-        b.tvTotalCompanion.setVisibility(View.VISIBLE);
-        Calendar firstCal = Calendar.getInstance();
-        firstCal.setTimeInMillis(firstLaunch);
-        long days = Math.max(0, (System.currentTimeMillis() - firstLaunch) / 86400000L);
-        b.tvTotalCompanion.setText(String.format(Locale.getDefault(),
-                "%s至今 · 与小书房相伴了 %d 天",
-                StatsText.formatYmd(firstCal.get(Calendar.YEAR),
-                        firstCal.get(Calendar.MONTH) + 1,
-                        firstCal.get(Calendar.DAY_OF_MONTH)), days));
     }
 }

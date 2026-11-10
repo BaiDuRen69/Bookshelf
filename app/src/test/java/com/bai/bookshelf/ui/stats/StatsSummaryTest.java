@@ -1,11 +1,11 @@
 package com.bai.bookshelf.ui.stats;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import com.bai.bookshelf.util.StatsHoldings;
 import com.bai.bookshelf.util.StatsLend;
-import com.bai.bookshelf.util.StatsPace;
 import com.bai.bookshelf.util.StatsSpend;
 
 import org.junit.Test;
@@ -31,7 +31,7 @@ public class StatsSummaryTest {
         StatsSpend.Spend s = new StatsSpend.Spend();
         s.paid = 3523;
         assertEquals(3, StatsSummary.books(holdings(), s).length);
-        assertEquals(3, StatsSummary.reading(holdings(), new StatsPace.Habit()).length);
+        assertEquals(3, StatsSummary.reading(holdings(), 120).length);
         assertEquals(3, StatsSummary.purchase(s).length);
         assertEquals(3, StatsSummary.loan(holdings(), new StatsLend.Lend()).length);
     }
@@ -61,9 +61,32 @@ public class StatsSummaryTest {
         l.onTimeRate = -1;
         assertEquals("—", StatsSummary.loan(holdings(), l)[2][1]);
 
-        StatsPace.Habit habit = new StatsPace.Habit();
-        habit.currentStreak = 0;
-        assertEquals("—", StatsSummary.reading(holdings(), habit)[2][1]);
+        // totalDays = -1：统计还没算出来，给「—」而不是 0
+        assertEquals("—", StatsSummary.reading(holdings(), -1)[2][1]);
+    }
+
+    @Test
+    public void readingColumnUsesTotalDaysNotStreak() {
+        String[][] u = StatsSummary.reading(holdings(), 120);
+        assertEquals("已读", u[0][0]);
+        assertEquals("7", u[0][1]);
+        assertEquals("种", u[0][2]);
+        assertEquals("在读", u[1][0]);
+        assertEquals("35", u[1][1]);
+        // v5.9.5 第 4 项：第三格换成累计阅读天数，连续打卡天归入洞察
+        assertEquals("阅读时长", u[2][0]);
+        assertEquals("120", u[2][1]);
+        assertEquals("天", u[2][2]);
+        for (String[] cell : u) {
+            assertFalse("摘要行不再出现连续打卡口径", cell[0].contains("连续"));
+        }
+    }
+
+    @Test
+    public void zeroReadingDaysIsShownNotDashed() {
+        String[][] u = StatsSummary.reading(holdings(), 0);
+        assertEquals("0", u[2][1]);
+        assertEquals("天", u[2][2]);
     }
 
     @Test
@@ -87,6 +110,6 @@ public class StatsSummaryTest {
         }
         assertEquals("—", StatsSummary.purchase(null)[0][1]);
         assertEquals("—", StatsSummary.loan(null, null)[0][1]);
-        assertEquals("—", StatsSummary.reading(null, null)[0][1]);
+        assertEquals("—", StatsSummary.reading(null, -1)[0][1]);
     }
 }

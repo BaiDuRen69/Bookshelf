@@ -1,6 +1,7 @@
 package com.bai.bookshelf.util;
 
 import android.content.Context;
+import android.util.Log;
 
 import com.bai.bookshelf.BuildConfig;
 import com.bai.bookshelf.app.BookshelfApp;
@@ -41,6 +42,8 @@ import java.util.zip.ZipOutputStream;
  * 从「比字节」改成「比校验和」（见 {@link BackupManager}）。
  */
 public final class ZipBackup {
+
+    private static final String TAG = "ZipBackup";
 
     /** 参与备份的图片扩展名（小写） */
     private static final String[] IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".gif"};
@@ -132,6 +135,8 @@ public final class ZipBackup {
         root.add("borrowers", new Gson().toJsonTree(db.borrowerDao().getAll()));
         // 第 ④ 步：每日阅读打卡；老备份没有这个键，ZipRestore.readList 会返回空列表
         root.add("check_ins", new Gson().toJsonTree(db.checkInDao().getAll()));
+        // v5.9.5 第 1 项：白名单设置随包迁移（不含 API 密钥、应用锁、SAF 授权）
+        root.add("settings", SettingsBackup.export(ctx));
         byte[] jsonBytes = new Gson().toJson(root).getBytes(StandardCharsets.UTF_8);
 
         // ---- 2. 收集 filesDir 下的图片（排序保证条目集合稳定） ----
@@ -170,6 +175,9 @@ public final class ZipBackup {
             zos.flush();
             raw.getFD().sync();
         }
+        Log.i(TAG, "打包完成 → " + out.getAbsolutePath()
+                + "｜书目 " + meta.books + "，图片条目 " + meta.media
+                + "，未压缩 " + meta.bytes + " 字节，校验和 " + meta.checksum);
         return meta;
     }
 

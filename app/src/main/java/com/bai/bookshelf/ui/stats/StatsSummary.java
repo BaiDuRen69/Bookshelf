@@ -54,13 +54,14 @@ final class StatsSummary {
         };
     }
 
-    /** 阅读栏：已读种 / 在读种 / 连续打卡天 */
-    static String[][] reading(StatsHoldings.Holdings h, StatsPace.Habit habit) {
+    /** 阅读栏：已读种 / 在读种 / 累计阅读天数（v5.9.5 第 4 项，替代连续打卡天） */
+    static String[][] reading(StatsHoldings.Holdings h, int totalDays) {
         return new String[][]{
                 unit("已读", h == null ? null : String.valueOf(h.readDone), "种"),
                 unit("在读", h == null ? null : String.valueOf(h.reading), "种"),
-                unit("连续打卡", habit == null || habit.currentStreak <= 0 ? null
-                        : String.valueOf(habit.currentStreak), "天"),
+                // totalDays < 0 表示还没算出来；0 是已知值，要显示「0 天」而不是「—」
+                unit("阅读时长", h == null || totalDays < 0 ? null
+                        : String.valueOf(totalDays), "天"),
         };
     }
 

@@ -2,6 +2,7 @@ package com.bai.bookshelf.util;
 
 import android.content.Context;
 import android.net.Uri;
+import android.util.Log;
 
 import com.bai.bookshelf.data.AppDatabase;
 import com.bai.bookshelf.data.entity.Book;
@@ -29,6 +30,8 @@ import java.util.Set;
  */
 public final class ExcelImporter {
 
+    private static final String TAG = "ExcelImporter";
+
     /** 导入结果统计 */
     public static class Result {
         public int added;   // 成功新增的本数
@@ -53,6 +56,7 @@ public final class ExcelImporter {
         List<String[]> rows = XlsxReader.readSheet(ctx, uri);
         Result result = new Result();
         if (rows.size() < 2) {
+            Log.i(TAG, "xlsx 里只有表头或压根没行，本次不写库");
             return result; // 只有表头或空文件
         }
 
@@ -65,6 +69,7 @@ public final class ExcelImporter {
             }
         }
         if (!colOf.containsKey("书名")) {
+            Log.w(TAG, "表头认不出「书名」列，实际表头=" + java.util.Arrays.toString(header));
             throw new java.io.IOException("表头缺少「书名」列，这不是本应用导出的备份格式");
         }
 
@@ -173,6 +178,9 @@ public final class ExcelImporter {
                 db.categoryDao().insert(cat);
             }
         }
+        Log.i(TAG, "导入完成：数据行 " + (rows.size() - 1) + "，新增 " + result.added
+                + "，跳过 " + result.skipped + " 行（书名为空或 ISBN 已存在），修正 "
+                + result.fixed + " 个识别不了的字段（已按默认值写库）");
         return result;
     }
 

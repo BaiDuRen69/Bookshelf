@@ -2,6 +2,7 @@ package com.bai.bookshelf.util;
 
 import android.content.Context;
 import android.net.Uri;
+import android.util.Log;
 
 import com.bai.bookshelf.data.AppDatabase;
 import com.bai.bookshelf.data.entity.Book;
@@ -40,6 +41,8 @@ import java.util.List;
  */
 public final class ZipRestore {
 
+    private static final String TAG = "ZipRestore";
+
     /** 恢复结果统计 */
     public static class Result {
         public int books;  // 恢复的书籍数
@@ -48,6 +51,8 @@ public final class ZipRestore {
         public boolean legacy;
         /** 备份的 App 版本低于当前版本（正常升级路径，恢复后由迁移补齐） */
         public int fromDbVersion;
+        /** 包里带白名单设置且至少写入了一项（v5.9.5 第 1 项；不含 API 密钥与应用锁） */
+        public boolean settingsApplied;
     }
 
     private ZipRestore() {
@@ -74,18 +79,23 @@ public final class ZipRestore {
             try {
                 String canonical = out.getCanonicalPath();
                 if (!canonical.startsWith(filesDirCanonical + java.io.File.separator)) {
-                    continue; // 双保险：落点必须在 filesDir 内
+                    // 包里的路径想往外写（恶意/损坏包），拦掉并记一笔：少一张图要能查出来
+                    Log.w(TAG, "跳过越界条目（落点在 filesDir 之外）：" + relative);
+                    continue;
                 }
                 File parent = out.getParentFile();
                 if (parent != null && !parent.exists() && !parent.mkdirs()) {
+                    Log.w(TAG, "目录建不出来，跳过这张图：" + relative);
                     continue;
                 }
                 if (!child.renameTo(out) && !copyThen(child, out)) {
+                    Log.w(TAG, "既搬不动也拷不动，跳过这张图：" + relative);
                     continue;
                 }
                 moved++;
             } catch (IOException e) {
                 // 单个文件挪不动就跳过，不因此放弃整次恢复
+                Log.w(TAG, "读取落点路径失败，跳过这张图：" + relative, e);
             }
         }
         return moved;
@@ -146,27 +156,33 @@ public final class ZipRestore {
                 try {
                     if (!out.getCanonicalPath().startsWith(
                             staging.getCanonicalPath() + File.separator)) {
+                        Log.w(TAG, "解包时丢弃越界条目：" + relativeName);
                         return null; // 目录穿越：这个条目直接丢弃
                     }
                 } catch (IOException e) {
+                    Log.w(TAG, "解包时算不出落点，丢弃该条目：" + relativeName, e);
                     return null;
                 }
                 File parent = out.getParentFile();
                 if (parent != null && !parent.exists() && !parent.mkdirs()) {
+                    Log.w(TAG, "暂存子目录建不出来，丢弃该条目：" + relativeName);
                     return null;
                 }
                 try {
                     return new FileOutputStream(out);
                 } catch (IOException e) {
+                    Log.w(TAG, "暂存文件打不开，丢弃该条目：" + relativeName, e);
                     return null;
                 }
             });
         } catch (Exception e) {
+            Log.w(TAG, "解包中途失败，暂存目录整个删掉，正式目录与数据库未动", e);
             deleteRecursively(staging);
             throw e;
         }
         BackupInspector.Info info = BackupInspector.validateStreamingCurrent(entries);
         if (!info.ok()) {
+            Log.w(TAG, "校验没过，整包作废（暂存目录已删，正式目录与数据库未动）：" + info.reject);
             deleteRecursively(staging);
             throw new IOException(info.reject);
         }
@@ -263,6 +279,21 @@ public final class ZipRestore {
                 db.checkInDao().insertAll(restored);
             }
         });
+        // v5.9.5 第 1 项：数据落库后再动偏好——设置恢复失败绝不能让整包恢复失败
+        boolean settingsApplied = false;
+        if (root.has("settings") && root.get("settings").isJsonObject()) {
+            try {
+                settingsApplied = SettingsBackup.restore(ctx, root.getAsJsonObject("settings"));
+            } catch (Throwable t) {
+                // 书目已经写进去了，只有偏好没回来——不能崩，但要留下痕迹
+                Log.w(TAG, "备份里的设置项没能恢复（藏书已恢复，主题/备份开关等沿用本机现状）", t);
+            }
+        }
+        result.settingsApplied = settingsApplied;
+        Log.i(TAG, "恢复完成：" + result.books + " 种 · 图片 " + result.media
+                + " 张 · 来自 DB v" + result.fromDbVersion
+                + (result.legacy ? "（旧版包）" : "")
+                + "· 设置" + (settingsApplied ? "已恢复" : "未恢复"));
         return result;
     }
 

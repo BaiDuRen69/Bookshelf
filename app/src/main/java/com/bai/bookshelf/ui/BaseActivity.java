@@ -1,6 +1,7 @@
 package com.bai.bookshelf.ui;
 
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 
 import androidx.annotation.Nullable;
@@ -22,6 +23,8 @@ import com.bai.bookshelf.util.ThemeManager;
  * 加状态栏内边距。
  */
 public class BaseActivity extends AppCompatActivity {
+
+    private static final String TAG = "BaseActivity";
 
     /**
      * v5.8.29：本页面 onCreate 时生效的主题 id。{@code ThemePickerDialog} 只 recreate
@@ -90,8 +93,9 @@ public class BaseActivity extends AppCompatActivity {
         try {
             getWindow().setStatusBarColor(headerColor());
             getWindow().setNavigationBarColor(ThemeManager.resolveColor(this, R.attr.surface));
-        } catch (RuntimeException ignored) {
+        } catch (RuntimeException e) {
             // API 35+ 上系统会忽略 setStatusBarColor（强制 edge-to-edge），属正常，不能因此崩
+            Log.w(TAG, "系统栏配色未生效（API 35+ 忽略 setStatusBarColor 属预期）", e);
         }
     }
 

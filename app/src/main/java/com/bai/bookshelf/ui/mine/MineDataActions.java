@@ -16,7 +16,10 @@ import com.bai.bookshelf.app.BookshelfApp;
 import com.bai.bookshelf.databinding.FragmentMineBinding;
 import com.bai.bookshelf.util.BackupInspector;
 import com.bai.bookshelf.util.BackupManager;
+import com.bai.bookshelf.util.BorrowReminder;
+import com.bai.bookshelf.util.CheckInReminder;
 import com.bai.bookshelf.util.ExcelImporter;
+import com.bai.bookshelf.util.ZipBackup;
 import com.bai.bookshelf.util.ZipRestore;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
@@ -43,6 +46,12 @@ public class MineDataActions {
     private final ActivityResultLauncher<String[]> pickImportLauncher;
     /** 选择备份文件夹（SAF） */
     private final ActivityResultLauncher<Uri> backupTreeLauncher;
+    /** 选「导出到…」的目标位置（SAF 创建文档） */
+    private final ActivityResultLauncher<String> exportZipLauncher;
+    /** 非 null 表示导出这份现成的内部备份；null 表示当场重新打包 */
+    private File pendingExportFile;
+    /** 导出重入锁 */
+    private boolean exporting;
 
     public MineDataActions(Fragment fragment) {
         this.fragment = fragment;
@@ -65,8 +74,17 @@ public class MineDataActions {
                     BackupManager.setTree(fragment.requireContext(), uri, uri.getLastPathSegment());
                     refreshRows();
                     Toast.makeText(fragment.requireContext(),
-                            "备份文件夹已设置（自动备份将在此保留一份副本）",
+                            R.string.mine_folder_set,
                             Toast.LENGTH_SHORT).show();
+                });
+        this.exportZipLauncher = fragment.registerForActivityResult(
+                new ActivityResultContracts.CreateDocument("application/zip"),
+                uri -> {
+                    if (uri != null && fragment.isAdded()) {
+                        exportZipTo(uri);
+                    } else {
+                        pendingExportFile = null;
+                    }
                 });
     }
 
@@ -86,8 +104,7 @@ public class MineDataActions {
         BackupManager.setEnabled(fragment.requireContext(), nowEnabled);
         refreshRows();
         Toast.makeText(fragment.requireContext(),
-                nowEnabled ? "已开启：每次打开 App 时备份（每天最多一次）"
-                        : "已关闭自动备份",
+                nowEnabled ? R.string.mine_auto_on_toast : R.string.mine_auto_off_toast,
                 Toast.LENGTH_SHORT).show();
     }
 
@@ -97,18 +114,19 @@ public class MineDataActions {
             return;
         }
         Context ctx = fragment.requireContext();
-        b.tvAutoBackupState.setText(BackupManager.isEnabled(ctx)
-                ? "已开启（每天最多一次）" : "已关闭");
+        b.tvAutoBackupState.setText(ctx.getString(BackupManager.isEnabled(ctx)
+                ? R.string.mine_auto_on : R.string.mine_auto_off));
         String dirName = BackupManager.getTreeName(ctx);
         String dirState;
         if (dirName.isEmpty()) {
-            dirState = "未选择";
+            dirState = ctx.getString(R.string.mine_dir_none);
         } else if (BackupManager.safBroken(ctx)) {
             // 设了文件夹却写不进去：必须说出来，否则用户以为外部副本一直在更新
             long failAt = BackupManager.safLastFailAt(ctx);
-            dirState = "外部副本自 " + friendlyTime(failAt) + " 起未更新，点此重新授权";
+            dirState = ctx.getString(R.string.mine_dir_broken, friendlyTime(ctx, failAt));
         } else if (BackupManager.safLastOkAt(ctx) > 0) {
-            dirState = dirName + " · 外部副本 " + friendlyTime(BackupManager.safLastOkAt(ctx));
+            dirState = ctx.getString(R.string.mine_dir_ok, dirName,
+                    friendlyTime(ctx, BackupManager.safLastOkAt(ctx)));
         } else {
             dirState = dirName;
         }
@@ -118,21 +136,27 @@ public class MineDataActions {
         b.rowBackupReminder.setVisibility(stale ? View.VISIBLE : View.GONE);
         b.dividerBackupReminder.setVisibility(stale ? View.VISIBLE : View.GONE);
         if (stale) {
-            b.tvBackupReminderState.setText("最新备份是 "
-                    + BackupManager.latestBackupAgeDays(ctx) + " 天前，点此立即备份");
+            b.tvBackupReminderState.setText(ctx.getString(R.string.mine_dir_stale,
+                    BackupManager.latestBackupAgeDays(ctx)));
         }
         // v4.45：备份区直接给「上次备份时间 · 大小 · 份数」，让用户对备份有底
         // v5.7：能读出 meta 就顺带告诉用户那份备份里有几本、是哪个版本生成的
         List<File> files = BackupManager.listInternalBackups(ctx);
         if (files.isEmpty()) {
-            b.tvBackupFilesState.setText("还没有备份（点此立即备份）");
+            b.tvBackupFilesState.setText(R.string.mine_files_none);
         } else {
             File latest = files.get(files.size() - 1);
             String detail = BackupManager.describeBackup(latest);
-            b.tvBackupFilesState.setText("上次 " + friendlyTime(latest.lastModified())
-                    + " · " + humanSize(latest.length()) + " · 共 " + files.size() + " 份"
-                    + (detail == null ? "" : "\n" + detail + " · 点此查看/验证"));
+            b.tvBackupFilesState.setText(detail == null
+                    ? ctx.getString(R.string.mine_files_state,
+                            friendlyTime(ctx, latest.lastModified()),
+                            humanSize(latest.length()), files.size())
+                    : ctx.getString(R.string.mine_files_state_detail,
+                            friendlyTime(ctx, latest.lastModified()),
+                            humanSize(latest.length()), files.size(), detail));
         }
+        // 4.3：失败追加在最后一行——「上次 …」描述的是那个能读出来的文件，掩盖不了刚发生的失败
+        b.tvBackupFilesState.setText(b.tvBackupFilesState.getText() + failureNote(ctx));
     }
 
     /** 关掉「备份太久没更新」提醒（30 天内不再提示） */
@@ -142,7 +166,7 @@ public class MineDataActions {
     }
 
     /** 备份时间的人话展示：今天/昨天 时:分，更早则 月日 时:分 */
-    private static String friendlyTime(long time) {
+    private static String friendlyTime(Context ctx, long time) {
         Calendar target = Calendar.getInstance();
         target.setTimeInMillis(time);
         Calendar now = Calendar.getInstance();
@@ -150,13 +174,19 @@ public class MineDataActions {
         boolean today = target.get(Calendar.YEAR) == now.get(Calendar.YEAR)
                 && target.get(Calendar.DAY_OF_YEAR) == now.get(Calendar.DAY_OF_YEAR);
         if (today) {
-            return "今天 " + hm.format(target.getTime());
+            return ctx.getString(R.string.mine_time_today, hm.format(target.getTime()));
         }
         now.add(Calendar.DAY_OF_YEAR, -1);
         boolean yesterday = target.get(Calendar.YEAR) == now.get(Calendar.YEAR)
                 && target.get(Calendar.DAY_OF_YEAR) == now.get(Calendar.DAY_OF_YEAR);
-        SimpleDateFormat md = new SimpleDateFormat("M月d日 HH:mm", Locale.getDefault());
-        return (yesterday ? "昨天 " : "") + (yesterday ? "" : md.format(target.getTime()));
+        if (yesterday) {
+            // 「昨天」后面本来就带一个空格，拼进「上次 昨天  · 」会多出一个空格；
+            // 这是改前就有的显示，文案迁移阶段原样保留。
+            return ctx.getString(R.string.mine_time_yesterday);
+        }
+        SimpleDateFormat md = new SimpleDateFormat(
+                ctx.getString(R.string.mine_time_pattern), Locale.getDefault());
+        return md.format(target.getTime());
     }
 
     /** 文件大小自适应单位（<1MB 用 KB，否则用 MB） */
@@ -170,7 +200,7 @@ public class MineDataActions {
     /** 立即备份（v4.45）：后台生成 zip，完成后刷新状态并提示大小 */
     public void manualBackup() {
         final Context appCtx = fragment.requireContext().getApplicationContext();
-        Toast.makeText(appCtx, "正在备份…", Toast.LENGTH_SHORT).show();
+        Toast.makeText(appCtx, R.string.mine_backup_running, Toast.LENGTH_SHORT).show();
         BookshelfApp.get().bg(() -> {
             BackupManager.Outcome o = BackupManager.backupNow(appCtx);
             BookshelfApp.get().ui(() -> {
@@ -180,14 +210,16 @@ public class MineDataActions {
                 refreshRows();
                 String msg;
                 if (o.meta != null) {
-                    msg = "备份完成：" + o.meta.books + " 种 · " + humanSize(o.bytes);
+                    msg = appCtx.getString(R.string.mine_backup_done,
+                            com.bai.bookshelf.util.Units.titles(o.meta.books),
+                            humanSize(o.bytes));
                     if (o.safFailed) {
-                        msg += "\n外部副本没写进去（" + o.safError + "），点备份文件夹行重新授权";
+                        msg += appCtx.getString(R.string.mine_backup_saf_failed, o.safError);
                     }
                 } else if (o.empty) {
-                    msg = "还没有藏书，无需备份";
+                    msg = appCtx.getString(R.string.mine_backup_empty);
                 } else {
-                    msg = "备份失败，请稍后再试";
+                    msg = appCtx.getString(R.string.mine_backup_failed);
                 }
                 Toast.makeText(fragment.requireContext(), msg, Toast.LENGTH_LONG).show();
             });
@@ -201,7 +233,7 @@ public class MineDataActions {
      */
     public void verifyBackups() {
         final Context appCtx = fragment.requireContext().getApplicationContext();
-        Toast.makeText(appCtx, "正在校验备份…", Toast.LENGTH_SHORT).show();
+        Toast.makeText(appCtx, R.string.mine_verify_running, Toast.LENGTH_SHORT).show();
         BookshelfApp.get().bg(() -> {
             List<BackupManager.Verified> list = BackupManager.verifyInternal(appCtx);
             int copies = com.bai.bookshelf.util.PreMigrationBackup.count(appCtx);
@@ -210,45 +242,102 @@ public class MineDataActions {
                     return;
                 }
                 new MaterialAlertDialogBuilder(fragment.requireContext())
-                        .setTitle("备份校验结果")
-                        .setMessage(buildVerifyText(list, copies))
-                        .setNeutralButton("立即备份", (d, w) -> manualBackup())
+                        .setTitle(R.string.mine_verify_title)
+                        .setMessage(buildVerifyText(appCtx, list, copies))
+                        .setNeutralButton(R.string.mine_backup_now, (d, w) -> manualBackup())
                         .setPositiveButton(R.string.action_ok, null)
                         .show();
             });
         });
     }
 
-    private String buildVerifyText(List<BackupManager.Verified> list, int copies) {
+    private String buildVerifyText(Context ctx, List<BackupManager.Verified> list, int copies) {
         if (list.isEmpty()) {
-            return "还没有备份文件。\n\n先点「立即备份」生成一份，再回来校验。";
+            return ctx.getString(R.string.mine_verify_empty);
         }
         StringBuilder sb = new StringBuilder();
         int bad = 0;
         for (int i = list.size() - 1; i >= 0; i--) { // 新→旧
             BackupManager.Verified v = list.get(i);
-            sb.append(friendlyTime(v.file.lastModified())).append(" · ")
-                    .append(humanSize(v.file.length())).append("：");
+            String when = friendlyTime(ctx, v.file.lastModified());
+            String size = humanSize(v.file.length());
             if (v.unreadable || v.info == null) {
-                sb.append("读不出来（文件已损坏？）");
+                sb.append(ctx.getString(R.string.mine_verify_line, when, size,
+                        ctx.getString(R.string.mine_verify_unreadable)));
                 bad++;
             } else if (!v.info.ok()) {
-                sb.append(v.info.reject);
+                sb.append(ctx.getString(R.string.mine_verify_line, when, size, v.info.reject));
                 bad++;
+            } else if (v.info.books >= 0) {
+                sb.append(ctx.getString(R.string.mine_verify_line_books, when, size,
+                        v.info.verifyText(), com.bai.bookshelf.util.Units.titles(v.info.books)));
             } else {
-                sb.append(v.info.verifyText());
-                if (v.info.books >= 0) {
-                    sb.append(" · ").append(v.info.books).append(" 种");
-                }
+                sb.append(ctx.getString(R.string.mine_verify_line, when, size,
+                        v.info.verifyText()));
             }
             sb.append('\n');
         }
-        sb.append(bad == 0 ? "\n全部备份完整可用。" : "\n有 " + bad + " 份有问题，建议立即重新备份。");
-        sb.append("\n\n数据库未加密，应用锁只锁界面；重要数据请定期把备份分享到应用外。");
+        sb.append(bad == 0 ? ctx.getString(R.string.mine_verify_all_ok)
+                : ctx.getString(R.string.mine_verify_bad, bad));
+        sb.append(ctx.getString(R.string.mine_verify_privacy));
         if (copies > 0) {
-            sb.append("\n升级前自动留的原始数据库副本：").append(copies).append(" 份。");
+            sb.append(ctx.getString(R.string.mine_verify_premigration, copies));
         }
         return sb.toString();
+    }
+
+    /**
+     * 最近一次备份 / 恢复失败的告警行（4.3）。成功不用重复——行首的「上次 …」说的就是它；
+     * 失败原先只落在 logcat，界面反而一直显示得像刚备份过。
+     */
+    private static String failureNote(Context ctx) {
+        StringBuilder sb = new StringBuilder();
+        appendFailure(ctx, sb, ctx.getString(R.string.mine_what_backup),
+                BackupManager.lastBackup(ctx));
+        appendFailure(ctx, sb, ctx.getString(R.string.mine_what_restore),
+                BackupManager.lastRestore(ctx));
+        return sb.toString();
+    }
+
+    private static void appendFailure(Context ctx, StringBuilder sb, String what,
+                                      BackupManager.LastResult r) {
+        if (r.at == 0 || r.ok) {
+            return;
+        }
+        String msg = truncate(r.msg, 46);
+        sb.append(msg.isEmpty()
+                ? ctx.getString(R.string.mine_fail_line, what, friendlyTime(ctx, r.at))
+                : ctx.getString(R.string.mine_fail_line_msg, what, friendlyTime(ctx, r.at), msg));
+    }
+
+    /** 过长的失败原因截断到 limit 个字符，超出补省略号 */
+    private static String truncate(String s, int limit) {
+        return s.length() > limit ? s.substring(0, limit) + "…" : s;
+    }
+
+    /**
+     * 最近一次备份 / 恢复的结果（4.3）。原先自动备份失败只有 logcat 里有，
+     * 界面只会说「上次备份是 X 天前」——成败都得让用户看见。
+     */
+    private String lastResultText(Context ctx) {
+        return formatResult(ctx, ctx.getString(R.string.mine_last_backup),
+                BackupManager.lastBackup(ctx))
+                + "\n" + formatResult(ctx, ctx.getString(R.string.mine_last_restore),
+                BackupManager.lastRestore(ctx)) + "\n";
+    }
+
+    private static String formatResult(Context ctx, String label, BackupManager.LastResult r) {
+        if (r.at == 0) {
+            return ctx.getString(R.string.mine_result_none, label);
+        }
+        String when = friendlyTime(ctx, r.at);
+        String msg = truncate(r.msg, 80);
+        if (msg.isEmpty()) {
+            return ctx.getString(r.ok ? R.string.mine_result_ok : R.string.mine_result_fail,
+                    label, when);
+        }
+        return ctx.getString(r.ok ? R.string.mine_result_ok_msg : R.string.mine_result_fail_msg,
+                label, when, msg);
     }
 
     /**
@@ -256,17 +345,16 @@ public class MineDataActions {
      * 分享走 FileProvider（backups/ 已加入 file_paths.xml），可发微信 / 网盘 / 邮件。
      */
     public void showBackupFiles() {
+        final Context appCtx = fragment.requireContext().getApplicationContext();
         List<File> files = BackupManager.listInternalBackups(fragment.requireContext());
         List<File> broken = com.bai.bookshelf.util.DbRepair
                 .listBrokenFiles(fragment.requireContext());
+        String results = lastResultText(appCtx);
         if (files.isEmpty() && broken.isEmpty()) {
             new MaterialAlertDialogBuilder(fragment.requireContext())
-                    .setTitle("备份文件管理")
-                    .setMessage("还没有备份文件。\n\n开启「自动备份」后，每次打开 App 时备份一次"
-                            + "（每天最多一次），在应用内保留最近 "
-                            + "5 份备份；也可以在这里把备份 zip 分享给自己（微信 / 网盘）。\n\n"
-                            + "⚠ 卸载应用会清空这里的备份，重要数据请定期分享到应用外。")
-                    .setNeutralButton("立即备份", (d, w) -> manualBackup())
+                    .setTitle(R.string.mine_files_title)
+                    .setMessage(appCtx.getString(R.string.mine_files_empty_msg, results))
+                    .setNeutralButton(R.string.mine_backup_now, (d, w) -> manualBackup())
                     .setPositiveButton(R.string.action_ok, null)
                     .show();
             return;
@@ -278,18 +366,19 @@ public class MineDataActions {
         SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault());
         for (File f : files) {
             String meta = BackupManager.describeBackup(f); // 只读 meta，不解压
-            labels.add(String.format(Locale.getDefault(), "%s（%s%s）",
-                    df.format(new Date(f.lastModified())), humanSize(f.length()),
-                    meta == null ? " · 旧版备份" : " · " + meta));
+            String when = df.format(new Date(f.lastModified()));
+            labels.add(meta == null
+                    ? appCtx.getString(R.string.mine_file_row_old, when, humanSize(f.length()))
+                    : appCtx.getString(R.string.mine_file_row, when, humanSize(f.length()), meta));
         }
         for (File f : broken) {
             all.add(f);
-            labels.add("损坏原件 · " + df.format(new Date(f.lastModified()))
-                    + "（" + humanSize(f.length()) + "）");
+            labels.add(appCtx.getString(R.string.mine_file_row_broken,
+                    df.format(new Date(f.lastModified())), humanSize(f.length())));
         }
         new MaterialAlertDialogBuilder(fragment.requireContext())
-                .setTitle("备份文件（新 → 旧）")
-                .setNeutralButton("立即备份", (d, w) -> manualBackup())
+                .setTitle(R.string.mine_files_list_title)
+                .setNeutralButton(R.string.mine_backup_now, (d, w) -> manualBackup())
                 .setItems(labels.toArray(new String[0]), (d, which) -> {
                     File f = all.get(which);
                     if (f.getName().contains(com.bai.bookshelf.util.DbRepair.BROKEN_SUFFIX)) {
@@ -298,17 +387,19 @@ public class MineDataActions {
                         showFileActions(f);
                     }
                 })
-                .setPositiveButton("验证备份", (d, w) -> verifyBackups())
+                .setPositiveButton(R.string.mine_verify_btn, (d, w) -> verifyBackups())
                 .setNegativeButton(R.string.action_cancel, null)
                 .show();
     }
 
     /** 被恢复流程换下来的原数据库：可以导出留存，也可以删掉腾空间 */
     private void showBrokenActions(File f) {
-        new MaterialAlertDialogBuilder(fragment.requireContext())
+        Context ctx = fragment.requireContext();
+        new MaterialAlertDialogBuilder(ctx)
                 .setTitle(f.getName())
-                .setMessage("这是恢复时换下来的原数据库。它可能打不开，但也许还有没导出的数据。")
-                .setItems(new String[]{"导出到应用外…", "删除原件"}, (d, which) -> {
+                .setMessage(R.string.mine_broken_msg)
+                .setItems(new String[]{ctx.getString(R.string.mine_broken_share),
+                        ctx.getString(R.string.mine_broken_delete)}, (d, which) -> {
                     if (which == 0) {
                         shareBroken(f);
                     } else {
@@ -340,39 +431,149 @@ public class MineDataActions {
             send.setType("application/octet-stream");
             send.putExtra(Intent.EXTRA_STREAM, uri);
             send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            fragment.startActivity(Intent.createChooser(send, "导出数据库原件"));
+            fragment.startActivity(Intent.createChooser(send,
+                    fragment.requireContext().getString(R.string.mine_broken_chooser)));
         } catch (Exception e) {
-            Toast.makeText(fragment.requireContext(), "导出失败：" + e.getMessage(),
+            Toast.makeText(fragment.requireContext(),
+                    fragment.requireContext().getString(R.string.mine_export_fail, e.getMessage()),
                     Toast.LENGTH_SHORT).show();
         }
     }
 
     private void confirmDeleteBroken(File f) {
-        new MaterialAlertDialogBuilder(fragment.requireContext())
-                .setTitle("删除损坏原件")
-                .setMessage("删掉后这份数据就彻底没了（备份 zip 不受影响）。确定删除？")
+        Context ctx = fragment.requireContext();
+        new MaterialAlertDialogBuilder(ctx)
+                .setTitle(R.string.mine_broken_delete_title)
+                .setMessage(R.string.mine_broken_delete_msg)
                 .setNegativeButton(R.string.action_cancel, null)
-                .setPositiveButton("删除", (d, w) -> {
+                .setPositiveButton(R.string.action_delete, (d, w) -> {
                     //noinspection ResultOfMethodCallIgnored
                     f.delete();
-                    Toast.makeText(fragment.requireContext(), "已删除", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(ctx, R.string.mine_deleted, Toast.LENGTH_SHORT).show();
                     refreshRows();
                 })
                 .show();
     }
 
     private void showFileActions(File f) {
-        new MaterialAlertDialogBuilder(fragment.requireContext())
+        Context ctx = fragment.requireContext();
+        new MaterialAlertDialogBuilder(ctx)
                 .setTitle(f.getName())
-                .setItems(new String[]{"分享到应用外…", "删除此备份"}, (d, which) -> {
+                .setItems(new String[]{ctx.getString(R.string.mine_file_share),
+                        ctx.getString(R.string.mine_file_export),
+                        ctx.getString(R.string.mine_file_delete)}, (d, which) -> {
                     if (which == 0) {
                         shareBackup(f);
+                    } else if (which == 1) {
+                        exportExisting(f);
                     } else {
                         confirmDelete(f);
                     }
                 })
                 .setNegativeButton(R.string.action_cancel, null)
                 .show();
+    }
+
+    /** 「导出备份 zip」：先选位置，再当场重新打包一份最新整包 */
+    public void exportZipNow() {
+        if (exporting) {
+            return;
+        }
+        pendingExportFile = null;
+        exportZipLauncher.launch(BackupManager.suggestExportFileName());
+    }
+
+    /** 将已有的内部备份另存到用户选的位置（内容不重新生成） */
+    private void exportExisting(File f) {
+        if (exporting) {
+            return;
+        }
+        pendingExportFile = f;
+        exportZipLauncher.launch(f.getName());
+    }
+
+    /** 打包（或直接取已有备份）后写进 SAF _uri，全程不申请存储权限 */
+    private void exportZipTo(Uri uri) {
+        if (exporting) {
+            return;
+        }
+        exporting = true;
+        final Context appCtx = fragment.requireContext().getApplicationContext();
+        final File source = pendingExportFile;
+        pendingExportFile = null;
+        final String name = displayName(appCtx, uri);
+        Toast.makeText(appCtx, R.string.mine_packing, Toast.LENGTH_SHORT).show();
+        BookshelfApp app = BookshelfApp.get();
+        app.io(() -> {
+            File tmp = null;
+            String fail = null;
+            long bytes = 0;
+            try {
+                File src = source;
+                if (src == null) {
+                    tmp = File.createTempFile("export_", ".zip", appCtx.getCacheDir());
+                    ZipBackup.createTo(appCtx, tmp);
+                    src = tmp;
+                }
+                bytes = src.length();
+                try (java.io.InputStream in = new java.io.FileInputStream(src);
+                     java.io.OutputStream out =
+                             appCtx.getContentResolver().openOutputStream(uri, "wt")) {
+                    if (out == null) {
+                        throw new java.io.IOException(
+                                appCtx.getString(R.string.mine_write_denied));
+                    }
+                    byte[] buf = new byte[8192];
+                    int n;
+                    while ((n = in.read(buf)) > 0) {
+                        out.write(buf, 0, n);
+                    }
+                    out.flush();
+                }
+            } catch (Throwable e) {
+                fail = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
+            } finally {
+                if (tmp != null) {
+                    //noinspection ResultOfMethodCallIgnored
+                    tmp.delete();
+                }
+            }
+            final String error = fail;
+            final long size = bytes;
+            app.ui(() -> {
+                exporting = false;
+                if (!fragment.isAdded()) {
+                    return;
+                }
+                if (error != null) {
+                    new MaterialAlertDialogBuilder(fragment.requireContext())
+                            .setTitle(R.string.mine_export_fail_title)
+                            .setMessage(error)
+                            .setPositiveButton(R.string.action_ok, null)
+                            .show();
+                    return;
+                }
+                new MaterialAlertDialogBuilder(fragment.requireContext())
+                        .setTitle(R.string.mine_export_done_title)
+                        .setMessage(appCtx.getString(R.string.mine_export_done_msg,
+                                name, humanSize(size)))
+                        .setPositiveButton(R.string.action_ok, null)
+                        .show();
+            });
+        });
+    }
+
+    /** SAF 的 uri 里拿显示名（lastPathSegment 可能是 "primary:Download/…"，不适合直接给用户看） */
+    private static String displayName(Context ctx, Uri uri) {
+        try (android.database.Cursor c = ctx.getContentResolver().query(uri,
+                new String[]{android.provider.OpenableColumns.DISPLAY_NAME}, null, null, null)) {
+            if (c != null && c.moveToFirst() && !c.isNull(0)) {
+                return c.getString(0);
+            }
+        } catch (Throwable ignored) {
+        }
+        String last = uri.getLastPathSegment();
+        return last == null ? uri.toString() : last;
     }
 
     /** 通过系统分享面板把备份 zip 发出去（微信文件传输助手 / 网盘 / 邮件均可） */
@@ -384,18 +585,21 @@ public class MineDataActions {
             send.setType("application/zip");
             send.putExtra(Intent.EXTRA_STREAM, uri);
             send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            fragment.startActivity(Intent.createChooser(send, "分享备份文件"));
+            fragment.startActivity(Intent.createChooser(send,
+                    fragment.requireContext().getString(R.string.mine_share_chooser)));
         } catch (Exception e) {
-            Toast.makeText(fragment.requireContext(), "分享失败：" + e.getMessage(),
+            Toast.makeText(fragment.requireContext(),
+                    fragment.requireContext().getString(R.string.mine_share_fail, e.getMessage()),
                     Toast.LENGTH_SHORT).show();
         }
     }
 
     /** 删除一份备份（二次确认；删后刷新副标题） */
     private void confirmDelete(File f) {
-        new MaterialAlertDialogBuilder(fragment.requireContext())
-                .setTitle("删除备份")
-                .setMessage("确定删除 " + f.getName() + " 吗？此操作不可恢复。")
+        Context ctx = fragment.requireContext();
+        new MaterialAlertDialogBuilder(ctx)
+                .setTitle(R.string.mine_delete_title)
+                .setMessage(ctx.getString(R.string.mine_delete_msg, f.getName()))
                 .setPositiveButton(R.string.action_delete, (d, w) -> {
                     BackupManager.deleteInternalBackup(f);
                     refreshRows();
@@ -406,22 +610,20 @@ public class MineDataActions {
 
     /** 导入前确认：说明规则，避免误操作 */
     public void confirmImport() {
-        new MaterialAlertDialogBuilder(fragment.requireContext())
-                .setTitle("导入备份")
-                .setMessage("请选择备份文件：\n\n"
-                        + "· xlsx（导出 Excel 生成）：按 ISBN 合并导入，已存在的书会跳过；\n"
-                        + "· zip（自动备份生成，v2.8）：整包恢复，会清空当前所有数据（含图片）后按备份重写。\n\n"
-                        + "v5.7 起的 zip 带版本与校验和：恢复前会先预览并校验，"
-                        + "文件损坏或来自更高版本时拒绝恢复。")
-                .setPositiveButton("选择文件", (d, w) -> {
+        Context ctx = fragment.requireContext();
+        new MaterialAlertDialogBuilder(ctx)
+                .setTitle(R.string.mine_import_title)
+                .setMessage(R.string.mine_import_msg)
+                .setPositiveButton(R.string.mine_import_pick, (d, w) -> {
                     try {
                         pickImportLauncher.launch(new String[]{"*/*"});
                     } catch (Exception e) {
-                        Toast.makeText(fragment.requireContext(),
-                                "无法打开文件选择器：" + e.getMessage(), Toast.LENGTH_LONG).show();
+                        Toast.makeText(ctx,
+                                ctx.getString(R.string.mine_picker_fail, e.getMessage()),
+                                Toast.LENGTH_LONG).show();
                     }
                 })
-                .setNegativeButton("取消", null)
+                .setNegativeButton(R.string.action_cancel, null)
                 .show();
     }
 
@@ -455,7 +657,7 @@ public class MineDataActions {
      */
     private void confirmZipRestore(Uri uri) {
         final Context appCtx = fragment.requireContext().getApplicationContext();
-        Toast.makeText(appCtx, "正在校验备份…", Toast.LENGTH_SHORT).show();
+        Toast.makeText(appCtx, R.string.mine_verify_running, Toast.LENGTH_SHORT).show();
         BookshelfApp app = BookshelfApp.get();
         app.io(() -> {
             BackupInspector.Info info;
@@ -489,45 +691,44 @@ public class MineDataActions {
 
     private void showRestoreDialog(Uri uri, BackupInspector.Info info,
                                    String fileName, long fileSize) {
+        Context ctx = fragment.requireContext();
         StringBuilder msg = new StringBuilder();
         if (!fileName.isEmpty()) {
-            msg.append("文件：").append(fileName);
-            if (fileSize > 0) {
-                msg.append("（").append(humanSize(fileSize)).append("）");
-            }
-            msg.append('\n');
+            msg.append(fileSize > 0
+                    ? ctx.getString(R.string.mine_restore_file_size, fileName,
+                            humanSize(fileSize))
+                    : ctx.getString(R.string.mine_restore_file_only, fileName));
         }
         if (info == null) {
-            msg.append("读不出这个文件，确认它是小书房生成的 zip 备份了吗？");
-            new MaterialAlertDialogBuilder(fragment.requireContext())
-                    .setTitle("恢复 zip 备份")
+            msg.append(ctx.getString(R.string.mine_restore_unreadable));
+            new MaterialAlertDialogBuilder(ctx)
+                    .setTitle(R.string.mine_restore_title)
                     .setMessage(msg)
-                    .setPositiveButton("换一份", (d, w) -> confirmImport())
+                    .setPositiveButton(R.string.mine_restore_pick_other, (d, w) -> confirmImport())
                     .setNegativeButton(R.string.action_cancel, null)
                     .show();
             return;
         }
         msg.append(info.preview()).append("\n\n");
         if (!info.ok()) {
-            msg.append("已拒绝恢复：").append(info.reject)
-                    .append("\n\n建议先做一次「立即备份」，再换一份文件试试。");
-            new MaterialAlertDialogBuilder(fragment.requireContext())
-                    .setTitle("这份备份不能恢复")
+            msg.append(ctx.getString(R.string.mine_restore_reject, info.reject));
+            new MaterialAlertDialogBuilder(ctx)
+                    .setTitle(R.string.mine_restore_reject_title)
                     .setMessage(msg)
-                    .setNeutralButton("立即备份", (d, w) -> manualBackup())
+                    .setNeutralButton(R.string.mine_backup_now, (d, w) -> manualBackup())
                     .setPositiveButton(R.string.action_ok, null)
                     .show();
             return;
         }
         if (info.legacy()) {
-            msg.append("这是 v5.7 之前生成的备份，包里没有校验和，只能按内容恢复。\n\n");
+            msg.append(ctx.getString(R.string.mine_restore_legacy_note));
         }
-        msg.append("将清空当前所有藏书、借出记录与媒体文件，并按备份内容整体恢复。\n\n")
-                .append("确定继续吗？（建议先备份一次当前数据）");
-        new MaterialAlertDialogBuilder(fragment.requireContext())
-                .setTitle("恢复 zip 备份")
+        // v5.9.5 第 1 项：说清设置里哪些随包迁移，别让人以为备份=全量
+        msg.append(ctx.getString(R.string.mine_restore_warn));
+        new MaterialAlertDialogBuilder(ctx)
+                .setTitle(R.string.mine_restore_title)
                 .setMessage(msg)
-                .setPositiveButton("确认恢复", (d, w) -> restoreZip(uri))
+                .setPositiveButton(R.string.mine_restore_confirm, (d, w) -> restoreZip(uri))
                 .setNegativeButton(R.string.action_cancel, null)
                 .show();
     }
@@ -536,27 +737,51 @@ public class MineDataActions {
     private void restoreZip(Uri uri) {
         // 提前捕获应用上下文，避免异步回调里 requireContext() 因视图销毁而崩
         final Context appCtx = fragment.requireContext().getApplicationContext();
-        Toast.makeText(appCtx, "恢复中…", Toast.LENGTH_SHORT).show();
+        Toast.makeText(appCtx, R.string.mine_restoring, Toast.LENGTH_SHORT).show();
         BookshelfApp app = BookshelfApp.get();
         app.io(() -> {
             try {
                 ZipRestore.Result result = ZipRestore.restore(appCtx, uri, app.db());
-                String msg = "已恢复 " + result.books + " 种藏书\n恢复媒体文件 " + result.media + " 个"
-                        + (result.legacy ? "\n\n（旧版备份，未能校验完整性）" : "");
+                final String msg = appCtx.getString(R.string.mine_restored_msg,
+                        com.bai.bookshelf.util.Units.titles(result.books), result.media)
+                        + (result.legacy ? appCtx.getString(R.string.mine_restored_legacy) : "")
+                        + (result.settingsApplied
+                                ? appCtx.getString(R.string.mine_restored_settings) : "");
+                BackupManager.recordRestoreResult(appCtx, true,
+                        appCtx.getString(R.string.mine_restored_record,
+                                com.bai.bookshelf.util.Units.titles(result.books), result.media));
+                // 设置里的提醒开关/时间刚被改过，闹钟与小组件按新状态重排
+                BorrowReminder.refresh(appCtx);
+                CheckInReminder.schedule(appCtx);
+                com.bai.bookshelf.ui.widget.ReadingWidgetProvider.refresh(appCtx);
                 app.ui(() -> {
                     if (!fragment.isAdded()) {
                         return;
                     }
-                    new MaterialAlertDialogBuilder(fragment.requireContext())
-                            .setTitle("恢复完成")
-                            .setMessage(msg)
-                            .setPositiveButton("知道了", null)
-                            .show();
+                    // 主题/底栏要 recreate 才生效；不杀进程——一次性迁移任务不该重跑
+                    MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(
+                            fragment.requireContext())
+                            .setTitle(R.string.mine_restored_title)
+                            .setMessage(msg);
+                    if (result.settingsApplied) {
+                        builder.setPositiveButton(R.string.mine_relaunch, (d, w) ->
+                                fragment.requireActivity().recreate());
+                        builder.setNegativeButton(R.string.mine_got_it, null);
+                    } else {
+                        builder.setPositiveButton(R.string.mine_got_it, null);
+                    }
+                    builder.show();
                 });
             } catch (Exception e) {
+                BackupManager.recordRestoreResult(appCtx, false,
+                        appCtx.getString(R.string.mine_restore_fail_record,
+                                e.getMessage() == null ? e.getClass().getSimpleName()
+                                        : e.getMessage()));
                 app.ui(() -> new MaterialAlertDialogBuilder(appCtx)
-                        .setTitle("恢复失败")
-                        .setMessage(e.getMessage() == null ? "文件无法读取" : e.getMessage())
+                        .setTitle(R.string.mine_restore_fail_title)
+                        .setMessage(e.getMessage() == null
+                                ? appCtx.getString(R.string.mine_restore_fail_unreadable)
+                                : e.getMessage())
                         .setPositiveButton(R.string.action_ok, null)
                         .show());
             }
@@ -566,15 +791,15 @@ public class MineDataActions {
     private void importXlsx(Uri uri) {
         // 提前捕获应用上下文，避免异步回调里 requireContext() 因视图销毁而崩
         final Context appCtx = fragment.requireContext().getApplicationContext();
-        Toast.makeText(appCtx, "导入中…", Toast.LENGTH_SHORT).show();
+        Toast.makeText(appCtx, R.string.mine_importing, Toast.LENGTH_SHORT).show();
         BookshelfApp app = BookshelfApp.get();
         app.io(() -> {
             try {
                 ExcelImporter.Result result = ExcelImporter.importBooks(appCtx, uri, app.db());
-                String msg = "新增 " + result.added + " 种\n跳过 " + result.skipped
-                        + " 条（ISBN 已存在或书名为空）";
+                String msg = appCtx.getString(R.string.mine_imported_msg,
+                        com.bai.bookshelf.util.Units.titles(result.added), result.skipped);
                 if (result.fixed > 0) {
-                    msg += "\n修正 " + result.fixed + " 处（无法识别的数字/状态已按默认值导入）";
+                    msg += appCtx.getString(R.string.mine_imported_fixed, result.fixed);
                 }
                 String finalMsg = msg;
                 app.ui(() -> {
@@ -582,14 +807,15 @@ public class MineDataActions {
                         return;
                     }
                     new MaterialAlertDialogBuilder(fragment.requireContext())
-                            .setTitle("导入完成")
+                            .setTitle(R.string.mine_imported_title)
                             .setMessage(finalMsg)
-                            .setPositiveButton("知道了", null)
+                            .setPositiveButton(R.string.mine_got_it, null)
                             .show();
                 });
             } catch (Exception e) {
                 app.ui(() -> Toast.makeText(appCtx,
-                        "导入失败：" + e.getMessage(), Toast.LENGTH_LONG).show());
+                        appCtx.getString(R.string.mine_import_fail, e.getMessage()),
+                        Toast.LENGTH_LONG).show());
             }
         });
     }

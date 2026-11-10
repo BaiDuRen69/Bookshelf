@@ -2,6 +2,7 @@ package com.bai.bookshelf.api;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.util.Log;
 
 /**
  * ISBN 查询接口的配置存储（SharedPreferences）。
@@ -14,6 +15,8 @@ import android.content.SharedPreferences;
  * 同时保留 APPCODE / 无鉴权 两种方式，方便换其他供应商。
  */
 public class ApiPrefs {
+
+    private static final String TAG = "ApiPrefs";
 
     /** 鉴权方式 */
     public static final int AUTH_TENCENT = 0;  // 腾讯云市场签名（SecretId + SecretKey）
@@ -33,6 +36,12 @@ public class ApiPrefs {
     private static final String KEY_USAGE_SECRET_ID = "usage_secret_id";
     private static final String KEY_USAGE_SECRET_KEY = "usage_secret_key";
 
+    /**
+     * 最近一次构造有没有拿到加密 prefs（4.2）。
+     * 加密初始化失败会静默降级成明文，用户看不见——「API 配置」页顶部的状态行就读这个值。
+     */
+    private static volatile boolean sEncrypted;
+
     private final SharedPreferences sp;
 
     public ApiPrefs(Context ctx) {
@@ -50,7 +59,9 @@ public class ApiPrefs {
                     ctx, FILE_SECURE, masterKey,
                     androidx.security.crypto.EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
                     androidx.security.crypto.EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM);
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            // 降级为明文继续用，但要把原因留在日志里：KeyStore 损坏 / 加密文件被别的应用写过
+            Log.w(TAG, "加密 prefs 初始化失败，本次启动密钥将以明文存于 " + FILE, e);
         }
         if (secure != null) {
             migrateLegacyToSecure(ctx, secure);
@@ -58,6 +69,15 @@ public class ApiPrefs {
         } else {
             sp = ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE);
         }
+        sEncrypted = secure != null;
+    }
+
+    /**
+     * 密钥是否加密存储（4.2）。以最近一次构造结果为准，
+     * 所以调用方要先有一个 {@code new ApiPrefs(ctx)}——配置页本来就会构造。
+     */
+    public static boolean isEncrypted() {
+        return sEncrypted;
     }
 
     /** 一次性迁移：旧明文 api_prefs 有配置且加密文件为空时整体搬入，随后清掉明文文件 */

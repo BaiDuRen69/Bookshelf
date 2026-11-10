@@ -78,8 +78,6 @@ public class StatsFragment extends Fragment implements TabRefresh {
             Pattern.compile("^(\\D*)([0-9][0-9,]*(?:\\.[0-9]+)?)(.*)$");
 
     private FragmentStatsBinding b;
-    private int lastFinishedThisYear;
-    private int lastAvgDays;
     /** 是否已注册 books 的 LiveData */
     private boolean observingBooks;
     /** v5.8.3：统计页「可见才计算、切栏只重画当前栏」所需的状态与缓存 */
@@ -101,81 +99,22 @@ public class StatsFragment extends Fragment implements TabRefresh {
     private final boolean[] tabDirty = {true, true, true, true};
     private static final long TAB_FADE_OUT_MS = 70;
     private static final long TAB_FADE_IN_MS = 110;
-    private com.bai.bookshelf.util.StatsHoldings.Holdings hold;
-    private com.bai.bookshelf.util.StatsSpend.Spend spend;
-    private com.bai.bookshelf.util.StatsPace.Pace pace;
-    /** 在读还剩多少页 / 预计读完日（v5.8.19） */
-    private com.bai.bookshelf.util.StatsPace.Backlog backlog;
-    /** 「下一本读什么」的候选与当前抽中的一本（v5.8.19） */
-    private java.util.List<com.bai.bookshelf.util.NextPick.Pick> nextRanked = new ArrayList<>();
+    /** 一次聚合的全部计算结果；本页不再单独存中间值，只有「换一本」的抽书缓存除外 */
+    private StatsSnapshot snapshot = StatsSnapshot.empty();
+    /** 「下一本读什么」当前抽中的这本（候选在快照里，抽哪本由种子决定） */
     private com.bai.bookshelf.util.NextPick.Pick nextPick;
     private long nextPickSeed = 1L;
-    private com.bai.bookshelf.util.StatsLend.Lend lend;
-    private com.bai.bookshelf.util.StatsHealth.Health health;
-    private com.bai.bookshelf.util.StatsHealth.Rating rating;
-    private com.bai.bookshelf.util.StatsHealth.Anomalies anomalies;
-    private com.bai.bookshelf.util.StatsPace.Habit habit;
-    /** 第 ④ 步：阅读栏的打卡一行，今年 0 次时整行隐藏 */
-    private String checkInLine = "";
-    private boolean showCheckInLine;
-    private com.bai.bookshelf.util.StatsPace.Stale stale;
-    private com.bai.bookshelf.util.StatsPace.BuyRead buyRead;
-    private com.bai.bookshelf.util.StatsSpend.Relation relation;
-    private com.bai.bookshelf.util.StatsHealth.NoteStat noteStat;
-    private com.bai.bookshelf.util.StatsHealth.WishStat wishStat;
-    /** v5.8.31：弃读后重读 / 弃读后读完（种口径，从会话序列推） */
-    private com.bai.bookshelf.util.StatsPace.DropRecovery dropRecovery;
-    private com.bai.bookshelf.util.StatsSpend.Trend trend;
-    private java.util.List<com.bai.bookshelf.util.StatsHoldings.Group> channels;
-    private java.util.List<com.bai.bookshelf.util.StatsHoldings.Group> costByCategory;
-    private java.util.List<com.bai.bookshelf.util.StatsHoldings.Group> seriesGroups;
-    private java.util.List<com.bai.bookshelf.util.StatsHoldings.Group> lendByCategory;
-    private java.util.List<com.bai.bookshelf.util.StatsHoldings.Share> structure;
-    private java.util.List<com.bai.bookshelf.util.StatsHoldings.Cohort> cohorts;
-    private java.util.List<com.bai.bookshelf.util.StatsLend.Lender> lenders;
-    private java.util.List<com.bai.bookshelf.util.StatsSpend.PeriodDelta> periods;
-    private java.util.List<Book> books;
-    private java.util.List<OpenLoan> openLoans;
-    /** 近半年逐月归还笔数（v5.9.1 三步：借阅栏的趋势块） */
-    private ReturnTrend.Series returnSeries;
-    private int fTotal;
-    private int fFinished;
-    private int fAvgDays;
-    private double fTotalPrice;
-    private double fTotalSpent;
-    private double fTotalWords;
-    private Book fMostExpensive;
-    private Book fMostPages;
-    private Book fMostWords;
-    private Book fEarliest;
-    private Book fMostPrintings;
-    private java.util.List<Book> fRecent;
-    private java.util.List<java.util.Map.Entry<String, Integer>> topAuthors;
-    private java.util.List<java.util.Map.Entry<String, Integer>> topPublishers;
-    private java.util.List<java.util.Map.Entry<String, Integer>> topCountries;
     private int statsTab = TAB_BOOKS;
     /** Top 分布卡当前分段（v5.9.1），跨启动记住 */
     private int distSeg = DistSegment.AUTHORS;
     private boolean statsEmpty;
-    /** 分类树（一级带二级），树状图下钻用 */
-    private java.util.List<com.bai.bookshelf.util.StatsHoldings.Group> categoryTree;
     /** 树状图当前展开的是第几个一级分类；-1 = 一级总览 */
     private int treemapDrill = -1;
     /** 三个分栏各自的洞察文案（v5.8.1：不再三栏复读同一段） */
     private String insightBooks = "";
-
-    /** v5.8.33：体检那行要用——「在读但全部册在外」的书名与日期残缺的借出记录条数 */
-    private java.util.List<String> readingOutNames = new ArrayList<>();
-    private int lendDateUnparsable;
     private String insightReading = "";
     private String insightPurchase = "";
     private String insightLend = "";
-
-    /** v5.8.32：借阅孤儿（体检文案 + 一次性修复入口共用这一份） */
-    private com.bai.bookshelf.util.StatsHealth.BorrowOrphans borrowOrphans;
-
-    /** v5.9.1 第六步：精确记录体检（0 天 / 起止不符 / 跨轮同一天） */
-    private com.bai.bookshelf.util.ReadingModeHealth.Report modeReport;
 
     @Nullable
     @Override
@@ -208,10 +147,11 @@ public class StatsFragment extends Fragment implements TabRefresh {
         b.btnNextPickStart.setOnClickListener(v -> startPickedBook());
         // v5.8：分类树状图。点一块下钻到它的二级，点下方提示行返回一级
         b.treemapCategories.setOnCellClickListener(index -> {
-            if (treemapDrill >= 0 || categoryTree == null || index >= categoryTree.size()) {
+            if (treemapDrill >= 0 || snapshot.categoryTree == null
+                    || index >= snapshot.categoryTree.size()) {
                 return;
             }
-            if (!categoryTree.get(index).children.isEmpty()) {
+            if (!snapshot.categoryTree.get(index).children.isEmpty()) {
                 treemapDrill = index;
                 renderTreemap();
             }
@@ -404,13 +344,13 @@ public class StatsFragment extends Fragment implements TabRefresh {
     private String[][] summaryUnits() {
         switch (statsTab) {
             case TAB_READING:
-                return StatsSummary.reading(hold, habit);
+                return StatsSummary.reading(snapshot.hold, snapshot.totalReadingDays);
             case TAB_PURCHASE:
-                return StatsSummary.purchase(spend);
+                return StatsSummary.purchase(snapshot.spend);
             case TAB_LOAN:
-                return StatsSummary.loan(hold, lend);
+                return StatsSummary.loan(snapshot.hold, snapshot.lend);
             default:
-                return StatsSummary.books(hold, spend);
+                return StatsSummary.books(snapshot.hold, snapshot.spend);
         }
     }
 
@@ -586,9 +526,9 @@ public class StatsFragment extends Fragment implements TabRefresh {
             }
         }
         sb.append(insightTextForTab()).append('|')
-                .append(fTotal).append('|')
-                .append(hold == null ? -1 : hold.reading).append('|')
-                .append(lend == null ? -1 : lend.out);
+                .append(snapshot.total).append('|')
+                .append(snapshot.hold == null ? -1 : snapshot.hold.reading).append('|')
+                .append(snapshot.lend == null ? -1 : snapshot.lend.out);
         return sb.toString();
     }
 
@@ -610,11 +550,11 @@ public class StatsFragment extends Fragment implements TabRefresh {
             return;
         }
         // v5.8.14：样本不足时补一张小图和一句「再添几本」，而不是只有「数据不足」
-        boolean lowSample = !statsEmpty && fTotal > 0
-                && fTotal < com.bai.bookshelf.util.LibraryStats.MIN_SAMPLE;
+        boolean lowSample = !statsEmpty && snapshot.total > 0
+                && snapshot.total < com.bai.bookshelf.util.LibraryStats.MIN_SAMPLE;
         b.rowInsightLowSample.setVisibility(lowSample ? View.VISIBLE : View.GONE);
         if (lowSample) {
-            int need = com.bai.bookshelf.util.LibraryStats.MIN_SAMPLE - fTotal;
+            int need = com.bai.bookshelf.util.LibraryStats.MIN_SAMPLE - snapshot.total;
             b.tvInsightLowSample.setText("再添 " + need + " 本，样本够了就能给出趋势");
         }
         switch (statsTab) {
@@ -632,9 +572,11 @@ public class StatsFragment extends Fragment implements TabRefresh {
         }
         // 两条修复入口各归各的栏：借阅孤儿在「借阅」，精确记录体检在「藏书」
         b.rowOrphanRepair.setVisibility(statsTab == TAB_LOAN
-                && borrowOrphans != null && !borrowOrphans.isEmpty() ? View.VISIBLE : View.GONE);
+                && snapshot.borrowOrphans != null && !snapshot.borrowOrphans.isEmpty()
+                ? View.VISIBLE : View.GONE);
         b.rowModeRepair.setVisibility(statsTab == TAB_BOOKS
-                && modeReport != null && !modeReport.isEmpty() ? View.VISIBLE : View.GONE);
+                && snapshot.modeReport != null && !snapshot.modeReport.isEmpty()
+                ? View.VISIBLE : View.GONE);
     }
 
     private static void setCardVisible(View view, boolean visible) {
@@ -696,7 +638,7 @@ public class StatsFragment extends Fragment implements TabRefresh {
 
     private void showReadingGoalDialog() {
         ReadingGoalDialog.show(requireContext(),
-                () -> bindReadingGoal(lastFinishedThisYear, lastAvgDays));
+                () -> bindReadingGoal(snapshot.finishedThisYear, snapshot.avgDays));
     }
 
     /** Room 推送回调（主线程）：books 已是最新快照，交给后台聚合 */
@@ -790,7 +732,8 @@ public class StatsFragment extends Fragment implements TabRefresh {
                 }
                 set.add(Math.max(1, r.copyIndex));
             }
-            lendDateUnparsable = com.bai.bookshelf.util.LendSpans.countUnparsable(loanRecords);
+            final int lendDateUnparsable =
+                    com.bai.bookshelf.util.LendSpans.countUnparsable(loanRecords);
             final com.bai.bookshelf.util.StatsHoldings.Holdings hold =
                     com.bai.bookshelf.util.StatsHoldings.holdings(
                             books, copiesByBook, openCopiesByBook);
@@ -813,6 +756,9 @@ public class StatsFragment extends Fragment implements TabRefresh {
             final java.util.List<com.bai.bookshelf.data.entity.CheckIn> allCheckIns = loadedCheckIns;
             final java.util.Map<Long, java.util.Map<Integer, java.util.List<Integer>>> preciseByBook =
                     com.bai.bookshelf.util.ReadDays.byBook(allCheckIns);
+            // v5.9.5 第 4 项：阅读栏第三格「阅读时长（天）」——阅读日 ∪ 打卡日，去重且只到今天
+            final int allReadingDays = com.bai.bookshelf.util.ReadingCalendar.distinctDays(
+                    books, preciseByBook, allCheckIns, todayKey);
             int readingDays = 0;
             for (String day : com.bai.bookshelf.util.ReadingCalendar
                     .titlesByDay(books, preciseByBook).keySet()) {
@@ -841,8 +787,9 @@ public class StatsFragment extends Fragment implements TabRefresh {
             } catch (Exception e) {
                 cats = new ArrayList<>();
             }
-            categoryTree = com.bai.bookshelf.util.StatsHoldings.byCategory(
-                    books, copiesByBook, cats, "未分类");
+            final java.util.List<com.bai.bookshelf.util.StatsHoldings.Group> categoryTree =
+                    com.bai.bookshelf.util.StatsHoldings.byCategory(
+                            books, copiesByBook, cats, "未分类");
             final java.util.List<com.bai.bookshelf.util.StatsHoldings.Cohort> cohorts =
                     com.bai.bookshelf.util.StatsHoldings.cohort(books, todayKey);
 
@@ -916,8 +863,7 @@ public class StatsFragment extends Fragment implements TabRefresh {
                 }
             }
 
-            fFinished = finishedThisYear;
-            fAvgDays = readDaysCount > 0
+            final int avgDays = readDaysCount > 0
                     ? (int) Math.round((double) readDaysSum / readDaysCount) : 0;
 
             // v4.31：最近录入的 4 本，用于 hero 封面拼贴
@@ -977,11 +923,9 @@ public class StatsFragment extends Fragment implements TabRefresh {
             final com.bai.bookshelf.util.StatsHealth.BorrowOrphans orphans =
                     com.bai.bookshelf.util.StatsHealth.borrowOrphans(
                             books, copyAll, loanRecords, imageAll);
-            this.borrowOrphans = orphans;
             // v5.9.1 第六步：精确记录的三项结构体检（纯函数，日集合直接复用上面的全量打卡行）
             final com.bai.bookshelf.util.ReadingModeHealth.Report readingModeReport =
                     com.bai.bookshelf.util.ReadingModeHealth.check(books, allCheckIns);
-            this.modeReport = readingModeReport;
             int boughtThisYear = 0;
             for (Book book : books) {
                 int buy = com.bai.bookshelf.util.DateKeys.parseKey(book.purchaseDate);
@@ -1034,52 +978,61 @@ public class StatsFragment extends Fragment implements TabRefresh {
                     com.bai.bookshelf.util.StatsHoldings.groupBy(books, copiesByBook,
                             book -> book.seriesName, "未成系列", true);
 
-            // v5.8.3：聚合结果落到字段里，切栏时直接复用，不再重复查库/重算
-            this.hold = hold;
-            this.spend = spend;
-            this.pace = pace;
-            this.backlog = backlog;
-            this.nextRanked = nextRanked;
+            // v5.8.3：聚合结果一次性落成不可变快照，切栏时直接复用，不再重复查库/重算
+            final StatsSnapshot snap = StatsSnapshot.builder()
+                    .hold(hold)
+                    .spend(spend)
+                    .pace(pace)
+                    .backlog(backlog)
+                    .nextRanked(nextRanked)
+                    .lend(lend)
+                    .health(health)
+                    .rating(rating)
+                    .anomalies(anomalies)
+                    .habit(habit)
+                    .totalReadingDays(allReadingDays)
+                    .checkInLine(checkInLine)
+                    .showCheckInLine(showCheckInLine)
+                    .stale(stale)
+                    .buyRead(buyRead)
+                    .relation(relation)
+                    .noteStat(noteStat)
+                    .wishStat(wishStat)
+                    .dropRecovery(dropRecovery)
+                    .trend(trend)
+                    .channels(channels)
+                    .costByCategory(costByCategory)
+                    .structure(structure)
+                    .seriesGroups(seriesGroups)
+                    .cohorts(cohorts)
+                    .lenders(lenders)
+                    .lendByCategory(lendByCategory)
+                    .periods(periods)
+                    .books(books)
+                    .total(total)
+                    .finishedThisYear(finishedThisYear)
+                    .avgDays(avgDays)
+                    .totalPrice(totalPrice)
+                    .totalSpent(totalSpent)
+                    .totalWords(totalWords)
+                    .mostExpensive(mostExpensive)
+                    .mostPages(mostPages)
+                    .mostWords(mostWords)
+                    .earliest(earliest)
+                    .mostPrintings(mostPrintings)
+                    .recent(recent.size() > 4 ? new ArrayList<>(recent.subList(0, 4)) : recent)
+                    .topAuthors(topN(authorCount, 8))
+                    .topPublishers(topN(publisherCount, 8))
+                    .topCountries(topN(countryCount, 8))
+                    .openLoans(OpenLoan.build(books, loanRecords, todayKey))
+                    .returnSeries(ReturnTrend.of(loanRecords, todayKey, ReturnTrend.MONTHS))
+                    .categoryTree(categoryTree)
+                    .lendDateUnparsable(lendDateUnparsable)
+                    .borrowOrphans(orphans)
+                    .modeReport(readingModeReport)
+                    .build();
             // 种子不变 → 同一批书永远抽到同一本；点「换一本」才换种子
             this.nextPick = com.bai.bookshelf.util.NextPick.chooseFrom(nextRanked, nextPickSeed);
-            this.lend = lend;
-            this.health = health;
-            this.rating = rating;
-            this.anomalies = anomalies;
-            this.habit = habit;
-            this.checkInLine = checkInLine;
-            this.showCheckInLine = showCheckInLine;
-            this.stale = stale;
-            this.buyRead = buyRead;
-            this.relation = relation;
-            this.noteStat = noteStat;
-            this.wishStat = wishStat;
-            this.dropRecovery = dropRecovery;
-            this.channels = channels;
-            this.costByCategory = costByCategory;
-            this.structure = structure;
-            this.trend = trend;
-            this.seriesGroups = seriesGroups;
-            this.cohorts = cohorts;
-            this.lenders = lenders;
-            this.lendByCategory = lendByCategory;
-            this.periods = periods;
-            this.books = books;
-            this.fTotal = total;
-            this.fTotalPrice = totalPrice;
-            this.fTotalSpent = totalSpent;
-            this.fTotalWords = totalWords;
-            this.fMostExpensive = mostExpensive;
-            this.fMostPages = mostPages;
-            this.fMostWords = mostWords;
-            this.fEarliest = earliest;
-            this.fMostPrintings = mostPrintings;
-            this.fRecent = recent.size() > 4 ? new ArrayList<>(recent.subList(0, 4)) : recent;
-            this.topAuthors = topN(authorCount, 8);
-            this.topPublishers = topN(publisherCount, 8);
-            this.topCountries = topN(countryCount, 8);
-            this.openLoans = OpenLoan.build(books, loanRecords, todayKey);
-            this.returnSeries = ReturnTrend.of(loanRecords, todayKey, ReturnTrend.MONTHS);
 
             app.ui(() -> {
                 if (b == null) {
@@ -1088,10 +1041,9 @@ public class StatsFragment extends Fragment implements TabRefresh {
                 statsComputed = true;
                 // 数据变了：四栏都标脏，下次显示时各自重画一次
                 java.util.Arrays.fill(tabDirty, true);
-                statsEmpty = fTotal == 0;
-                lastFinishedThisYear = fFinished;
-                lastAvgDays = fAvgDays;
-                bindReadingGoal(fFinished, fAvgDays);
+                snapshot = snap;
+                statsEmpty = snap.total == 0;
+                bindReadingGoal(snap.finishedThisYear, snap.avgDays);
                 applyStatsTab();
             });
         });
@@ -1115,6 +1067,7 @@ public class StatsFragment extends Fragment implements TabRefresh {
     }
 
     private void renderBooksTab() {
+        final com.bai.bookshelf.util.StatsHoldings.Holdings hold = snapshot.hold;
         if (hold == null) {
             return;
         }
@@ -1124,17 +1077,17 @@ public class StatsFragment extends Fragment implements TabRefresh {
                 requireContext(), R.attr.on_surface_variant);
         if (!heroAnimated[TAB_BOOKS]) {
             heroAnimated[TAB_BOOKS] = true;
-            countUpMetric(b.tvStatsTotal, String.valueOf(fTotal), "种",
+            countUpMetric(b.tvStatsTotal, String.valueOf(snapshot.total), "种",
                     HERO_COUNT_MS, Motion.DECEL, unitColor);
         } else {
-            b.tvStatsTotal.setText(StatsText.metric(String.valueOf(fTotal), "种", unitColor));
+            b.tvStatsTotal.setText(
+                    StatsText.metric(String.valueOf(snapshot.total), "种", unitColor));
         }
         b.tvStatsReadDone.setText(String.valueOf(hold.readDone));
         b.tvStatsReading.setText(String.valueOf(hold.reading));
         // v5.8.33：在读里有多少本正借在别人手上（M=0 时整段不显示）
         b.tvStatsReadingOut.setVisibility(hold.readingOut > 0 ? View.VISIBLE : View.GONE);
         b.tvStatsReadingOut.setText("其中 " + hold.readingOut + " 种在外借中");
-        readingOutNames = hold.readingFullyOutNames;
         b.tvStatsUnread.setText(String.valueOf(hold.unread));
         b.tvStatsDropped.setText(String.valueOf(hold.dropped));
         // 种是主数字，册 / 在外 / 遗失按册另说，避免「19 册」这种既错又没信息量
@@ -1147,29 +1100,33 @@ public class StatsFragment extends Fragment implements TabRefresh {
             copies.append(" · 遗失 ").append(hold.copiesLost);
         }
         b.tvStatsCopies.setText(copies);
-        insightBooks = booksInsight(hold, health, rating, anomalies,
-                readingOutNames, lendDateUnparsable, modeReport);
+        insightBooks = booksInsight(hold, snapshot.health, snapshot.rating, snapshot.anomalies,
+                hold.readingFullyOutNames, snapshot.lendDateUnparsable, snapshot.modeReport);
         bindModeRepair();
         renderTreemap();
-        renderCohort(cohorts);
-        renderSeries(seriesGroups, books);
-        buildExtremes(fMostExpensive, fMostPages, fMostWords, fEarliest, fMostPrintings);
-        bindCoverFan(fRecent);
+        renderCohort(snapshot.cohorts);
+        renderSeries(snapshot.seriesGroups, snapshot.books);
+        buildExtremes(snapshot.mostExpensive, snapshot.mostPages, snapshot.mostWords,
+                snapshot.earliest, snapshot.mostPrintings);
+        bindCoverFan(snapshot.recent);
         renderDist();
     }
 
     private void renderReadingTab() {
+        final com.bai.bookshelf.util.StatsPace.Pace pace = snapshot.pace;
         if (pace == null) {
             return;
         }
-        insightReading = readingInsight(pace, backlog, noteStat, dropRecovery);
-        b.tvHabit.setText(habitText(habit, stale, buyRead));
-        b.tvCheckinLine.setVisibility(showCheckInLine ? View.VISIBLE : View.GONE);
-        if (showCheckInLine) {
-            b.tvCheckinLine.setText(checkInLine);
+        insightReading = readingInsight(pace, snapshot.backlog, snapshot.noteStat,
+                snapshot.dropRecovery);
+        b.tvHabit.setText(habitText(snapshot.habit, snapshot.stale, snapshot.buyRead));
+        b.tvCheckinLine.setVisibility(
+                snapshot.showCheckInLine ? View.VISIBLE : View.GONE);
+        if (snapshot.showCheckInLine) {
+            b.tvCheckinLine.setText(snapshot.checkInLine);
         }
         renderNextPick();
-        renderStructure(structure);
+        renderStructure(snapshot.structure);
     }
 
     /** 「下一本读什么」卡片（v5.8.19）：抽中的书 + 为什么是它 + 一键开读 */
@@ -1185,8 +1142,9 @@ public class StatsFragment extends Fragment implements TabRefresh {
             return;
         }
         com.bai.bookshelf.util.NextPick.Pick pick = nextPick;
-        if (pick == null && !nextRanked.isEmpty()) {
-            pick = com.bai.bookshelf.util.NextPick.chooseFrom(nextRanked, nextPickSeed, excludeId);
+        final java.util.List<com.bai.bookshelf.util.NextPick.Pick> ranked = snapshot.nextRanked;
+        if (pick == null && !ranked.isEmpty()) {
+            pick = com.bai.bookshelf.util.NextPick.chooseFrom(ranked, nextPickSeed, excludeId);
             nextPick = pick;
         }
         boolean has = pick != null;
@@ -1196,7 +1154,7 @@ public class StatsFragment extends Fragment implements TabRefresh {
                         ? "" : " · " + pick.book.author)
                 : "没有待读的书了 · 想读清单里的可以先加进书架");
         b.tvNextPickReason.setText(has ? pick.reasonLine() : "");
-        b.btnNextPickReroll.setVisibility(has && nextRanked.size() > 1 ? View.VISIBLE : View.GONE);
+        b.btnNextPickReroll.setVisibility(has && ranked.size() > 1 ? View.VISIBLE : View.GONE);
         b.btnNextPickStart.setVisibility(has ? View.VISIBLE : View.GONE);
     }
 
@@ -1234,25 +1192,31 @@ public class StatsFragment extends Fragment implements TabRefresh {
     }
 
     private void renderPurchaseTab() {
+        final com.bai.bookshelf.util.StatsSpend.Spend spend = snapshot.spend;
         if (spend == null) {
             return;
         }
-        insightPurchase = purchaseInsight(spend, relation, periods, wishStat);
-        b.tvStatsPrice.setText(String.format(Locale.getDefault(), "¥%.2f", fTotalPrice));
-        b.tvStatsSpent.setText(String.format(Locale.getDefault(), "¥%.2f", fTotalSpent));
+        insightPurchase = purchaseInsight(spend, snapshot.relation, snapshot.periods,
+                snapshot.wishStat);
+        b.tvStatsPrice.setText(
+                String.format(Locale.getDefault(), "¥%.2f", snapshot.totalPrice));
+        b.tvStatsSpent.setText(
+                String.format(Locale.getDefault(), "¥%.2f", snapshot.totalSpent));
         b.tvStatsWords.setText(String.format(Locale.getDefault(),
-                "%.1f 万字", fTotalWords / 10000.0));
-        renderChannels(channels);
-        renderCostRows(costByCategory);
-        renderTrend(trend);
+                "%.1f 万字", snapshot.totalWords / 10000.0));
+        renderChannels(snapshot.channels);
+        renderCostRows(snapshot.costByCategory);
+        renderTrend(snapshot.trend);
     }
 
     private void renderLendTab() {
+        final com.bai.bookshelf.util.StatsLend.Lend lend = snapshot.lend;
         if (lend == null) {
             return;
         }
-        insightLend = lendInsight(lend, lenders, lendByCategory, borrowOrphans);
-        renderBorrowers(lenders);
+        insightLend = lendInsight(lend, snapshot.lenders, snapshot.lendByCategory,
+                snapshot.borrowOrphans);
+        renderBorrowers(snapshot.lenders);
         renderOpenLoans();
         renderReturnTrend();
         bindOrphanRepair();
@@ -1266,6 +1230,8 @@ public class StatsFragment extends Fragment implements TabRefresh {
         if (b == null) {
             return;
         }
+        final com.bai.bookshelf.util.StatsHealth.BorrowOrphans borrowOrphans =
+                snapshot.borrowOrphans;
         boolean has = borrowOrphans != null && !borrowOrphans.isEmpty();
         b.rowOrphanRepair.setVisibility(has ? View.VISIBLE : View.GONE);
         if (!has) {
@@ -1312,7 +1278,7 @@ public class StatsFragment extends Fragment implements TabRefresh {
         if (b == null) {
             return;
         }
-        final com.bai.bookshelf.util.ReadingModeHealth.Report report = modeReport;
+        final com.bai.bookshelf.util.ReadingModeHealth.Report report = snapshot.modeReport;
         boolean has = report != null && !report.isEmpty();
         b.rowModeRepair.setVisibility(has ? View.VISIBLE : View.GONE);
         if (!has) {
@@ -1351,6 +1317,7 @@ public class StatsFragment extends Fragment implements TabRefresh {
         b.llLoansOverdue.removeAllViews();
         b.llLoansOngoing.removeAllViews();
         int today = com.bai.bookshelf.util.DateKeys.todayKey();
+        final java.util.List<OpenLoan> openLoans = snapshot.openLoans;
         if (openLoans == null || openLoans.isEmpty()) {
             b.tvLoansOverdueTitle.setVisibility(View.GONE);
             b.tvLoansOngoingTitle.setVisibility(View.GONE);
@@ -1429,6 +1396,8 @@ public class StatsFragment extends Fragment implements TabRefresh {
 
     /** 近半年归还柱状图：凑不够样本就只解释原因，不摆一排空柱 */
     private void renderReturnTrend() {
+        final com.bai.bookshelf.util.StatsLend.Lend lend = snapshot.lend;
+        final ReturnTrend.Series returnSeries = snapshot.returnSeries;
         b.chartReturns.setUnit("笔");
         if (returnSeries == null || lend == null
                 || lend.returned < com.bai.bookshelf.util.LibraryStats.MIN_SAMPLE) {
@@ -1510,6 +1479,8 @@ public class StatsFragment extends Fragment implements TabRefresh {
 
     /** 画分类树状图：一级总览，或某个一级分类下的二级 */
     private void renderTreemap() {
+        final java.util.List<com.bai.bookshelf.util.StatsHoldings.Group> categoryTree =
+                snapshot.categoryTree;
         if (b == null || categoryTree == null) {
             return;
         }
@@ -1925,11 +1896,11 @@ public class StatsFragment extends Fragment implements TabRefresh {
     private List<Map.Entry<String, Integer>> distList() {
         switch (distSeg) {
             case DistSegment.PUBLISHERS:
-                return topPublishers;
+                return snapshot.topPublishers;
             case DistSegment.COUNTRIES:
-                return topCountries;
+                return snapshot.topCountries;
             default:
-                return topAuthors;
+                return snapshot.topAuthors;
         }
     }
 

@@ -253,4 +253,23 @@ public class BackupArchiveTest {
         assertTrue(validate(pack(text, new ArrayList<>(),
                 meta(CURRENT_CODE, CURRENT_DB))).checkInsBeforeSeq);
     }
+
+    /** v5.9.5 第 1 项：settings 块只是 data.json 里的一个键，校验和照常覆盖它 */
+    @Test
+    public void 设置块参与校验和() throws Exception {
+        String withSettings = "{\"books\":[{\"id\":1}],\"settings\":"
+                + "{\"version\":1,\"prefs\":{\"ui_prefs\":{\"theme_id\":{\"t\":2,\"v\":6}}}}}";
+        BackupInspector.Info info = validate(pack(withSettings, media(),
+                meta(CURRENT_CODE, CURRENT_DB)));
+        assertTrue(info.ok());
+        assertTrue("settings 没算进校验和覆盖的字节里",
+                info.totalBytes > withSettings.length());
+
+        // 只改设置、数据一个字节没动：校验和必须变，否则自动备份会被指纹当成「没变」跳过
+        BackupMeta a = meta(CURRENT_CODE, CURRENT_DB);
+        pack(withSettings, media(), a);
+        BackupMeta b = meta(CURRENT_CODE, CURRENT_DB);
+        pack(withSettings.replace("\"v\":6", "\"v\":0"), media(), b);
+        assertFalse("改主题不改变校验和", a.checksum.equals(b.checksum));
+    }
 }

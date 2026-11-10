@@ -51,12 +51,8 @@ final class StatsInsight {
                                     com.bai.bookshelf.util.StatsPace.Stale s,
                                     com.bai.bookshelf.util.StatsPace.BuyRead b) {
         StringBuilder sb = new StringBuilder("今年读过 ").append(h.daysReadThisYear).append(" 天");
-        if (h.longestStreak > 0) {
-            sb.append(" · 最长连续 ").append(h.longestStreak).append(" 天");
-        }
-        if (h.currentStreak > 0) {
-            sb.append(" · 当前连着 ").append(h.currentStreak).append(" 天");
-        }
+        // v5.9.5 第 4 项：连续打卡天数已从阅读栏摘要挪走，这里不再重复两遍 streak；
+        // longestStreak / currentStreak 仍然保留在 Habit 里（打卡页与测试在用）
         // 第 ④ 步：有足够打卡记录时按打卡自然日统计，否则回退区间并在末尾标「按区间估算」
         sb.append('\n').append(com.bai.bookshelf.util.CheckInHabit.sourceNote(h.fromCheckIns));
         if (h.bestMonth > 0) {

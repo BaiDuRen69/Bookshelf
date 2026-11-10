@@ -5,6 +5,7 @@ import android.util.AttributeSet;
 import android.view.MotionEvent;
 import android.view.VelocityTracker;
 import android.view.View;
+import android.view.ViewConfiguration;
 import android.widget.FrameLayout;
 
 import androidx.annotation.Nullable;
@@ -28,13 +29,33 @@ public class CheckInSwipeRoot extends FrameLayout {
         boolean blocked();
     }
 
-    private static final float SLOP_DP = 16f;
+    /**
+     * 纵向拖动的逐帧回调（v5.9.5 第 3 项）。设了它就不再等抬手：方向判定后立刻开始，
+     * 每帧给出已扣掉起始 slop 的位移，抬手给速度，系统打断给 cancel。
+     */
+    public interface DragListener {
+        /** true = 上滑（收周），false = 下滑（展开） */
+        void onDragBegin(boolean up);
+
+        /** 累计位移，px；已减去起始 slop 补偿，向上为负 */
+        void onDrag(float dyPx);
+
+        /** px/s；向上为负 */
+        void onDragEnd(float velocityY);
+
+        void onDragCancel();
+    }
+
     private static final float DIRECTION_RATIO = 1.2f;
     private static final float FLING_DP_PER_SEC = 300f;
 
     private final float density;
+    /** 系统推荐的最小滑动阈值（本机约 8dp），替代以前写死的 16dp */
+    private final float touchSlopPx;
     @Nullable
     private Listener listener;
+    @Nullable
+    private DragListener dragListener;
     @Nullable
     private Guard guard;
     /** 书目列表：上滑交给它滚动，只有已经在顶部时才接管下拉 */
@@ -52,6 +73,10 @@ public class CheckInSwipeRoot extends FrameLayout {
     private float downY;
     private boolean tracking;
     private boolean dragging;
+    /** 起始 slop 补偿：第一帧就把这截位移扣掉，进度从 0 起步而不是跳一格 */
+    private float slopCompensation;
+    /** 这一手是否已经走逐帧回调（false = 只走旧的抬手回调） */
+    private boolean dragNotified;
 
     public CheckInSwipeRoot(Context ctx) {
         this(ctx, null);
@@ -60,10 +85,15 @@ public class CheckInSwipeRoot extends FrameLayout {
     public CheckInSwipeRoot(Context ctx, @Nullable AttributeSet attrs) {
         super(ctx, attrs);
         density = ctx.getResources().getDisplayMetrics().density;
+        touchSlopPx = android.view.ViewConfiguration.get(ctx).getScaledTouchSlop();
     }
 
     public void setListener(@Nullable Listener l) {
         listener = l;
+    }
+
+    public void setDragListener(@Nullable DragListener l) {
+        dragListener = l;
     }
 
     public void setGuard(@Nullable Guard g) {
@@ -116,7 +146,7 @@ public class CheckInSwipeRoot extends FrameLayout {
                     tracking = false; // 这一手归列表，后面不再抢
                     return false;
                 }
-                dragging = true;
+                startDrag(dy);
                 return true;
             default:
                 return false;
@@ -129,24 +159,55 @@ public class CheckInSwipeRoot extends FrameLayout {
             case MotionEvent.ACTION_DOWN:
                 // 空白区域没有子 View 消费 DOWN：自己接住，后续才能在 onTouchEvent 里判方向
                 return tracking;
-            case MotionEvent.ACTION_MOVE:
-                if (tracking && !dragging && vertical(ev) && !yieldToList(ev.getY() - downY)) {
-                    dragging = true;
+            case MotionEvent.ACTION_MOVE: {
+                float dy = ev.getY() - downY;
+                if (tracking && !dragging && vertical(ev) && !yieldToList(dy)) {
+                    startDrag(dy);
+                } else if (dragging && dragNotified) {
+                    dragListener.onDrag(dy - slopCompensation);
                 }
                 return tracking;
+            }
             case MotionEvent.ACTION_UP:
                 if (dragging) {
-                    fire(ev);
+                    if (dragNotified) {
+                        dragListener.onDragEnd(yVelocity(ev));
+                    } else {
+                        fire(ev);
+                    }
                 }
                 boolean handled = tracking;
                 reset();
                 return handled;
             case MotionEvent.ACTION_CANCEL:
+                if (dragging && dragNotified) {
+                    dragListener.onDragCancel();
+                }
                 reset();
                 return true;
             default:
                 return tracking;
         }
+    }
+
+    /** 方向判定成立的那一刻起，逐帧回调接管；未设 DragListener 时保持旧的抬手触发 */
+    private void startDrag(float dy) {
+        dragging = true;
+        slopCompensation = Math.signum(dy) * touchSlopPx;
+        dragNotified = dragListener != null;
+        if (dragNotified) {
+            dragListener.onDragBegin(dy < 0);
+            dragListener.onDrag(dy - slopCompensation);
+        }
+    }
+
+    private float yVelocity(MotionEvent ev) {
+        if (tracker != null) {
+            tracker.addMovement(ev);
+            tracker.computeCurrentVelocity(1000);
+            return tracker.getYVelocity();
+        }
+        return 0f;
     }
 
     private boolean vertical(MotionEvent ev) {
@@ -159,6 +220,8 @@ public class CheckInSwipeRoot extends FrameLayout {
     private void begin(MotionEvent ev) {
         dragging = false;
         tracking = false;
+        dragNotified = false;
+        slopCompensation = 0f;
         downX = ev.getX();
         downY = ev.getY();
         if (guard != null && guard.blocked()) {
@@ -197,10 +260,12 @@ public class CheckInSwipeRoot extends FrameLayout {
     private void reset() {
         tracking = false;
         dragging = false;
+        dragNotified = false;
+        slopCompensation = 0f;
     }
 
     private float slop() {
-        return SLOP_DP * density;
+        return touchSlopPx;
     }
 
     private boolean isInside(@Nullable View view, float x, float y) {

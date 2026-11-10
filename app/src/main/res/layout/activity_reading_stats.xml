@@ -655,7 +655,7 @@
                 android:orientation="vertical"
                 android:visibility="gone">
 
-                <!-- 阅读时长 -->
+                <!-- 累计花费 -->
                 <androidx.cardview.widget.CardView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -668,11 +668,11 @@
                         android:padding="16dp">
 
                         <TextView
-                            android:id="@+id/tv_total_duration"
+                            android:id="@+id/tv_total_cost"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:gravity="center"
-                            android:text="--"
+                            android:text="¥0"
                             android:textColor="?attr/colorPrimary"
                             android:textSize="@dimen/text_title_small"
                             android:textStyle="bold" />
@@ -683,16 +683,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="8dp"
                             android:gravity="center"
-                            android:text="从购买第一册起计算"
-                            android:textColor="?attr/on_surface_variant"
-                            android:textSize="@dimen/text_body_small" />
-
-                        <TextView
-                            android:id="@+id/tv_total_companion"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="2dp"
-                            android:gravity="center"
+                            android:text="首购至今 · 已购 0 种"
                             android:textColor="?attr/on_surface_variant"
                             android:textSize="@dimen/text_body_small" />
                     </LinearLayout>
