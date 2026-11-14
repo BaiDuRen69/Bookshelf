@@ -130,11 +130,11 @@ public final class DbRepair {
     // ==================== 副本 / 坏库 ====================
 
     public static boolean hasPreMigrationCopy(Context ctx) {
-        return !PreMigrationBackup.list(ctx).isEmpty();
+        return !PreMigrationBackup.usableList(ctx).isEmpty();
     }
 
     public static String latestCopyLabel(Context ctx) {
-        List<File> copies = PreMigrationBackup.list(ctx);
+        List<File> copies = PreMigrationBackup.usableList(ctx);
         return copies.isEmpty() ? null
                 : PreMigrationBackup.describe(copies.get(copies.size() - 1));
     }
@@ -171,7 +171,7 @@ public final class DbRepair {
      * @throws Exception 任何一步失败都不会把正在用的库换掉（换过之后失败会回滚）
      */
     public static void restoreFromPreMigration(Context ctx) throws Exception {
-        List<File> copies = PreMigrationBackup.list(ctx);
+        List<File> copies = PreMigrationBackup.usableList(ctx);
         if (copies.isEmpty()) {
             Log.w(TAG, "没有可用的升级前副本，恢复作罢（当前库没被动过）");
             throw new IOException("没有可用的升级前副本");
@@ -283,17 +283,29 @@ public final class DbRepair {
     private static void rollback(BookshelfApp app, File dbFile, File brokenTarget) {
         try {
             app.closeDatabase();
-            // 只有「原库确实被挪走」过才需要换回来；否则 dbFile 还是原库，
-            // 这里一删就是真丢数据（早前版本在这里踩过坑）
-            if (brokenTarget.exists()) {
-                deleteDbFiles(dbFile);
-                moveDbFiles(brokenTarget, dbFile);
-            }
+            rollbackFiles(dbFile, brokenTarget);
             app.reopenDatabase();
         } catch (Throwable t) {
             // 回滚都失败就只能等下次启动进修复页（repair_pending 还留着）
             Log.w(TAG, "回滚旧库失败：库里可能既不是新库也不是原库，下次启动会直接进修复页", t);
         }
+    }
+
+    /**
+     * 回滚的文件动作：只有「原库确实被挪走」过才换回来。
+     *
+     * <p>{@code brokenTarget} 不存在说明 {@code dbFile} 压根没让过位（校验没过就抛了，
+     * 里面还是原库），这时候一删就是真丢数据——早前版本在这里踩过坑。
+     *
+     * @return 是否真的把旧库换了回来
+     */
+    static boolean rollbackFiles(File dbFile, File brokenTarget) {
+        if (!brokenTarget.exists()) {
+            return false;
+        }
+        deleteDbFiles(dbFile);
+        moveDbFiles(brokenTarget, dbFile);
+        return true;
     }
 
     // ==================== 文件工具 ====================

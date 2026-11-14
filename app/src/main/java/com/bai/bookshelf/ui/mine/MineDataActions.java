@@ -709,7 +709,7 @@ public class MineDataActions {
                     .show();
             return;
         }
-        msg.append(info.preview()).append("\n\n");
+        msg.append(info.preview(ctx)).append("\n\n");
         if (!info.ok()) {
             msg.append(ctx.getString(R.string.mine_restore_reject, info.reject));
             new MaterialAlertDialogBuilder(ctx)
@@ -742,11 +742,22 @@ public class MineDataActions {
         app.io(() -> {
             try {
                 ZipRestore.Result result = ZipRestore.restore(appCtx, uri, app.db());
+                // 「没恢复设置」有两种原因，必须分开说：老包根本没这个块（数据补不回来），
+                // 与包里有但写失败（本机现状沿用）。混成一句话用户没法判断备份全不全
+                final String settingsNote;
+                if (result.settingsApplied) {
+                    settingsNote = appCtx.getString(R.string.mine_restored_settings);
+                } else if (result.settingsPresent) {
+                    settingsNote = appCtx.getString(R.string.mine_restored_settings_failed);
+                } else {
+                    settingsNote = appCtx.getString(R.string.mine_restored_settings_absent);
+                }
                 final String msg = appCtx.getString(R.string.mine_restored_msg,
                         com.bai.bookshelf.util.Units.titles(result.books), result.media)
+                        + (result.wishesPresent
+                                ? appCtx.getString(R.string.mine_restored_wishes, result.wishes) : "")
                         + (result.legacy ? appCtx.getString(R.string.mine_restored_legacy) : "")
-                        + (result.settingsApplied
-                                ? appCtx.getString(R.string.mine_restored_settings) : "");
+                        + settingsNote;
                 BackupManager.recordRestoreResult(appCtx, true,
                         appCtx.getString(R.string.mine_restored_record,
                                 com.bai.bookshelf.util.Units.titles(result.books), result.media));

@@ -28,6 +28,11 @@ public class BackupMeta {
     public int books;
     /** 每日阅读打卡条数（第 4.3 步新增；旧包没有该字段，Gson 读到 0） */
     public int checkIns;
+    /**
+     * 想读清单条数。用 Integer 而不是 int：旧包没有这个字段，
+     * 解析成 0 会与「包里真的是空清单」混为一谈，预览就分不清「不含」和「0 条」。
+     */
+    public Integer wishes;
     /** 图片文件条目数 */
     public int media;
     /** data.json + media 的原始字节数（未压缩） */

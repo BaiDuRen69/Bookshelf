@@ -3,19 +3,13 @@ package com.bai.bookshelf.util;
 import android.content.Context;
 import android.content.SharedPreferences;
 
-import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.TreeSet;
 
 /**
  * 用户设置随 zip 整包备份迁移（v5.9.5 第 1 项）。
@@ -40,7 +34,6 @@ public final class SettingsBackup {
     private static final int T_INT = 2;
     private static final int T_LONG = 3;
     private static final int T_STR = 4;
-    private static final int T_SET = 5;
 
     private static final class Entry {
         final String file;
@@ -73,6 +66,17 @@ public final class SettingsBackup {
             new Entry("ui_prefs", "checkin_reminder_hour", T_INT, 0, 23),
             new Entry("ui_prefs", "checkin_reminder_minute", T_INT, 0, 59),
             new Entry("ui_prefs", "shelf_view_mode", T_INT),
+            // 书架六维筛选 + 排序（ShelfViewPrefs，键前缀 shelf_f_）。
+            // 类型必须与 ShelfViewPrefs 构造里的 getInt/getBoolean/getString 一一对上，
+            // 对不上会被 readOne 静默跳过；SettingsBackupWhitelistTest 有一条防漂移断言
+            new Entry("ui_prefs", "shelf_f_sort_index", T_INT),
+            new Entry("ui_prefs", "shelf_f_sort_reverse", T_BOOL),
+            new Entry("ui_prefs", "shelf_f_stock", T_INT),
+            new Entry("ui_prefs", "shelf_f_read", T_INT),
+            new Entry("ui_prefs", "shelf_f_location", T_STR),
+            new Entry("ui_prefs", "shelf_f_tag", T_STR),
+            new Entry("ui_prefs", "shelf_f_category", T_STR),
+            new Entry("ui_prefs", "shelf_f_country", T_STR),
             new Entry("ui_prefs", "stats_dist_seg", T_INT, 0, 2),
             new Entry("ui_prefs", "wish_sort_mode", T_INT),
             new Entry("ui_prefs", "last_location_id", T_LONG),
@@ -106,11 +110,30 @@ public final class SettingsBackup {
     private SettingsBackup() {
     }
 
+    /**
+     * 白名单读写走的偏好文件来源。
+     *
+     * <p>生产代码一律从 {@link Context} 取；JVM 单测给一个内存实现，就能在不碰 Android
+     * 的前提下把整张白名单跑一遍（同坑 49 的思路：给依赖开个口，而不是把逻辑抄一遍）。
+     */
+    interface PrefsSource {
+        SharedPreferences prefs(String file);
+    }
+
+    private static PrefsSource fromContext(final Context ctx) {
+        return file -> ctx.getSharedPreferences(file, Context.MODE_PRIVATE);
+    }
+
     /** 白名单导出（需在后台线程调用）：本机没有的键不写，免得给恢复端造出默认值 */
     public static JsonObject export(Context ctx) {
+        return export(fromContext(ctx));
+    }
+
+    /** 白名单导出 */
+    static JsonObject export(PrefsSource src) {
         JsonObject prefs = new JsonObject();
         for (Entry entry : WHITELIST) {
-            JsonElement value = readOne(ctx, entry);
+            JsonElement value = readOne(src, entry);
             if (value == null) {
                 continue;
             }
@@ -141,6 +164,11 @@ public final class SettingsBackup {
      * @return 是否至少写入了一项；格式不认识或全部没写成时返回 false
      */
     public static boolean restore(Context ctx, JsonObject settings) {
+        return restore(fromContext(ctx), settings);
+    }
+
+    /** 恢复白名单里的设置 */
+    static boolean restore(PrefsSource src, JsonObject settings) {
         try {
             if (settings == null || !settings.has("version")
                     || !settings.get("version").isJsonPrimitive()) {
@@ -173,7 +201,7 @@ public final class SettingsBackup {
                 if (!obj.has(entry.key) || !obj.get(entry.key).isJsonObject()) {
                     continue;
                 }
-                if (applyOne(ctx, editors, entry, obj.getAsJsonObject(entry.key))) {
+                if (applyOne(src, editors, entry, obj.getAsJsonObject(entry.key))) {
                     applied++;
                 }
             }
@@ -197,27 +225,18 @@ public final class SettingsBackup {
      * 规范串做 SHA-256。只改设置不改库时，自动备份靠它才不会被当成「内容没变」跳过。
      */
     public static String fingerprint(Context ctx) {
+        return fingerprint(fromContext(ctx));
+    }
+
+    /** 设置指纹 */
+    static String fingerprint(PrefsSource src) {
         StringBuilder sb = new StringBuilder(512);
         for (Entry entry : WHITELIST) {
             sb.append(entry.file).append('|').append(entry.key).append('|')
                     .append(entry.type).append('|');
-            JsonElement value = readOne(ctx, entry);
+            JsonElement value = readOne(src, entry);
             if (value == null) {
                 sb.append('-');
-            } else if (value.isJsonArray()) {
-                // 字符串集合按字典序排好再拼，顺序抖动不该被当成设置变了
-                List<String> items = new ArrayList<>();
-                for (JsonElement el : value.getAsJsonArray()) {
-                    items.add(el.getAsString());
-                }
-                Collections.sort(items);
-                sb.append(items.size()).append(':');
-                for (int i = 0; i < items.size(); i++) {
-                    if (i > 0) {
-                        sb.append(',');
-                    }
-                    sb.append(items.get(i));
-                }
             } else if (value.isJsonPrimitive() && value.getAsJsonPrimitive().isString()) {
                 String text = value.getAsString();
                 sb.append(text.length()).append(':').append(text);
@@ -236,9 +255,9 @@ public final class SettingsBackup {
     }
 
     /** 读一个键并按类型包成 JSON；键不存在、类型不符或读失败返回 null */
-    private static JsonElement readOne(Context ctx, Entry entry) {
+    private static JsonElement readOne(PrefsSource src, Entry entry) {
         try {
-            SharedPreferences sp = ctx.getSharedPreferences(entry.file, Context.MODE_PRIVATE);
+            SharedPreferences sp = src.prefs(entry.file);
             if (!sp.contains(entry.key)) {
                 return null;
             }
@@ -251,15 +270,6 @@ public final class SettingsBackup {
                     return new com.google.gson.JsonPrimitive(sp.getLong(entry.key, 0L));
                 case T_STR:
                     return new com.google.gson.JsonPrimitive(sp.getString(entry.key, ""));
-                case T_SET:
-                    Set<String> set = sp.getStringSet(entry.key, Collections.<String>emptySet());
-                    JsonArray arr = new JsonArray();
-                    if (set != null) {
-                        for (String item : new TreeSet<>(set)) {
-                            arr.add(item);
-                        }
-                    }
-                    return arr;
                 default:
                     return null;
             }
@@ -270,7 +280,7 @@ public final class SettingsBackup {
     }
 
     /** 校验并写入一个键；成功返回 true（值与本机相同也算写入，交给 commit 落盘） */
-    private static boolean applyOne(Context ctx, Map<String, SharedPreferences.Editor> editors,
+    private static boolean applyOne(PrefsSource src, Map<String, SharedPreferences.Editor> editors,
                                     Entry entry, JsonObject item) {
         try {
             if (!item.has("t") || !item.has("v") || !item.get("t").isJsonPrimitive()) {
@@ -280,7 +290,7 @@ public final class SettingsBackup {
                 return false; // 类型标记对不上：宁可不动本机
             }
             JsonElement value = item.get("v");
-            SharedPreferences.Editor editor = editorFor(ctx, editors, entry.file);
+            SharedPreferences.Editor editor = editorFor(src, editors, entry.file);
             switch (entry.type) {
                 case T_BOOL:
                     if (!value.isJsonPrimitive() || !value.getAsJsonPrimitive().isBoolean()) {
@@ -309,8 +319,7 @@ public final class SettingsBackup {
                     long restored = value.getAsLong();
                     if ("first_launch_at".equals(entry.key)) {
                         // min 合并：新装恢复旧备份能拿到真实首日，老装恢复也不会把天数改小
-                        SharedPreferences sp =
-                                ctx.getSharedPreferences(entry.file, Context.MODE_PRIVATE);
+                        SharedPreferences sp = src.prefs(entry.file);
                         long current = sp.getLong(entry.key, 0L);
                         if (restored <= 0 || (current > 0 && restored >= current)) {
                             return false;
@@ -325,20 +334,6 @@ public final class SettingsBackup {
                     }
                     editor.putString(entry.key, value.getAsString());
                     return true;
-                case T_SET: {
-                    if (!value.isJsonArray()) {
-                        return false;
-                    }
-                    Set<String> restored = new java.util.HashSet<>();
-                    for (JsonElement el : value.getAsJsonArray()) {
-                        if (!el.isJsonPrimitive() || !el.getAsJsonPrimitive().isString()) {
-                            return false;
-                        }
-                        restored.add(el.getAsString());
-                    }
-                    editor.putStringSet(entry.key, restored);
-                    return true;
-                }
                 default:
                     return false;
             }
@@ -351,12 +346,12 @@ public final class SettingsBackup {
         return value.isJsonPrimitive() && value.getAsJsonPrimitive().isNumber();
     }
 
-    private static SharedPreferences.Editor editorFor(Context ctx,
+    private static SharedPreferences.Editor editorFor(PrefsSource src,
                                                       Map<String, SharedPreferences.Editor> editors,
                                                       String file) {
         SharedPreferences.Editor editor = editors.get(file);
         if (editor == null) {
-            editor = ctx.getSharedPreferences(file, Context.MODE_PRIVATE).edit();
+            editor = src.prefs(file).edit();
             editors.put(file, editor);
         }
         return editor;

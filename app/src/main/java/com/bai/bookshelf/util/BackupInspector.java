@@ -4,6 +4,7 @@ import android.content.Context;
 import android.net.Uri;
 
 import com.bai.bookshelf.BuildConfig;
+import com.bai.bookshelf.R;
 import com.bai.bookshelf.data.AppDatabase;
 import com.google.gson.JsonParser;
 
@@ -47,6 +48,12 @@ public final class BackupInspector {
         public int checkIns = -1;
         /** 包里的打卡行早于精确记录（没有 seq 或 seq<=0）：恢复时统一按第 1 轮处理 */
         public boolean checkInsBeforeSeq;
+        /** 包里有 settings 块（v5.9.5 起才有）；false ⇒ 相伴天数等偏好无法随包迁移 */
+        public boolean settingsPresent;
+        /** 包里有 wish_books 键（v5.9.5 起才有）；false ⇒ 老包，恢复时想读清单整段跳过 */
+        public boolean wishesPresent;
+        /** 想读条数；-1 表示读不出来（与「包里真的是空清单」区分开） */
+        public int wishes = -1;
         public long totalBytes;
         public int mediaCount;
         /** 不可恢复的人话原因；null ⇒ 允许恢复 */
@@ -89,6 +96,27 @@ public final class BackupInspector {
             }
             sb.append("\n打卡 ").append(checkIns < 0 ? "未知" : checkIns + " 条");
             sb.append("\n完整性：").append(verifyText());
+            return sb.toString();
+        }
+
+        /**
+         * 恢复前预览 + 覆盖情况（设置块 / 想读清单）。
+         * 无参那份保持纯函数，JVM 单测不碰 Context；新增两行走资源，
+         * 不往 Java 里加中文字面量（count_cn_literals 护栏余量为 0）。
+         */
+        public String preview(Context ctx) {
+            StringBuilder sb = new StringBuilder(preview());
+            sb.append('\n').append(ctx.getString(settingsPresent
+                    ? R.string.backup_preview_settings_yes
+                    : R.string.backup_preview_settings_no));
+            sb.append('\n');
+            if (!wishesPresent) {
+                sb.append(ctx.getString(R.string.backup_preview_wishes_absent));
+            } else if (wishes < 0) {
+                sb.append(ctx.getString(R.string.backup_preview_wishes_unknown));
+            } else {
+                sb.append(ctx.getString(R.string.backup_preview_wishes, wishes));
+            }
             return sb.toString();
         }
     }
@@ -241,8 +269,12 @@ public final class BackupInspector {
         i.books = countBooks(dataJson);
         i.checkIns = countCheckIns(dataJson);
         i.checkInsBeforeSeq = checkInsWithoutSeq(dataJson);
+        readCoverage(dataJson, i);
         if (i.books < 0 && i.meta != null) {
             i.books = i.meta.books;
+        }
+        if (i.wishes < 0 && i.meta != null && i.meta.wishes != null) {
+            i.wishes = i.meta.wishes;
         }
         if (i.meta == null) {
             return i; // 旧备份：没有可校验的东西，按内容恢复
@@ -345,6 +377,23 @@ public final class BackupInspector {
                     ? o.getAsJsonArray("check_ins").size() : 0;
         } catch (Exception e) {
             return 0;
+        }
+    }
+
+    /**
+     * 一次解析读出覆盖情况（设置块 / 想读键 / 想读条数）。
+     * 三个字段共用一次解析：data.json 可能有上千本书，为每个字段各解析一遍整包太贵。
+     */
+    private static void readCoverage(String dataJson, Info i) {
+        try {
+            com.google.gson.JsonObject o = JsonParser.parseString(dataJson).getAsJsonObject();
+            i.settingsPresent = o.has("settings") && o.get("settings").isJsonObject();
+            i.wishesPresent = o.has("wish_books") && o.get("wish_books").isJsonArray();
+            i.wishes = i.wishesPresent ? o.getAsJsonArray("wish_books").size() : -1;
+        } catch (Exception e) {
+            i.settingsPresent = false;
+            i.wishesPresent = false;
+            i.wishes = -1;
         }
     }
 

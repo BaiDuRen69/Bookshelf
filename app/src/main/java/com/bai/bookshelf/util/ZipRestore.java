@@ -17,6 +17,7 @@ import com.bai.bookshelf.data.entity.NoteImage;
 import com.bai.bookshelf.data.entity.Publisher;
 import com.bai.bookshelf.data.entity.SourceChannel;
 import com.bai.bookshelf.data.entity.Tag;
+import com.bai.bookshelf.data.entity.WishBook;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -53,6 +54,11 @@ public final class ZipRestore {
         public int fromDbVersion;
         /** 包里带白名单设置且至少写入了一项（v5.9.5 第 1 项；不含 API 密钥与应用锁） */
         public boolean settingsApplied;
+        /** 包里到底有没有 settings 块。与 settingsApplied 分开：老包是「没有」，新包可能是「有但没写成」 */
+        public boolean settingsPresent;
+        /** 恢复的想读条数；包里没这个键时保持 0 且 wishesPresent=false（本机清单原样留着） */
+        public int wishes;
+        public boolean wishesPresent;
     }
 
     private ZipRestore() {
@@ -203,6 +209,10 @@ public final class ZipRestore {
             // 第 4.3 步：旧包没有 check_ins 键时整段跳过（不删、不写、不报错）
             final boolean hasCheckIns = root.has("check_ins")
                     && root.get("check_ins").isJsonArray();
+            // 想读清单同一条纪律：v5.9.5 之前的包没有这个键，此时删表就等于把用户
+            // 现有的想读清单清空——换新机恢复反而丢数据，所以缺键必须整段跳过
+            final boolean hasWishes = root.has("wish_books")
+                    && root.get("wish_books").isJsonArray();
             // 清空全部表
             db.bookDao().deleteAll();
             db.bookCopyDao().deleteAll();
@@ -218,6 +228,9 @@ public final class ZipRestore {
             db.borrowerDao().deleteAll();
             if (hasCheckIns) {
                 db.checkInDao().deleteAll();
+            }
+            if (hasWishes) {
+                db.wishBookDao().deleteAll();
             }
 
             // 按备份 id 重写（先主子表：书 → 副本/借出/图片/各库表）
@@ -278,10 +291,18 @@ public final class ZipRestore {
                 }
                 db.checkInDao().insertAll(restored);
             }
+            if (hasWishes) {
+                List<WishBook> wishes = readList(root, "wish_books",
+                        new TypeToken<List<WishBook>>() {});
+                db.wishBookDao().insertAll(wishes);
+                result.wishes = wishes.size();
+            }
+            result.wishesPresent = hasWishes;
         });
         // v5.9.5 第 1 项：数据落库后再动偏好——设置恢复失败绝不能让整包恢复失败
         boolean settingsApplied = false;
-        if (root.has("settings") && root.get("settings").isJsonObject()) {
+        final boolean settingsPresent = root.has("settings") && root.get("settings").isJsonObject();
+        if (settingsPresent) {
             try {
                 settingsApplied = SettingsBackup.restore(ctx, root.getAsJsonObject("settings"));
             } catch (Throwable t) {
@@ -290,6 +311,7 @@ public final class ZipRestore {
             }
         }
         result.settingsApplied = settingsApplied;
+        result.settingsPresent = settingsPresent;
         Log.i(TAG, "恢复完成：" + result.books + " 种 · 图片 " + result.media
                 + " 张 · 来自 DB v" + result.fromDbVersion
                 + (result.legacy ? "（旧版包）" : "")

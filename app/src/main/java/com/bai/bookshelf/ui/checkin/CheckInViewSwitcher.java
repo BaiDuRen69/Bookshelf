@@ -1,5 +1,7 @@
 package com.bai.bookshelf.ui.checkin;
 
+import android.os.Handler;
+import android.os.Looper;
 import android.view.View;
 import android.view.ViewGroup;
 
@@ -13,6 +15,7 @@ import androidx.transition.TransitionManager;
 import androidx.transition.TransitionSet;
 
 import com.bai.bookshelf.R;
+import com.bai.bookshelf.util.Motion;
 
 /**
  * 打卡页月视图 ↔ 年视图切换（类似澎湃 OS 日历的缩放转场）。
@@ -35,6 +38,12 @@ public final class CheckInViewSwitcher {
     public static final float MONTH_ZOOM = 2.0f;
     /** 切年新旧页的水平位移比例（相对内容区宽度） */
     public static final float YEAR_SHIFT_RATIO = 0.35f;
+    /**
+     * 转场兜底时限：end / cancel 两条派发路径都没走时（host 还没 laid out、
+     * 连续 beginDelayedTransition 互相抢占），animating 会滞留 true，
+     * CheckInFragment 那 9 处守卫就全部拒绝交互。960ms 是最长转场 300ms 的 3.2 倍。
+     */
+    public static final long ANIM_TIMEOUT_MS = Motion.SLOW * 4;
     private static final FastOutSlowInInterpolator INTERPOLATOR =
             new FastOutSlowInInterpolator();
 
@@ -46,6 +55,10 @@ public final class CheckInViewSwitcher {
     private final ScalePivotTransition scaleTransition = new ScalePivotTransition();
     private boolean animating;
     private boolean yearVisible;
+    // 不用 host.postDelayed：host 未附着窗口时它进 HandlerActionQueue，要等附着才执行，
+    // 而「转场根本没派发」恰恰常发生在未 laid out 的 host 上，兜底就永远不会响。
+    private final Handler timeoutHandler = new Handler(Looper.getMainLooper());
+    private final Runnable timeoutReset = this::finish;
 
     public CheckInViewSwitcher(ViewGroup host, View monthContent, View yearContent,
                                CheckInYearView yearView, MonthGridView monthGrid) {
@@ -201,6 +214,8 @@ public final class CheckInViewSwitcher {
 
     private void begin() {
         animating = true;
+        timeoutHandler.removeCallbacks(timeoutReset);
+        timeoutHandler.postDelayed(timeoutReset, ANIM_TIMEOUT_MS);
         monthGrid.suspendDotAnimations(true);
         monthContent.setLayerType(View.LAYER_TYPE_HARDWARE, null);
         yearContent.setLayerType(View.LAYER_TYPE_HARDWARE, null);
@@ -281,6 +296,7 @@ public final class CheckInViewSwitcher {
     }
 
     private void finish() {
+        timeoutHandler.removeCallbacks(timeoutReset);
         animating = false;
         monthGrid.suspendDotAnimations(false);
         monthContent.setLayerType(View.LAYER_TYPE_NONE, null);

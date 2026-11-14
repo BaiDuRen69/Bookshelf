@@ -9,7 +9,6 @@ import android.util.Log;
 
 import com.bai.bookshelf.app.BookshelfApp;
 
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
@@ -656,29 +655,6 @@ public final class BackupManager {
         }
         list.sort((x, y) -> x.name.compareTo(y.name));
         return list;
-    }
-
-    /** 读取内部备份文件全部字节；失败返回 null（旧备份无 meta 时的字节比对用） */
-    private static byte[] readFile(File f) {
-        try (InputStream in = new java.io.FileInputStream(f)) {
-            ByteArrayOutputStream bos = new ByteArrayOutputStream();
-            byte[] buf = new byte[8192];
-            int len;
-            while ((len = in.read(buf)) > 0) {
-                bos.write(buf, 0, len);
-            }
-            return bos.toByteArray();
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
-    private static void writeFile(File f, byte[] data) {
-        try (FileOutputStream fos = new FileOutputStream(f)) {
-            fos.write(data);
-        } catch (Exception ignored) {
-            // 内部存储写失败只能放弃
-        }
     }
 
     private static String timestamp() {

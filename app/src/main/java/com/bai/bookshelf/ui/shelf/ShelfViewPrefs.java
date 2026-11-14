@@ -24,8 +24,8 @@ import java.util.Map;
  *       绝不会串到相邻条目上。</li>
  * </ul>
  *
- * <p>{@link #applySelection}、{@link #normalize}、{@link #keyFor} 都是不碰 Android 类型的
- * 纯函数，JVM 单测直接测它们；实例方法只负责把同一份内存副本落到 SharedPreferences。
+ * <p>{@link #applySelection}、{@link #normalize}、{@link #keyFor}、{@link #indexForLabel}
+ * 都是不碰 Android 类型的纯函数，JVM 单测直接测它们；实例方法只负责把同一份内存副本落到 SharedPreferences。
  */
 public final class ShelfViewPrefs {
 
@@ -125,6 +125,22 @@ public final class ShelfViewPrefs {
     public static String labelOf(Map<String, Object> mem, String dim) {
         Object v = mem.get(keyFor(dim));
         return v == null ? "" : String.valueOf(v);
+    }
+
+    /**
+     * 按文案在下拉项里找下标——「按文案恢复」的唯一判据（卡 9）。
+     *
+     * <p>找不到、文案为空、命中的就是首项「不限」，一律回 0（= 不限），
+     * <b>绝不退到相邻条目上</b>：条目改名或被删之后，用户看到的必须是「不限」，
+     * 而不是一本没选过的书。恢复选中项的两条路（视图重建后的回填、下拉内容变化后的
+     * 重填）都必须走这里，别各写一份。
+     */
+    public static int indexForLabel(List<String> names, String label) {
+        if (names == null || label == null || label.isEmpty()) {
+            return 0;
+        }
+        int idx = names.indexOf(label);
+        return idx > 0 ? idx : 0;
     }
 
     /** 排序方式：负数自愈成 0，越界由调用方的 Spinner 自己兜（文案找不到就不回填） */

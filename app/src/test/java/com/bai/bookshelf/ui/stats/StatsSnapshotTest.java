@@ -26,7 +26,8 @@ import java.util.Map;
 
 /**
  * 3.1 快照契约：字段全 final、不碰 Android、Builder 一个不漏、List 一律「空只读拷贝」。
- * 四栏「关键数字」的断言在 3.2 的 StatsComputerTest 里，这里只钉容器本身。
+ * 四栏「关键数字」的断言在 {@link com.bai.bookshelf.stats.StatsComputerTest}，
+ * 这里只钉容器本身。
  * toBuilder 已删：主代码零调用方，留着只会被测试自己喂自己（坑 58）。
  */
 public class StatsSnapshotTest {

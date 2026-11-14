@@ -485,6 +485,33 @@ public class LibraryStatsTest {
     }
 
     @Test
+    public void 最长连续跨月不断链() {
+        // 1 月 31 日的下一天是 20260201，不是 20260132；按整数 +1 判相邻会在这里断成 2+2
+        StatsPace.Habit h = StatsPace.Habit.of(
+                Arrays.asList(20260130, 20260131, 20260201, 20260202, 20260210), 2026, 20260210);
+        assertEquals(5, h.daysReadThisYear);
+        assertEquals("月末不该断链：1/30–2/2 是连续 4 天", 4, h.longestStreak);
+        assertEquals("2/10 与前面隔 8 天，当前连续只有它自己", 1, h.currentStreak);
+        assertEquals(2, h.bestMonth);
+        assertEquals(3, h.bestMonthDays);
+    }
+
+    @Test
+    public void 跨年相邻按日历算而习惯指标只留当年() {
+        // 这条钉的是口径与日键算术，不是月末断链的回归：Habit.of 先按年过滤，
+        // 跨年那一天进不了连续判定，所以本用例在修前修后都该绿。
+        assertEquals("跨年相邻必须是 1 天", 1, DateKeys.daysBetween(20251231, 20260101));
+        assertEquals("整数相减会得出 8870 这种假间隔", 8870, 20260101 - 20251231);
+        StatsPace.Habit h = StatsPace.Habit.of(
+                Arrays.asList(20251230, 20251231, 20260101, 20260102), 2026, 20260102);
+        assertEquals("2025 年那两天必须被截掉", 2, h.daysReadThisYear);
+        assertEquals(2, h.longestStreak);
+        assertEquals(2, h.currentStreak);
+        assertEquals(1, h.bestMonth);
+        assertEquals(2, h.bestMonthDays);
+    }
+
+    @Test
     public void 习惯只算当年不被跨年区间撑爆() {
         // 一本「2024 年开始在读、至今没填结束日期」的书会铺出跨年的一整段日子；
         // 习惯指标必须按年截断，否则会出现「7 月读了 155 天」这种结论
@@ -497,8 +524,8 @@ public class LibraryStatsTest {
         StatsPace.Habit h = StatsPace.Habit.of(days, 2026, 20260731);
         assertEquals("当年七月最多 31 天", 31, h.daysReadThisYear);
         assertEquals(7, h.bestMonth);
-        assertTrue(h.bestMonthDays <= 31);
-        assertTrue(h.longestStreak <= 31);
+        assertEquals(31, h.bestMonthDays);
+        assertEquals("2026 年 7 月 1–31 日就是连续 31 天", 31, h.longestStreak);
     }
 
     // ==================== 买读比 ====================

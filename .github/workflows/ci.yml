@@ -1,6 +1,6 @@
 name: CI
 
-# 「改坏了机器知道」：编译 + JVM 单测 + lint（基线之外新增才红）+ tools/ 四条校验。
+# 「改坏了机器知道」：编译 + JVM 单测 + lint（基线之外新增才红）+ tools/ 校验（含硬编码中文只减不增）。
 # instrumentation（androidTest）需要真机/模拟器，不进 CI；本机用 de5090fb 快进快出跑。
 # gradlew 的执行位已进仓库（100755，见 .gitattributes），仍统一写 `sh ./gradlew`：
 # 这样在本地（Windows，git 有时不回写 mode）和 runner 上都一样能跑。
@@ -94,6 +94,13 @@ jobs:
         # 数字漂移会在下一次代码 push 被抓住。真需要文档提交即时判定，再拆独立 workflow。
         run: python3 tools/check_doc_drift.py
 
-      - name: 负向自测——三条校验在指错目录时必须给出判定性非 0
+      - name: 硬编码中文只减不增（口径 = tools/count_cn_literals.py 的「含中文」）
+        # 阈值 2657 同时写进脚本默认值和这里：想放松必须两处一起改，只改文档不会让 CI 变绿得更容易。
+        # 口径原文（≥1 个汉字就算一条、不去块注释、只扫 app/src/main/java）见脚本 docstring；
+        # 下一步会拿 --max 1 / --max 999999 各跑一次，证明这条闸门真的在判定而不是摆设。
+        run: python3 tools/count_cn_literals.py --max 2657
+
+      - name: 负向自测——闸门指错目录必须判定性非 0，中文护栏阈值调低必须红
         # 守 A1 修掉的两条假绿：空跑（0 比对 / 0 待判定）一律 exit 2，不许 [OK]。
+        # 卡 5 加了第二类形状：带阈值的护栏要两个方向都试（调高仍绿 + 调低必红）。
         run: python3 tools/selftest_checks.py

@@ -451,7 +451,8 @@ public final class StatsPace {
             int longest = 0;
             int previous = -2;
             for (int key : sorted) {
-                streak = key == previous + 1 ? streak + 1 : 1;
+                // 日键是 yyyyMMdd 整数，月末 +1 得到的是不存在的 20260132，必须按真实日历判相邻
+                streak = previous > 0 && DateKeys.daysBetween(previous, key) == 1 ? streak + 1 : 1;
                 longest = Math.max(longest, streak);
                 previous = key;
             }

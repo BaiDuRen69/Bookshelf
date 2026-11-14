@@ -2,6 +2,7 @@ package com.bai.bookshelf.util;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.util.Log;
 
 import com.bai.bookshelf.data.AppDatabase;
 
@@ -30,10 +31,17 @@ import java.util.Locale;
  */
 public final class PreMigrationBackup {
 
+    private static final String TAG = "PreMigrationBackup";
     private static final String PREFS = "app_prefs";
     private static final String KEY_DB_VERSION = "db_version";
     private static final String DIR = "backups/premigration";
     private static final int MAX_KEEP = 2;
+
+    /**
+     * 副本没留下的返回值。与 -1（留下了、旧版本未知）必须分开：
+     * 两者都会触发迁移后的整包备份，但只有 -1 允许记 db_version。
+     */
+    public static final int COPY_FAILED = -2;
 
     private PreMigrationBackup() {
     }
@@ -45,7 +53,8 @@ public final class PreMigrationBackup {
     /**
      * 在 Room 首次打开数据库之前调用。
      *
-     * @return 上次的数据库版本；0 = 全新安装或老装机首次跑到本版本（此时也会先留一份副本）
+     * @return 上次的数据库版本；0 = 全新安装；-1 = 已留副本（旧版本未知）；
+     *         {@link #COPY_FAILED} = 副本没留下，调用方不许记 db_version
      */
     public static int prepareBeforeOpen(Context ctx) {
         File dbFile = ctx.getDatabasePath(AppDatabase.DB_NAME);
@@ -60,8 +69,17 @@ public final class PreMigrationBackup {
         }
         // known == 0：老装机（本版本才开始记 db_version），既然 DB 文件存在就一律留一份，
         // 并用 -1 表示「刚升级、旧版本未知」，宁可多留一次也不要漏
-        copy(ctx, known, target);
-        return -1;
+        return copy(ctx, known, target) ? -1 : COPY_FAILED;
+    }
+
+    /**
+     * 本次启动之后能不能记 db_version。
+     *
+     * <p>副本没留下时记了版本，下次启动就会认为「已经保护过」而不再复制——
+     * 一次磁盘写满就能让这次升级永久失去回退快照。所以失败时不记，下次冷启动再试。
+     */
+    public static boolean shouldMarkOpened(int versionBefore) {
+        return versionBefore != COPY_FAILED;
     }
 
     /** Room 打开成功之后调用：记下当前版本，下次启动只在版本变化时再复制 */
@@ -74,7 +92,7 @@ public final class PreMigrationBackup {
         return oldVersion < 0 || (oldVersion > 0 && oldVersion != targetVersion);
     }
 
-    /** 已有副本目录（旧→新） */
+    /** 已有副本目录（旧→新），含写坏的半成品；清理配额用这份，别拿它当「有副本」 */
     public static List<File> list(Context ctx) {
         File dir = new File(ctx.getFilesDir(), DIR);
         File[] children = dir.listFiles(File::isDirectory);
@@ -85,9 +103,30 @@ public final class PreMigrationBackup {
         return new ArrayList<>(Arrays.asList(children));
     }
 
-    /** 副本份数（「验证备份」里报告用） */
+    /** 真能拿来恢复的副本（旧→新）：目录里有一份非空的主库 */
+    public static List<File> usableList(Context ctx) {
+        List<File> out = new ArrayList<>();
+        for (File f : list(ctx)) {
+            if (isUsableCopy(f)) {
+                out.add(f);
+            }
+        }
+        return out;
+    }
+
+    /**
+     * 这份副本能不能用。只看主库在不在、是不是 0 字节：
+     * 复制中断留下的空壳目录曾经也被算成「有副本」，修复页因此把恢复按钮点亮，
+     * 用户点下去才失败。SQLite 头的严格校验仍在 {@code DbRepair} 的恢复路径上。
+     */
+    public static boolean isUsableCopy(File copy) {
+        File db = new File(copy, AppDatabase.DB_NAME);
+        return db.isFile() && db.length() > 0;
+    }
+
+    /** 可用副本份数（「验证备份」里报告用） */
     public static int count(Context ctx) {
-        return list(ctx).size();
+        return usableList(ctx).size();
     }
 
     /** 一份副本的说明文字，如 {@code DB 22 → 23 · 2026-10-30 12:00} */
@@ -166,43 +205,53 @@ public final class PreMigrationBackup {
         }
     }
 
-    private static void copy(Context ctx, int oldVersion, int targetVersion) {
+    private static boolean copy(Context ctx, int oldVersion, int targetVersion) {
         String stamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault())
                 .format(new Date());
         String from = oldVersion > 0 ? String.valueOf(oldVersion) : "?";
         File target = new File(new File(ctx.getFilesDir(), DIR),
                 stamp + "_db" + from + "_to_" + targetVersion);
-        if (!target.mkdirs()) {
-            return;
-        }
         File dbFile = ctx.getDatabasePath(AppDatabase.DB_NAME);
-        copyFile(dbFile, new File(target, AppDatabase.DB_NAME));
-        // WAL / SHM 必须跟着走，否则副本是个只有旧主库、丢未落盘写入的半成品
-        copyFile(new File(dbFile.getPath() + "-wal"),
-                new File(target, AppDatabase.DB_NAME + "-wal"));
-        copyFile(new File(dbFile.getPath() + "-shm"),
-                new File(target, AppDatabase.DB_NAME + "-shm"));
+        if (!copySnapshot(dbFile, target)) {
+            // 证据走 logcat（adb logcat -s PreMigrationBackup），界面文案一个字不改
+            Log.w(TAG, "premigration copy NOT saved: source=" + dbFile.length()
+                    + " bytes, dir=" + target.getName()
+                    + "; this upgrade has no rollback snapshot");
+            return false;
+        }
         // 只留最近 MAX_KEEP 份
         List<File> all = list(ctx);
         while (all.size() > MAX_KEEP) {
             deleteRecursive(all.remove(0));
         }
+        return true;
     }
 
-    private static void copyFile(File src, File dst) {
-        if (src == null || !src.exists()) {
-            return;
+    /**
+     * 纯文件动作：主库 + WAL/SHM 整份复制进 target，写完核对字节数。
+     * 任何一步失败都把本次刚建的目录整个删掉，不留空壳冒充副本。
+     *
+     * <p>这里不打日志：JVM 单测要能直接调（android.util.Log 在单测里没 mock）。
+     */
+    static boolean copySnapshot(File dbFile, File target) {
+        if (!target.mkdirs()) {
+            return false; // 目录已在或建不出来：不碰别人的副本
         }
-        try (InputStream in = new FileInputStream(src);
-             FileOutputStream out = new FileOutputStream(dst)) {
-            byte[] buf = new byte[8192];
-            int len;
-            while ((len = in.read(buf)) > 0) {
-                out.write(buf, 0, len);
-            }
-        } catch (Exception ignored) {
-            // 副本失败不阻断启动：自动备份仍然会跑
+        File dst = new File(target, AppDatabase.DB_NAME);
+        try {
+            copyStrict(dbFile, dst);
+            // WAL / SHM 必须跟着走，否则副本是个只有旧主库、丢未落盘写入的半成品
+            copyStrict(new File(dbFile.getPath() + "-wal"), new File(dst.getPath() + "-wal"));
+            copyStrict(new File(dbFile.getPath() + "-shm"), new File(dst.getPath() + "-shm"));
+        } catch (Exception e) {
+            deleteRecursive(target);
+            return false;
         }
+        if (!isUsableCopy(target) || dst.length() != dbFile.length()) {
+            deleteRecursive(target);
+            return false;
+        }
+        return true;
     }
 
     private static void deleteRecursive(File f) {

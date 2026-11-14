@@ -135,6 +135,9 @@ public final class ZipBackup {
         root.add("borrowers", new Gson().toJsonTree(db.borrowerDao().getAll()));
         // 第 ④ 步：每日阅读打卡；老备份没有这个键，ZipRestore.readList 会返回空列表
         root.add("check_ins", new Gson().toJsonTree(db.checkInDao().getAll()));
+        // 想读清单：v5.9.5 之前整表漏在包外，换新机恢复会全丢。老包没有这个键，
+        // ZipRestore 按 hasWishes 整段跳过（不删不写），绝不能顺手清掉本机现有清单
+        root.add("wish_books", new Gson().toJsonTree(db.wishBookDao().getAll()));
         // v5.9.5 第 1 项：白名单设置随包迁移（不含 API 密钥、应用锁、SAF 授权）
         root.add("settings", SettingsBackup.export(ctx));
         byte[] jsonBytes = new Gson().toJson(root).getBytes(StandardCharsets.UTF_8);
@@ -160,6 +163,7 @@ public final class ZipBackup {
         // 校验和算法不变：check_ins 已写进 data.json，条目字节变了校验和自然变；
         // 这里只是把条数写进 meta.json 供恢复前预览。
         meta.checkIns = db.checkInDao().getAll().size();
+        meta.wishes = db.wishBookDao().count();
         // ZipOutputStream.close() 会连底层 FileOutputStream 一起关掉，那样就没法 sync 了；
         // 用一个「关的时候只 flush」的包装，先 finish 再 fsync 落盘
         try (java.io.FileOutputStream raw = new java.io.FileOutputStream(out)) {

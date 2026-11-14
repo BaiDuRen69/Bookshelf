@@ -20,6 +20,7 @@ import android.view.ViewGroup;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
@@ -92,6 +93,8 @@ public class CheckInFragment extends Fragment
     private boolean todayChecked;
     private long lastReloadMs;
     private CheckInViewSwitcher switcher;
+    /** 年视图吃掉返回键回月视图；enabled 只跟 isYearVisible() 走 */
+    private OnBackPressedCallback yearBackCallback;
     private CheckInYearPanel yearPanel;
     private CheckInMonthDayAdapter monthDayAdapter;
     /** 在读清单本身为空：没有任何「在读」的书 */
@@ -180,6 +183,25 @@ public class CheckInFragment extends Fragment
         switcher = new CheckInViewSwitcher(b.viewSwitchHost, b.monthContent,
                 yearContentView, yearPanel.yearView(), b.monthGrid);
         yearPanel.yearView().setYearSwitcher(switcher);
+        yearBackCallback = new OnBackPressedCallback(false) {
+            @Override
+            public void handleOnBackPressed() {
+                if (b != null && switcher != null && !isHidden()
+                        && !switcher.isAnimating() && switcher.isYearVisible()) {
+                    switcher.toMonth(b.monthGrid.selectedCellCenterIn(b.viewSwitchHost),
+                            CheckInFragment.this::syncYearBack);
+                    syncYearBack();
+                    return;
+                }
+                // 年视图不在前台（show/hide 切 Tab 不改 lifecycle，回调仍挂着）或正在转场：
+                // 这次返回不该被吃掉。先 disable 再重派，否则 dispatcher 又挑中本回调，无限递归。
+                setEnabled(false);
+                requireActivity().getOnBackPressedDispatcher().onBackPressed();
+                setEnabled(true);
+            }
+        };
+        requireActivity().getOnBackPressedDispatcher()
+                .addCallback(getViewLifecycleOwner(), yearBackCallback);
 
         // 纵向手势的唯一入口：整页可滑，列表/悬浮按钮/年视图分别让行
         b.swipeRoot.setListener(this);
@@ -210,7 +232,7 @@ public class CheckInFragment extends Fragment
         b.monthGrid.setNeighborDataProvider(ym -> {
             MonthSnapshot snap = monthSnapshots.get(ym);
             return snap == null ? null
-                    : new MonthGridView.MonthData(snap.holidays, snap.dayMarks);
+                    : new MonthData(snap.holidays, snap.dayMarks);
         });
         setToolbarMonth(b.monthGrid.getYearMonth());
         b.toolbar.setOnClickListener(v -> toggleYearView());
@@ -223,7 +245,11 @@ public class CheckInFragment extends Fragment
                 // 「今」返回时缩放中心落在今天格，不是上一次选中的日子
                 b.monthGrid.setSelectedDay(todayPick[1]);
                 switcher.toMonth(b.monthGrid.selectedCellCenterIn(b.viewSwitchHost),
-                        this::goToToday);
+                        () -> {
+                            goToToday();
+                            syncYearBack();
+                        });
+                syncYearBack();
             } else {
                 goToToday();
             }
@@ -354,8 +380,20 @@ public class CheckInFragment extends Fragment
         }
         if (switcher.isYearVisible()) {
             switcher.toMonth(b.monthGrid.selectedCellCenterIn(b.viewSwitchHost), null);
+            syncYearBack();
         } else {
             openYearView();
+        }
+    }
+
+    /**
+     * 返回键拦截只在年视图可见时生效。{@code yearVisible} 在 toYear / toMonth 里是
+     * **转场开始**就翻的，所以四个调用点都得立刻同步一次，否则那 300ms 里返回键仍是旧状态；
+     * 转场结束回调里再同步一次，兜住「animating 时直接 return、状态没翻」的早退路径。
+     */
+    private void syncYearBack() {
+        if (yearBackCallback != null) {
+            yearBackCallback.setEnabled(switcher != null && switcher.isYearVisible());
         }
     }
 
@@ -390,7 +428,9 @@ public class CheckInFragment extends Fragment
                 }
                 // 年份边界、网格 bind、标题与小结全部收进 CheckInYearPanel
                 yearPanel.bind(ym, list, today);
-                switcher.toYear(b.monthGrid.selectedCellCenterIn(b.viewSwitchHost), null);
+                switcher.toYear(b.monthGrid.selectedCellCenterIn(b.viewSwitchHost),
+                        this::syncYearBack);
+                syncYearBack();
                 refreshHolidaysForYear(year);
             });
         });
@@ -416,11 +456,13 @@ public class CheckInFragment extends Fragment
         setMonthChromeAlpha(0f);
         monthChromeHidden = true;
         switcher.toMonthFromCard(month, () -> {
+            syncYearBack();
             if (b == null) {
                 return;
             }
             loadMonth(yearMonth);
         });
+        syncYearBack();
     }
 
     /**

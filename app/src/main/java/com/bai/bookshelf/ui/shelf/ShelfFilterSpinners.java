@@ -264,10 +264,10 @@ public class ShelfFilterSpinners {
         if (filled && names.equals(cache)) {
             return; // 本视图已填充过且内容没变，跳过重建
         }
-        // 记录用户当前选中的文案，重建后恢复，避免被重置回第一项
+        // 记录用户当前选中的文案，重建后按文案在新列表里找回位置（卡 9）
         Object selected = spinner.getSelectedItem();
         String selectedText = selected == null ? null : selected.toString();
-        int selectedIndex = selectedText == null ? -1 : cache.indexOf(selectedText);
+        int selectedIndex = ShelfViewPrefs.indexForLabel(names, selectedText);
 
         cache.clear();
         cache.addAll(names);
@@ -281,11 +281,11 @@ public class ShelfFilterSpinners {
      * 视图重建后恢复筛选选中项：用记住的已选项文案（内存或 prefs 带来的）。
      *
      * <p>按文案而非按位置恢复：选项来自数据库，某条地点/标签被删或改名后位置会变，
-     * 文案找不到就保持「不限」，不会把用户筛到另一本书上。
+     * 文案找不到就保持「不限」，不会把用户筛到另一本书上。判据在
+     * {@link ShelfViewPrefs#indexForLabel}，{@code fillIfChanged} 重建后回填那条路也走同一个函数。
      */
     private void restoreSelection(Spinner spinner, List<String> names, String dim) {
-        String label = remembered.get(dim);
-        int idx = label == null ? -1 : names.indexOf(label);
+        int idx = ShelfViewPrefs.indexForLabel(names, remembered.get(dim));
         if (idx > 0) {
             spinner.setSelection(idx, false);
         }

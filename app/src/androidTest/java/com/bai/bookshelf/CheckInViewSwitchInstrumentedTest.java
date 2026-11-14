@@ -177,4 +177,40 @@ public class CheckInViewSwitchInstrumentedTest {
         // onViewCreated 之前 b == null，钩子必须直接返回，不依赖 Activity/Context
         ((TabRefresh) fragment).onTabShown();
     }
+
+    /**
+     * EP-I5 · T14：end / cancel 两条派发路径都没走时，超时兜底必须把 animating 复位。
+     *
+     * <p>造法就是仓库既有的「inflate 但不附着窗口」：host 从未 measure/layout，
+     * {@code ViewCompat.isLaidOut == false}，{@code TransitionManager.beginDelayedTransition}
+     * 直接 return，于是 onTransitionEnd 与 onTransitionCancel 一个都不会派发——
+     * 这正是连点卡死时 animating 滞留 true 的那条路径，不需要人为 mock。
+     */
+    @Test
+    public void 转场两条派发路径都没走时超时兜底复位() throws Exception {
+        View root = inflate(R.layout.fragment_checkin);
+        ViewGroup host = root.findViewById(R.id.view_switch_host);
+        View month = root.findViewById(R.id.month_content);
+        View year = root.findViewById(R.id.year_content);
+        CheckInViewSwitcher switcher = new CheckInViewSwitcher(host, month, year,
+                root.findViewById(R.id.year_view), root.findViewById(R.id.month_grid));
+        assertFalse("未 laid out 的 host 不会派发转场", host.isLaidOut());
+
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() ->
+                switcher.toYear(new int[]{0, 0}, null));
+        assertTrue("转场没派发时 animating 会滞留", switcher.isAnimating());
+        assertTrue(switcher.isYearVisible());
+
+        Thread.sleep(CheckInViewSwitcher.ANIM_TIMEOUT_MS + 400);
+
+        assertFalse("超时必须复位 animating，否则 9 处守卫全部拒绝交互", switcher.isAnimating());
+        assertEquals("年可见：月层收起", View.GONE, month.getVisibility());
+        assertEquals("年可见：年层显示", View.VISIBLE, year.getVisibility());
+        assertEquals("两层缩放归位", 1f, month.getScaleX(), 0.0001f);
+        assertEquals(1f, year.getScaleX(), 0.0001f);
+        assertEquals("两层不透明归位", 1f, month.getAlpha(), 0.0001f);
+        assertEquals(1f, year.getAlpha(), 0.0001f);
+        assertEquals("硬件层要放掉", View.LAYER_TYPE_NONE, month.getLayerType());
+        assertEquals(View.LAYER_TYPE_NONE, year.getLayerType());
+    }
 }

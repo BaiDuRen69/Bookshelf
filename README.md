@@ -40,7 +40,8 @@
 
 - 下载地址：[Releases 页](https://github.com/BaiDuRen69/Bookshelf/releases/latest)，取版本号最大的那个 `XiaoShuFang-v*.apk`
 - 交付包的真实数字（体积 / SHA-256 / 产出时的提交 / 能不能装）记在 [docs/发版记录.md](docs/发版记录.md)
-- 功能按模块的清单在 [docs/小书房-功能清单.md](docs/小书房-功能清单.md)，开发记录与踩过的坑在 [docs/小书房-项目总览.md](docs/小书房-项目总览.md)
+- 功能按模块的清单在 [docs/小书房-功能清单.md](docs/小书房-功能清单.md)，开发记录与踩过的坑在 [docs/小书房-项目总览.md](docs/小书房-项目总览.md)，改进方案（13 条编号需求 + 逐条核实与执行结果）在 [docs/改进方案-2026-11-10.md](docs/改进方案-2026-11-10.md)
+- 还没做的功能只认一份台账：[docs/功能欠账.md](docs/功能欠账.md)，三态（未做 / 已做 / 已作废）各带可复跑的核实命令；包体瘦身与内嵌字体的三案代价、字体文件规格在 [docs/包体与字体决策单.md](docs/包体与字体决策单.md)，两项都待裁决
 - 这一页以前从 v4.20 一路逐版写到 v5.9.0（约 330 行 changelog），现在不再在这里重复维护；需要旧文案用 `git log -p --follow README.md` 取回
 
 ## 📲 下载安装
@@ -120,7 +121,7 @@
 原生库均已适配 Android 15+ 的 16 KB 内存页）·
 Retrofit · Glide · 零依赖手写 XLSX 读写器（不引入 POI）· EncryptedSharedPreferences（API 密钥加密存储）· androidx.biometric（应用锁）
 
-最新版本 v5.9.5（versionCode 139，单测 597，androidTest 共 177）。
+最新版本 v5.9.5（versionCode 139，单测 639，androidTest 共 187）。
 
 ### 数字的口径
 
@@ -128,7 +129,8 @@ Retrofit · Glide · 零依赖手写 XLSX 读写器（不引入 POI）· Encrypt
 - `tools/check_doc_drift.py` 拿这些真值逐一比对本页与 `docs/` 里的当前态说法，对不上就红，所以这里不手写凭印象的数字
 - `tools/check_activities.py` 守住「每个 Activity 必须有可达的 setContentView」（v4.49 整页空白事故的自动版）
 - `scripts/pack.ps1` 与 `tools/check_release_package.py` 核验包名 / ABI / 文件名版本，并与上一条可交付记录比 SHA-256 与体积；交付目录默认是仓库外的 `../dist/`（历史包 `dist/历史/`、改前改后对拍证据 `dist/verify/<版本>/`）
-- CI：`.github/workflows/ci.yml`（assembleRelease + 单测 + lint + 上述四条校验）；纯文档改动不触发构建
+- 硬编码中文只有一个数：`tools/count_cn_literals.py` 的「含中文」= **2657**（口径 = 只扫 `app/src/main/java`、逐行取 `//` 之前、抓字符串字面量、串内 ≥1 个汉字算一条）。CI 用 `--max 2657` 做只减不增护栏。其它脚本报的是别的口径，只能当差值解释、不能拿来「更正」它：`tools/audit_cn_and_catch.py` 的 2227 = 再收严到 ≥2 汉字（−368 条单字量词「册/本/笔」）并去掉块注释（−62 条）；lint 基线里的 668 `HardcodedText` + 104 `SetTextI18n` 数的是 **XML 布局**条目，跟 Java 字面量不是一个东西
+- CI：`.github/workflows/ci.yml`（assembleRelease + 单测 + lint + 上述四条校验 + 中文只减不增护栏 + 负向自测）；纯文档改动不触发构建
 
 ### 构建
 

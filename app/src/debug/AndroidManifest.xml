@@ -1,9 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 仅 debug 构建：分享卡渲染自检入口（不进入 release 包） -->
+<!-- 仅 debug 构建：分享卡渲染自检入口 + 仪器化测试的最小宿主（都不进入 release 包） -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application>
         <activity
             android:name=".ui.debug.ShareCardPreviewActivity"
+            android:exported="true" />
+        <!-- EP-I5 · T13：年视图返回键断言要一个真 Activity。放 androidTest 源集不行——
+             那边包名带 .test 后缀，startActivitySync 会判「resolved to different process」。
+             exported=true 是刻意的：本机 MIUI 拒绝**应用 uid** 后台起 Activity（会弹
+             CHECK_ALLOW_START_ACTIVITY 确认框，时灵时不灵），但 shell uid 起 exported
+             组件是稳的。测试改用 UiAutomation.executeShellCommand("am start …") 起宿主，
+             绕开这条限制。仅 debug 源集，不进 release 包。 -->
+        <activity
+            android:name=".ui.debug.CheckInBackHostActivity"
             android:exported="true" />
     </application>
 </manifest>

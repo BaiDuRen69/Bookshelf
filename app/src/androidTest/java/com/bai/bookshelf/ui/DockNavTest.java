@@ -145,9 +145,13 @@ public class DockNavTest {
         assertNotNull("少了底部渐隐遮罩", scrim);
         assertEquals(px(R.dimen.dock_scrim_h), scrim.getLayoutParams().height);
         ViewGroup decor = (ViewGroup) container.getParent();
-        assertEquals("遮罩必须排在 container 之后、bottom_nav 之前（压在内容上、dock 下面）",
-                R.id.nav_scrim, decor.getChildAt(1).getId());
-        assertEquals(R.id.bottom_nav, decor.getChildAt(2).getId());
+        // 按相对次序断言，不写死下标：container 与 nav_scrim 之间还夹着 status_bar_scrim，
+        // 写死 getChildAt(1) 会把「状态栏遮罩」当成「底部遮罩」来比
+        int containerAt = decor.indexOfChild(container);
+        int scrimAt = decor.indexOfChild(scrim);
+        int barAt = decor.indexOfChild(bar);
+        assertTrue("遮罩必须排在 container 之后（压在内容上）", scrimAt > containerAt);
+        assertTrue("遮罩必须排在 bottom_nav 之前（在 dock 下面）", scrimAt < barAt);
     }
 
     @Test

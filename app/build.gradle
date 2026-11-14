@@ -59,6 +59,11 @@ android {
         // 重生成基线：删掉本文件再跑 ./gradlew :app:lintRelease，然后人工看一眼 diff 再提交。
         baseline = file('baseline.xml')
         textReport = true
+        // EP-I6 T17：这条检查读 build/intermediates/lint-cache 里的 maven-versions 缓存，
+        // 缓存热时报 6 条、冷缓存 + --offline 时一条不报，且尾行句式会从「0 errors, 6 warnings」
+        // 变成「Lint found no new issues」——同一份代码在 CI 与本机给出不同读数。
+        // 升级依赖是单独一轮的事（要跑回归），不该由 lint 顺带提醒，故关掉而不是进基线。
+        disable 'NewerVersionAvailable'
     }
 }
 

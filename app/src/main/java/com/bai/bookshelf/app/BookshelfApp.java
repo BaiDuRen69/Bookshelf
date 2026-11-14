@@ -122,12 +122,12 @@ public class BookshelfApp extends Application {
             // v5.8.12：升级前副本必须在「Room 第一次打开」之前，但不必在主线程——
             // 大库同步复制是升级后首启的 ANR 候选。这里先复制再开库，顺序不变，
             // 主线程只是把任务丢进 bg 就返回。
-            int versionBefore = -1;
+            int versionBefore = com.bai.bookshelf.util.PreMigrationBackup.COPY_FAILED;
             try {
                 versionBefore = com.bai.bookshelf.util.PreMigrationBackup
                         .prepareBeforeOpen(this);
             } catch (Throwable t) {
-                // 副本失败不阻断启动（与旧行为一致），继续开库；但要留下证据，
+                // 副本失败不阻断启动，但也不记 db_version（下次冷启动再试）；证据留在 logcat，
                 // 否则「升级前没留副本」这件事只有出事后才知道
                 Log.w(TAG, "升级前副本未留下，本次迁移出问题将没有回退快照", t);
             }
@@ -140,8 +140,11 @@ public class BookshelfApp extends Application {
                 return;
             }
             markDbReady();
-            // 只有真正打开成功才记版本：上次如果迁移失败，这次启动才仍会留升级前副本
-            com.bai.bookshelf.util.PreMigrationBackup.markOpened(this, AppDatabase.VERSION);
+            // 只有真正打开成功、且副本确实留下了才记版本：迁移失败或副本写失败时不记，
+            // 下次启动才会再留一份升级前副本
+            if (com.bai.bookshelf.util.PreMigrationBackup.shouldMarkOpened(dbVersionBefore)) {
+                com.bai.bookshelf.util.PreMigrationBackup.markOpened(this, AppDatabase.VERSION);
+            }
             if (com.bai.bookshelf.util.PreMigrationBackup.migrated(
                     dbVersionBefore, AppDatabase.VERSION)) {
                 // 迁移成功后立刻做一次整包备份（无视「每天一次」），

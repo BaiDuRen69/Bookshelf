@@ -29,6 +29,7 @@ import com.bai.bookshelf.R;
 import com.bai.bookshelf.ui.checkin.CheckInYearPanel;
 import com.bai.bookshelf.ui.checkin.CheckInYearView;
 import com.bai.bookshelf.ui.checkin.MonthGridView;
+import com.bai.bookshelf.ui.checkin.MonthRole;
 import com.bai.bookshelf.ui.widget.DayCellView;
 import com.bai.bookshelf.util.CheckInMonthGrid;
 import com.bai.bookshelf.util.DateKeys;
@@ -944,7 +945,7 @@ public class CheckInUiInstrumentedTest {
             }
         };
         InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
-            grid.setRole(MonthGridView.ROLE_PICKER);
+            grid.setRole(MonthRole.PICKER);
             grid.setPickerListener(pl);
         });
 
@@ -989,9 +990,9 @@ public class CheckInUiInstrumentedTest {
         final int a = grid.getDayKeyAt(ia);
         final int[] selected = {0};
         InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
-            grid.setRole(MonthGridView.ROLE_PICKER);
+            grid.setRole(MonthRole.PICKER);
             grid.setPickedDays(new java.util.HashSet<>(java.util.Collections.singletonList(a)));
-            grid.setRole(MonthGridView.ROLE_CHECKIN);
+            grid.setRole(MonthRole.CHECKIN);
             grid.setListener(new MonthGridView.Listener() {
                 @Override
                 public void onSelectDay(int dayKey) {

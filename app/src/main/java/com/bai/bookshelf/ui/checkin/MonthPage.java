@@ -62,7 +62,7 @@ final class MonthPage {
      * <p>农历预计算只在这里发生（打卡角色），也就是拖动开始建邻页的那一刻；
      * 提前到 DOWN 会让每次点按多付 42 次换算。
      */
-    static MonthPage build(Context ctx, int ym, MonthGridView.MonthData data,
+    static MonthPage build(Context ctx, int ym, MonthData data,
                            MonthRenderState st, CellTap tap, int cellHeightPx) {
         MonthPage p = new MonthPage(ctx);
         p.yearMonth = ym;
@@ -75,7 +75,7 @@ final class MonthPage {
         for (int i = 0; i < p.dayKeys.length; i++) {
             p.keyToIndex.put(p.dayKeys[i], i);
         }
-        if (st.role == MonthGridView.ROLE_CHECKIN) {
+        if (st.role == MonthRole.CHECKIN) {
             st.lunar.precompute(p.dayKeys); // 只有打卡月历显示农历，选择器不做无用换算
         }
         int[] weeks = CheckInMonthGrid.weekNumbers(p.dayKeys);
@@ -110,7 +110,7 @@ final class MonthPage {
                             weekRow, 1, 0, 1, false, false));
                 }
             });
-            row.addView(week, MonthGridView.weekColumnLp(ctx));
+            row.addView(week, weekColumnLp(ctx));
 
             for (int c = 0; c < CheckInMonthGrid.DAYS_PER_WEEK; c++) {
                 int index = r * CheckInMonthGrid.DAYS_PER_WEEK + c;
@@ -139,6 +139,13 @@ final class MonthPage {
         tv.setClickable(false);
         tv.setFocusable(false);
         return tv;
+    }
+
+    /** 周数列那一格的宽（表头与每行共用，两边必须同宽才对齐） */
+    static LinearLayout.LayoutParams weekColumnLp(Context ctx) {
+        return new LinearLayout.LayoutParams(
+                ctx.getResources().getDimensionPixelSize(R.dimen.checkin_week_w),
+                LinearLayout.LayoutParams.WRAP_CONTENT);
     }
 
     int count() {
@@ -224,7 +231,7 @@ final class MonthPage {
         // 邻月永远不画点：不然会被读成「这个月打过卡」
         int backfill = adjacent ? 0 : CheckInDots.backfill(marks, key);
         MonthPalette palette = st.palette;
-        if (st.role == MonthGridView.ROLE_PICKER) {
+        if (st.role == MonthRole.PICKER) {
             // 选择器：已选/参考/锚点/预览四种底，越界日 alpha 110 且不响应点选
             boolean blocked = future || adjacent;
             cell.bindPicker(key % 100, palette.primary, palette.pickedBg, palette.referenceBg,

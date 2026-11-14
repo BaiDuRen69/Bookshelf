@@ -7,7 +7,9 @@ import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
 
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -132,5 +134,71 @@ public class ShelfViewPrefsTest {
         assertFalse(ShelfViewPrefs.sortReversedOf(mem));
         assertEquals(0, ShelfViewPrefs.positionOf(mem, ShelfViewPrefs.DIM_STOCK));
         assertEquals(0, ShelfViewPrefs.positionOf(mem, ShelfViewPrefs.DIM_TAG));
+    }
+
+    // ==================== 卡 9：按文案恢复 ====================
+
+    /**
+     * 条目被删 → 保持「不限」，绝不串到相邻条目。
+     *
+     * <p>下拉从 [标签, 小说, 散文, 诗集] 变成 [标签, 小说, 诗集]（用户删了「散文」）。
+     * 按旧下标 2 恢复，落到的是「诗集」——用户压根没选过它，界面却显示正在按「诗集」筛。
+     * 按文案恢复才是卡片要的语义。
+     */
+    @Test
+    public void deletedEntryRestoresToUnlimitedNotItsNeighbour() {
+        List<String> before = Arrays.asList("标签", "小说", "散文", "诗集");
+        List<String> after = Arrays.asList("标签", "小说", "诗集");
+        String remembered = "散文";
+
+        // 旧下标（本轮修掉的那条路）：会指到不相干的「诗集」
+        assertEquals("旧下标确实是 2，正是危险所在", 2, before.indexOf(remembered));
+        assertEquals("按旧下标落到 after[2]", "诗集", after.get(2));
+
+        assertEquals("找不到就保持不限", 0, ShelfViewPrefs.indexForLabel(after, remembered));
+    }
+
+    /** 条目改名同理：新列表里没有这个文案，就只能是「不限」，不能落到改名后的那一条上 */
+    @Test
+    public void renamedEntryRestoresToUnlimitedNotTheRenamedRow() {
+        List<String> after = Arrays.asList("标签", "小说", "杂文", "诗集");
+        assertEquals(0, ShelfViewPrefs.indexForLabel(after, "散文"));
+        // 改回原名之后，同一条记忆又能正常找回位置（记忆本身没被恢复动作弄脏）
+        assertEquals(2, ShelfViewPrefs.indexForLabel(Arrays.asList("标签", "小说", "散文", "诗集"), "散文"));
+    }
+
+    /** 命中的就是首项「不限」时回 0；文案为空、没有记忆、下拉还没填，一律 0 */
+    @Test
+    public void headerBlankAndMissingAllMeanUnlimited() {
+        List<String> names = Arrays.asList("标签", "小说", "散文");
+        assertEquals(0, ShelfViewPrefs.indexForLabel(names, "标签"));
+        assertEquals(0, ShelfViewPrefs.indexForLabel(names, ""));
+        assertEquals(0, ShelfViewPrefs.indexForLabel(names, null));
+        assertEquals(0, ShelfViewPrefs.indexForLabel(java.util.Collections.<String>emptyList(), "小说"));
+        assertEquals(0, ShelfViewPrefs.indexForLabel(null, "小说"));
+    }
+
+    /**
+     * 真实路径串起来：prefs 存的是文案，视图重建后用「新的下拉内容」找回下标。
+     *
+     * <p>{@code ShelfFilterSpinners} 的两条恢复路（{@code restoreSelection} 与
+     * {@code fillIfChanged} 重建后回填）都走 {@code indexForLabel}，这里把它和
+     * {@code applySelection} / {@code labelOf} 接成一条往返，防止只测了半边。
+     */
+    @Test
+    public void persistedLabelRoundTripsThroughTheRealRestorePath() {
+        Map<String, Object> mem = empty();
+        ShelfViewPrefs.applySelection(mem, ShelfViewPrefs.DIM_TAG, 2, "散文");
+        assertEquals("散文", ShelfViewPrefs.labelOf(mem, ShelfViewPrefs.DIM_TAG));
+
+        // 标签库没变 → 恢复到同一条
+        assertEquals(2, ShelfViewPrefs.indexForLabel(
+                Arrays.asList("标签", "小说", "散文", "诗集"),
+                ShelfViewPrefs.labelOf(mem, ShelfViewPrefs.DIM_TAG)));
+        // 标签被删 → 不限，且记忆原样留着（改回名字还能回来）
+        assertEquals(0, ShelfViewPrefs.indexForLabel(
+                Arrays.asList("标签", "小说", "诗集"),
+                ShelfViewPrefs.labelOf(mem, ShelfViewPrefs.DIM_TAG)));
+        assertEquals("散文", ShelfViewPrefs.labelOf(mem, ShelfViewPrefs.DIM_TAG));
     }
 }

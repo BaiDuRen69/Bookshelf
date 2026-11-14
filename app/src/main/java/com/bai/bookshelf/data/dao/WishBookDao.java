@@ -32,6 +32,14 @@ public interface WishBookDao {
     @Query("DELETE FROM wish_books WHERE id = :id")
     void deleteById(long id);
 
+    /** zip 恢复用：清空想读清单。老备份没有 wish_books 键时绝不调用它 */
+    @Query("DELETE FROM wish_books")
+    void deleteAll();
+
+    /** zip 恢复用：一次事务内批量写回（调用前已 deleteAll，不会撞主键） */
+    @Insert
+    void insertAll(List<WishBook> list);
+
     @Query("SELECT COUNT(*) FROM wish_books")
     int count();
 }

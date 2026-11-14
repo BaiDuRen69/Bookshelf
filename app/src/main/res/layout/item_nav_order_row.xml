@@ -2,6 +2,7 @@
 <!-- 底栏设置页的一行：图标 + 名称 + 显示开关 + 上移/下移。
      「我的」行的开关由代码置灰（设置入口，始终显示），副标题给出原因。 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:gravity="center_vertical"
@@ -15,7 +16,7 @@
         android:contentDescription="@null"
         android:importantForAccessibility="no"
         android:scaleType="centerInside"
-        android:tint="?attr/colorPrimary" />
+        app:tint="?attr/colorPrimary" />
 
     <LinearLayout
         android:layout_width="0dp"
@@ -51,7 +52,7 @@
         android:padding="14dp"
         android:scaleType="centerInside"
         android:src="@drawable/ic_chevron_up_line"
-        android:tint="?attr/on_surface_variant" />
+        app:tint="?attr/on_surface_variant" />
 
     <ImageButton
         android:id="@+id/btn_down"
@@ -62,5 +63,5 @@
         android:padding="14dp"
         android:scaleType="centerInside"
         android:src="@drawable/ic_chevron_down_line"
-        android:tint="?attr/on_surface_variant" />
+        app:tint="?attr/on_surface_variant" />
 </LinearLayout>

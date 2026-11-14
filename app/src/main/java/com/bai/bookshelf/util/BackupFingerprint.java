@@ -82,6 +82,8 @@ public final class BackupFingerprint {
         sb.append("t|borrowers|").append(db.borrowerDao().count()).append('\n');
         // 第 ④ 步：打卡变化必须触发自动备份，否则指纹相同会跳过整包
         sb.append("t|check_ins|").append(db.checkInDao().countAll()).append('\n');
+        // 想读清单同理：只改想读不改藏书时，库文件时间戳会变，但行数信号也得跟上
+        sb.append("t|wish_books|").append(db.wishBookDao().count()).append('\n');
     }
 
     /** 图片目录：与 ZipBackup 打包完全同一套取文件规则，两边看到的必须是同一个集合 */

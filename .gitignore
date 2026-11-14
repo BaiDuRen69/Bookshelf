@@ -12,3 +12,4 @@ app/build/
 
 # 临时验证文件
 .tmp_*
+tmp/

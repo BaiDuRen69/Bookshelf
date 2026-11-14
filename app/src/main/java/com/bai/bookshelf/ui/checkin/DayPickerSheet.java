@@ -68,7 +68,7 @@ public final class DayPickerSheet {
         dialog.setContentView(b.getRoot());
 
         b.tvPickerTitle.setText("精确记录 · 第 " + record.seq + " 轮");
-        b.mgPicker.setRole(MonthGridView.ROLE_PICKER);
+        b.mgPicker.setRole(MonthRole.PICKER);
         b.mgPicker.setPickedDays(new HashSet<>(initial));
 
         // 原模糊区间只做参考底纹；「整段沿用」也只在这一轮原来有模糊起止时出现

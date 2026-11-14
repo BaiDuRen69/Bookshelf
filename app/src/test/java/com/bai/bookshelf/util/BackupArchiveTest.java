@@ -272,4 +272,69 @@ public class BackupArchiveTest {
         pack(withSettings.replace("\"v\":6", "\"v\":0"), media(), b);
         assertFalse("改主题不改变校验和", a.checksum.equals(b.checksum));
     }
+
+    /** 想读清单整表曾漏在包外：新包必须报得出条数，且空清单与「不含」是两回事 */
+    @Test
+    public void 新包报得出想读条数与设置块() throws Exception {
+        String data = "{\"books\":[{\"id\":1}],"
+                + "\"wish_books\":[{\"id\":1,\"title\":\"三体\"},{\"id\":2,\"title\":\"活着\"}],"
+                + "\"settings\":{\"version\":1,\"prefs\":{}}}";
+        BackupInspector.Info info = validate(pack(data, media(), meta(CURRENT_CODE, CURRENT_DB)));
+        assertTrue(info.ok());
+        assertTrue(info.wishesPresent);
+        assertEquals(2, info.wishes);
+        assertTrue(info.settingsPresent);
+
+        String empty = "{\"books\":[{\"id\":1}],\"wish_books\":[]}";
+        BackupInspector.Info e = validate(pack(empty, media(), meta(CURRENT_CODE, CURRENT_DB)));
+        assertTrue("空清单也是「包里有这个键」", e.wishesPresent);
+        assertEquals(0, e.wishes);
+        assertFalse("这个包没写 settings", e.settingsPresent);
+    }
+
+    /**
+     * 老包（v5.9.5 之前）既没有 wish_books 也没有 settings。
+     * 这时必须报「不含」而不是「0 条」——恢复端正是靠这个区别决定跳不跳过整表，
+     * 报成 0 条就会让人以为清单被清空了。
+     */
+    @Test
+    public void 老包不含想读与设置时不能谎报零条() throws Exception {
+        BackupInspector.Info info = validate(pack(DATA, media(), meta(CURRENT_CODE, CURRENT_DB)));
+        assertTrue(info.ok());
+        assertFalse(info.wishesPresent);
+        assertEquals(-1, info.wishes);
+        assertFalse(info.settingsPresent);
+
+        // 无 meta 的更老的包同样不能谎报
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        try (java.util.zip.ZipOutputStream zos = new java.util.zip.ZipOutputStream(bos)) {
+            java.util.zip.ZipEntry entry = new java.util.zip.ZipEntry(BackupFormat.ENTRY_DATA);
+            entry.setTime(0);
+            zos.putNextEntry(entry);
+            zos.write(DATA.getBytes(StandardCharsets.UTF_8));
+            zos.closeEntry();
+        }
+        BackupInspector.Info legacy = validate(bos.toByteArray());
+        assertTrue(legacy.legacy());
+        assertFalse(legacy.wishesPresent);
+        assertEquals(-1, legacy.wishes);
+        assertFalse(legacy.settingsPresent);
+    }
+
+    /** meta.wishes 用 Integer 就是为了这个：旧包缺字段解析成 null，不能与真的 0 条混同 */
+    @Test
+    public void meta里想读条数缺失解析成null而不是零() {
+        BackupMeta old = BackupMeta.parse("{\"format\":1,\"books\":3,\"checkIns\":0}");
+        assertNotNull(old);
+        assertNull("旧包没有 wishes 字段，必须是 null", old.wishes);
+
+        BackupMeta zero = BackupMeta.parse("{\"format\":1,\"books\":3,\"wishes\":0}");
+        assertNotNull(zero);
+        assertNotNull(zero.wishes);
+        assertEquals(0, zero.wishes.intValue());
+
+        BackupMeta m = meta(CURRENT_CODE, CURRENT_DB);
+        m.wishes = 7;
+        assertEquals(Integer.valueOf(7), BackupMeta.parse(m.toJson()).wishes);
+    }
 }

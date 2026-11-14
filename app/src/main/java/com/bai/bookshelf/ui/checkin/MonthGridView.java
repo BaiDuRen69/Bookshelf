@@ -69,24 +69,11 @@ public class MonthGridView extends LinearLayout {
         MonthData dataFor(int yearMonth);
     }
 
-    /** 一个月的日历数据：节日表 + 打卡点 */
-    public static final class MonthData {
-        @Nullable
-        public final HolidayCalendar holidays;
-        public final Map<Integer, int[]> dayMarks;
-
-        public MonthData(@Nullable HolidayCalendar holidays,
-                         @Nullable Map<Integer, int[]> dayMarks) {
-            this.holidays = holidays;
-            this.dayMarks = dayMarks == null ? Collections.<Integer, int[]>emptyMap() : dayMarks;
-        }
-    }
-
     /**
      * 选择器角色的回调（v5.9.1 修订第三步）：按动作通知，集合自己去 {@link #pickedKeys()} 取。
      *
      * <p>与 {@link Listener} 完全分开——打卡页的四个回调一个都没动，
-     * {@link #setRole(int)} 切到 ROLE_PICKER 后走这套，切回 ROLE_CHECKIN 回到原来那套。
+     * {@link #setRole(int)} 切到 MonthRole.PICKER 后走这套，切回 MonthRole.CHECKIN 回到原来那套。
      */
     public interface PickerListener {
         /** 普通模式下单点勾/取消了一天 */
@@ -98,11 +85,6 @@ public class MonthGridView extends LinearLayout {
         /** 对已填充的段再点两端，整段取消 */
         void onRangeCancel(int fromKey, int toKey);
     }
-
-    /** 打卡页角色（默认）：点一天看那天读了哪几本 */
-    public static final int ROLE_CHECKIN = 0;
-    /** 精确日期选择器角色：勾/框选「哪几天读过」 */
-    public static final int ROLE_PICKER = 1;
 
     /** 表头下方那层裁剪容器：当前页与邻页都挂在它上面 */
     private final FrameLayout clip;
@@ -128,8 +110,8 @@ public class MonthGridView extends LinearLayout {
     private final LunarCalendar lunar;
     @Nullable
     private Listener listener;
-    // ===== 选择器角色（默认 ROLE_CHECKIN；切回去后与打卡页一字不差）=====
-    private int role = ROLE_CHECKIN;
+    // ===== 选择器角色（默认 MonthRole.CHECKIN；切回去后与打卡页一字不差）=====
+    private int role = MonthRole.CHECKIN;
     @Nullable
     private PickerListener pickerListener;
     private final DayPickerState picker = new DayPickerState();
@@ -189,19 +171,13 @@ public class MonthGridView extends LinearLayout {
         LinearLayout row = new LinearLayout(getContext());
         row.setOrientation(HORIZONTAL);
         String[] names = {"一", "二", "三", "四", "五", "六", "日"};
-        row.addView(MonthPage.weekLabel(getContext(), ""), weekColumnLp(getContext()));
+        row.addView(MonthPage.weekLabel(getContext(), ""), MonthPage.weekColumnLp(getContext()));
         for (String name : names) {
             TextView tv = MonthPage.weekLabel(getContext(), name);
             tv.setTextColor(palette.variant);
             row.addView(tv, dayColumnLp());
         }
         return row;
-    }
-
-    static LinearLayout.LayoutParams weekColumnLp(Context ctx) {
-        return new LinearLayout.LayoutParams(
-                ctx.getResources().getDimensionPixelSize(R.dimen.checkin_week_w),
-                LinearLayout.LayoutParams.WRAP_CONTENT);
     }
 
     private LayoutParams dayColumnLp() {
@@ -301,7 +277,7 @@ public class MonthGridView extends LinearLayout {
     /** 格高只在角色/配置变化时重取，拖动期间每帧都查资源是白给 */
     private int currentCellHeightPx() {
         if (cachedCellH < 0) {
-            cachedCellH = getResources().getDimensionPixelSize(role == ROLE_PICKER
+            cachedCellH = getResources().getDimensionPixelSize(role == MonthRole.PICKER
                     ? R.dimen.checkin_cell_h_picker : R.dimen.checkin_cell_h);
         }
         return cachedCellH;
@@ -399,12 +375,12 @@ public class MonthGridView extends LinearLayout {
     // ==================== 选择器模式（v5.9.1 第三步）====================
 
     /**
-     * 切角色（v5.9.1 修订第三步）。ROLE_PICKER 时格子改成勾选/框选，
-     * 打卡页的 onSelectDay 等回调不再触发；切回 ROLE_CHECKIN 行为回到原样。
+     * 切角色（v5.9.1 修订第三步）。MonthRole.PICKER 时格子改成勾选/框选，
+     * 打卡页的 onSelectDay 等回调不再触发；切回 MonthRole.CHECKIN 行为回到原样。
      */
     public void setRole(int role) {
-        this.role = role == ROLE_PICKER ? ROLE_PICKER : ROLE_CHECKIN;
-        if (this.role == ROLE_CHECKIN) {
+        this.role = role == MonthRole.PICKER ? MonthRole.PICKER : MonthRole.CHECKIN;
+        if (this.role == MonthRole.CHECKIN) {
             picker.setRangeMode(false);
         }
         cachedCellH = -1; // 角色对应不同格高（选择器 48dp / 打卡 56dp）
@@ -419,7 +395,7 @@ public class MonthGridView extends LinearLayout {
     /** 已选集合（实心胶囊 + 右下点） */
     public void setPickedDays(@Nullable Set<Integer> keys) {
         picker.setPicked(keys);
-        if (role == ROLE_PICKER) {
+        if (role == MonthRole.PICKER) {
             refreshAllCells();
             updatePickerHeading();
         }
@@ -428,7 +404,7 @@ public class MonthGridView extends LinearLayout {
     /** 原模糊区间的参考底纹：浅底、不算已选，点它一下才变已选 */
     public void setReferenceDays(@Nullable Set<Integer> keys) {
         picker.setReference(keys);
-        if (role == ROLE_PICKER) {
+        if (role == MonthRole.PICKER) {
             refreshAllCells();
         }
     }
@@ -436,7 +412,7 @@ public class MonthGridView extends LinearLayout {
     /** 框选起点（描边 + 主色底）；0 = 取消 */
     public void setRangeAnchor(int dayKey) {
         picker.setAnchor(dayKey);
-        if (role == ROLE_PICKER) {
+        if (role == MonthRole.PICKER) {
             refreshAllCells();
         }
     }
@@ -444,7 +420,7 @@ public class MonthGridView extends LinearLayout {
     /** 「连续区间」开关：开着时第一点落锚、第二点填充/取消整段 */
     public void setRangeMode(boolean on) {
         picker.setRangeMode(on);
-        if (role == ROLE_PICKER) {
+        if (role == MonthRole.PICKER) {
             refreshAllCells();
             announceForAccessibility(on ? "框选模式：点起点再点终点" : "已退出框选模式");
         }
@@ -457,7 +433,7 @@ public class MonthGridView extends LinearLayout {
     /** 「清空」：只清已选，参考底纹留着对照 */
     public void clearPicked() {
         picker.clear();
-        if (role == ROLE_PICKER) {
+        if (role == MonthRole.PICKER) {
             refreshAllCells();
             updatePickerHeading();
         }
@@ -470,7 +446,7 @@ public class MonthGridView extends LinearLayout {
 
     /** 网格整体的读屏标题：选择器角色报已选天数 */
     private void updatePickerHeading() {
-        if (role == ROLE_PICKER) {
+        if (role == MonthRole.PICKER) {
             setContentDescription("精确记录选择器，已选 " + picker.pickedKeys().size() + " 天");
         } else {
             setContentDescription(CheckInMonthGrid.titleOf(yearMonth) + "日历");
@@ -645,10 +621,9 @@ public class MonthGridView extends LinearLayout {
                 dotSuspended, todayChecked, entranceKey);
     }
 
-    /** 当前页用选中原值，邻页夹到它自己那个月（与搬出 MonthPage 前逐字一致） */
+    /** 当前页用选中原值，邻页夹到它自己那个月 */
     private int selectedKeyOf(MonthPage page) {
-        return page.yearMonth == yearMonth ? selectedDayKey
-                : CheckInMonthGrid.clampDayKey(selectedDayKey, page.yearMonth);
+        return selectedKeyFor(page.yearMonth);
     }
 
     private int selectedKeyFor(int ym) {
@@ -693,7 +668,7 @@ public class MonthGridView extends LinearLayout {
         }
         int key = p.dayKeyAt(index);
         boolean adjacent = p.isAdjacent(key);
-        if (role == ROLE_PICKER) {
+        if (role == MonthRole.PICKER) {
             onPickTouched(key, adjacent);
             return;
         }
@@ -744,7 +719,7 @@ public class MonthGridView extends LinearLayout {
     /** 悬停预览：框选模式下锚点已落、终点未定时，把锚点到悬停日画成 outline 底 */
     @Override
     public boolean onHoverEvent(MotionEvent ev) {
-        if (role == ROLE_PICKER && picker.rangeMode() && picker.anchor() != 0) {
+        if (role == MonthRole.PICKER && picker.rangeMode() && picker.anchor() != 0) {
             if (ev.getActionMasked() == MotionEvent.ACTION_HOVER_EXIT) {
                 picker.clearPreview();
                 refreshAllCells();
@@ -900,7 +875,7 @@ public class MonthGridView extends LinearLayout {
 
     /** 选择器角色自己带月份按钮，不参与翻月拖动 */
     private boolean canPage() {
-        return role == ROLE_CHECKIN;
+        return role == MonthRole.CHECKIN;
     }
 
     /**
