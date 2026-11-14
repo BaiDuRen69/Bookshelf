@@ -121,7 +121,7 @@
 原生库均已适配 Android 15+ 的 16 KB 内存页）·
 Retrofit · Glide · 零依赖手写 XLSX 读写器（不引入 POI）· EncryptedSharedPreferences（API 密钥加密存储）· androidx.biometric（应用锁）
 
-最新版本 v5.9.6（versionCode 140，单测 639，androidTest 共 187）。
+最新版本 v5.9.7（versionCode 141，单测 644，androidTest 共 187）。
 
 ### 数字的口径
 

@@ -10,8 +10,8 @@ android {
         applicationId "com.bai.bookshelf"
         minSdk 24
         targetSdk 36
-        versionCode 140
-        versionName "5.9.6"
+        versionCode 141
+        versionName "5.9.7"
 
         // v4.51：OCR 模型让 x86 库变成大头；交付包只带手机用得到的 ARM 两套 ABI。
         // 移到 defaultConfig 后 debug/devtest 包同样只含 ARM，x86 模拟器装不上任何构建；
