@@ -355,9 +355,10 @@ public class BookDetailActivity extends BaseActivity {
 
     /** v5.8.31：底栏状态主按钮的文案 + 弃读按钮只在「在读」时出现 */
     private void bindReadAction() {
-        // 借来的书不进状态机（借阅逻辑保持原样），底栏让给「归还 / 借出」
-        final boolean borrowed = book != null && book.ownType == Book.OWN_BORROW;
-        b.btnReadAction.setVisibility(borrowed ? View.GONE : View.VISIBLE);
+        // v5.9.7：借来的书同样要能记录阅读（开始 / 读完 / 弃读 / 再读）。
+        // 「借出 / 归还来源」按钮在内容区而不在底栏，显示状态主按钮不会挤掉它们；
+        // 阅读状态与拥有方式本就是两个独立维度，不该用 ownType 屏蔽整条状态机。
+        b.btnReadAction.setVisibility(View.VISIBLE);
         String label;
         switch (book == null ? Book.READ_NONE : book.readStatus) {
             case Book.READING:
@@ -375,8 +376,7 @@ public class BookDetailActivity extends BaseActivity {
         }
         b.btnReadAction.setText(label);
         b.btnReadAction.setContentDescription(label);
-        b.btnReadDrop.setVisibility(!borrowed
-                && book != null && book.readStatus == Book.READING
+        b.btnReadDrop.setVisibility(book != null && book.readStatus == Book.READING
                 ? View.VISIBLE : View.GONE);
     }
 
@@ -426,6 +426,7 @@ public class BookDetailActivity extends BaseActivity {
     private void applyFlow(String alreadyMessage, FlowOp op, String doneMessage) {
         BookshelfApp app = BookshelfApp.get();
         final Book before = com.bai.bookshelf.util.BookSnapshot.copy(book);
+        final boolean[] inserted = {false};
         app.io(() -> {
             boolean changed;
             try {
@@ -444,6 +445,8 @@ public class BookDetailActivity extends BaseActivity {
             }
             try {
                 app.db().bookDao().update(book);
+                inserted[0] = com.bai.bookshelf.util.CheckInStore.ensureStartDayChecked(
+                        app.db(), book, com.bai.bookshelf.util.DateKeys.todayKey());
             } catch (Exception e) {
                 app.ui(() -> android.widget.Toast.makeText(this,
                         "保存失败：" + e.getMessage(),
@@ -457,6 +460,11 @@ public class BookDetailActivity extends BaseActivity {
                         before == null ? null : () -> app.io(() -> {
                             try {
                                 app.db().bookDao().update(before);
+                                if (inserted[0]) {
+                                    com.bai.bookshelf.util.CheckInStore.removeStartDay(
+                                            app.db(), before.id,
+                                            com.bai.bookshelf.util.DateKeys.todayKey());
+                                }
                             } catch (Exception ignored) {
                                 // 撤销失败只丢这次撤销，不影响已落库的状态
                             }

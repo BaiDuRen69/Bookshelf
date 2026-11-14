@@ -55,6 +55,62 @@ public final class CheckInStore {
 
     // ==================== 写入 ====================
 
+    /**
+     * A reading round starting today already proves the user read today.
+     * Pure rule, no Room dependency, so JVM tests can cover it.
+     */
+    public static boolean shouldCheckStartDay(Book book, int todayKey) {
+        if (book == null) {
+            return false;
+        }
+        List<ReadingRecords.Record> records = ReadingRecords.load(book);
+        if (records.isEmpty()) {
+            return false;
+        }
+        ReadingRecords.Record last = ReadingRecords.lastOf(records);
+        // Only an ongoing round belongs on the check-in page. A finished round starting
+        // today must not add a calendar dot: the book is not listed there any more.
+        return last != null && last.status == Book.READING
+                && DateKeys.parseKey(last.startDate) == todayKey;
+    }
+
+    /**
+     * Idempotent bridge between "start reading / add a round starting today" and the
+     * check-in calendar: insert today's row once, so the check-in page shows the book
+     * as already checked and offers no second entry for the same day.
+     * Never writes for an unsaved book (id <= 0) - that used to leave orphan rows.
+     *
+     * @return true only when this call inserted the row (used to roll back on undo).
+     */
+    public static boolean ensureStartDayChecked(AppDatabase db, Book book, int todayKey) {
+        if (db == null || book == null || book.id <= 0
+                || !shouldCheckStartDay(book, todayKey)) {
+            return false;
+        }
+        if (seqOf(db, book.id, todayKey) != 0) {
+            return false;
+        }
+        CheckIn c = new CheckIn();
+        c.bookId = book.id;
+        c.dayKey = todayKey;
+        c.createdAt = System.currentTimeMillis();
+        c.backfill = false;
+        c.pages = 0;
+        c.seq = currentSeq(book);
+        return db.checkInDao().insert(c) != -1;
+    }
+
+    /** Rollback counterpart of {@link #ensureStartDayChecked}. */
+    public static void removeStartDay(AppDatabase db, long bookId, int todayKey) {
+        if (db == null || bookId <= 0) {
+            return;
+        }
+        CheckIn pk = new CheckIn();
+        pk.bookId = bookId;
+        pk.dayKey = todayKey;
+        db.checkInDao().delete(pk);
+    }
+
     /** 生产入口：「今天」取系统当前日；打卡落库后顺手把精确轮的派生起止同步掉 */
     public static Result toggle(AppDatabase db, Book book, int dayKey, boolean allowBackfill) {
         return toggle(db, book, dayKey, allowBackfill, currentSeq(book));

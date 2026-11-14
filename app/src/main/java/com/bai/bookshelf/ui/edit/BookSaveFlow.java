@@ -153,6 +153,7 @@ public class BookSaveFlow {
             if (host.editMode()) {
                 BookEditSaver.saveEdit(app, book, copiesToSave, copyImagesToSave, imagesToSave);
                 host.persistReadingDaySets(app);
+                syncStartDayCheckIn(app, book);
             } else {
                 // 新增前按 ISBN 查重（ISBN 为空则跳过）
                 Book exist = book.isbn.isEmpty() ? null : app.db().bookDao().getByIsbn(book.isbn);
@@ -179,6 +180,7 @@ public class BookSaveFlow {
                                         BookEditSaver.insertNew(app, activity, book, copiesToSave,
                                                 copyImagesToSave, imagesToSave, now);
                                         host.persistReadingDaySets(app);
+                                        syncStartDayCheckIn(app, book);
                                         app.ui(host::onSaved);
                                     }))
                             .show());
@@ -187,9 +189,16 @@ public class BookSaveFlow {
                 BookEditSaver.insertNew(app, activity, book, copiesToSave, copyImagesToSave,
                         imagesToSave, now);
                 host.persistReadingDaySets(app);
+                syncStartDayCheckIn(app, book);
             }
             app.ui(host::onSaved);
         });
+    }
+
+    /** Keep a round starting today and the check-in calendar in sync after save. */
+    private static void syncStartDayCheckIn(BookshelfApp app, Book book) {
+        com.bai.bookshelf.util.CheckInStore.ensureStartDayChecked(
+                app.db(), book, com.bai.bookshelf.util.DateKeys.todayKey());
     }
 
     private static int parseInt(String s) {

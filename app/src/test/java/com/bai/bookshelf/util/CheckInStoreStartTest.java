@@ -76,4 +76,56 @@ public class CheckInStoreStartTest {
         assertEquals(0, CheckInStore.earliestCheckInKey(precise("2026-11-01", "", 0), 0));
         assertEquals(0, CheckInStore.earliestCheckInKey(null, 0));
     }
+
+    @Test
+    public void 今天开始的轮次算今天已读() {
+        assertEquals(true, CheckInStore.shouldCheckStartDay(fuzzy("2026-11-14"), 20261114));
+        assertEquals(true, CheckInStore.shouldCheckStartDay(
+                precise("2026-11-14", "2026-10-01", 0), 20261114));
+    }
+
+    @Test
+    public void 不是今天开始的轮次不补打卡() {
+        assertEquals(false, CheckInStore.shouldCheckStartDay(fuzzy("2026-11-13"), 20261114));
+        assertEquals(false, CheckInStore.shouldCheckStartDay(
+                precise("2026-11-01", "2026-10-01", 0), 20261114));
+    }
+
+    @Test
+    public void 没有阅读轮次或书为空不补打卡() {
+        Book b = book("2026-10-01", 0);
+        b.readingRecords = "";
+        b.readingStartDate = "";
+        assertEquals(false, CheckInStore.shouldCheckStartDay(b, 20261114));
+        assertEquals(false, CheckInStore.shouldCheckStartDay(null, 20261114));
+    }
+
+    @Test
+    public void 已读完或弃读的轮次不补打卡() {
+        Book done = precise("2026-11-14", "2026-10-01", 0);
+        java.util.List<ReadingRecords.Record> rs = ReadingRecords.load(done);
+        rs.get(0).status = Book.READ_DONE;
+        rs.get(0).endDate = "2026-11-14";
+        done.readingRecords = ReadingRecords.toJson(rs);
+        assertEquals(false, CheckInStore.shouldCheckStartDay(done, 20261114));
+        Book dropped = precise("2026-11-14", "2026-10-01", 0);
+        rs = ReadingRecords.load(dropped);
+        rs.get(0).status = Book.READ_DROPPED;
+        dropped.readingRecords = ReadingRecords.toJson(rs);
+        assertEquals(false, CheckInStore.shouldCheckStartDay(dropped, 20261114));
+    }
+
+    @Test
+    public void 只看最后一轮的开始日() {
+        Book b = book("2026-10-01", 0);
+        ReadingRecords.Record older = new ReadingRecords.Record(1);
+        older.status = Book.READ_DONE;
+        older.startDate = "2026-11-14";
+        older.endDate = "2026-11-14";
+        ReadingRecords.Record newer = new ReadingRecords.Record(2);
+        newer.status = Book.READING;
+        newer.startDate = "2026-11-10";
+        b.readingRecords = ReadingRecords.toJson(java.util.Arrays.asList(older, newer));
+        assertEquals(false, CheckInStore.shouldCheckStartDay(b, 20261114));
+    }
 }
