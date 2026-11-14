@@ -6,6 +6,11 @@ app/src/test 与 app/src/androidTest 的 @Test 计数，（可选）lint 报告�
 再在文档里找「当前态」表述（所在行含「当前」/「最新」才算，历史沿革里的 DB v17 那种不动）。
 对不上就逐行列出，退出码非 0。
 
+口径提醒（v5.9.6）：**lint 告警数不是代码真值**——它随 lint 缓存冷热与 runner 环境变化，
+同一份代码本机读到 0、GitHub Actions 读到 12 都出现过（见总览坑 59 / EP-I6 T17）。
+所以文档里只保留 `lint N error` 供硬比对，不要写「N 告警」这种跨环境必然漂的数字；
+脚本仍会打印报告里的告警数，只是没有对应文档断言时不参与比对。
+
 用法：
     python -X utf8 tools/check_doc_drift.py [--doc <路径> ...] [--project <工程根>]
                                           [--lint-report <lint 报告路径>]
