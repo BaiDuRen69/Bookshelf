@@ -10431,17 +10431,6 @@
 
     <issue
         id="HardcodedText"
-        message="Hardcoded string &quot;已在书架&quot;, should use `@string` resource"
-        errorLine1="            android:text=&quot;已在书架&quot;"
-        errorLine2="            ~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/res/layout/item_wish.xml"
-            line="60"
-            column="13"/>
-    </issue>
-
-    <issue
-        id="HardcodedText"
         message="Hardcoded string &quot;拖动排序&quot;, should use `@string` resource"
         errorLine1="            android:contentDescription=&quot;拖动排序&quot;"
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
