@@ -92,12 +92,25 @@ public class ReadingModeHealthTest {
         ReadingModeHealth.Report r = ReadingModeHealth.check(
                 Collections.singletonList(b), rows);
         assertEquals(1, r.crossRound);
-        ReadingModeHealth.Issue issue = r.issues.get(r.issues.size() - 1);
-        assertEquals(ReadingModeHealth.KIND_CROSS_ROUND, issue.kind);
-        assertEquals(1, issue.keptSeq);
-        assertEquals(2, issue.seq);
-        assertTrue(issue.line().contains("第 1 轮和第 2 轮"));
-        assertTrue(issue.action().contains("保留第 1 轮"));
+        // v5.9.8：跨轮残留的 seq 2 不在阅读记录里，孤儿轮扫描也会报一条——两类共存，
+        // 跨轮修复删掉重复行后，孤儿清理会把 seq 2 剩下的行一并清掉，终态一致
+        assertEquals(1, r.orphanRound);
+        ReadingModeHealth.Issue cross = null;
+        ReadingModeHealth.Issue orphan = null;
+        for (ReadingModeHealth.Issue i : r.issues) {
+            if (i.kind == ReadingModeHealth.KIND_CROSS_ROUND) {
+                cross = i;
+            } else if (i.kind == ReadingModeHealth.KIND_ORPHAN_ROUND) {
+                orphan = i;
+            }
+        }
+        assertTrue(cross != null);
+        assertEquals(1, cross.keptSeq);
+        assertEquals(2, cross.seq);
+        assertTrue(cross.line().contains("第 1 轮和第 2 轮"));
+        assertTrue(cross.action().contains("保留第 1 轮"));
+        assertTrue(orphan != null);
+        assertEquals(2, orphan.seq);
     }
 
     @Test
