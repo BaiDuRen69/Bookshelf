@@ -73,7 +73,7 @@ public class ReadingDaySetsInstrumentedTest {
     }
 
     @Test
-    public void 改过的轮次先清后插且补录记backfill() {
+    public void 改过的轮次先清后插且补录不算补卡() {
         seed(7, 1, 20261101);
         seed(7, 2, 20261105);
         ReadingDaySets sets = new ReadingDaySets();
@@ -87,7 +87,7 @@ public class ReadingDaySetsInstrumentedTest {
         List<CheckIn> mine = dao.getByBookSeq(7, 1);
         assertEquals("旧的那一天要被清掉", 2, mine.size());
         assertEquals(past, mine.get(0).dayKey);
-        assertTrue("事后补的日子记 backfill", mine.get(0).backfill);
+        assertFalse("编辑页补录历史 = 补记历史，不算补卡（v5.10.0 语义拆分）", mine.get(0).backfill);
         assertEquals(today, mine.get(1).dayKey);
         assertFalse("今天不算补", mine.get(1).backfill);
         assertEquals("别的轮次一行不动", 1, dao.getByBookSeq(7, 2).size());
