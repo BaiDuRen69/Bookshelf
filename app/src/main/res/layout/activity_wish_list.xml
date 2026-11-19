@@ -14,18 +14,84 @@
         app:navigationIcon="@drawable/ic_back"
         app:title="想读清单" />
 
-    <TextView
-        android:id="@+id/tv_wish_sort"
+    <!-- v5.9.8 T3：排序入口与搜索开关同一行，互不挤压 -->
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="?attr/selectableItemBackground"
-        android:clickable="true"
-        android:focusable="true"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/tv_wish_sort"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:background="?attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true"
+            android:paddingStart="@dimen/page_padding"
+            android:paddingTop="8dp"
+            android:paddingEnd="4dp"
+            android:paddingBottom="8dp"
+            android:text="排序：优先级 ▾"
+            android:textColor="?attr/on_surface_variant"
+            android:textSize="@dimen/text_body_small" />
+
+        <TextView
+            android:id="@+id/btn_wish_search"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="@dimen/page_padding"
+            android:background="?attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true"
+            android:paddingHorizontal="8dp"
+            android:paddingVertical="8dp"
+            android:text="搜索"
+            android:textColor="?attr/colorPrimary"
+            android:textSize="@dimen/text_body_small" />
+    </LinearLayout>
+
+    <!-- v5.9.8 T3：可折叠搜索行；收起时不占任何空间，列表高度不变 -->
+    <LinearLayout
+        android:id="@+id/ll_wish_search"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
         android:paddingHorizontal="@dimen/page_padding"
-        android:paddingVertical="8dp"
-        android:text="排序：优先级 ▾"
-        android:textColor="?attr/on_surface_variant"
-        android:textSize="@dimen/text_body_small" />
+        android:paddingBottom="4dp"
+        android:visibility="gone">
+
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/til_wish_search"
+            style="@style/Widget.Bookshelf.TextField"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:hint="书名 / 作者 / ISBN / 备注">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/et_wish_search"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:imeOptions="actionSearch"
+                android:inputType="text"
+                android:maxLines="1" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <TextView
+            android:id="@+id/btn_wish_search_clear"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:background="?attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true"
+            android:padding="8dp"
+            android:text="清空"
+            android:textColor="?attr/on_surface_variant"
+            android:textSize="@dimen/text_body_small" />
+    </LinearLayout>
 
     <FrameLayout
         android:layout_width="match_parent"
@@ -38,7 +104,10 @@
             android:layout_height="match_parent"
             android:clipToPadding="false"
             android:padding="@dimen/page_padding"
-            android:scrollbars="none" />
+            android:scrollbarDefaultDelayBeforeFade="400"
+            android:scrollbarFadeDuration="600"
+            android:scrollbarThumbVertical="@drawable/wish_scrollbar_thumb"
+            android:scrollbars="vertical" />
 
         <LinearLayout
             android:id="@+id/ll_wish_empty"
@@ -54,6 +123,46 @@
                 layout="@layout/view_empty_state"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content" />
+        </LinearLayout>
+
+        <!-- v5.9.8 T8：悬浮「到顶 / 到底」胶囊，锚在底部栏上方、随滚动显隐 -->
+        <LinearLayout
+            android:id="@+id/ll_wish_scroll_jump"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|end"
+            android:layout_marginEnd="@dimen/page_padding"
+            android:layout_marginBottom="12dp"
+            android:alpha="0.92"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_wish_scroll_top"
+                style="@style/Widget.Bookshelf.Button.Tonal"
+                android:layout_width="wrap_content"
+                android:layout_height="56dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:minWidth="88dp"
+                android:paddingHorizontal="20dp"
+                android:text="到顶"
+                android:textSize="@dimen/text_body_small"
+                app:shapeAppearanceOverlay="@style/ShapeAppearance.Bookshelf.Pill" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_wish_scroll_bottom"
+                style="@style/Widget.Bookshelf.Button.Tonal"
+                android:layout_width="wrap_content"
+                android:layout_height="56dp"
+                android:layout_marginTop="8dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:minWidth="88dp"
+                android:paddingHorizontal="20dp"
+                android:text="到底"
+                android:textSize="@dimen/text_body_small"
+                app:shapeAppearanceOverlay="@style/ShapeAppearance.Bookshelf.Pill" />
         </LinearLayout>
     </FrameLayout>
 

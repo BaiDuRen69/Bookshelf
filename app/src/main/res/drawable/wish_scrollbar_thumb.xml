@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 想读清单垂直滚动条 thumb（v5.9.8 T7）
+     3dp 胶囊、语义色 ?attr/outline（亮暗主题自动适配），track 透明由系统默认处理 -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="?attr/outline" />
+    <corners android:radius="3dp" />
+    <size
+        android:width="3dp"
+        android:height="48dp" />
+</shape>
