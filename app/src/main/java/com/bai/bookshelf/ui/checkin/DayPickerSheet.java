@@ -25,6 +25,9 @@ import java.util.Set;
  * <p>窗口动画与 24dp 顶部圆角沿用 ThemeOverlay.Bookshelf.BottomSheet，不另设背景。
  * 工具条四个动作即时生效、可反复操作；只有「确定」调 {@link CheckInStore#applyDayKeys}
  * 落库，失败项（未来 / 跨轮）在结果行与 Toast 里说清数量，面板不关。
+ *
+ * <p>补卡语义（v5.9.8）：打卡页入口保持「过去的日子 = 补卡」（空心点、计入补卡数）；
+ * 编辑页精确行入口传 {@code markBackfill=false}——补记这轮阅读本来的样子不算补卡。
  */
 public final class DayPickerSheet {
 
@@ -46,8 +49,15 @@ public final class DayPickerSheet {
         return 0;
     }
 
+    /** 打卡页入口：过去的日子按补卡记（backfill=true），语义不变 */
     public static void show(BaseActivity activity, Book book, ReadingRecords.Record record,
                             Callback callback) {
+        show(activity, book, record, true, callback);
+    }
+
+    /** 指定补卡语义的入口：编辑页精确行传 false（补记历史，实心点） */
+    public static void show(BaseActivity activity, Book book, ReadingRecords.Record record,
+                            boolean markBackfill, Callback callback) {
         BookshelfApp app = BookshelfApp.get();
         app.io(() -> {
             final List<Integer> initial = app.db().checkInDao().getDayKeys(book.id, record.seq);
@@ -55,14 +65,14 @@ public final class DayPickerSheet {
                 if (activity.isFinishing() || activity.isDestroyed()) {
                     return;
                 }
-                open(activity, app, book, record, initial, callback);
+                open(activity, app, book, record, initial, markBackfill, callback);
             });
         });
     }
 
     private static void open(BaseActivity activity, BookshelfApp app, Book book,
                              ReadingRecords.Record record, List<Integer> initial,
-                             Callback callback) {
+                             boolean markBackfill, Callback callback) {
         SheetDayPickerBinding b = SheetDayPickerBinding.inflate(activity.getLayoutInflater());
         BottomSheetDialog dialog = new BottomSheetDialog(activity);
         dialog.setContentView(b.getRoot());
@@ -135,7 +145,7 @@ public final class DayPickerSheet {
             b.btnPickerOk.setEnabled(false);
             app.io(() -> {
                 final CheckInStore.BatchResult result = CheckInStore.applyDayKeys(
-                        app.db(), book, record.seq, keys, DateKeys.todayKey());
+                        app.db(), book, record.seq, keys, DateKeys.todayKey(), markBackfill);
                 app.ui(() -> {
                     b.btnPickerOk.setEnabled(true);
                     if (result.rejected()) {
@@ -172,7 +182,7 @@ public final class DayPickerSheet {
                 }
                 final int moved = CheckInStore.moveToSeq(app.db(), book.id, movable, record.seq);
                 final CheckInStore.BatchResult again = CheckInStore.applyDayKeys(
-                        app.db(), book, record.seq, keys, DateKeys.todayKey());
+                        app.db(), book, record.seq, keys, DateKeys.todayKey(), markBackfill);
                 app.ui(() -> {
                     b.btnPickerMove.setEnabled(true);
                     if (moved > 0) {

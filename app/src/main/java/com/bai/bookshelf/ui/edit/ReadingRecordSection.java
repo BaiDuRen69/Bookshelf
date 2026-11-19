@@ -233,7 +233,7 @@ public class ReadingRecordSection {
             probe.mode = editing.mode;
             probe.startDate = editing.startDate;
             probe.endDate = editing.endDate;
-            DayPickerSheet.show(activity, book, probe, keys -> {
+            DayPickerSheet.show(activity, book, probe, false, keys -> {
                 preciseKeys[0] = keys;
                 daySets.noteSaved(editing.seq, keys);
                 refreshDays.run();
