@@ -150,6 +150,9 @@ final class StatsInsight {
         if (r.crossRound > 0) {
             sb.append("、跨轮同一天 ").append(r.crossRound).append(" 处");
         }
+        if (r.orphanRound > 0) {
+            sb.append("、孤儿轮 ").append(r.orphanRound).append(" 轮");
+        }
         return sb.toString();
     }
 

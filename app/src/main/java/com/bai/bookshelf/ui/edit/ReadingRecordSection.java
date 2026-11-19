@@ -255,6 +255,8 @@ public class ReadingRecordSection {
                         .setMessage("设为未读会清空所有阅读记录，是否继续？")
                         .setPositiveButton("清空阅读记录", (d, w) -> {
                             records.clear();
+                            // v5.9.8：清空也是删——所有已知轮次的 check_ins 一并登记待删
+                            daySets.forgetAll();
                             syncToBook();
                             render();
                             db.getRoot().clearFocus();
@@ -453,6 +455,9 @@ public class ReadingRecordSection {
                 .setMessage("删除第 " + record.seq + " 次阅读记录？")
                 .setPositiveButton("删除", (d, w) -> {
                     records.remove(record);
+                    // v5.9.8：删轮级联——check_ins 里这一轮的行随整本书保存一起清掉，
+                    // 打卡日历不再残留查无实据的点（写路径一直有级联，删路径补齐）
+                    daySets.forgetRound(record.seq);
                     // v5.8.31：不再把剩下的会话重新编号——重排 seq 会让状态机认错的
                     // 「最后一场」，删掉的那场也不该把后面的历史整体往前挪一位
                     syncToBook();

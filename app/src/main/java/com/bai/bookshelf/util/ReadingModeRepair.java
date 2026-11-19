@@ -43,6 +43,13 @@ public final class ReadingModeRepair {
             if (issue.kind == ReadingModeHealth.KIND_CROSS_ROUND) {
                 db.checkInDao().delete(issue.row);
                 undo.deleted.add(issue.row);
+            } else if (issue.kind == ReadingModeHealth.KIND_ORPHAN_ROUND) {
+                // 孤儿轮整轮清掉：先快照全部行供撤销，再按 (bookId, seq) 删
+                List<CheckIn> rows = db.checkInDao().getByBookSeq(issue.bookId, issue.seq);
+                if (!rows.isEmpty()) {
+                    db.checkInDao().deleteByBookSeq(issue.bookId, issue.seq);
+                    undo.deleted.addAll(rows);
+                }
             } else {
                 List<ReadingModeHealth.Issue> list = byBook.get(issue.bookId);
                 if (list == null) {

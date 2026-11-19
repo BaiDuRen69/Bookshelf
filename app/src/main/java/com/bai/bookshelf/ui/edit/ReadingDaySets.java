@@ -8,8 +8,10 @@ import com.bai.bookshelf.util.ReadDays;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * 一本书各轮阅读的「日集合」暂存区（v5.9.1 第四步）。
@@ -27,6 +29,8 @@ final class ReadingDaySets {
     private final Map<Integer, List<Integer>> saved = new HashMap<>();
     /** 弹窗保存后待落库的样子 */
     private final Map<Integer, List<Integer>> pending = new HashMap<>();
+    /** 删掉的轮次：整本书保存时把对应 check_ins 一并清掉（v5.9.8 删轮级联） */
+    private final Set<Integer> forget = new HashSet<>();
     private boolean loaded;
 
     /** 一次查询把这本书所有轮次的日子读出来（后台线程 → 回主线程） */
@@ -98,8 +102,29 @@ final class ReadingDaySets {
         pending.put(seq, copy);
     }
 
+    /**
+     * 删除某一轮（v5.9.8）：从暂存区撤下并登记待删，随整本书保存一起落库。
+     *
+     * <p>写路径（commit/persist）一直有级联，删路径此前没有——轮次记录删了，
+     * check_ins 里那一轮的行还留着，打卡日历上就成了查无实据的点。登记是
+     * 无条件的：记录还没加载完或这一轮本来就没有行时，deleteByBookSeq 是空操作。
+     */
+    void forgetRound(int seq) {
+        pending.remove(seq);
+        forget.add(seq);
+    }
+
+    /** 「设为未读」清空全部记录：所有已知轮次一并登记待删 */
+    void forgetAll() {
+        pending.clear();
+        forget.addAll(saved.keySet());
+    }
+
     /** 有没有真的改过：pending 里与库里相同的轮次不算脏（弹窗保存时可能原样提交） */
     boolean hasPending() {
+        if (!forget.isEmpty()) {
+            return true;
+        }
         for (Map.Entry<Integer, List<Integer>> e : pending.entrySet()) {
             List<Integer> before = saved.get(e.getKey());
             if (before == null || !before.equals(e.getValue())) {
@@ -110,7 +135,7 @@ final class ReadingDaySets {
     }
 
     /**
-     * 落库（必须在 io 线程调用）：只写有差异的轮次，先清后插。
+     * 落库（必须在 io 线程调用）：先落删轮级联，再只写有差异的轮次，先清后插。
      *
      * <p>补录的日子 backfill 记 true（dayKey 早于今天 = 事后补的），
      * 与打卡页「补卡」的语义一致，日历上才会画成空心点。
@@ -121,6 +146,14 @@ final class ReadingDaySets {
 
     /** 同步写（调用方自己保证线程）：单测拿内存库直接走这里 */
     void persist(com.bai.bookshelf.data.dao.CheckInDao dao, long bookId) {
+        // 删轮级联先落：即使没有任何 pending，也要把登记过的轮次清干净。
+        // 不动 pending——forget 登记之后又 commit 的同一 seq 是「删了重建」，
+        // 后面的 pending 循环会先清后插，以重建内容为准。
+        for (Integer seq : forget) {
+            dao.deleteByBookSeq(bookId, seq);
+            saved.remove(seq);
+        }
+        forget.clear();
         if (pending.isEmpty()) {
             return;
         }
