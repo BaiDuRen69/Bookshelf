@@ -65,8 +65,9 @@ public class RadiusTokenTest {
     public void 底部导航选中块是真胶囊() {
         float r = cornerOf(R.drawable.bg_nav_selected);
         assertEquals("选中块半径应等于 radius_pill", dimenPx(R.dimen.radius_pill), r, TOLERANCE_PX);
-        // 胶囊判据：半径 = 控件高度的一半。小米 11 上 dumpsys 实测该 pill 高 121px（44dp @440dpi）
-        float pillHeightPx = 121f;
+        // 胶囊判据：半径 = 控件高度的一半。控件高 44dp（小米 11 @440dpi 实测 121px，
+        // v5.10.0 改按密度换算，不再写死单机像素——x86 模拟器 420dpi 上 121px 会假红）
+        float pillHeightPx = dp(44);
         assertEquals("半径应当是胶囊高度的一半", pillHeightPx / 2f, r, 2f);
     }
 
