@@ -235,5 +235,6 @@ public class ReadingDaySetsRoundTest {
         List<CheckIn> rows = dao.getByBookSeq(1, 2);
         assertEquals(1, rows.size());
         assertEquals(20261112, rows.get(0).dayKey);
+        assertFalse(rows.get(0).backfill);
     }
 }

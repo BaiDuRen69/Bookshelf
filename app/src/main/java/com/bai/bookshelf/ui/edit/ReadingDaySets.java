@@ -2,7 +2,6 @@ package com.bai.bookshelf.ui.edit;
 
 import com.bai.bookshelf.app.BookshelfApp;
 import com.bai.bookshelf.data.entity.CheckIn;
-import com.bai.bookshelf.util.DateKeys;
 import com.bai.bookshelf.util.ReadDays;
 
 import java.util.ArrayList;
@@ -137,8 +136,9 @@ final class ReadingDaySets {
     /**
      * 落库（必须在 io 线程调用）：先落删轮级联，再只写有差异的轮次，先清后插。
      *
-     * <p>补录的日子 backfill 记 true（dayKey 早于今天 = 事后补的），
-     * 与打卡页「补卡」的语义一致，日历上才会画成空心点。
+     * <p>这里是编辑页专属路径：补录过去的日子是「补记历史」而不是打卡页那种
+     * 「事后补卡」，backfill 记 false，日历上画实心点（v5.9.8 语义拆分）；
+     * 打卡页 DayPickerSheet 的补卡语义不变，仍走 applyDayKeys 的默认 true。
      */
     void persist(BookshelfApp app, long bookId) {
         persist(app.db().checkInDao(), bookId);
@@ -158,7 +158,6 @@ final class ReadingDaySets {
             return;
         }
         long now = System.currentTimeMillis();
-        int today = DateKeys.todayKey();
         for (Map.Entry<Integer, List<Integer>> e : pending.entrySet()) {
             int seq = e.getKey();
             List<Integer> keys = e.getValue();
@@ -174,7 +173,7 @@ final class ReadingDaySets {
                     c.bookId = bookId;
                     c.dayKey = key;
                     c.createdAt = now;
-                    c.backfill = key < today;
+                    c.backfill = false; // 编辑页补录 = 补记历史，不算补卡（v5.9.8）
                     c.seq = seq;
                     rows.add(c);
                 }

@@ -231,9 +231,22 @@ public final class CheckInStore {
      *
      * <p>新增里超过今天的记 rejectedFuture、已记在别轮的记 rejectedOtherSeq，都不写库；
      * 结束后统一 deriveRange + syncTo，调用方不许自己写起止。
+     *
+     * <p>默认 {@code markBackfill=true}：打卡页 DayPickerSheet 补昨天这类「事后补卡」，
+     * 新行仍要记 backfill=true，日历画空心点、月摘要补卡 +1（v5.9.8 语义不变）。
      */
     public static BatchResult applyDayKeys(AppDatabase db, Book book, int seq,
                                            List<Integer> targetKeys, int todayKey) {
+        return applyDayKeys(db, book, seq, targetKeys, todayKey, true);
+    }
+
+    /**
+     * 带 {@code markBackfill} 的重载：编辑页补录历史走 {@code false}——补记过去的日子
+     * 是这轮阅读本来的样子，不是补卡，日历画实心点（v5.9.8）。
+     */
+    public static BatchResult applyDayKeys(AppDatabase db, Book book, int seq,
+                                           List<Integer> targetKeys, int todayKey,
+                                           boolean markBackfill) {
         BatchResult out = new BatchResult();
         if (db == null || book == null) {
             return out;
@@ -276,7 +289,7 @@ public final class CheckInStore {
             c.bookId = book.id;
             c.dayKey = key;
             c.createdAt = now;
-            c.backfill = isBackfill(key, todayKey);
+            c.backfill = markBackfill && isBackfill(key, todayKey);
             c.seq = seq;
             if (db.checkInDao().insert(c) != -1) {
                 out.added++;

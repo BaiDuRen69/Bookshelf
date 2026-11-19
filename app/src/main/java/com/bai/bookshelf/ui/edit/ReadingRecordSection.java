@@ -410,7 +410,8 @@ public class ReadingRecordSection {
         BookshelfApp app = BookshelfApp.get();
         app.io(() -> {
             final CheckInStore.BatchResult result = CheckInStore.applyDayKeys(
-                    app.db(), book, editing.seq, keys, DateKeys.todayKey());
+                    app.db(), book, editing.seq, keys, DateKeys.todayKey(),
+                    false); // 编辑页补录历史不算补卡（v5.9.8）：实心点，月摘要不加补卡数
             app.ui(() -> {
                 if (result.rejected()) {
                     Toast.makeText(activity, "有 " + result.rejectedFuture + " 天在未来、"
