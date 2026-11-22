@@ -1269,10 +1269,13 @@ public class CheckInFragment extends Fragment
                 for (Book book : BookSanitizer.normalizeAll(app.db().bookDao().getAll())) {
                     bookTitles.put(book.id, book.title);
                     // v5.11：列表不再只收「在读」——读完/弃读的书只要还在它的
-                    // 阅读区间内（或选中日有它的打卡记录）也显示出来，才能补漏打卡
-                    if (book.readStatus == Book.READING || checked.contains(book.id)
-                            || (book.readStatus != Book.READING
-                                && CheckInStore.roundCoversDay(book, day, todayKey))) {
+                    // 阅读区间内（或选中日有它的打卡记录）也显示出来，才能补漏打卡。
+                    // v5.12.1：过去日与打卡规则同口径（roundCoversDay）——已结束的轮
+                    // 窗口闭合在本轮结束日，读完的书不再出现在今天；
+                    // 只有「今天」无条件保留在读书入口
+                    if ((day == todayKey && book.readStatus == Book.READING)
+                            || checked.contains(book.id)
+                            || CheckInStore.roundCoversDay(book, day, todayKey)) {
                         reading.add(book);
                     }
                     if (!marked.contains(book.id)) {

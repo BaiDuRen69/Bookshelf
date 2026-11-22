@@ -168,6 +168,66 @@ public class CheckInStoreTest {
         assertEquals(CheckInStore.Result.REJECTED_BEFORE_START, toggle(sink, b, 20261031, true));
     }
 
+    /**
+     * v5.12.1：已结束的精确轮窗口闭合在本轮结束日——读完的书不该再出现在今天，
+     * 结束日之后的日子按 AFTER_END 拒绝（不再放宽到今天）。
+     */
+    @Test
+    public void 精确已读轮窗口闭合在本轮结束日() {
+        Book b = new Book();
+        b.id = 11;
+        b.readStatus = Book.READ_DONE;
+        b.purchaseDate = "2026-10-01";
+        ReadingRecords.Record r = new ReadingRecords.Record(1);
+        r.status = Book.READ_DONE;
+        r.mode = ReadingRecords.MODE_PRECISE;
+        r.startDate = "2026-11-01";
+        r.endDate = "2026-11-03";
+        b.readingRecords = ReadingRecords.toJson(Collections.singletonList(r));
+        MemSink sink = new MemSink();
+        assertTrue(CheckInStore.canCheckIn(b, 20261102, TODAY));
+        assertEquals(CheckInStore.Result.ADDED, toggle(sink, b, 20261102, true));
+        assertEquals("结束日次日按 AFTER_END 拒绝",
+                CheckInStore.Result.REJECTED_AFTER_END, toggle(sink, b, 20261104, true));
+        assertEquals("今天也在结束日之后，不能打卡",
+                CheckInStore.Result.REJECTED_AFTER_END, toggle(sink, b, TODAY, true));
+        assertFalse(CheckInStore.roundCoversDay(b, TODAY, TODAY));
+        assertTrue("结束日当天仍在窗内", CheckInStore.roundCoversDay(b, 20261103, TODAY));
+    }
+
+    /** v5.12.1：已读但没填结束日（无结束证据）→ 整轮不开放，任何日子都不能打卡 */
+    @Test
+    public void 模糊已读没填结束日不开放窗口() {
+        Book b = new Book();
+        b.id = 12;
+        b.readStatus = Book.READ_DONE;
+        ReadingRecords.Record r = new ReadingRecords.Record(1);
+        r.status = Book.READ_DONE;
+        r.startDate = "2026-11-01";
+        b.readingRecords = ReadingRecords.toJson(Collections.singletonList(r));
+        MemSink sink = new MemSink();
+        assertEquals("没有可信区间，过去日也拒绝",
+                CheckInStore.Result.REJECTED_NOT_READING, toggle(sink, b, 20261102, true));
+        assertEquals(CheckInStore.Result.REJECTED_NOT_READING, toggle(sink, b, TODAY, true));
+        assertFalse(CheckInStore.roundCoversDay(b, 20261102, TODAY));
+    }
+
+    /** v5.12.1：结束日=今天读完的书，今天仍在窗内（结束当天可以打卡） */
+    @Test
+    public void 结束日为今天的已读书今天仍可打卡() {
+        Book b = new Book();
+        b.id = 13;
+        b.readStatus = Book.READ_DONE;
+        ReadingRecords.Record r = new ReadingRecords.Record(1);
+        r.status = Book.READ_DONE;
+        r.startDate = "2026-11-01";
+        r.endDate = "2026-11-05"; // TODAY
+        b.readingRecords = ReadingRecords.toJson(Collections.singletonList(r));
+        assertTrue(CheckInStore.roundCoversDay(b, TODAY, TODAY));
+        MemSink sink = new MemSink();
+        assertEquals(CheckInStore.Result.ADDED, toggle(sink, b, TODAY, true));
+    }
+
     @Test
     public void canCheckIn覆盖四个边界() {
         Book b = reading(1, "2026-11-01");
@@ -175,9 +235,10 @@ public class CheckInStoreTest {
         assertFalse(CheckInStore.canCheckIn(b, 20261031, TODAY)); // 早于起始
         assertTrue(CheckInStore.canCheckIn(b, START, TODAY));      // 起始当天
         assertTrue(CheckInStore.canCheckIn(b, TODAY, TODAY));      // 今天
-        // v5.11：读完的书在阅读窗内仍可补漏；合成场没填结束日 → 窗口开放到今天
+        // v5.12.1：读完的书窗口闭合在本轮结束日——合成场没填结束日就没有可信区间，
+        // 整轮不开放（不再放宽到今天）
         b.readStatus = Book.READ_DONE;
-        assertTrue(CheckInStore.canCheckIn(b, TODAY, TODAY));
+        assertFalse(CheckInStore.canCheckIn(b, TODAY, TODAY));
     }
 
     // ==================== 打卡 / 补卡 / 撤销 ====================

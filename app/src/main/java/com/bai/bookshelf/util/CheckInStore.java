@@ -530,11 +530,11 @@ public final class CheckInStore {
      *
      * <p>v5.11 起「在读」不再是打卡前置：窗口按轮次口径给——
      * <ul>
-     *   <li>精确轮：意义就是补历史，日集合可以任意扩展，上界只卡到今天，
-     *       下界沿用 {@link #earliestCheckInKey} 的拥有日 / 录入日口径；</li>
-     *   <li>模糊轮在读：[会话开始日, 今天]；</li>
-     *   <li>模糊轮已读/弃读：[会话开始日, 结束日]——结束日之后「又读了」
-     *       该新开一轮，而不是回头补卡。结束日解析不出时放宽到今天。</li>
+     *   <li>进行中的轮（READING）：精确轮下界沿用 {@link #earliestCheckInKey} 的
+     *       拥有日 / 录入日口径，模糊轮从会话开始日起，上界都是今天；</li>
+     *   <li>结束了的轮（已读/弃读，v5.12.1）：窗口闭合在本轮自己的结束日——
+     *       读完的书不该再出现在今天；没填/解析不出结束日就没有可信区间，
+     *       整轮不开放（否则过去每个日子都会把它列出来）。</li>
      * </ul>
      * 指定 seq 找不到轮时按最后一轮判（与 currentSeq 的兜底口径一致）。
      */
@@ -560,18 +560,28 @@ public final class CheckInStore {
             return null;
         }
         if (round.mode == ReadingRecords.MODE_PRECISE) {
-            return new int[]{earliestCheckInKey(book, round.seq, recordedDays), todayKey};
+            int end = todayKey;
+            if (round.status != Book.READING) {
+                // 结束了的精确轮：上界收到本轮派生结束日（deriveRange 一直在写）；
+                // 连结束日都没有就整轮不开放——没有证据的日子不该能打卡
+                end = DateKeys.parseKey(round.endDate);
+                if (end <= 0) {
+                    return null;
+                }
+            }
+            return new int[]{earliestCheckInKey(book, round.seq, recordedDays), end};
         }
         int start = DateKeys.parseKey(round.startDate);
         int end = DateKeys.parseKey(round.endDate);
         if (end <= 0) {
+            if (round.status != Book.READING) {
+                // 已读/弃读但连结束日都没有：没有可信的阅读区间，
+                // 不给它开放补卡窗（否则每个过去的日子都会把它列出来）
+                return null;
+            }
             end = todayKey;
         }
-        // 已读/弃读但连开始日都没有：历史「标记已读」而已，没有可信的阅读区间，
-        // 不给它开放补卡窗（否则每个过去的日子都会把它列出来）
-        if (start <= 0 && round.status != Book.READING) {
-            return null;
-        }
+        // 在读但连开始日都没有：历史「只知道在读」，不设下界（保持 v5.10 行为）
         return new int[]{start, end};
     }
 
