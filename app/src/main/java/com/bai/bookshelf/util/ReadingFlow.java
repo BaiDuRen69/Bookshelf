@@ -48,14 +48,32 @@ public final class ReadingFlow {
      * 没有则新增一场 DONE（开始日 = 今天，不动任何旧会话）。
      */
     public static boolean finish(Book book, String today) {
+        return finish(book, today, nz(today));
+    }
+
+    /**
+     * 读完（v5.11：结束日可控）：真实阅读结束后往往隔了好几天才来点「读完」，
+     * 结束日应记真实读完的那天，而不是点按钮的今天。
+     *
+     * <p>{@code endDate} 只写进会话的结束日期，**不产生任何打卡**——
+     * 结束那天没读就不该有打卡点；要补的日子去打卡页补。
+     * 传入空串时按今天收尾。校验（不早于开始日、不晚于今天）由调用方负责，
+     * 这里只做防御：endDate 早于开始日时退回 startDate 本身。
+     */
+    public static boolean finish(Book book, String today, String endDate) {
         if (book == null) {
             return false;
         }
         List<ReadingRecords.Record> records = ReadingRecords.derive(book);
         ReadingRecords.Record ongoing = ReadingRecords.ongoingReading(records);
+        String end = nz(endDate).isEmpty() ? nz(today) : nz(endDate);
         if (ongoing != null) {
             ongoing.status = Book.READ_DONE;
-            ongoing.endDate = nz(today);
+            if (DateKeys.parseKey(end) > 0
+                    && DateKeys.parseKey(end) < DateKeys.parseKey(ongoing.startDate)) {
+                end = ongoing.startDate; // 结束日不能早于开始日
+            }
+            ongoing.endDate = end;
             ongoing.progress = 100;
             if (ongoing.startDate.isEmpty()) {
                 ongoing.startDate = nz(today);
@@ -63,7 +81,7 @@ public final class ReadingFlow {
         } else {
             ReadingRecords.Record r = newRecord(records, today);
             r.status = Book.READ_DONE;
-            r.endDate = nz(today);
+            r.endDate = end;
             r.progress = 100;
             records.add(r);
         }

@@ -389,8 +389,8 @@ public class BookDetailActivity extends BaseActivity {
         }
         switch (status) {
             case Book.READING:
-                applyFlow(null, b -> com.bai.bookshelf.util.ReadingFlow.finish(b, DetailHero.today()),
-                        "已标记为「已读」");
+                // v5.11：读完时结束日可控——真实读完的那天往往早于点按钮的今天
+                showFinishDatePicker(false);
                 break;
             case Book.READ_DROPPED:
             case Book.READ_DONE:
@@ -411,6 +411,90 @@ public class BookDetailActivity extends BaseActivity {
     private void onReadDrop() {
         applyFlow(null, b -> com.bai.bookshelf.util.ReadingFlow.drop(b, DetailHero.today()),
                 "已标记为「弃读」");
+    }
+
+    // ==================== v5.11：结束阅读时间可控 ====================
+
+    /**
+     * 读完时先问「哪天读完的」：结束日期只写会话的 endDate，不会在这一天
+     * 自动打卡（结束≠当天读过）；漏掉的日子之后去打卡页补卡。
+     * {@code openRecord} = 选完日期后进编辑页补一条阅读记录（offerFinish 的第二入口）。
+     */
+    private void showFinishDatePicker(boolean openRecord) {
+        final java.text.SimpleDateFormat fmt = new java.text.SimpleDateFormat(
+                "yyyy-MM-dd", java.util.Locale.CHINA);
+        java.util.Calendar cal = java.util.Calendar.getInstance();
+        final String[] dates = new String[4];
+        final String[] labels = new String[4];
+        for (int i = 0; i < 3; i++) {
+            cal.setTime(new java.util.Date());
+            cal.add(java.util.Calendar.DAY_OF_YEAR, -i);
+            dates[i] = fmt.format(cal.getTime());
+            labels[i] = (i == 0 ? "今天（" : i == 1 ? "昨天（" : "前天（")
+                    + dates[i] + "）";
+        }
+        labels[3] = "选择其他日期…";
+        // 注意：这里不能 setMessage —— Material3 主题下 setItems 与 setMessage
+        // 同时使用时列表会被 message 挤掉（实测只剩标题与取消键）。
+        // 说明文字放在自选日期弹窗里；快捷项本身自解释。
+        new MaterialAlertDialogBuilder(this)
+                .setTitle("什么时候读完的？")
+                .setItems(labels, (d, which) -> {
+                    if (which < 3) {
+                        doFinish(dates[which], openRecord);
+                    } else {
+                        promptCustomFinishDate(openRecord);
+                    }
+                })
+                .setNegativeButton(R.string.action_cancel, null)
+                .show();
+    }
+
+    /** 自选结束日：单输入弹窗，yyyy-MM-dd；非法/超出范围就地 toast 不关弹窗 */
+    private void promptCustomFinishDate(boolean openRecord) {
+        final android.widget.EditText input = new android.widget.EditText(this);
+        input.setInputType(android.text.InputType.TYPE_CLASS_DATETIME);
+        input.setHint("yyyy-MM-dd");
+        input.setText(DetailHero.today());
+        androidx.appcompat.app.AlertDialog dialog = new MaterialAlertDialogBuilder(this)
+                .setTitle("结束日期")
+                .setMessage("格式 yyyy-MM-dd，不能早于开始阅读日、不能晚于今天。")
+                .setView(input)
+                .setPositiveButton("确定", null)
+                .setNegativeButton(R.string.action_cancel, null)
+                .show();
+        dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+            String s = input.getText().toString().trim();
+            int key = com.bai.bookshelf.util.DateKeys.parseKey(s);
+            int todayKey = com.bai.bookshelf.util.DateKeys.todayKey();
+            int startKey = com.bai.bookshelf.util.DateKeys.parseKey(book.readingStartDate);
+            if (key <= 0) {
+                Toast.makeText(this, "日期格式不对，应为 yyyy-MM-dd", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            if (key > todayKey) {
+                Toast.makeText(this, "结束日期不能晚于今天", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            if (startKey > 0 && key < startKey) {
+                Toast.makeText(this, "结束日期不能早于开始阅读日", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            dialog.dismiss();
+            doFinish(s, openRecord);
+        });
+    }
+
+    /** 按选定结束日收尾：提示里带上日期，让用户确认记的是哪天 */
+    private void doFinish(String endDate, boolean openRecord) {
+        if (openRecord) {
+            // offerFinish 的「已读并补记录」：收尾后进编辑页，保留原撤销链
+            markRead(true, endDate);
+            return;
+        }
+        applyFlow(null, b -> com.bai.bookshelf.util.ReadingFlow.finish(b,
+                        DetailHero.today(), endDate),
+                "已标记为「已读」（读完于 " + endDate + "）");
     }
 
     private interface FlowOp {
@@ -653,21 +737,26 @@ public class BookDetailActivity extends BaseActivity {
         new MaterialAlertDialogBuilder(this)
                 .setTitle("读完了？")
                 .setMessage("进度已经到 100%，要把它标成「已读」吗？标记时会顺手记下读完的日期。")
-                .setPositiveButton("标记已读", (d, w) -> markRead(false))
-                .setNeutralButton("已读并补记录", (d, w) -> markRead(true))
+                .setPositiveButton("标记已读", (d, w) -> showFinishDatePicker(false))
+                .setNeutralButton("已读并补记录", (d, w) -> showFinishDatePicker(true))
                 .setNegativeButton("先不", null)
                 .show();
     }
 
     private void markRead(boolean openRecord) {
+        markRead(openRecord, com.bai.bookshelf.util.DateKeys.formatKey(
+                com.bai.bookshelf.util.DateKeys.todayKey()));
+    }
+
+    private void markRead(boolean openRecord, String endDate) {
         BookshelfApp app = BookshelfApp.get();
         final Book before = com.bai.bookshelf.util.BookSnapshot.copy(book);
         app.io(() -> {
             // v5.8.31：改走会话状态机——有进行中的会话就收尾，没有则新开一场已读，
-            // 不再就地改写别场的状态与日期
+            // 不再就地改写别场的状态与日期；v5.11 结束日可控
             com.bai.bookshelf.util.ReadingFlow.finish(book,
                     com.bai.bookshelf.util.DateKeys.formatKey(
-                            com.bai.bookshelf.util.DateKeys.todayKey()));
+                            com.bai.bookshelf.util.DateKeys.todayKey()), endDate);
             book.readingProgress = 100;
             book.updatedAt = System.currentTimeMillis();
             book.dirty = true;
