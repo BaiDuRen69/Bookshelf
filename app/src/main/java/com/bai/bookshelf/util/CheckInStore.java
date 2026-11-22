@@ -586,6 +586,15 @@ public final class CheckInStore {
     }
 
     /**
+     * 编辑页「按区间补记」（v5.11）的下界：与 DayPicker 的拥有日 / 录入日同口径。
+     * 不看这一轮已有的日集合——区间是「合并进勾选集」的候选，越界的日子在
+     * 合入前就被过滤计数，保存时的逐项校验仍走 applyDayKeys。
+     */
+    public static int preciseEarliestKey(Book book) {
+        return ownershipStartKey(book);
+    }
+
+    /**
      * 当前阅读会话的起始日键：取 readingRecords 里状态为 READING 的最后一场。
      * 没有会话或 startDate 解析不出来时返回 0，表示不设下界。
      */

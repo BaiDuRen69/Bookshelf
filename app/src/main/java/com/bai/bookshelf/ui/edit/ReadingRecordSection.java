@@ -240,6 +240,10 @@ public class ReadingRecordSection {
             });
         });
 
+        // v5.11 T5：按区间补记——起止两段选完，区间内日子并入勾选集，再进面板微调
+        db.btnRecRange.setOnClickListener(v ->
+                showRangePickStart(db, editing, preciseKeys, refreshDays));
+
         syncChip.run();
         syncSeg.run();
         applyModeUi.run();
@@ -428,6 +432,81 @@ public class ReadingRecordSection {
                 render();
                 dialog.dismiss();
             });
+        });
+    }
+
+    // ==================== v5.11 T5：按区间补记 ====================
+
+    /** 第一步选区间开始；「清空」视为取消，不落任何日子 */
+    private void showRangePickStart(DialogReadingRecordBinding db,
+                                    ReadingRecords.Record editing,
+                                    List<Integer>[] preciseKeys, Runnable refreshDays) {
+        CalendarPicker.showSingle(activity, "区间开始（按区间补记）", 0, startKey -> {
+            CalendarPicker.showSingle(activity, "区间结束", startKey, endKey ->
+                            mergeRange(startKey, endKey, editing, preciseKeys, refreshDays),
+                    () -> Toast.makeText(activity, "已取消按区间补记",
+                            Toast.LENGTH_SHORT).show());
+        }, () -> Toast.makeText(activity, "已取消按区间补记", Toast.LENGTH_SHORT).show());
+    }
+
+    /** 开始 &gt; 结束 直接拒绝；超长区间先确认再并 */
+    private void mergeRange(int startKey, int endKey, ReadingRecords.Record editing,
+                            List<Integer>[] preciseKeys, Runnable refreshDays) {
+        if (startKey > endKey) {
+            Toast.makeText(activity, "开始日期晚于结束日期，已取消", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        List<Integer> range = DateKeys.keyRange(startKey, endKey);
+        if (range.isEmpty()) {
+            Toast.makeText(activity, "区间无效，已取消", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (range.size() > 366) {
+            new MaterialAlertDialogBuilder(activity)
+                    .setTitle("区间较长")
+                    .setMessage("选中的区间有 " + range.size() + " 天，并入后每天都会记一条。"
+                            + "未来与早于拥有日的日子会自动跳过。继续吗？")
+                    .setPositiveButton("继续", (d, w) ->
+                            doMerge(range, editing, preciseKeys, refreshDays))
+                    .setNegativeButton(R.string.action_cancel, null)
+                    .show();
+            return;
+        }
+        doMerge(range, editing, preciseKeys, refreshDays);
+    }
+
+    /**
+     * 过滤未来 / 早于下界（拥有日→录入日，与 DayPicker 同口径）并计数，
+     * 合入当前勾选集后直接进 DayPickerSheet 微调；保存仍走 applyDayKeys。
+     */
+    private void doMerge(List<Integer> range, ReadingRecords.Record editing,
+                         List<Integer>[] preciseKeys, Runnable refreshDays) {
+        int today = DateKeys.todayKey();
+        int lower = CheckInStore.preciseEarliestKey(book);
+        java.util.TreeSet<Integer> merged = new java.util.TreeSet<>(preciseKeys[0]);
+        int skipped = 0;
+        for (int key : range) {
+            if (key > today || (lower > 0 && key < lower)) {
+                skipped++;
+                continue;
+            }
+            merged.add(key);
+        }
+        preciseKeys[0] = new ArrayList<>(merged);
+        if (skipped > 0) {
+            Toast.makeText(activity, "已跳过 " + skipped + " 天（未来或早于拥有日的日子）",
+                    Toast.LENGTH_LONG).show();
+        }
+        refreshDays.run();
+        ReadingRecords.Record probe = new ReadingRecords.Record(editing.seq);
+        probe.mode = editing.mode;
+        probe.startDate = editing.startDate;
+        probe.endDate = editing.endDate;
+        // 初始选中传合入后的集合：面板里看到的就是区间结果，删改个别日子后保存
+        DayPickerSheet.show(activity, book, probe, false, preciseKeys[0], keys -> {
+            preciseKeys[0] = keys;
+            daySets.noteSaved(editing.seq, keys);
+            refreshDays.run();
         });
     }
 

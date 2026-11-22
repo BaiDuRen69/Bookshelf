@@ -70,6 +70,27 @@ public final class DayPickerSheet {
         });
     }
 
+    /**
+     * 编辑页「按区间补记」（v5.11）入口：调用方把区间合入后的勾选集直接传进来
+     * 作初始选中，不再读库——否则弹窗会回到已保存状态，刚合入的日子全丢。
+     * initialKeys 传 null 退化为读库口径。
+     */
+    public static void show(BaseActivity activity, Book book, ReadingRecords.Record record,
+                            boolean markBackfill, List<Integer> initialKeys, Callback callback) {
+        if (initialKeys == null) {
+            show(activity, book, record, markBackfill, callback);
+            return;
+        }
+        BookshelfApp app = BookshelfApp.get();
+        app.ui(() -> {
+            if (activity.isFinishing() || activity.isDestroyed()) {
+                return;
+            }
+            open(activity, app, book, record, new ArrayList<>(initialKeys),
+                    markBackfill, callback);
+        });
+    }
+
     private static void open(BaseActivity activity, BookshelfApp app, Book book,
                              ReadingRecords.Record record, List<Integer> initial,
                              boolean markBackfill, Callback callback) {

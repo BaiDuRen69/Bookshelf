@@ -170,6 +170,24 @@
                 android:text="还没记具体日子 · 点这里补记"
                 android:textColor="?attr/on_surface"
                 android:textSize="@dimen/text_body_small" />
+
+            <!-- v5.11 T5：按区间补记——起止选一段，区间内每天并入勾选集，
+                 再进 DayPickerSheet 微调；保存仍走 applyDayKeys，数据口径不变。 -->
+            <TextView
+                android:id="@+id/btn_rec_range"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:background="@drawable/bg_dialog_row"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="@drawable/ripple_pill"
+                android:gravity="center_vertical"
+                android:minHeight="44dp"
+                android:padding="@dimen/space_md"
+                android:text="＋ 按区间补记（选起止日期，一次并入一整段）"
+                android:textColor="?attr/colorPrimary"
+                android:textSize="@dimen/text_body_small" />
         </LinearLayout>
 
         <LinearLayout
