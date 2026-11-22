@@ -139,34 +139,26 @@
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_wish_scroll_top"
-                style="@style/Widget.Material3.Button.IconButton.Filled.Tonal"
+                style="@style/Widget.Bookshelf.FabCircle"
                 android:layout_width="56dp"
                 android:layout_height="56dp"
                 android:contentDescription="到顶"
-                android:insetTop="0dp"
-                android:insetBottom="0dp"
                 android:minWidth="56dp"
                 android:minHeight="56dp"
                 app:icon="@drawable/ic_arrow_up"
-                app:iconSize="22dp"
-                app:iconTint="?attr/on_primary_container"
-                app:shapeAppearanceOverlay="@style/ShapeAppearance.Bookshelf.Circle" />
+                app:iconSize="22dp" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_wish_scroll_bottom"
-                style="@style/Widget.Material3.Button.IconButton.Filled.Tonal"
+                style="@style/Widget.Bookshelf.FabCircle"
                 android:layout_width="56dp"
                 android:layout_height="56dp"
                 android:layout_marginTop="8dp"
                 android:contentDescription="到底"
-                android:insetTop="0dp"
-                android:insetBottom="0dp"
                 android:minWidth="56dp"
                 android:minHeight="56dp"
                 app:icon="@drawable/ic_arrow_down"
-                app:iconSize="22dp"
-                app:iconTint="?attr/on_primary_container"
-                app:shapeAppearanceOverlay="@style/ShapeAppearance.Bookshelf.Circle" />
+                app:iconSize="22dp" />
         </LinearLayout>
     </FrameLayout>
 

@@ -865,10 +865,16 @@ public class WishListActivity extends BaseActivity {
         }
     }
 
-    /** 心理价：1 位小数去尾零（45.50 → 45.5，45.00 → 45） */
+    /**
+     * 心理价：先按 2 位小数取整再去尾零（45.50 → 45.5，45.00 → 45）。
+     * 直接 stripTrailingZeros 会把二进制浮点尾巴（59.699999…）原样打出来，
+     * 必须先 setScale(2, HALF_UP) 抵消 double 的表示误差。
+     */
     private static String formatPrice(double price) {
         return java.math.BigDecimal.valueOf(price)
-                .stripTrailingZeros().toPlainString();
+                .setScale(2, java.math.RoundingMode.HALF_UP)
+                .stripTrailingZeros()
+                .toPlainString();
     }
 
     private int dp(int value) {

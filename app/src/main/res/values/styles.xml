@@ -276,6 +276,29 @@
         <item name="cornerSize">50%</item>
     </style>
 
+    <!--
+        v5.11：悬浮「到顶 / 到底」正圆图标钮。
+        不直接用 M3 的 IconButton.Filled.Tonal——它的底色走 colorPrimaryContainer
+        （六套主题没有映射这个 M3 attr，颜色出主题），且水平 inset 不是 0，
+        56dp 宽被左右 inset 挤缩后画出来的是椭圆不是正圆。
+        这里 parent 用 UnelevatedButton，全部 inset 清零 + App 自己的
+        primary_container / on_primary_container 语义色，六套主题自动适配。
+    -->
+    <style name="Widget.Bookshelf.FabCircle" parent="Widget.Material3.Button.UnelevatedButton">
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+        <item name="android:insetLeft">0dp</item>
+        <item name="android:insetRight">0dp</item>
+        <item name="android:paddingLeft">0dp</item>
+        <item name="android:paddingRight">0dp</item>
+        <item name="backgroundTint">?attr/primary_container</item>
+        <item name="iconTint">?attr/on_primary_container</item>
+        <item name="iconGravity">textStart</item>
+        <item name="iconPadding">0dp</item>
+        <item name="rippleColor">?attr/on_primary_container</item>
+        <item name="shapeAppearanceOverlay">@style/ShapeAppearance.Bookshelf.Circle</item>
+    </style>
+
     <!-- Chip 描边状态色 -->
     <style name="Widget.Bookshelf.ChipGroup" parent="Widget.Material3.ChipGroup">
         <item name="chipSpacingHorizontal">8dp</item>
