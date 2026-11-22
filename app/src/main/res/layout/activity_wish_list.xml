@@ -125,7 +125,7 @@
                 android:layout_height="wrap_content" />
         </LinearLayout>
 
-        <!-- v5.9.8 T8：悬浮「到顶 / 到底」胶囊，锚在底部栏上方、随滚动显隐 -->
+        <!-- v5.9.8 T8 / v5.11 T2：悬浮「到顶 / 到底」改 56dp 正圆图标钮，锚在底部栏上方、随滚动显隐 -->
         <LinearLayout
             android:id="@+id/ll_wish_scroll_jump"
             android:layout_width="wrap_content"
@@ -139,30 +139,34 @@
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_wish_scroll_top"
-                style="@style/Widget.Bookshelf.Button.Tonal"
-                android:layout_width="wrap_content"
+                style="@style/Widget.Material3.Button.IconButton.Filled.Tonal"
+                android:layout_width="56dp"
                 android:layout_height="56dp"
+                android:contentDescription="到顶"
                 android:insetTop="0dp"
                 android:insetBottom="0dp"
-                android:minWidth="88dp"
-                android:paddingHorizontal="20dp"
-                android:text="到顶"
-                android:textSize="@dimen/text_body_small"
-                app:shapeAppearanceOverlay="@style/ShapeAppearance.Bookshelf.Pill" />
+                android:minWidth="56dp"
+                android:minHeight="56dp"
+                app:icon="@drawable/ic_arrow_up"
+                app:iconSize="22dp"
+                app:iconTint="?attr/on_primary_container"
+                app:shapeAppearanceOverlay="@style/ShapeAppearance.Bookshelf.Circle" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_wish_scroll_bottom"
-                style="@style/Widget.Bookshelf.Button.Tonal"
-                android:layout_width="wrap_content"
+                style="@style/Widget.Material3.Button.IconButton.Filled.Tonal"
+                android:layout_width="56dp"
                 android:layout_height="56dp"
                 android:layout_marginTop="8dp"
+                android:contentDescription="到底"
                 android:insetTop="0dp"
                 android:insetBottom="0dp"
-                android:minWidth="88dp"
-                android:paddingHorizontal="20dp"
-                android:text="到底"
-                android:textSize="@dimen/text_body_small"
-                app:shapeAppearanceOverlay="@style/ShapeAppearance.Bookshelf.Pill" />
+                android:minWidth="56dp"
+                android:minHeight="56dp"
+                app:icon="@drawable/ic_arrow_down"
+                app:iconSize="22dp"
+                app:iconTint="?attr/on_primary_container"
+                app:shapeAppearanceOverlay="@style/ShapeAppearance.Bookshelf.Circle" />
         </LinearLayout>
     </FrameLayout>
 

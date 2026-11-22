@@ -271,6 +271,11 @@
         <item name="cornerSize">50%</item>
     </style>
 
+    <!-- 正圆形状（v5.11：悬浮到顶/到底 56dp 圆钮；正方形 + 50% = 圆） -->
+    <style name="ShapeAppearance.Bookshelf.Circle" parent="ShapeAppearance.Material3.Corner.Full">
+        <item name="cornerSize">50%</item>
+    </style>
+
     <!-- Chip 描边状态色 -->
     <style name="Widget.Bookshelf.ChipGroup" parent="Widget.Material3.ChipGroup">
         <item name="chipSpacingHorizontal">8dp</item>
