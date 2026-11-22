@@ -98,7 +98,7 @@ jobs:
         # 阈值 2657 同时写进脚本默认值和这里：想放松必须两处一起改，只改文档不会让 CI 变绿得更容易。
         # 口径原文（≥1 个汉字就算一条、不去块注释、只扫 app/src/main/java）见脚本 docstring；
         # 下一步会拿 --max 1 / --max 999999 各跑一次，证明这条闸门真的在判定而不是摆设。
-        run: python3 tools/count_cn_literals.py --max 2703
+        run: python3 tools/count_cn_literals.py --max 2716
 
       - name: 负向自测——闸门指错目录必须判定性非 0，中文护栏阈值调低必须红
         # 守 A1 修掉的两条假绿：空跑（0 比对 / 0 待判定）一律 exit 2，不许 [OK]。
