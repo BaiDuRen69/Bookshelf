@@ -15,6 +15,9 @@ public class WishBook {
     public static final int PRIORITY_MID = 1;
     public static final int PRIORITY_HIGH = 2;
 
+    /** 心理价上限（v5.11）：编辑弹窗输入超过时截断到此值并提示 */
+    public static final double PRICE_MAX = 99999;
+
     @PrimaryKey(autoGenerate = true)
     public long id;
 

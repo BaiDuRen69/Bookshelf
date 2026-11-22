@@ -51,6 +51,10 @@ public class WishEditDialog {
         if (existing != null) {
             dialog.etWishTitle.setText(existing.title);
             dialog.etWishAuthor.setText(existing.author);
+            // v5.11：心理价回到编辑弹窗；0 = 未定价，留空输入框
+            if (existing.expectedPrice > 0) {
+                dialog.etWishPrice.setText(formatPrice(existing.expectedPrice));
+            }
             dialog.etWishNote.setText(existing.note);
         }
 
@@ -88,6 +92,7 @@ public class WishEditDialog {
         }
         dialog.etWishTitle.setText("");
         dialog.etWishAuthor.setText("");
+        dialog.etWishPrice.setText("");
         dialog.etWishNote.setText("");
         dialog.cgWishPriority.check(priorityToChipId(WishBook.PRIORITY_MID));
         dialog.etWishTitle.requestFocus();
@@ -116,9 +121,9 @@ public class WishEditDialog {
         draft.id = existing == null ? 0 : existing.id;
         draft.title = title;
         draft.author = dialog.etWishAuthor.getText().toString().trim();
-        // v5.7：ISBN / 心理价不再在编辑页出现；编辑时保留库里旧值，新增留空
+        // v5.11：心理价由输入框读写；ISBN 仍不在编辑页（v5.7 口径），编辑时保留库里旧值
+        draft.expectedPrice = parsePrice();
         draft.isbn = existing == null ? "" : existing.isbn;
-        draft.expectedPrice = existing == null ? 0 : existing.expectedPrice;
         draft.priority = chipIdToPriority(dialog.cgWishPriority.getCheckedChipId());
         draft.note = dialog.etWishNote.getText().toString().trim();
 
@@ -159,6 +164,7 @@ public class WishEditDialog {
         }
         existing.title = draft.title;
         existing.author = draft.author;
+        existing.expectedPrice = draft.expectedPrice;
         existing.priority = draft.priority;
         existing.note = draft.note;
         existing.updatedAt = now;
@@ -168,6 +174,35 @@ public class WishEditDialog {
             app.ui(host::onSaved);
         });
         return existing;
+    }
+
+    /** 心理价解析：空 = 0（未定价）；非法（粘贴负数、多小数点等）按 0；>99999 截断到 99999 并提示 */
+    private double parsePrice() {
+        String raw = dialog.etWishPrice.getText().toString().trim();
+        if (raw.isEmpty()) {
+            return 0;
+        }
+        double value;
+        try {
+            value = Double.parseDouble(raw);
+        } catch (NumberFormatException e) {
+            return 0;
+        }
+        if (Double.isNaN(value) || value <= 0) {
+            return 0;
+        }
+        if (value > WishBook.PRICE_MAX) {
+            Toast.makeText(activity, "心理价过大，已按 ¥"
+                    + (long) WishBook.PRICE_MAX + " 保存", Toast.LENGTH_SHORT).show();
+            return WishBook.PRICE_MAX;
+        }
+        return value;
+    }
+
+    /** 与 WishListActivity.formatPrice 同口径：去尾零（45.50 → 45.5），回填编辑框 */
+    private static String formatPrice(double price) {
+        return java.math.BigDecimal.valueOf(price)
+                .stripTrailingZeros().toPlainString();
     }
 
     private static int priorityToChipId(int priority) {
