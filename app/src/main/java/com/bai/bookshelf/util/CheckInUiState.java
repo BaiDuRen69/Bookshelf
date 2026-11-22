@@ -187,8 +187,10 @@ public final class CheckInUiState {
                 return "未来的日期还不能打卡";
             case REJECTED_BEFORE_START:
                 return "这一天早于开始阅读日";
+            case REJECTED_AFTER_END:
+                return "这一天在这轮阅读结束之后，不能回头补卡";
             case REJECTED_NOT_READING:
-                return "只有「在读」的书能打卡";
+                return "还没有阅读记录，先开始阅读才能打卡";
             case REJECTED_BACKFILL:
                 return "这一天不能补卡";
             case REJECTED_OTHER_SEQ:

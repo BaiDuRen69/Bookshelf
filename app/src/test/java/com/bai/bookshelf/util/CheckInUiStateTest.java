@@ -138,8 +138,10 @@ public class CheckInUiStateTest {
                 CheckInUiState.rejectText(CheckInStore.Result.REJECTED_FUTURE));
         assertEquals("这一天早于开始阅读日",
                 CheckInUiState.rejectText(CheckInStore.Result.REJECTED_BEFORE_START));
-        assertEquals("只有「在读」的书能打卡",
+        assertEquals("还没有阅读记录，先开始阅读才能打卡",
                 CheckInUiState.rejectText(CheckInStore.Result.REJECTED_NOT_READING));
+        assertEquals("这一天在这轮阅读结束之后，不能回头补卡",
+                CheckInUiState.rejectText(CheckInStore.Result.REJECTED_AFTER_END));
         assertEquals("这一天不能补卡",
                 CheckInUiState.rejectText(CheckInStore.Result.REJECTED_BACKFILL));
         assertEquals("操作未完成",

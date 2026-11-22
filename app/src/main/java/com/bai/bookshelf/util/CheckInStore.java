@@ -30,7 +30,9 @@ public final class CheckInStore {
         /** 调用方禁止补卡时，点过去某日 */
         REJECTED_BACKFILL,
         /** 该日已记在同一本书的另一轮：不能直接抢过来，UI 给「移到本轮」 */
-        REJECTED_OTHER_SEQ
+        REJECTED_OTHER_SEQ,
+        /** 该日在这一轮阅读结束之后（v5.11：读完的书只能在其阅读区间内补卡） */
+        REJECTED_AFTER_END
     }
 
     /**
@@ -346,7 +348,10 @@ public final class CheckInStore {
                 if (book == null) {
                     continue;
                 }
-                if (book.readStatus != Book.READING) {
+                // v5.11：读完的书在其阅读区间内也参与「全部补卡」；
+                // 完全没有会话或该日在区间外才跳过
+                if (book.readStatus != Book.READING
+                        && !roundCoversDay(book, dayKey, todayKey)) {
                     out.skippedNotReading++;
                     continue;
                 }
@@ -505,14 +510,75 @@ public final class CheckInStore {
         if (dayKey > todayKey) {
             return Result.REJECTED_FUTURE;
         }
-        if (book.readStatus != Book.READING) {
+        // v5.11：不再要求书必须「在读」——读完/弃读的书也能在其阅读区间内补漏，
+        // 只有完全没有会话的书才拒绝。区间判定见 {@link #readingWindow}。
+        int[] window = readingWindow(book, seq, recordedDays, todayKey);
+        if (window == null) {
             return Result.REJECTED_NOT_READING;
         }
-        int start = earliestCheckInKey(book, seq, recordedDays);
-        if (start > 0 && dayKey < start) {
+        if (dayKey < window[0]) {
             return Result.REJECTED_BEFORE_START;
         }
+        if (dayKey > window[1]) {
+            return Result.REJECTED_AFTER_END;
+        }
         return null;
+    }
+
+    /**
+     * 这一轮允许打卡的日期窗 [start, end]（闭区间）；没有任何会话返回 null。
+     *
+     * <p>v5.11 起「在读」不再是打卡前置：窗口按轮次口径给——
+     * <ul>
+     *   <li>精确轮：意义就是补历史，日集合可以任意扩展，上界只卡到今天，
+     *       下界沿用 {@link #earliestCheckInKey} 的拥有日 / 录入日口径；</li>
+     *   <li>模糊轮在读：[会话开始日, 今天]；</li>
+     *   <li>模糊轮已读/弃读：[会话开始日, 结束日]——结束日之后「又读了」
+     *       该新开一轮，而不是回头补卡。结束日解析不出时放宽到今天。</li>
+     * </ul>
+     * 指定 seq 找不到轮时按最后一轮判（与 currentSeq 的兜底口径一致）。
+     */
+    public static int[] readingWindow(Book book, int seq, int recordedDays, int todayKey) {
+        if (book == null) {
+            return null;
+        }
+        List<ReadingRecords.Record> records = ReadingRecords.load(book);
+        if (records.isEmpty()) {
+            return null;
+        }
+        ReadingRecords.Record round = null;
+        for (ReadingRecords.Record r : records) {
+            if (r.seq == seq) {
+                round = r;
+                break;
+            }
+        }
+        if (round == null) {
+            round = ReadingRecords.lastOf(records);
+        }
+        if (round == null) {
+            return null;
+        }
+        if (round.mode == ReadingRecords.MODE_PRECISE) {
+            return new int[]{earliestCheckInKey(book, round.seq, recordedDays), todayKey};
+        }
+        int start = DateKeys.parseKey(round.startDate);
+        int end = DateKeys.parseKey(round.endDate);
+        if (end <= 0) {
+            end = todayKey;
+        }
+        // 已读/弃读但连开始日都没有：历史「标记已读」而已，没有可信的阅读区间，
+        // 不给它开放补卡窗（否则每个过去的日子都会把它列出来）
+        if (start <= 0 && round.status != Book.READING) {
+            return null;
+        }
+        return new int[]{start, end};
+    }
+
+    /** 选中日是否落在这本书当前轮的阅读窗内（打卡页列表收录已读书的口径） */
+    public static boolean roundCoversDay(Book book, int dayKey, int todayKey) {
+        int[] window = readingWindow(book, currentSeq(book), 0, todayKey);
+        return window != null && dayKey >= window[0] && dayKey <= window[1];
     }
 
     /**
@@ -545,6 +611,14 @@ public final class CheckInStore {
         }
         boolean precise = round != null && round.mode == ReadingRecords.MODE_PRECISE;
         if (!precise) {
+            // v5.11：模糊轮下界取「这一轮自己的开始日」——在读轮与原 sessionStartKey
+            // 等价；已读/弃读轮（结束的书补漏）则不能再依赖 READING 会话
+            if (round != null) {
+                int key = DateKeys.parseKey(round.startDate);
+                if (key > 0) {
+                    return key;
+                }
+            }
             return sessionStartKey(book);
         }
         if (recordedDays > 0) {

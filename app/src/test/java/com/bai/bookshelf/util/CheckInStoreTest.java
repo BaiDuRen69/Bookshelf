@@ -139,16 +139,33 @@ public class CheckInStoreTest {
     }
 
     @Test
-    public void 非在读状态一律拒绝() {
-        int[] statuses = {Book.READ_NONE, Book.READ_DONE, Book.READ_DROPPED};
-        for (int status : statuses) {
-            Book b = reading(1, "2026-11-01");
-            b.readStatus = status;
-            MemSink sink = new MemSink();
-            assertEquals("status=" + status, CheckInStore.Result.REJECTED_NOT_READING,
-                    toggle(sink, b, TODAY, true));
-            assertTrue(sink.rows.isEmpty());
-        }
+    public void 无任何会话的书拒绝() {
+        Book b = new Book();
+        b.id = 1;
+        b.readStatus = Book.READ_NONE;
+        b.readingRecords = "";
+        b.readingStartDate = "";
+        b.readingFinishDate = "";
+        MemSink sink = new MemSink();
+        assertEquals(CheckInStore.Result.REJECTED_NOT_READING, toggle(sink, b, TODAY, true));
+        assertTrue(sink.rows.isEmpty());
+    }
+
+    @Test
+    public void 已读书区间内允许补卡区间外拒绝() {
+        Book b = new Book();
+        b.id = 9;
+        b.readStatus = Book.READ_DONE;
+        ReadingRecords.Record r = new ReadingRecords.Record(1);
+        r.status = Book.READ_DONE;
+        r.startDate = "2026-11-01";
+        r.endDate = "2026-11-03";
+        b.readingRecords = ReadingRecords.toJson(Collections.singletonList(r));
+        MemSink sink = new MemSink();
+        assertEquals(CheckInStore.Result.ADDED, toggle(sink, b, 20261102, true));
+        assertEquals(CheckInStore.Result.ADDED, toggle(sink, b, 20261103, true));
+        assertEquals(CheckInStore.Result.REJECTED_AFTER_END, toggle(sink, b, 20261104, true));
+        assertEquals(CheckInStore.Result.REJECTED_BEFORE_START, toggle(sink, b, 20261031, true));
     }
 
     @Test
@@ -158,8 +175,9 @@ public class CheckInStoreTest {
         assertFalse(CheckInStore.canCheckIn(b, 20261031, TODAY)); // 早于起始
         assertTrue(CheckInStore.canCheckIn(b, START, TODAY));      // 起始当天
         assertTrue(CheckInStore.canCheckIn(b, TODAY, TODAY));      // 今天
+        // v5.11：读完的书在阅读窗内仍可补漏；合成场没填结束日 → 窗口开放到今天
         b.readStatus = Book.READ_DONE;
-        assertFalse(CheckInStore.canCheckIn(b, TODAY, TODAY));     // 非在读
+        assertTrue(CheckInStore.canCheckIn(b, TODAY, TODAY));
     }
 
     // ==================== 打卡 / 补卡 / 撤销 ====================
