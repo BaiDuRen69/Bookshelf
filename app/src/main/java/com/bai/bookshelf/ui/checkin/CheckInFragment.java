@@ -48,6 +48,7 @@ import com.bai.bookshelf.util.CheckInUiState;
 import com.bai.bookshelf.util.DateKeys;
 import com.bai.bookshelf.util.HolidayCalendar;
 import com.bai.bookshelf.util.HolidayStore;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.bai.bookshelf.util.InsetsHelper;
 import com.bai.bookshelf.util.Motion;
 import com.bai.bookshelf.util.ReadingRecords;
@@ -150,6 +151,16 @@ public class CheckInFragment extends Fragment
     /** 拖动中的字阶只在跨档时改，每帧 setTextSize 会重排整行 */
     private float lastHeaderTextP = -1f;
     private float density;
+    // ===== v5.11 T3：记住月视图 / 逐日列表展开态 =====
+    /** 首次取数完成后只恢复一次视图状态，之后的任何切月都不再触发 */
+    private boolean savedViewRestored;
+    // ===== v5.11 T4：打卡页书籍排序 =====
+    private static final int SORT_DEFAULT = 0;      // 未打卡优先 · 最近更新
+    private static final int SORT_BY_TITLE = 1;     // 按书名（拼音）
+    private static final int SORT_BY_DAYS = 2;      // 按已记天数（多→少）
+    private static final int SORT_BY_ADDED = 3;     // 按添加时间（新→旧）
+    private static final String PREF_CHECKIN_BOOK_SORT = "checkin_book_sort";
+    private int bookSortMode = SORT_DEFAULT;
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
@@ -182,6 +193,8 @@ public class CheckInFragment extends Fragment
         });
         switcher = new CheckInViewSwitcher(b.viewSwitchHost, b.monthContent,
                 yearContentView, yearPanel.yearView(), b.monthGrid);
+        // v5.11 T3：月↔年目标态在转场开始即确定，落定（含取消/超时兜底）统一写盘
+        switcher.setOnSettledListener(year -> writeViewPrefs(year, null, null));
         yearPanel.yearView().setYearSwitcher(switcher);
         yearBackCallback = new OnBackPressedCallback(false) {
             @Override
@@ -290,6 +303,10 @@ public class CheckInFragment extends Fragment
 
         b.monthGrid.setListener(this);
         renderLegend();
+        // v5.11 T4：排序档位与入口先于首次取数就绪（入口显隐由 loadMonth 控制）
+        bookSortMode = requireContext().getSharedPreferences("ui_prefs", Context.MODE_PRIVATE)
+                .getInt(PREF_CHECKIN_BOOK_SORT, SORT_DEFAULT);
+        b.btnCheckinSort.setOnClickListener(v -> showBookSortDialog());
         applyMode(mode, false); // 初始档位：整月 + 书目列表
         lastReloadMs = android.os.SystemClock.elapsedRealtime();
         BookshelfApp.get().whenDbReady(() -> loadMonth(b.monthGrid.getYearMonth()));
@@ -685,6 +702,12 @@ public class CheckInFragment extends Fragment
         b.ivMonthDaysArrow.setRotation(detail ? 180f : 0f);
         b.llMonthDaysHandle.setContentDescription(detail
                 ? "收起逐日明细，回到书目" : "查看本月逐日明细");
+        // v5.11 T3：逐日列表展开态随每次档位落盘（切月档、手势、返回书目全覆盖）。
+        // 恢复完成前的落盘一律跳过：onViewCreated 的初始 applyMode 不能把
+        // 上次保存的展开态冲掉，恢复动作自己也不必写回读到的值
+        if (savedViewRestored) {
+            writeViewPrefs(null, detail, null);
+        }
     }
 
     /** 把手是手势之外的第二入口：MONTH/WEEK ↔ DETAIL */
@@ -699,6 +722,147 @@ public class CheckInFragment extends Fragment
             applyMode(CheckInCalendarState.Mode.DETAIL, true);
             loadMonth(b.monthGrid.getYearMonth());
         }
+    }
+
+    // ==================== v5.11 T4：书籍排序 ====================
+
+    /** 组装出口统一排序；同名/同值兜底最近更新，保证顺序稳定 */
+    private void applyBookSort(List<CheckInAdapter.Row> rows) {
+        if (rows.size() < 2) {
+            return;
+        }
+        if (bookSortMode == SORT_BY_TITLE) {
+            java.text.Collator collator =
+                    java.text.Collator.getInstance(java.util.Locale.CHINA);
+            rows.sort((x, z) -> {
+                int c = collator.compare(x.book.title, z.book.title);
+                return c != 0 ? c : Long.compare(z.book.updatedAt, x.book.updatedAt);
+            });
+        } else if (bookSortMode == SORT_BY_DAYS) {
+            rows.sort((x, z) -> {
+                if (x.readDays != z.readDays) {
+                    return Integer.compare(z.readDays, x.readDays);
+                }
+                return Long.compare(z.book.updatedAt, x.book.updatedAt);
+            });
+        } else if (bookSortMode == SORT_BY_ADDED) {
+            rows.sort((x, z) -> Long.compare(z.book.createdAt, x.book.createdAt));
+        } else {
+            rows.sort((x, z) -> {
+                if (x.checked != z.checked) {
+                    return x.checked ? 1 : -1;
+                }
+                return Long.compare(z.book.updatedAt, x.book.updatedAt);
+            });
+        }
+    }
+
+    /** 小结行右端的排序入口：单选弹窗，选择落 ui_prefs 并立即重排 */
+    private void showBookSortDialog() {
+        if (!isAdded()) {
+            return;
+        }
+        final String[] labels = {
+                "默认（未打卡优先 · 最近更新）",
+                "按书名",
+                "按已记天数",
+                "按添加时间"
+        };
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle("书籍排序")
+                .setSingleChoiceItems(labels, bookSortMode, (d, which) -> {
+                    d.dismiss();
+                    if (which == bookSortMode) {
+                        return;
+                    }
+                    bookSortMode = which;
+                    writeViewPrefs(null, null, which);
+                    if (b != null) {
+                        loadMonth(b.monthGrid.getYearMonth());
+                    }
+                })
+                .setNegativeButton(R.string.action_cancel, null)
+                .show();
+    }
+
+    // ==================== v5.11 T3：视图态记忆 ====================
+    /** 写 ui_prefs：year / detail / sort 传 null 表示对应项本次不更新 */
+    private void writeViewPrefs(Boolean year, Boolean detail, Integer sort) {
+        if (!isAdded()) {
+            return;
+        }
+        android.content.SharedPreferences.Editor e =
+                requireContext().getSharedPreferences("ui_prefs", Context.MODE_PRIVATE)
+                        .edit();
+        if (year != null) {
+            e.putBoolean("checkin_view_year", year);
+        }
+        if (detail != null) {
+            e.putBoolean("checkin_month_days_open", detail);
+        }
+        if (sort != null) {
+            e.putInt(PREF_CHECKIN_BOOK_SORT, sort);
+        }
+        e.apply();
+    }
+
+    /**
+     * 首次取数完成后恢复上次退出时的视图态（v5.11 T3）。年视图优先于逐日明细；
+     * 恢复不走转场动画（restoreYear 直接摆层），数据为空回落月视图。
+     */
+    private void restoreSavedView() {
+        if (b == null || switcher == null || !isAdded()) {
+            return;
+        }
+        android.content.SharedPreferences prefs =
+                requireContext().getSharedPreferences("ui_prefs", Context.MODE_PRIVATE);
+        boolean year = prefs.getBoolean("checkin_view_year", false);
+        boolean detail = prefs.getBoolean("checkin_month_days_open", false);
+        if (year) {
+            restoreYearView();
+        } else if (detail && mode != CheckInCalendarState.Mode.DETAIL) {
+            applyMode(CheckInCalendarState.Mode.DETAIL, false);
+            loadMonth(b.monthGrid.getYearMonth());
+        }
+    }
+
+    /**
+     * 年视图恢复：数据先异步取齐再一次性摆层（对齐 openYearView 的取数口径）。
+     * 没有任何打卡数据时不进年历——空白年历比错误记忆更糟，写盘回落月视图。
+     */
+    private void restoreYearView() {
+        if (b == null || switcher == null || switcher.isAnimating()
+                || switcher.isYearVisible()) {
+            return;
+        }
+        applyMode(CheckInCalendarState.Mode.MONTH, false);
+        final int ym = b.monthGrid.getYearMonth();
+        BookshelfApp app = BookshelfApp.get();
+        final int year = CheckInMonthGrid.yearOf(ym);
+        app.io(() -> {
+            List<CheckIn> all;
+            try {
+                all = app.db().checkInDao().getInRange(0, 99999999);
+            } catch (Exception ignored) {
+                all = new ArrayList<>();
+            }
+            final List<CheckIn> list = all;
+            final int today = DateKeys.todayKey();
+            app.ui(() -> {
+                if (b == null || !isAdded() || switcher == null) {
+                    return;
+                }
+                if (list.isEmpty()) {
+                    writeViewPrefs(false, null, null); // 恢复失败回落月视图
+                    return;
+                }
+                HolidayStore.load(app, year);
+                yearPanel.bind(ym, list, today);
+                switcher.restoreYear();
+                syncYearBack();
+                refreshHolidaysForYear(year);
+            });
+        });
     }
 
     /** 点逐日明细某天：选中该日、回到整月，并刷新当天的书单 */
@@ -1000,16 +1164,8 @@ public class CheckInFragment extends Fragment
                         preciseSeq.put(book.id, Math.max(1, current.seq));
                     }
                 }
-                // 第 11 项：未打卡的排前面（同组仍按最近更新）；只在组装时排，
-                // 打卡/撤销不重排，行不会在手指下跳
-                reading.sort((x, z) -> {
-                    boolean checkedX = checked.contains(x.id);
-                    boolean checkedZ = checked.contains(z.id);
-                    if (checkedX != checkedZ) {
-                        return checkedX ? 1 : -1;
-                    }
-                    return Long.compare(z.updatedAt, x.updatedAt);
-                });
+                // 第 11 项约定：排序只在组装列表时应用一次；打卡/撤销不重排，
+                // 行不会在手指下跳。v5.11 T4 起排序档位可切换（applyBookSort 统一口径）
                 anyReading = !reading.isEmpty();
                 // 只按在读书聚合天数：不再把整张 check_ins 读出来逐行数
                 List<Long> readingIds = new ArrayList<>();
@@ -1043,6 +1199,9 @@ public class CheckInFragment extends Fragment
                     }
                     rows.add(row);
                 }
+                // v5.11 T4：四个档位都在组装出口统一排序（默认=未打卡优先·最近更新，
+                // 沿用第 11 项口径；天数键用上面聚合出的 readDays）
+                applyBookSort(rows);
                 summary = CheckInStore.monthSummary(monthList, y, m);
                 streak = CheckInStore.streakDaysOf(
                         app.db().checkInDao().distinctDaysUpTo(todayKey), todayKey);
@@ -1087,8 +1246,16 @@ public class CheckInFragment extends Fragment
                 dayEmpty = anyReading && rows.isEmpty();
                 renderEmptyState();
                 updateMonthListVisibility();
+                // v5.11 T4：排序入口只在有在读书时出现
+                b.btnCheckinSort.setVisibility(readingEmpty
+                        ? View.GONE : View.VISIBLE);
                 restoreMonthChrome();
                 refreshHolidaysForMonth(y);
+                // v5.11 T3：首次取数完成后恢复上次退出的视图态（只跑一次）
+                if (!savedViewRestored && isAdded()) {
+                    savedViewRestored = true;
+                    restoreSavedView();
+                }
             });
         });
     }

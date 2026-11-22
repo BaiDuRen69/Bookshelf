@@ -120,12 +120,35 @@
                     android:layout_marginTop="@dimen/space_md"
                     android:background="?attr/outline" />
 
-                <LinearLayout
-                    android:id="@+id/ll_checkin_summary"
-                    style="@style/StatsSummaryRow"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginHorizontal="@dimen/page_padding" />
+                    <!-- v5.11 T4：小结行 + 右端排序入口。入口做成 32dp 命中的无边框图标钮
+                         （图标 18dp），不与逐日明细/打卡按钮抢位；无在读书时隐藏。 -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginHorizontal="@dimen/page_padding"
+                        android:baselineAligned="false"
+                        android:orientation="horizontal">
+
+                        <LinearLayout
+                            android:id="@+id/ll_checkin_summary"
+                            style="@style/StatsSummaryRow"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1" />
+
+                        <ImageButton
+                            android:id="@+id/btn_checkin_sort"
+                            android:layout_width="32dp"
+                            android:layout_height="32dp"
+                            android:layout_gravity="center_vertical"
+                            android:background="?attr/selectableItemBackgroundBorderless"
+                            android:contentDescription="书籍排序"
+                            android:scaleType="fitCenter"
+                            android:padding="7dp"
+                            android:src="@drawable/ic_sort"
+                            app:tint="?attr/on_surface_variant"
+                            android:visibility="gone" />
+                    </LinearLayout>
 
                 <!-- 选中日动作条：一句说明 + 回到今天 + 全部打卡/补卡；撤销只在 5 秒内出现。
                      按钮用文本样式但压到 36dp 高，整行固定 40dp，不挤占列表。 -->

@@ -77,6 +77,32 @@ public final class CheckInViewSwitcher {
         return yearVisible;
     }
 
+    /** 视图落定回调：转场结束/取消/兜底归位时以最终态通知一次（恢复态走 finish 也会触发） */
+    public interface OnSettledListener {
+        void onYearSettled(boolean yearVisible);
+    }
+
+    private OnSettledListener settledListener;
+
+    public void setOnSettledListener(OnSettledListener listener) {
+        this.settledListener = listener;
+    }
+
+    /**
+     * 恢复态专用（v5.11）：不走转场动画，直接把两层摆成年视图。
+     * 调用方必须先用 yearPanel.bind 备好年份数据；finish() 负责归位与可见性，
+     * 也会触发 OnSettledListener——恢复本身就是一次「落定」。
+     */
+    public void restoreYear() {
+        if (animating) {
+            return;
+        }
+        yearVisible = true;
+        begin();
+        prepareLayers(true);
+        finish();
+    }
+
     /** 标题栏 / 「年」按钮：月视图缩小淡出，年视图从选中日期格放大进入 */
     public void toYear(int[] pivot, @Nullable Runnable onEnd) {
         if (animating || yearVisible) {
@@ -308,6 +334,10 @@ public final class CheckInViewSwitcher {
         yearView.resetCardTransforms();
         monthContent.setVisibility(yearVisible ? View.GONE : View.VISIBLE);
         yearContent.setVisibility(yearVisible ? View.VISIBLE : View.GONE);
+        // v5.11：无论哪条路径落定（结束/取消/超时兜底/恢复），目标态都已确定，统一在这里写盘
+        if (settledListener != null) {
+            settledListener.onYearSettled(yearVisible);
+        }
     }
 
     private static float pivotOf(int[] pivot, int index) {
