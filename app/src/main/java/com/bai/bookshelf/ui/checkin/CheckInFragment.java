@@ -26,6 +26,7 @@ import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.bai.bookshelf.BuildConfig;
 import com.bai.bookshelf.R;
@@ -159,8 +160,11 @@ public class CheckInFragment extends Fragment
     private static final int SORT_BY_TITLE = 1;     // 按书名（拼音）
     private static final int SORT_BY_DAYS = 2;      // 按已记天数（多→少）
     private static final int SORT_BY_ADDED = 3;     // 按添加时间（新→旧）
+    private static final int SORT_MANUAL = 4;       // 手动：长按行上下拖动
     private static final String PREF_CHECKIN_BOOK_SORT = "checkin_book_sort";
+    private static final String PREF_CHECKIN_BOOK_ORDER = "checkin_book_order";
     private int bookSortMode = SORT_DEFAULT;
+    private androidx.recyclerview.widget.ItemTouchHelper bookTouchHelper;
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
@@ -194,7 +198,7 @@ public class CheckInFragment extends Fragment
         switcher = new CheckInViewSwitcher(b.viewSwitchHost, b.monthContent,
                 yearContentView, yearPanel.yearView(), b.monthGrid);
         // v5.11 T3：月↔年目标态在转场开始即确定，落定（含取消/超时兜底）统一写盘
-        switcher.setOnSettledListener(year -> writeViewPrefs(year, null, null));
+        switcher.setOnSettledListener(year -> writeViewPrefs(year, null, null, null));
         yearPanel.yearView().setYearSwitcher(switcher);
         yearBackCallback = new OnBackPressedCallback(false) {
             @Override
@@ -306,7 +310,39 @@ public class CheckInFragment extends Fragment
         // v5.11 T4：排序档位与入口先于首次取数就绪（入口显隐由 loadMonth 控制）
         bookSortMode = requireContext().getSharedPreferences("ui_prefs", Context.MODE_PRIVATE)
                 .getInt(PREF_CHECKIN_BOOK_SORT, SORT_DEFAULT);
+        loadManualOrder();
         b.btnCheckinSort.setOnClickListener(v -> showBookSortDialog());
+        // v5.11 T5：长按行上下拖动 = 手动排序，落盘即切到手动档
+        bookTouchHelper = new androidx.recyclerview.widget.ItemTouchHelper(
+                new androidx.recyclerview.widget.ItemTouchHelper.SimpleCallback(
+                        androidx.recyclerview.widget.ItemTouchHelper.UP
+                                | androidx.recyclerview.widget.ItemTouchHelper.DOWN, 0) {
+                    @Override
+                    public boolean isLongPressDragEnabled() {
+                        return !batchPending; // 批量事务在途时不接管长按
+                    }
+
+                    @Override
+                    public boolean onMove(@NonNull RecyclerView recyclerView,
+                                          @NonNull RecyclerView.ViewHolder viewHolder,
+                                          @NonNull RecyclerView.ViewHolder target) {
+                        return adapter.moveRow(viewHolder.getBindingAdapterPosition(),
+                                target.getBindingAdapterPosition());
+                    }
+
+                    @Override
+                    public void onSwiped(@NonNull RecyclerView.ViewHolder viewHolder,
+                                         int direction) {
+                    }
+
+                    @Override
+                    public void clearView(@NonNull RecyclerView recyclerView,
+                                          @NonNull RecyclerView.ViewHolder viewHolder) {
+                        super.clearView(recyclerView, viewHolder);
+                        persistManualBookOrder();
+                    }
+                });
+        bookTouchHelper.attachToRecyclerView(b.rvCheckin);
         applyMode(mode, false); // 初始档位：整月 + 书目列表
         lastReloadMs = android.os.SystemClock.elapsedRealtime();
         BookshelfApp.get().whenDbReady(() -> loadMonth(b.monthGrid.getYearMonth()));
@@ -706,7 +742,7 @@ public class CheckInFragment extends Fragment
         // 恢复完成前的落盘一律跳过：onViewCreated 的初始 applyMode 不能把
         // 上次保存的展开态冲掉，恢复动作自己也不必写回读到的值
         if (savedViewRestored) {
-            writeViewPrefs(null, detail, null);
+            writeViewPrefs(null, detail, next != CheckInCalendarState.Mode.MONTH, null);
         }
     }
 
@@ -747,6 +783,24 @@ public class CheckInFragment extends Fragment
             });
         } else if (bookSortMode == SORT_BY_ADDED) {
             rows.sort((x, z) -> Long.compare(z.book.createdAt, x.book.createdAt));
+        } else if (bookSortMode == SORT_MANUAL) {
+            // 手动档：按拖动后落盘的书序排；不在序列里的书（新加入的在读书）按
+            // 最近更新垫底，下一次拖动会把它们编入序列
+            java.util.Map<Long, Integer> order = manualOrder();
+            rows.sort((x, z) -> {
+                Integer ox = order.get(x.book.id);
+                Integer oz = order.get(z.book.id);
+                if (ox != null && oz != null) {
+                    return Integer.compare(ox, oz);
+                }
+                if (ox != null) {
+                    return -1;
+                }
+                if (oz != null) {
+                    return 1;
+                }
+                return Long.compare(z.book.updatedAt, x.book.updatedAt);
+            });
         } else {
             rows.sort((x, z) -> {
                 if (x.checked != z.checked) {
@@ -755,6 +809,58 @@ public class CheckInFragment extends Fragment
                 return Long.compare(z.book.updatedAt, x.book.updatedAt);
             });
         }
+    }
+
+    /** 手动顺序缓存：bookId 按用户拖定的次序；书被删除后读到的残留项自动失效 */
+    private java.util.List<Long> manualOrderCache = new ArrayList<>();
+
+    private java.util.Map<Long, Integer> manualOrder() {
+        java.util.Map<Long, Integer> out = new java.util.HashMap<>();
+        for (int i = 0; i < manualOrderCache.size(); i++) {
+            out.put(manualOrderCache.get(i), i);
+        }
+        return out;
+    }
+
+    private void loadManualOrder() {
+        manualOrderCache = new ArrayList<>();
+        String csv = requireContext().getSharedPreferences("ui_prefs", Context.MODE_PRIVATE)
+                .getString(PREF_CHECKIN_BOOK_ORDER, "");
+        if (csv == null || csv.isEmpty()) {
+            return;
+        }
+        for (String part : csv.split(",")) {
+            try {
+                manualOrderCache.add(Long.parseLong(part.trim()));
+            } catch (NumberFormatException ignored) {
+                // 坏段直接丢，顺序尽力而为
+            }
+        }
+    }
+
+    /** 拖动落定后把当前行序写盘并切到手动档（写盘即身份，无需再手动选择一次） */
+    private void persistManualBookOrder() {
+        java.util.List<Long> ids = new ArrayList<>();
+        for (CheckInAdapter.Row row : adapter.rows()) {
+            ids.add(row.book.id);
+        }
+        manualOrderCache = ids;
+        StringBuilder csv = new StringBuilder();
+        for (int i = 0; i < ids.size(); i++) {
+            if (i > 0) {
+                csv.append(',');
+            }
+            csv.append(ids.get(i));
+        }
+        if (!isAdded()) {
+            return;
+        }
+        requireContext().getSharedPreferences("ui_prefs", Context.MODE_PRIVATE)
+                .edit()
+                .putString(PREF_CHECKIN_BOOK_ORDER, csv.toString())
+                .putInt(PREF_CHECKIN_BOOK_SORT, SORT_MANUAL)
+                .apply();
+        bookSortMode = SORT_MANUAL;
     }
 
     /** 小结行右端的排序入口：单选弹窗，选择落 ui_prefs 并立即重排 */
@@ -766,7 +872,8 @@ public class CheckInFragment extends Fragment
                 "默认（未打卡优先 · 最近更新）",
                 "按书名",
                 "按已记天数",
-                "按添加时间"
+                "按添加时间",
+                "手动（长按行拖动）"
         };
         new MaterialAlertDialogBuilder(requireContext())
                 .setTitle("书籍排序")
@@ -776,7 +883,7 @@ public class CheckInFragment extends Fragment
                         return;
                     }
                     bookSortMode = which;
-                    writeViewPrefs(null, null, which);
+                    writeViewPrefs(null, null, null, which);
                     if (b != null) {
                         loadMonth(b.monthGrid.getYearMonth());
                     }
@@ -786,8 +893,8 @@ public class CheckInFragment extends Fragment
     }
 
     // ==================== v5.11 T3：视图态记忆 ====================
-    /** 写 ui_prefs：year / detail / sort 传 null 表示对应项本次不更新 */
-    private void writeViewPrefs(Boolean year, Boolean detail, Integer sort) {
+    /** 写 ui_prefs：year / detail / week / sort 传 null 表示对应项本次不更新 */
+    private void writeViewPrefs(Boolean year, Boolean detail, Boolean week, Integer sort) {
         if (!isAdded()) {
             return;
         }
@@ -800,6 +907,9 @@ public class CheckInFragment extends Fragment
         if (detail != null) {
             e.putBoolean("checkin_month_days_open", detail);
         }
+        if (week != null) {
+            e.putBoolean("checkin_calendar_week", week);
+        }
         if (sort != null) {
             e.putInt(PREF_CHECKIN_BOOK_SORT, sort);
         }
@@ -807,8 +917,9 @@ public class CheckInFragment extends Fragment
     }
 
     /**
-     * 首次取数完成后恢复上次退出时的视图态（v5.11 T3）。年视图优先于逐日明细；
-     * 恢复不走转场动画（restoreYear 直接摆层），数据为空回落月视图。
+     * 首次取数完成后恢复上次退出时的视图态（v5.11 T3）。优先级：年视图 &gt; 逐日明细
+     * &gt; 单周 &gt; 整月；恢复不走转场动画（restoreYear / applyMode(false) 直接摆层），
+     * 数据为空回落月视图。
      */
     private void restoreSavedView() {
         if (b == null || switcher == null || !isAdded()) {
@@ -818,11 +929,15 @@ public class CheckInFragment extends Fragment
                 requireContext().getSharedPreferences("ui_prefs", Context.MODE_PRIVATE);
         boolean year = prefs.getBoolean("checkin_view_year", false);
         boolean detail = prefs.getBoolean("checkin_month_days_open", false);
+        boolean week = prefs.getBoolean("checkin_calendar_week", false);
         if (year) {
             restoreYearView();
         } else if (detail && mode != CheckInCalendarState.Mode.DETAIL) {
             applyMode(CheckInCalendarState.Mode.DETAIL, false);
             loadMonth(b.monthGrid.getYearMonth());
+        } else if (week && mode != CheckInCalendarState.Mode.WEEK) {
+            // 上次收在单周：直接摆层，无动画、无额外取数（列表数据已就绪）
+            applyMode(CheckInCalendarState.Mode.WEEK, false);
         }
     }
 
@@ -853,7 +968,7 @@ public class CheckInFragment extends Fragment
                     return;
                 }
                 if (list.isEmpty()) {
-                    writeViewPrefs(false, null, null); // 恢复失败回落月视图
+                    writeViewPrefs(false, null, null, null); // 恢复失败回落月视图
                     return;
                 }
                 HolidayStore.load(app, year);
@@ -1153,7 +1268,11 @@ public class CheckInFragment extends Fragment
                 List<Book> reading = new ArrayList<>();
                 for (Book book : BookSanitizer.normalizeAll(app.db().bookDao().getAll())) {
                     bookTitles.put(book.id, book.title);
-                    if (book.readStatus == Book.READING) {
+                    // v5.11：列表不再只收「在读」——读完/弃读的书只要还在它的
+                    // 阅读区间内（或选中日有它的打卡记录）也显示出来，才能补漏打卡
+                    if (book.readStatus == Book.READING || checked.contains(book.id)
+                            || (book.readStatus != Book.READING
+                                && CheckInStore.roundCoversDay(book, day, todayKey))) {
                         reading.add(book);
                     }
                     if (!marked.contains(book.id)) {

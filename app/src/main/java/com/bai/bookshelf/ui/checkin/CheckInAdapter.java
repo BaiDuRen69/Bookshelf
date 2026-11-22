@@ -143,6 +143,20 @@ public class CheckInAdapter extends RecyclerView.Adapter<CheckInAdapter.VH> {
         return true;
     }
 
+    /**
+     * 手动排序拖动（v5.11）：交换两行并做局部动画。
+     *
+     * @return true = 交换成功；调用方在 clearView 时负责把顺序落盘
+     */
+    public boolean moveRow(int from, int to) {
+        if (from < 0 || to < 0 || from >= rows.size() || to >= rows.size() || from == to) {
+            return false;
+        }
+        rows.add(to, rows.remove(from));
+        notifyItemMoved(from, to);
+        return true;
+    }
+
     public List<Row> rows() {
         return rows;
     }
