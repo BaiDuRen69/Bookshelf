@@ -52,6 +52,8 @@ public class BookEditActivity extends BaseActivity {
     private ReadingRecordSection readingRecords;
     /** 借书记录（v5.7） */
     private BorrowRecordSection borrowRecords;
+    /** 进页快照：退出「不保存」时整卷回滚阅读记录的立即落库写入（v5.12.1） */
+    private EditExitRollback editRollback;
 
     /** 退出时的脏检查基准值（列表异步加载完成后记录） */
     private String initialTags = "";
@@ -99,6 +101,13 @@ public class BookEditActivity extends BaseActivity {
         }
 
         formBinder = new BookFormBinder(this, b, book, coverEditor);
+        // v5.12.1：先登记回滚快照（DB 就绪即抓，赶在任何阅读记录写入之前）
+        if (editMode && book.id > 0) {
+            BookshelfApp.get().whenDbReady(() ->
+                    BookshelfApp.get().io(() ->
+                            editRollback = EditExitRollback.capture(
+                                    BookshelfApp.get().db(), book.id)));
+        }
         readingRecords = new ReadingRecordSection(this, b, book);
         borrowRecords = new BorrowRecordSection(this, b, book);
         formBinder.setupSections();
@@ -315,6 +324,12 @@ public class BookEditActivity extends BaseActivity {
                 .setPositiveButton("保存", (d, w) -> saveFlow.save()) // 保存成功会自行 finish
                 .setNegativeButton("不保存", (d, w) -> {
                     cleanupAbandonedNoteImages();
+                    // v5.12.1：阅读记录区有立即落库路径（精确弹窗保存 / DayPicker 确定），
+                    // 「不保存」必须整卷退回进页时的样子，否则没保存的编辑已生效
+                    if (editRollback != null) {
+                        BookshelfApp.get().io(() ->
+                                editRollback.restore(BookshelfApp.get().db()));
+                    }
                     finish();
                 })
                 .setNeutralButton("继续编辑", null)

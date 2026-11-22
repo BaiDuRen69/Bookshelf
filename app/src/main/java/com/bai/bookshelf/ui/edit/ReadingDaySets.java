@@ -26,6 +26,8 @@ final class ReadingDaySets {
 
     /** 打开编辑页时库里的样子，seq → 升序日键 */
     private final Map<Integer, List<Integer>> saved = new HashMap<>();
+    /** 打开编辑页时的原始快照（脏检查基准：面板「确定」是立即落库，必须能被比对出来） */
+    private final Map<Integer, List<Integer>> initial = new HashMap<>();
     /** 弹窗保存后待落库的样子 */
     private final Map<Integer, List<Integer>> pending = new HashMap<>();
     /** 删掉的轮次：整本书保存时把对应 check_ins 一并清掉（v5.9.8 删轮级联） */
@@ -39,6 +41,8 @@ final class ReadingDaySets {
             app.ui(() -> {
                 saved.clear();
                 saved.putAll(grouped);
+                initial.clear();
+                initial.putAll(grouped);
                 loaded = true;
                 if (onDone != null) {
                     onDone.run();
@@ -51,6 +55,8 @@ final class ReadingDaySets {
     void loadFrom(com.bai.bookshelf.data.dao.CheckInDao dao, long bookId) {
         saved.clear();
         saved.putAll(readGroups(dao, bookId));
+        initial.clear();
+        initial.putAll(saved);
         loaded = true;
     }
 
@@ -127,6 +133,14 @@ final class ReadingDaySets {
         for (Map.Entry<Integer, List<Integer>> e : pending.entrySet()) {
             List<Integer> before = saved.get(e.getKey());
             if (before == null || !before.equals(e.getValue())) {
+                return true;
+            }
+        }
+        // v5.12.1：DayPicker 面板「确定」是立即落库（不走 pending），与进页快照
+        // 比对才看得见这类改动——否则改完日子直接退出连未保存确认都不弹
+        for (Map.Entry<Integer, List<Integer>> e : saved.entrySet()) {
+            List<Integer> atEntry = initial.get(e.getKey());
+            if (atEntry == null || !atEntry.equals(e.getValue())) {
                 return true;
             }
         }
